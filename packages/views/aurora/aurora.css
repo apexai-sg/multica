@@ -955,12 +955,6 @@
   line-height: 1.35;
 }
 
-.aurora-card-meta {
-  margin-top: 2px;
-  color: var(--aurora-muted);
-  font-size: 13px;
-}
-
 .aurora-card-arrow {
   display: grid;
   width: 32px;
@@ -1252,26 +1246,6 @@
   border: 1px solid var(--aurora-line);
   border-radius: var(--aurora-r-lg);
   background: var(--aurora-card);
-}
-
-.aurora-panel-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.aurora-panel-head h2 {
-  margin: 0 0 2px;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.aurora-panel-head p {
-  margin: 0;
-  color: var(--aurora-muted);
-  font-size: 13px;
 }
 
 .aurora-stat-cards {

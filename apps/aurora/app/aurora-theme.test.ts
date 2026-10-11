@@ -139,6 +139,24 @@ function classesUsedIn(root: string): Set<string> {
 const declared = declaredClasses(css);
 
 describe("aurora design layer", () => {
+  it("declares no class left unused after the full migration", () => {
+    const used = new Set([
+      ...classesUsedIn(resolve(repoRoot, "packages/views/aurora")),
+      ...classesUsedIn(resolve(repoRoot, "apps/aurora")),
+    ]);
+    expect([...declared].filter((name) => !used.has(name))).toEqual([]);
+  });
+
+  it("covers portalled Sheets and backdrops when motion is reduced", () => {
+    expect(globals).toContain("aurora.css");
+    const layout = readFileSync(resolve(repoRoot, "apps/aurora/app/layout.tsx"), "utf8");
+    expect(layout).toMatch(/<body[^>]*className="aurora-theme /);
+    const reduced = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(reduced).toContain('.aurora-theme [data-slot="sheet-content"]');
+    expect(reduced).toContain('.aurora-theme [data-slot="sheet-overlay"]');
+    expect(reduced).toContain("transition-duration: 0.01ms !important");
+  });
+
   it("pins the light palette and Geist on the root layout", () => {
     const layout = readFileSync(
       resolve(repoRoot, "apps/aurora/app/layout.tsx"),
