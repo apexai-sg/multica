@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ExternalLink, FileDown } from "lucide-react";
-import { Badge } from "@multica/ui/components/ui/badge";
+import { cn } from "@multica/ui/lib/utils";
 import { buttonVariants } from "@multica/ui/components/ui/button";
 import {
   Dialog,
@@ -19,7 +19,10 @@ import {
   type AuroraGeneration,
 } from "@multica/core/aurora";
 import { useT } from "../i18n";
-import { generationStatusLabel } from "./labels";
+import {
+  generationStatusLabel,
+  type AuroraGenerationStatusLabel,
+} from "./labels";
 import { useAuroraAssetDownload } from "./use-aurora-asset-download";
 
 /**
@@ -92,13 +95,15 @@ export function generationCredits(
   return generation.creditsReserved > 0 ? generation.creditsReserved : null;
 }
 
-/**
- * A generation's status badge.
- *
- * A terminal status is outlined and an in-flight one filled, which is the
- * distinction the app already uses to tell finished work from work still
- * running. The label mapping owns the fallback for an unrecognised status.
- */
+/** Shared pill vocabulary; unrecognised statuses stay neutral. */
+export const GENERATION_STATUS_PILL: Record<AuroraGenerationStatusLabel, string> = {
+  queued: "aurora-status-pill aurora-status-pill--working",
+  running: "aurora-status-pill aurora-status-pill--working",
+  completed: "aurora-status-pill",
+  failed: "aurora-status-pill aurora-status-pill--failed",
+  unknown: "aurora-status-pill aurora-status-pill--muted",
+};
+
 export function GenerationStatusBadge({
   status,
   className,
@@ -107,13 +112,11 @@ export function GenerationStatusBadge({
   className?: string;
 }) {
   const { t } = useT("aurora");
+  const label = generationStatusLabel(status);
   return (
-    <Badge
-      variant={isAuroraGenerationTerminal(status) ? "outline" : "secondary"}
-      className={className}
-    >
-      {t(($) => $.composer.status[generationStatusLabel(status)])}
-    </Badge>
+    <span data-slot="badge" className={cn(GENERATION_STATUS_PILL[label], className)}>
+      {t(($) => $.composer.status[label])}
+    </span>
   );
 }
 
@@ -148,9 +151,9 @@ export function GenerationArtifacts({
     // grows from one thumbnail to the real files as soon as the read lands.
     return (
       <div className="flex flex-col gap-2" aria-hidden="true">
-        <div className="flex flex-wrap gap-2">
+        <div className="aurora-thumbs">
           {Array.from({ length: maxThumbnails }, (_, index) => (
-            <Skeleton key={index} className="size-20 rounded-md" />
+            <Skeleton key={index} className="size-20 rounded-lg" />
           ))}
         </div>
       </div>
@@ -177,7 +180,7 @@ export function GenerationArtifacts({
     // thumbnail line the loading placeholder reserves.
     <div className="flex min-h-20 flex-col gap-2">
       {previewable.length > 0 ? (
-        <ul className="flex flex-wrap gap-2">
+        <ul className="aurora-thumbs">
           {previewable.map((asset) => (
             <li key={asset.id}>
               <button
@@ -186,7 +189,7 @@ export function GenerationArtifacts({
                 aria-label={t(($) => $.history.preview_label, {
                   format: asset.format ?? asset.kind,
                 })}
-                className="group size-20 overflow-hidden rounded-md border border-surface-border bg-muted transition-colors hover:border-foreground/20 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                className="aurora-thumb"
               >
                 {/* A fixed box with width and height keeps a slow-loading
                     image from moving the rows below it. */}
@@ -196,7 +199,7 @@ export function GenerationArtifacts({
                   loading="lazy"
                   width={80}
                   height={80}
-                  className="size-full object-cover transition-transform group-hover:scale-105"
+                  className="size-full object-cover"
                 />
               </button>
             </li>
@@ -213,7 +216,7 @@ export function GenerationArtifacts({
                 type="button"
                 onClick={() => void download(asset)}
                 aria-label={`${asset.format ?? asset.kind} ${t(($) => $.works.download)}`}
-                className="inline-flex items-center gap-1.5 text-body text-muted-foreground underline decoration-muted-foreground/30 underline-offset-4 transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none"
+                className="aurora-file-row"
               >
                 <FileDown aria-hidden="true" className="size-3.5 shrink-0" />
                 <span>{asset.format ?? asset.kind}</span>
@@ -251,7 +254,7 @@ function PreviewDialog({
   const download = useAuroraAssetDownload();
   return (
     <Dialog open={preview !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="aurora-dialog aurora-dialog--wide">
         <DialogHeader>
           <DialogTitle>
             {preview?.generation.prompt || t(($) => $.works.no_prompt)}
@@ -264,7 +267,7 @@ function PreviewDialog({
           <img
             src={preview.asset.mediaUrl}
             alt=""
-            className="max-h-[70vh] w-full rounded-md object-contain"
+            className="max-h-[70vh] w-full rounded-lg object-contain"
           />
         ) : null}
         <DialogFooter>

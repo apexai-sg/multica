@@ -8,7 +8,6 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@multica/ui/components/ui/alert";
-import { Badge } from "@multica/ui/components/ui/badge";
 import { Button } from "@multica/ui/components/ui/button";
 import { Input } from "@multica/ui/components/ui/input";
 import { Label } from "@multica/ui/components/ui/label";
@@ -36,7 +35,13 @@ import { useFileUpload } from "@multica/core/hooks/use-file-upload";
 import { AppLink } from "../navigation";
 import { useLocale, useT } from "../i18n";
 import { formatCredits, formatMicroCredits } from "./format";
-import { generationStatusLabel, skillDisplayName } from "./labels";
+import {
+  auroraCategoryLabel,
+  generationStatusLabel,
+  skillDisplayName,
+} from "./labels";
+import { AuroraAvatar } from "./aurora-avatar";
+import { GENERATION_STATUS_PILL } from "./generation-artifacts";
 import { useAuroraAssetDownload } from "./use-aurora-asset-download";
 
 // The attachment kinds the composer can accept and the tokens the file dialog
@@ -132,7 +137,7 @@ export function GenerationComposer({
   if (!skill) return null;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full gap-0 sm:max-w-md">
+      <SheetContent side="right" className="aurora-drawer">
         {/* Keyed on the skill so switching skills remounts the body: the draft,
             the in-flight generation and any failure all belong to the skill
             that was open, and none of them should survive into another's. */}
@@ -360,14 +365,27 @@ function ComposerBody({
     (generation ? generationStatusLabel(generation.status) === "completed" : false);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
-      <SheetHeader className="p-0">
-        <SheetTitle>{skillDisplayName(skill, locale)}</SheetTitle>
-        <SheetDescription>
-          {t(($) => $.composer.cost, {
-            credits: formatCredits(skill.credits, locale),
-          })}
-        </SheetDescription>
+    <div className="flex flex-col gap-5">
+      <SheetHeader className="aurora-drawer-head flex-row">
+        <AuroraAvatar
+          name={skillDisplayName(skill, locale)}
+          id={skill.id}
+          size="lg"
+          available={skill.available}
+        />
+        <div>
+          <span className="aurora-drawer-head-category">
+            {t(
+              ($) => $.directory.categories[auroraCategoryLabel(skill.category)],
+            )}
+          </span>
+          <SheetTitle>{skillDisplayName(skill, locale)}</SheetTitle>
+          <SheetDescription>
+            {t(($) => $.composer.cost, {
+              credits: formatCredits(skill.credits, locale),
+            })}
+          </SheetDescription>
+        </div>
       </SheetHeader>
 
       {!skill.available ? (
@@ -388,12 +406,13 @@ function ComposerBody({
         />
       ) : null}
 
-      <form className="flex flex-col gap-2" onSubmit={handleSubmit}>
+      <form className="aurora-composer" onSubmit={handleSubmit}>
         <Label htmlFor="aurora-prompt">
           {t(($) => $.composer.prompt_label)}
         </Label>
         <Textarea
           id="aurora-prompt"
+          className="border-0 px-0 focus-visible:ring-0"
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           placeholder={t(($) => $.composer.prompt_placeholder)}
@@ -452,12 +471,14 @@ function ComposerBody({
             ) : null}
           </div>
         ) : null}
-        <Button type="submit" disabled={!canSubmit} aria-busy={create.isPending}>
-          {create.isPending ? <Spinner aria-hidden="true" /> : null}
-          {create.isPending
-            ? t(($) => $.composer.submitting)
-            : t(($) => $.composer.submit)}
-        </Button>
+        <div className="aurora-composer-tools">
+          <Button type="submit" disabled={!canSubmit} aria-busy={create.isPending}>
+            {create.isPending ? <Spinner aria-hidden="true" /> : null}
+            {create.isPending
+              ? t(($) => $.composer.submitting)
+              : t(($) => $.composer.submit)}
+          </Button>
+        </div>
       </form>
 
       {outcome.kind === "unreadable" ? (
@@ -487,12 +508,15 @@ function ComposerBody({
           {generation ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <Badge variant="outline" role="status">
+                <span
+                  role="status"
+                  className={GENERATION_STATUS_PILL[generationStatusLabel(generation.status)]}
+                >
                   {t(
                     ($) =>
                       $.composer.status[generationStatusLabel(generation.status)],
                   )}
-                </Badge>
+                </span>
                 {!isTerminal ? <Spinner aria-hidden="true" /> : null}
               </div>
               {generationStatusLabel(generation.status) === "failed" ? (
@@ -537,7 +561,7 @@ function ComposerBody({
       ) : null}
 
       {showResult ? (
-        <div className="flex flex-col gap-2">
+        <div className="aurora-drawer-section">
           <h3 className="text-label font-medium">
             {t(($) => $.composer.result_title)}
           </h3>
@@ -549,7 +573,7 @@ function ComposerBody({
                     type="button"
                     onClick={() => void download(asset)}
                     aria-label={`${asset.format ?? asset.kind} ${t(($) => $.works.download)}`}
-                    className="inline-flex w-fit items-center gap-1.5 text-body underline decoration-muted-foreground/30 underline-offset-4 transition-colors hover:text-foreground focus-visible:outline-none"
+                    className="aurora-file-row"
                   >
                     <FileDown aria-hidden="true" className="size-3.5 shrink-0" />
                     <span>{asset.format ?? asset.kind}</span>
@@ -566,7 +590,7 @@ function ComposerBody({
           {worksHref ? (
             <AppLink
               href={worksHref}
-              className="inline-flex w-fit items-center gap-1 text-body underline decoration-muted-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
+              className="aurora-file-row"
             >
               <Sparkles aria-hidden="true" className="size-3.5" />
               {t(($) => $.composer.open_library)}
