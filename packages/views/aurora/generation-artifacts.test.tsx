@@ -109,6 +109,14 @@ describe("GenerationArtifacts presentation", () => {
     expect(dialog).toHaveClass("aurora-dialog", "aurora-dialog--wide");
     expect(dialog).toHaveAccessibleDescription();
     expect(dialog.querySelector("img")).toHaveClass("rounded-lg");
+    // Native variant-styled actions do not receive the shared Button slot
+    // sizing rule. Keep their touch targets at the Aurora forty-pixel floor.
+    for (const action of [
+      screen.getByRole("link", { name: "Open in new tab" }),
+      screen.getByRole("button", { name: "Download" }),
+    ]) {
+      expect(action).toHaveClass("min-h-10", "min-w-10");
+    }
     expect(screen.getByRole("link", { name: "Open in new tab" })).toHaveAttribute(
       "href",
       "https://cdn.test/poster.png",

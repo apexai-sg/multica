@@ -276,7 +276,10 @@ function PreviewDialog({
               href={preview.asset.mediaUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className={buttonVariants({ variant: "outline", size: "sm" })}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "min-h-10 min-w-10",
+              )}
             >
               <ExternalLink aria-hidden="true" className="size-3.5" />
               {t(($) => $.history.open_in_new_tab)}
@@ -286,7 +289,10 @@ function PreviewDialog({
             <button
               type="button"
               onClick={() => void download(preview.asset)}
-              className={buttonVariants({ variant: "default", size: "sm" })}
+              className={cn(
+                buttonVariants({ variant: "default", size: "sm" }),
+                "min-h-10 min-w-10",
+              )}
             >
               <FileDown aria-hidden="true" className="size-3.5" />
               {t(($) => $.works.download)}
