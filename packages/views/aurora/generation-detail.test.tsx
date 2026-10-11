@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ApiError } from "@multica/core/api";
 import type {
@@ -118,8 +118,130 @@ function renderDetail(
 describe("GenerationDetail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(copyText).mockReset().mockResolvedValue(true);
     mocks.detail.mockReturnValue(read(detail()));
     mocks.skills.mockReturnValue(read([POSTER]));
+  });
+
+  it("places the existing back destination in the Aurora page header", () => {
+    const { container } = renderDetail({ backHref: "/acme/works" });
+    const heading = screen.getByRole("heading", {
+      name: "Generation detail",
+      level: 1,
+    });
+    const header = heading.closest(".aurora-page-head");
+    expect(header).not.toBeNull();
+    expect(container.firstChild).toHaveClass("aurora-page");
+    expect(within(header as HTMLElement).getByText("GENERATION")).toBeVisible();
+    const back = within(header as HTMLElement).getByRole("link", {
+      name: "Back to My works",
+    });
+    expect(back).toHaveAttribute("href", "/acme/works");
+    expect(back).toHaveClass("min-h-10", "min-w-10");
+  });
+
+  it("groups labelled process facts in a responsive panel with a full-width prompt", () => {
+    mocks.detail.mockReturnValue(
+      read(detail({ assets: [asset({ createdAt: "2026-09-23T00:02:00Z" })] })),
+    );
+    renderDetail();
+    const panel = screen.getByText("Status", { selector: "dt" }).closest("dl");
+    expect(panel).toHaveClass(
+      "aurora-panel",
+      "aurora-field-grid",
+      "sm:grid-cols-2",
+    );
+    for (const label of [
+      "Status",
+      "Created",
+      "Elapsed",
+      "Skill",
+      "Credits reserved",
+      "Credits charged",
+      "Prompt",
+    ]) {
+      const term = within(panel!).getByText(label, { selector: "dt" });
+      expect(term.parentElement).toHaveClass("aurora-field");
+      expect(term.nextElementSibling?.tagName).toBe("DD");
+      expect(term.nextElementSibling).not.toBeEmptyDOMElement();
+    }
+    expect(within(panel!).getByText("Prompt").parentElement).toHaveClass(
+      "sm:col-span-2",
+    );
+    expect(within(panel!).getByText("a launch poster")).toBeVisible();
+    for (const name of ["Process", "Result"]) {
+      expect(
+        screen.getByRole("heading", { name, level: 2 }).parentElement,
+      ).toHaveClass("aurora-section-head");
+    }
+  });
+
+  it("keeps copy feedback and recovery inside the task panel without inventing a route", async () => {
+    const user = userEvent.setup();
+    vi.mocked(copyText).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    mocks.detail.mockReturnValue(read(detail({ taskId: "task-1" })));
+    renderDetail();
+    expect(
+      screen.getByRole("heading", { name: "Task", level: 2 }).parentElement,
+    ).toHaveClass("aurora-section-head");
+    const panel = screen.getByText("task-1").closest(".aurora-panel");
+    expect(panel).not.toBeNull();
+    const task = within(panel as HTMLElement);
+    expect(
+      task.getByText(
+        "This app has no task page yet. Copy the ID to inspect the run elsewhere.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByRole("link", { name: /task-1/ })).not.toBeInTheDocument();
+    await user.click(task.getByRole("button", { name: "Copy task ID" }));
+    expect(task.getByRole("alert")).toHaveTextContent("Could not copy");
+    await user.click(task.getByRole("button", { name: "Copy task ID" }));
+    expect(task.getByRole("button", { name: "Copied" })).toBeVisible();
+    expect(task.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("restores the copy label after the existing feedback timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.detail.mockReturnValue(read(detail({ taskId: "task-1" })));
+      renderDetail();
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Copy task ID" }));
+      });
+      expect(screen.getByRole("button", { name: "Copied" })).toBeVisible();
+      await act(async () => {
+        vi.advanceTimersByTime(1500);
+      });
+      expect(screen.getByRole("button", { name: "Copy task ID" })).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("uses the Aurora not-found surface without a retry action", () => {
+    mocks.detail.mockReturnValue(
+      failed(new ApiError("generation not found", 404, "Not Found")),
+    );
+    renderDetail();
+    expect(
+      screen.getByText("Generation not found").closest(".aurora-empty"),
+    ).not.toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Try again" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps a degraded answer retryable rather than presenting it as missing", async () => {
+    const user = userEvent.setup();
+    const query = read(null, true);
+    mocks.detail.mockReturnValue(query);
+    renderDetail();
+    expect(
+      screen.getByText("Could not load this generation").closest(".aurora-empty"),
+    ).not.toBeNull();
+    expect(screen.queryByText("Generation not found")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(query.refetch).toHaveBeenCalledOnce();
   });
 
   it("shows the process fields for a completed generation", () => {
