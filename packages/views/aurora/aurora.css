@@ -11,8 +11,8 @@
  * 1. Every class is prefixed `aurora-`. These rules ship unlayered, and an
  *    unlayered rule outranks every Tailwind utility - an unprefixed `.card` or
  *    `.sidebar` would silently out-style a packages/ui primitive.
- * 2. Every color and radius is an `--aurora-*` variable declared here. Nothing
- *    reads a Multica token, so this layer renders the same wherever it lands.
+ * 2. Every color and radius is an `--aurora-*` variable declared here. Type
+ *    consumes shared semantic roles, with scoped Aurora display geometry.
  * 3. The palette is light-only, matching DESIGN.md, which defines one canvas.
  *    apps/aurora pins the theme instead of this file inventing a dark palette.
  *
@@ -73,6 +73,15 @@
   --aurora-sidebar-width: 272px;
 }
 
+/* Shared roles, scoped to the Aurora body including portalled UI. The fluid
+   hero is the sole private type role: shared product headings are not display
+   copy. Keep its binding 32–44px range without adding another numeric ramp. */
+.aurora-theme {
+  --text-display: 32px;
+  --text-display--line-height: 1.2;
+  --aurora-text-hero: clamp(32px, 3.2vw, 44px);
+}
+
 /* The Aurora body scope includes the portalled navigation and generation UI. */
 .aurora-theme :focus-visible,
 .aurora-drawer :focus-visible,
@@ -112,7 +121,7 @@
   min-height: 0;
   color: var(--aurora-ink);
   background: var(--aurora-paper);
-  font-size: 14px;
+  font-size: var(--text-body);
   line-height: 1.6;
 }
 
@@ -170,7 +179,7 @@
     var(--aurora-violet),
     var(--aurora-coral)
   );
-  font-size: 18px;
+  font-size: var(--text-title);
   font-weight: 700;
 }
 
@@ -180,7 +189,7 @@
 }
 
 .aurora-brand-copy strong {
-  font-size: 16px;
+  font-size: var(--text-title-sm);
   letter-spacing: 0.12em;
   line-height: 1.1;
 }
@@ -188,7 +197,7 @@
 .aurora-brand-copy small {
   margin-top: 4px;
   color: rgba(255, 255, 255, 0.55);
-  font-size: 13px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: 0.12em;
 }
@@ -212,7 +221,7 @@
   border-radius: var(--aurora-r-md);
   color: var(--aurora-ink);
   background: var(--aurora-card);
-  font-size: 16px;
+  font-size: var(--text-title-sm);
   line-height: 1;
   cursor: pointer;
 }
@@ -246,7 +255,7 @@
   border-radius: var(--aurora-r-md);
   color: var(--aurora-violet-deep);
   background: var(--aurora-tint-lavender);
-  font-size: 13px;
+  font-size: var(--text-label);
   font-weight: 600;
 }
 
@@ -259,7 +268,7 @@
 
 .aurora-user-copy strong {
   overflow: hidden;
-  font-size: 14px;
+  font-size: var(--text-body);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -269,7 +278,7 @@
   margin-top: 2px;
   overflow: hidden;
   color: rgba(255, 255, 255, 0.6);
-  font-size: 12px;
+  font-size: var(--text-micro);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -299,11 +308,11 @@
 
 .aurora-token-row span {
   color: var(--aurora-on-dark-muted);
-  font-size: 12px;
+  font-size: var(--text-micro);
 }
 
 .aurora-token-row strong {
-  font-size: 18px;
+  font-size: var(--text-title);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -333,7 +342,7 @@
   border-radius: var(--aurora-r-md);
   color: var(--aurora-on-white);
   background: transparent;
-  font-size: 13px;
+  font-size: var(--text-label);
   font-weight: 500;
   text-align: center;
   cursor: pointer;
@@ -355,7 +364,7 @@
 .aurora-nav-group > p {
   margin: 0 10px 6px;
   color: rgba(255, 255, 255, 0.45);
-  font-size: 13px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -374,7 +383,7 @@
   border-radius: var(--aurora-r-md);
   color: rgba(255, 255, 255, 0.72);
   background: transparent;
-  font-size: 14px;
+  font-size: var(--text-body);
   font-weight: 500;
   text-align: left;
   cursor: pointer;
@@ -440,7 +449,7 @@
 .aurora-topbar-brand {
   display: none;
   margin-left: 4px;
-  font-size: 15px;
+  font-size: var(--text-title-sm);
   font-weight: 700;
   letter-spacing: 0.12em;
 }
@@ -456,6 +465,12 @@
   gap: 8px;
 }
 
+/* Only the navigable chip needs a touch target; hero badges stay compact. */
+a.aurora-status-chip[href] {
+  min-width: 40px;
+  min-height: 40px;
+}
+
 .aurora-status-chip {
   display: inline-flex;
   align-items: center;
@@ -465,7 +480,7 @@
   border-radius: var(--aurora-r-full);
   color: var(--aurora-slate);
   background: var(--aurora-card);
-  font-size: 12px;
+  font-size: var(--text-micro);
   font-weight: 500;
 }
 
@@ -511,7 +526,7 @@
 
 .aurora-page-head h1 {
   margin: 0;
-  font-size: 32px;
+  font-size: var(--text-display);
   font-weight: 600;
   letter-spacing: -0.5px;
   line-height: 1.2;
@@ -523,7 +538,7 @@
   gap: 12px;
   margin: 6px 0 0;
   color: var(--aurora-muted);
-  font-size: 13px;
+  font-size: var(--text-label);
 }
 
 .aurora-page-actions {
@@ -539,7 +554,7 @@
   gap: 6px;
   margin: 0 0 6px;
   color: var(--aurora-violet);
-  font-size: 13px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -555,14 +570,14 @@
 
 .aurora-section-head h2 {
   margin: 0;
-  font-size: 24px;
+  font-size: var(--text-display-sm);
   font-weight: 600;
   letter-spacing: -0.3px;
 }
 
 .aurora-section-head > span {
   color: var(--aurora-muted);
-  font-size: 13px;
+  font-size: var(--text-label);
 }
 
 .aurora-toolbar {
@@ -584,7 +599,7 @@
 .aurora-empty h3 {
   margin: 12px 0 6px;
   color: var(--aurora-ink);
-  font-size: 18px;
+  font-size: var(--text-title);
   font-weight: 600;
 }
 
@@ -592,7 +607,7 @@
   max-width: 30rem;
   margin: 0 auto 16px;
   color: var(--aurora-muted);
-  font-size: 14px;
+  font-size: var(--text-body);
 }
 
 .aurora-empty-actions {
@@ -642,7 +657,7 @@
 
 .aurora-hero h1 {
   margin: 16px 0 12px;
-  font-size: clamp(32px, 3.2vw, 44px);
+  font-size: var(--aurora-text-hero);
   font-weight: 600;
   letter-spacing: -1px;
   line-height: 1.12;
@@ -652,7 +667,7 @@
   max-width: 560px;
   margin: 0;
   color: rgba(255, 255, 255, 0.72);
-  font-size: 16px;
+  font-size: var(--text-body-lg);
   line-height: 1.6;
 }
 
@@ -664,7 +679,7 @@
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--aurora-r-full);
   color: var(--aurora-on-white);
-  font-size: 12px;
+  font-size: var(--text-micro);
   font-weight: 500;
 }
 
@@ -701,13 +716,13 @@
 
 .aurora-hero-stats span {
   color: var(--aurora-on-dark-muted);
-  font-size: 13px;
+  font-size: var(--text-label);
 }
 
 .aurora-hero-stats strong {
   margin-right: 4px;
   color: var(--aurora-on-white);
-  font-size: 18px;
+  font-size: var(--text-title);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -752,7 +767,7 @@
   border-radius: var(--aurora-r-xl);
   background: var(--aurora-violet);
   box-shadow: var(--aurora-shadow-modal);
-  font-size: 20px;
+  font-size: var(--text-title-lg);
   font-weight: 700;
   letter-spacing: 0.06em;
   line-height: 0.9;
@@ -760,9 +775,9 @@
   transform: translate(-50%, -50%);
 }
 
-/* Reserved for the fixed uppercase Latin brand label, never translated copy. */
+/* Use the shared micro floor even for the optional uppercase brand label. */
 .aurora-hero-center small {
-  font-size: 11px;
+  font-size: var(--text-micro);
   font-weight: 600;
   letter-spacing: 0.16em;
 }
@@ -812,7 +827,7 @@
   border-radius: var(--aurora-r-md);
   color: var(--aurora-charcoal);
   background: var(--aurora-surface);
-  font-size: 13px;
+  font-size: var(--text-label);
   font-weight: 600;
 }
 
@@ -820,7 +835,7 @@
   width: 52px;
   height: 52px;
   border-radius: var(--aurora-r-md);
-  font-size: 14px;
+  font-size: var(--text-body);
 }
 
 .aurora-avatar--coral,
@@ -942,7 +957,7 @@
 
 .aurora-card-category {
   color: var(--aurora-soft-muted);
-  font-size: 13px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -950,7 +965,7 @@
 
 .aurora-card-title {
   margin-top: 2px;
-  font-size: 17px;
+  font-size: var(--text-title);
   font-weight: 600;
   line-height: 1.35;
 }
@@ -985,7 +1000,7 @@
   border-radius: var(--aurora-r-sm);
   color: var(--aurora-charcoal);
   background: var(--aurora-surface);
-  font-size: 12px;
+  font-size: var(--text-micro);
   font-weight: 500;
 }
 
@@ -1006,13 +1021,13 @@
   align-items: center;
   gap: 6px;
   color: var(--aurora-green);
-  font-size: 13px;
+  font-size: var(--text-label);
   font-weight: 500;
 }
 
 .aurora-card-footer strong {
   color: var(--aurora-muted);
-  font-size: 13px;
+  font-size: var(--text-label);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
@@ -1045,7 +1060,7 @@
   border-radius: var(--aurora-r-full);
   color: var(--aurora-slate);
   background: var(--aurora-card);
-  font-size: 14px;
+  font-size: var(--text-body);
   font-weight: 500;
   cursor: pointer;
   transition:
@@ -1106,19 +1121,19 @@
 
 .aurora-row-main h3 {
   margin: 0 0 2px;
-  font-size: 15px;
+  font-size: var(--text-title-sm);
   font-weight: 600;
 }
 
 .aurora-row-main p {
   margin: 0;
   color: var(--aurora-muted);
-  font-size: 13px;
+  font-size: var(--text-caption);
 }
 
 .aurora-row-amount {
   color: var(--aurora-slate);
-  font-size: 14px;
+  font-size: var(--text-body);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -1133,7 +1148,7 @@
   border-radius: var(--aurora-r-md);
   color: var(--aurora-violet-deep);
   background: var(--aurora-tint-lavender);
-  font-size: 14px;
+  font-size: var(--text-body);
 }
 
 .aurora-status-pill {
@@ -1142,7 +1157,7 @@
   border-radius: var(--aurora-r-full);
   color: var(--aurora-green-deep);
   background: var(--aurora-tint-mint);
-  font-size: 12px;
+  font-size: var(--text-micro);
   font-weight: 600;
   text-align: center;
 }
@@ -1200,7 +1215,7 @@
 
 .aurora-work-thumb > strong {
   color: var(--aurora-thumbnail-ink);
-  font-size: 56px;
+  font-size: var(--text-display);
   font-weight: 700;
 }
 
@@ -1213,7 +1228,7 @@
   border-radius: var(--aurora-r-sm);
   color: var(--aurora-charcoal);
   background: rgba(255, 255, 255, 0.75);
-  font-size: 13px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1221,14 +1236,14 @@
 
 .aurora-work-card h3 {
   margin: 12px 4px 2px;
-  font-size: 15px;
+  font-size: var(--text-title-sm);
   font-weight: 600;
 }
 
 .aurora-work-card p {
   margin: 0 4px 4px;
   color: var(--aurora-muted);
-  font-size: 13px;
+  font-size: var(--text-caption);
 }
 
 .aurora-work-actions {
@@ -1262,11 +1277,11 @@
   display: block;
   margin-bottom: 8px;
   color: var(--aurora-muted);
-  font-size: 13px;
+  font-size: var(--text-label);
 }
 
 .aurora-stat > strong {
-  font-size: 28px;
+  font-size: var(--text-display);
   font-weight: 600;
   letter-spacing: -0.5px;
   font-variant-numeric: tabular-nums;
@@ -1275,7 +1290,7 @@
 .aurora-stat small {
   margin-left: 6px;
   color: var(--aurora-muted);
-  font-size: 13px;
+  font-size: var(--text-label);
 }
 
 .aurora-field-grid {
@@ -1285,12 +1300,12 @@
 
 .aurora-field dt {
   color: var(--aurora-muted);
-  font-size: 13px;
+  font-size: var(--text-label);
 }
 
 .aurora-field dd {
   margin: 2px 0 0;
-  font-size: 14px;
+  font-size: var(--text-body);
 }
 
 /* --- Drawer (generation composer) ----------------------------------------- */
@@ -1322,14 +1337,14 @@
 
 .aurora-drawer-head-category {
   color: var(--aurora-violet);
-  font-size: 12px;
+  font-size: var(--text-micro);
   font-weight: 600;
   letter-spacing: 0.06em;
 }
 
 .aurora-drawer-head h2 {
   margin: 2px 0 4px;
-  font-size: 24px;
+  font-size: var(--text-display-sm);
   font-weight: 600;
   letter-spacing: -0.3px;
 }
@@ -1340,7 +1355,7 @@
   gap: 6px;
   margin: 0;
   color: var(--aurora-green);
-  font-size: 13px;
+  font-size: var(--text-label);
 }
 
 .aurora-drawer-section {
@@ -1349,7 +1364,7 @@
 
 .aurora-drawer-section h3 {
   margin: 0 0 10px;
-  font-size: 15px;
+  font-size: var(--text-title-sm);
   font-weight: 600;
 }
 
@@ -1369,7 +1384,7 @@
 .aurora-composer label {
   display: block;
   margin-bottom: 8px;
-  font-size: 14px;
+  font-size: var(--text-body);
   font-weight: 600;
 }
 
@@ -1389,7 +1404,7 @@
   align-items: center;
   gap: 6px;
   color: var(--aurora-muted);
-  font-size: 14px;
+  font-size: var(--text-body);
   cursor: pointer;
 }
 
@@ -1465,19 +1480,19 @@
   height: 56px;
   margin: 0 auto 12px;
   border-radius: var(--aurora-r-lg);
-  font-size: 16px;
+  font-size: var(--text-title-sm);
 }
 
 .aurora-modal-hero h2 {
   margin: 0 0 2px;
-  font-size: 18px;
+  font-size: var(--text-title);
   font-weight: 600;
 }
 
 .aurora-modal-hero p {
   margin: 0;
   color: var(--aurora-muted);
-  font-size: 13px;
+  font-size: var(--text-caption);
 }
 
 .aurora-modal-actions {
@@ -1497,7 +1512,7 @@
   border-bottom: 1px solid var(--aurora-line-soft);
   color: var(--aurora-charcoal);
   background: transparent;
-  font-size: 14px;
+  font-size: var(--text-body);
   text-align: left;
   cursor: pointer;
 }
@@ -1546,7 +1561,7 @@
   border-radius: var(--aurora-r-sm);
   color: var(--aurora-on-white);
   background: var(--aurora-violet);
-  font-size: 12px;
+  font-size: var(--text-micro);
   font-style: normal;
   font-weight: 600;
 }
@@ -1554,11 +1569,11 @@
 .aurora-plan span {
   margin-bottom: 6px;
   color: var(--aurora-muted);
-  font-size: 13px;
+  font-size: var(--text-label);
 }
 
 .aurora-plan strong {
-  font-size: 24px;
+  font-size: var(--text-display-sm);
   font-weight: 600;
   letter-spacing: -0.5px;
   font-variant-numeric: tabular-nums;
@@ -1566,7 +1581,7 @@
 
 .aurora-plan small {
   color: var(--aurora-muted);
-  font-size: 13px;
+  font-size: var(--text-label);
 }
 
 /* --- Tints ---------------------------------------------------------------- */
@@ -1671,11 +1686,7 @@
   }
 
   .aurora-hero h1 {
-    font-size: 32px;
-  }
-
-  .aurora-hero p {
-    font-size: 15px;
+    --aurora-text-hero: 32px;
   }
 
   .aurora-hero-orbit {
@@ -1691,7 +1702,7 @@
   }
 
   .aurora-page-head h1 {
-    font-size: 26px;
+    --text-display: 26px;
   }
 
   .aurora-section-head {
@@ -1699,7 +1710,7 @@
   }
 
   .aurora-section-head h2 {
-    font-size: 22px;
+    --text-display-sm: 22px;
   }
 
   .aurora-stat-cards {

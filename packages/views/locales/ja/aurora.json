@@ -20,9 +20,9 @@
     },
     "eyebrow": "AI ツール",
     "hero_title": "スキルを選ぶだけ。実行は Aurora が行います。",
-    "stats_runnable": "件が実行可能",
-    "stats_total": "件のスキル",
-    "visible_count": "{{visible}} 件が利用可能",
+    "stats_runnable_other": "件が実行可能",
+    "stats_total_other": "件のスキル",
+    "visible_count_other": "{{count}} 件が利用可能",
     "ready": "実行可能",
     "clear_filters": "すべてのスキルを表示",
     "inputs": {
@@ -107,8 +107,7 @@
     "skill_all": "すべてのスキル",
     "preview_label": "{{format}} をプレビュー",
     "preview_description": "この生成が作成した原寸ファイルです。",
-    "open_in_new_tab": "新しいタブで開く",
-    "eyebrow": "履歴"
+    "open_in_new_tab": "新しいタブで開く"
   },
   "detail": {
     "title": "生成の詳細",
@@ -204,8 +203,7 @@
       "failed": "購入を開始できませんでした。もう一度お試しください。",
       "already_subscribed": "すでに購読しています。",
       "unavailable": "このインスタンスでは支払いを利用できません。"
-    },
-    "eyebrow": "クレジット"
+    }
   },
   "runtime": {
     "title": "実行",
@@ -224,8 +222,7 @@
       "runtime_policy_unavailable": "ランタイムポリシーを利用できません。管理者にランタイム設定の確認を依頼してください。"
     },
     "generations_title": "実行中の生成",
-    "generations_empty": "実行中の生成はありません。",
-    "eyebrow": "実行環境"
+    "generations_empty": "実行中の生成はありません。"
   },
   "shell": {
     "brand_tagline": "AI STUDIO",

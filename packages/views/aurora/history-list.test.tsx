@@ -310,6 +310,7 @@ describe("HistoryList", () => {
       .getByRole("heading", { name: "History", level: 1 })
       .closest("header");
     expect(header).toHaveClass("aurora-page-head");
+    expect(header?.querySelector(".aurora-eyebrow")).toBeNull();
     expect(header?.querySelector(".aurora-page-meta")).toHaveTextContent(/^1$/);
     expect(header).not.toHaveTextContent("credits");
 

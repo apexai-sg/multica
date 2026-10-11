@@ -115,7 +115,7 @@ export function SkillDirectory({
             has to change when the reader narrows the grid, or it is noise. */}
         {catalogKnown ? (
           <span>
-            {t(($) => $.directory.visible_count, { visible: visible.length })}
+            {t(($) => $.directory.visible_count, { count: visible.length })}
           </span>
         ) : null}
       </div>
@@ -229,11 +229,11 @@ function DirectoryHero({ skills }: { skills: AuroraSkill[] | undefined }) {
           <div className="aurora-hero-stats">
             <span>
               <strong>{runnable.length}</strong>{" "}
-              {t(($) => $.directory.stats_runnable)}
+              {t(($) => $.directory.stats_runnable, { count: runnable.length })}
             </span>
             <span>
               <strong>{skills.length}</strong>{" "}
-              {t(($) => $.directory.stats_total)}
+              {t(($) => $.directory.stats_total, { count: skills.length })}
             </span>
           </div>
         ) : null}

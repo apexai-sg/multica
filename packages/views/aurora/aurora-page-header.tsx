@@ -23,7 +23,7 @@ export function AuroraPageHeader({
   actions,
 }: {
   icon: LucideIcon;
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   /** Facts about the collection — a count, a date range. Not a sentence. */
   meta?: React.ReactNode;
@@ -32,10 +32,12 @@ export function AuroraPageHeader({
   return (
     <header className="aurora-page-head">
       <div className="aurora-page-head-main">
-        <p className="aurora-eyebrow">
-          <Icon aria-hidden="true" className="size-3.5" />
-          {eyebrow}
-        </p>
+        {eyebrow ? (
+          <p className="aurora-eyebrow">
+            <Icon aria-hidden="true" className="size-3.5" />
+            {eyebrow}
+          </p>
+        ) : null}
         <h1>{title}</h1>
         {meta ? <p className="aurora-page-meta">{meta}</p> : null}
       </div>

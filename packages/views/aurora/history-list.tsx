@@ -118,7 +118,6 @@ export function HistoryList({ generationHref }: HistoryListProps = {}) {
     <div className="aurora-page">
       <AuroraPageHeader
         icon={History}
-        eyebrow={t(($) => $.history.eyebrow)}
         title={t(($) => $.history.title)}
         meta={<span>{generations.length}</span>}
       />

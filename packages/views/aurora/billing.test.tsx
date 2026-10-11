@@ -294,6 +294,8 @@ describe("AuroraBilling", () => {
 
   it("shows the wallet in credits rather than micro-credits", () => {
     renderBilling();
+    const header = screen.getByRole("heading", { name: "Credits", level: 1 }).closest("header");
+    expect(header?.querySelector(".aurora-eyebrow")).toBeNull();
 
     expect(screen.getByText("1,000")).toBeInTheDocument();
     expect(screen.getByText("Available credits")).toBeInTheDocument();

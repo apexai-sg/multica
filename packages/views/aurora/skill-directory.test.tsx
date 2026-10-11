@@ -137,6 +137,35 @@ describe("SkillDirectory", () => {
     });
   });
 
+  it.each([0, 1, 3])("pluralizes real counts (%i) and shows each hero numeral once", (count) => {
+    mocks.skills.mockReturnValue({ data: { value: CATALOG.slice(0, count), degraded: false }, isPending: false });
+    renderDirectory();
+    const noun = count === 1 ? "skill" : "skills";
+    expect(screen.getByText(`${count} ${noun} available`)).toBeVisible();
+    const stats = screen.getByRole("heading", { level: 1 }).closest("section")!.querySelectorAll(".aurora-hero-stats > span");
+    expect(stats).toHaveLength(2);
+    expect(stats[0]!.textContent).toBe(`${count} ${noun} runnable`);
+    expect(stats[1]!.textContent).toBe(`${count} ${noun} in the catalog`);
+    for (const stat of stats) {
+      expect(stat.querySelectorAll("strong")).toHaveLength(1);
+      expect(stat.querySelector("strong")).toHaveTextContent(String(count));
+    }
+  });
+
+  it("uses the skill glossary for new Chinese directory copy without renaming legacy search", async () => {
+    const user = userEvent.setup();
+    renderWithI18n(<NavigationProvider value={stubNavigationAdapter()}><SkillDirectory /></NavigationProvider>, { locale: "zh-Hans" });
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("挑一个 skill，Aurora 帮你跑完。");
+    expect(screen.getByText("16 个 skill 可用")).toBeVisible();
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    expect(hero).toHaveTextContent("13 个 skill 可运行");
+    expect(hero).toHaveTextContent("16 个 skill");
+    const search = screen.getByRole("searchbox", { name: "搜索功能" });
+    expect(search).toBeVisible();
+    await user.type(search, "no-matching-skill");
+    expect(screen.getByRole("button", { name: "查看全部 skill" })).toBeVisible();
+  });
+
   it("summarises real catalog totals and runtime in the hero", () => {
     renderDirectory();
     const hero = screen.getByRole("heading", { level: 1 }).closest("section");

@@ -20,9 +20,9 @@
     },
     "eyebrow": "AI 도구",
     "hero_title": "스킬을 고르면 Aurora가 실행합니다.",
-    "stats_runnable": "개 실행 가능",
-    "stats_total": "개 스킬",
-    "visible_count": "{{visible}}개 사용 가능",
+    "stats_runnable_other": "개 실행 가능",
+    "stats_total_other": "개 스킬",
+    "visible_count_other": "{{count}}개 사용 가능",
     "ready": "실행 가능",
     "clear_filters": "전체 스킬 보기",
     "inputs": {
@@ -107,8 +107,7 @@
     "skill_all": "모든 스킬",
     "preview_label": "{{format}} 미리보기",
     "preview_description": "이 생성이 만든 원본 파일입니다.",
-    "open_in_new_tab": "새 탭에서 열기",
-    "eyebrow": "기록"
+    "open_in_new_tab": "새 탭에서 열기"
   },
   "detail": {
     "title": "생성 상세",
@@ -204,8 +203,7 @@
       "failed": "구매를 시작하지 못했습니다. 다시 시도해 주세요.",
       "already_subscribed": "이미 구독 중입니다.",
       "unavailable": "이 인스턴스에서는 결제를 사용할 수 없습니다."
-    },
-    "eyebrow": "크레딧"
+    }
   },
   "runtime": {
     "title": "실행",
@@ -224,8 +222,7 @@
       "runtime_policy_unavailable": "런타임 정책을 사용할 수 없습니다. 관리자에게 런타임 설정 확인을 요청하세요."
     },
     "generations_title": "실행 중인 생성",
-    "generations_empty": "실행 중인 생성이 없습니다.",
-    "eyebrow": "실행 환경"
+    "generations_empty": "실행 중인 생성이 없습니다."
   },
   "shell": {
     "brand_tagline": "AI STUDIO",

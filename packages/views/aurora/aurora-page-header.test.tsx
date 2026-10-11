@@ -25,8 +25,10 @@ describe("AuroraPageHeader", () => {
 
   it("omits optional slots rather than leaving empty rows", () => {
     const { container } = render(
-      <AuroraPageHeader icon={Sparkles} eyebrow="AI tools" title="Create" />,
+      <AuroraPageHeader icon={Sparkles} title="Create" />,
     );
+    expect(container.querySelector(".aurora-eyebrow")).toBeNull();
+    expect(container.querySelector("svg")).toBeNull();
     expect(container.querySelector(".aurora-page-meta")).toBeNull();
     expect(container.querySelector(".aurora-page-actions")).toBeNull();
     expect(screen.getByRole("heading", { level: 1 })).toBeVisible();

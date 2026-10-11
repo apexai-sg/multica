@@ -20,9 +20,15 @@
     },
     "eyebrow": "OUTILS IA",
     "hero_title": "Choisissez une compétence, Aurora s'en charge.",
-    "stats_runnable": "compétences exécutables",
-    "stats_total": "compétences au catalogue",
-    "visible_count": "{{visible}} compétences disponibles",
+    "stats_runnable_one": "compétence exécutable",
+    "stats_runnable_many": "compétences exécutables",
+    "stats_runnable_other": "compétences exécutables",
+    "stats_total_one": "compétence au catalogue",
+    "stats_total_many": "compétences au catalogue",
+    "stats_total_other": "compétences au catalogue",
+    "visible_count_one": "{{count}} compétence disponible",
+    "visible_count_many": "{{count}} compétences disponibles",
+    "visible_count_other": "{{count}} compétences disponibles",
     "ready": "Prêt",
     "clear_filters": "Afficher toutes les compétences",
     "inputs": {
@@ -107,8 +113,7 @@
     "skill_all": "Tous les skills",
     "preview_label": "Aperçu {{format}}",
     "preview_description": "Le fichier en taille réelle produit par cette génération.",
-    "open_in_new_tab": "Ouvrir dans un nouvel onglet",
-    "eyebrow": "HISTORIQUE"
+    "open_in_new_tab": "Ouvrir dans un nouvel onglet"
   },
   "detail": {
     "title": "Détail de la génération",
@@ -204,8 +209,7 @@
       "failed": "Impossible de lancer l'achat. Réessayez.",
       "already_subscribed": "Vous avez déjà un abonnement.",
       "unavailable": "Les paiements ne sont pas disponibles sur cette instance."
-    },
-    "eyebrow": "CRÉDITS"
+    }
   },
   "runtime": {
     "title": "Exécution",
@@ -224,8 +228,7 @@
       "runtime_policy_unavailable": "La politique du runtime est indisponible. Demandez à un administrateur de vérifier sa configuration."
     },
     "generations_title": "Générations en cours",
-    "generations_empty": "Aucune génération en cours.",
-    "eyebrow": "EXÉCUTION"
+    "generations_empty": "Aucune génération en cours."
   },
   "shell": {
     "brand_tagline": "AI STUDIO",

@@ -19,12 +19,12 @@
       "other": "其他"
     },
     "eyebrow": "创作工具",
-    "hero_title": "挑一个功能，Aurora 帮你跑完。",
-    "stats_runnable": "个功能可运行",
-    "stats_total": "个功能",
-    "visible_count": "{{visible}} 个功能可用",
+    "hero_title": "挑一个 skill，Aurora 帮你跑完。",
+    "stats_runnable_other": "个 skill 可运行",
+    "stats_total_other": "个 skill",
+    "visible_count_other": "{{count}} 个 skill 可用",
     "ready": "可运行",
-    "clear_filters": "查看全部功能",
+    "clear_filters": "查看全部 skill",
     "inputs": {
       "text": "文本",
       "image": "图片",
@@ -107,8 +107,7 @@
     "skill_all": "全部功能",
     "preview_label": "预览 {{format}}",
     "preview_description": "该次生成产出的完整文件。",
-    "open_in_new_tab": "在新标签页打开",
-    "eyebrow": "历史"
+    "open_in_new_tab": "在新标签页打开"
   },
   "detail": {
     "title": "生成详情",
@@ -204,8 +203,7 @@
       "failed": "无法发起购买，请重试。",
       "already_subscribed": "你已经有订阅了。",
       "unavailable": "该实例未开通支付。"
-    },
-    "eyebrow": "计费"
+    }
   },
   "runtime": {
     "title": "执行",
@@ -224,8 +222,7 @@
       "runtime_policy_unavailable": "运行时策略不可用。请联系管理员检查运行时配置。"
     },
     "generations_title": "进行中的生成",
-    "generations_empty": "当前没有正在进行的生成。",
-    "eyebrow": "运行时"
+    "generations_empty": "当前没有正在进行的生成。"
   },
   "shell": {
     "brand_tagline": "AI STUDIO",

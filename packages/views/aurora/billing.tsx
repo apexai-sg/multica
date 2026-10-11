@@ -177,7 +177,6 @@ export function AuroraBilling() {
     <div className="aurora-page">
       <AuroraPageHeader
         icon={Wallet}
-        eyebrow={t(($) => $.billing.eyebrow)}
         title={t(($) => $.billing.title)}
       />
       {isLoading ? (

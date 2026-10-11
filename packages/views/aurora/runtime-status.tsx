@@ -103,7 +103,6 @@ export function RuntimeStatus() {
     <div className="aurora-page">
       <AuroraPageHeader
         icon={Gauge}
-        eyebrow={t(($) => $.runtime.eyebrow)}
         title={t(($) => $.runtime.title)}
       />
 

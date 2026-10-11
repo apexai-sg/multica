@@ -145,7 +145,7 @@ describe("RuntimeStatus", () => {
     const state = await screen.findByText("Online");
     const page = screen.getByRole("heading", { name: "Execution", level: 1 }).closest(".aurora-page");
     expect(page).not.toBeNull();
-    expect(screen.getByText("EXECUTION")).toHaveClass("aurora-eyebrow");
+    expect(page?.querySelector("header .aurora-eyebrow")).toBeNull();
     const panel = state.closest("section");
     expect(panel).toHaveClass("aurora-panel");
     expect(page).toContainElement(panel);

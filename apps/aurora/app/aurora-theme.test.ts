@@ -139,6 +139,31 @@ function classesUsedIn(root: string): Set<string> {
 const declared = declaredClasses(css);
 
 describe("aurora design layer", () => {
+  it("gives the native runtime navigation chip a 40px target without enlarging badges", () => {
+    const target = css.match(/a\.aurora-status-chip\[href\]\s*\{([^}]+)\}/)?.[1] ?? "";
+    expect(target).toContain("min-width: 40px;");
+    expect(target).toContain("min-height: 40px;");
+    const badge = css.match(/\.aurora-mini-label\s*\{([^}]+)\}/)?.[1];
+    expect(badge).not.toContain("min-height");
+  });
+
+  it("uses semantic typography tokens for every font size", () => {
+    const sizes = [...css.matchAll(/font-size:\s*([^;]+);/g)].map((match) => match[1]);
+    expect(sizes.length).toBeGreaterThan(0);
+    expect(sizes.filter((size) => !/^var\(--(?:aurora-)?text-[a-z-]+\)$/.test(size!))).toEqual([]);
+  });
+
+  it("keeps Aurora display roles scoped and preserves responsive heading hierarchy", () => {
+    expect(css).toMatch(/\.aurora-theme\s*\{[^}]*--text-display: 32px;/);
+    expect(css).toMatch(/\.aurora-theme\s*\{[^}]*--aurora-text-hero: clamp\(32px, 3.2vw, 44px\);/);
+    expect(css).toMatch(/\.aurora-page-head h1\s*\{[^}]*font-size: var\(--text-display\);/);
+    expect(css).toMatch(/\.aurora-hero h1\s*\{[^}]*font-size: var\(--aurora-text-hero\);/);
+    const narrow = css.slice(css.indexOf("@media (max-width: 690px)"));
+    expect(narrow).toMatch(/\.aurora-hero h1\s*\{[^}]*--aurora-text-hero: 32px;/);
+    expect(narrow).toMatch(/\.aurora-page-head h1\s*\{[^}]*--text-display: 26px;/);
+    expect(narrow).toMatch(/\.aurora-section-head h2\s*\{[^}]*--text-display-sm: 22px;/);
+  });
+
   it("declares no class left unused after the full migration", () => {
     const used = new Set([
       ...classesUsedIn(resolve(repoRoot, "packages/views/aurora")),

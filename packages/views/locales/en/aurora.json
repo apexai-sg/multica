@@ -20,9 +20,12 @@
     },
     "eyebrow": "AI TOOLS",
     "hero_title": "Pick a skill. Aurora runs it.",
-    "stats_runnable": "skills runnable",
-    "stats_total": "skills in the catalog",
-    "visible_count": "{{visible}} skills available",
+    "stats_runnable_one": "skill runnable",
+    "stats_runnable_other": "skills runnable",
+    "stats_total_one": "skill in the catalog",
+    "stats_total_other": "skills in the catalog",
+    "visible_count_one": "{{count}} skill available",
+    "visible_count_other": "{{count}} skills available",
     "ready": "Ready",
     "clear_filters": "Show all skills",
     "inputs": {
@@ -107,8 +110,7 @@
     "skill_all": "All skills",
     "preview_label": "Preview {{format}}",
     "preview_description": "The full-size file this generation produced.",
-    "open_in_new_tab": "Open in new tab",
-    "eyebrow": "HISTORY"
+    "open_in_new_tab": "Open in new tab"
   },
   "detail": {
     "title": "Generation detail",
@@ -204,8 +206,7 @@
       "failed": "Could not start the purchase. Try again.",
       "already_subscribed": "You already have a subscription.",
       "unavailable": "Payments are not available on this instance."
-    },
-    "eyebrow": "CREDITS"
+    }
   },
   "runtime": {
     "title": "Execution",
@@ -224,8 +225,7 @@
       "runtime_policy_unavailable": "The runtime policy is unavailable. Ask an administrator to check the runtime configuration."
     },
     "generations_title": "Running generations",
-    "generations_empty": "Nothing is running.",
-    "eyebrow": "EXECUTION"
+    "generations_empty": "Nothing is running."
   },
   "shell": {
     "brand_tagline": "AI STUDIO",
