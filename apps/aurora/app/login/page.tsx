@@ -11,11 +11,13 @@ import {
 } from "@multica/core/workspace/queries";
 import type { Workspace } from "@multica/core/types";
 import { LoginPage, beginGoogleOAuthFlow } from "@multica/views/auth";
+import { useT } from "@multica/views/i18n";
 import { setLoggedInCookie } from "@multica/nextjs/auth-cookie";
 import { resolveAuroraDestination } from "@/lib/routes";
 import { NoWorkspaceNotice } from "@/components/no-workspace-notice";
 
 function LoginPageContent() {
+  const { t } = useT("aurora");
   const router = useRouter();
   const qc = useQueryClient();
   const googleClientId = useConfigStore((state) => state.googleClientId);
@@ -77,6 +79,15 @@ function LoginPageContent() {
 
   return (
     <LoginPage
+      logo={
+        <span className="aurora-brand aurora-brand--on-light justify-center">
+          <span aria-hidden="true" className="aurora-brand-mark">A</span>
+          <span className="aurora-brand-copy">
+            <strong>Aurora</strong>
+            <small>{t(($) => $.shell.brand_tagline)}</small>
+          </span>
+        </span>
+      }
       onSuccess={handleSuccess}
       google={
         googleClientId

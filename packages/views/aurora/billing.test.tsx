@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, screen } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type {
   AuroraGeneration,
@@ -189,8 +189,113 @@ describe("AuroraBilling", () => {
     mocks.createTopupCheckout.mockReturnValue(mutation());
   });
 
+  it("assigns real wallet, usage and loaded-row facts to separate stat cards", () => {
+    mocks.subscription.mockReturnValue({
+      data: subscription({
+        tier: "creator",
+        status: "active",
+        limits: { generationsPerMonth: 30, concurrency: 2 },
+        usage: { generationsUsedThisMonth: 12, activeGenerations: 1 },
+      }),
+      isPending: false,
+    });
+    mocks.transactions.mockReturnValue(read([
+      transaction(),
+      transaction({ id: "txn-2", kind: "topup", amountMicro: 500 * MICRO }),
+    ]));
+
+    renderBilling();
+
+    const cards = screen.getAllByRole("article");
+    expect(cards).toHaveLength(3);
+    expect(within(cards[0]!).getByText("Available credits")).toBeVisible();
+    expect(within(cards[0]!).getByText("1,000")).toBeVisible();
+    expect(within(cards[1]!).getByText("12 of 30")).toBeVisible();
+    expect(within(cards[2]!).getByText("2")).toBeVisible();
+    const meter = screen.getByRole("progressbar");
+    expect(meter).toHaveAttribute("aria-valuenow", "40");
+    const usageLabel = meter.getAttribute("aria-label")!;
+    expect(within(cards[1]!).getByText(usageLabel)).toBeVisible();
+    expect(screen.getAllByText(usageLabel)).toHaveLength(1);
+    expect(screen.getAllByText("12 of 30")).toHaveLength(1);
+    expect(meter.closest("section")).not.toContainElement(cards[1]!);
+  });
+
+  it("omits an unavailable usage stat and counts an empty ledger as zero", () => {
+    mocks.subscription.mockReturnValue({ data: undefined, isPending: false });
+    mocks.transactions.mockReturnValue(read([]));
+
+    renderBilling();
+
+    const cards = screen.getAllByRole("article");
+    expect(cards).toHaveLength(2);
+    expect(within(cards[0]!).getByText("1,000")).toBeVisible();
+    expect(within(cards[1]!).getByText("0")).toBeVisible();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.getByText("No activity yet")).toBeVisible();
+  });
+
+  it("keeps every native pack busy and inert while checkout is pending", async () => {
+    const user = userEvent.setup();
+    const checkout = { ...mutation(), isPending: true };
+    mocks.createTopupCheckout.mockReturnValue(checkout);
+    renderBilling();
+
+    for (const name of ["5,000 credits · $5", "20,000 credits · $20"]) {
+      const pack = screen.getByRole("button", { name });
+      expect(pack).toHaveAttribute("type", "button");
+      expect(pack).toHaveAttribute("aria-busy", "true");
+      expect(pack).toBeDisabled();
+      await user.click(pack);
+    }
+    expect(checkout.mutate).not.toHaveBeenCalled();
+  });
+
+  it("splits pack facts visually without changing the second pack checkout or navigation", async () => {
+    const user = userEvent.setup();
+    const checkout = {
+      ...mutation(),
+      mutate: vi.fn((_request: unknown, options?: { onSuccess?: (url: string) => void }) =>
+        options?.onSuccess?.("https://checkout.aurora-fixture.test/topup")),
+    };
+    mocks.createTopupCheckout.mockReturnValue(checkout);
+    renderBilling();
+
+    const pack = screen.getByRole("button", { name: "20,000 credits · $20" });
+    expect(within(pack).getByText("20,000 credits")).toBeVisible();
+    expect(within(pack).getByText("$20")).toBeVisible();
+    expect(pack).toHaveAttribute("aria-busy", "false");
+    await user.click(pack);
+    expect(checkout.mutate.mock.calls[0]?.[0]).toEqual({
+      topupId: "t20",
+      successUrl: "https://app.example.com/acme/billing?checkout=success",
+      cancelUrl: "https://app.example.com/acme/billing?checkout=cancel",
+    });
+    expect(mocks.openExternal).toHaveBeenCalledWith(
+      "https://checkout.aurora-fixture.test/topup", { webTarget: "same-tab" },
+    );
+  });
+
+  it("keeps native packs disabled without a return origin", async () => {
+    const user = userEvent.setup();
+    const checkout = mutation();
+    mocks.createTopupCheckout.mockReturnValue(checkout);
+    renderWithI18n(
+      <NavigationProvider value={stubNavigationAdapter()}>
+        <AuroraBilling />
+      </NavigationProvider>,
+    );
+    const pack = screen.getByRole("button", { name: "5,000 credits · $5" });
+    expect(pack).toBeDisabled();
+    expect(pack).toHaveAttribute("aria-busy", "false");
+    await user.click(pack);
+    expect(checkout.mutate).not.toHaveBeenCalled();
+  });
+
   it("shows the wallet in credits rather than micro-credits", () => {
     renderBilling();
+    const header = screen.getByRole("heading", { name: "Credits", level: 1 }).closest("header");
+    expect(header?.querySelector(".aurora-eyebrow")).toBeNull();
 
     expect(screen.getByText("1,000")).toBeInTheDocument();
     expect(screen.getByText("Available credits")).toBeInTheDocument();

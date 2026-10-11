@@ -28,7 +28,7 @@ export function NoWorkspaceNotice() {
   const logout = useLogout();
 
   return (
-    <div className="flex min-h-svh items-center justify-center px-6">
+    <div className="aurora-centered">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-display-sm">

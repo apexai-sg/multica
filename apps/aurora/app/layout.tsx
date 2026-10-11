@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { cn } from "@multica/ui/lib/utils";
 import { RESOURCES } from "@multica/views/locales";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -12,14 +12,12 @@ import {
 } from "@/config/runtime-urls";
 import "./globals.css";
 
-// Inter is the Latin UI face. next/font produces a hashed family (`__Inter_xxx`)
-// plus a synthetic size-adjusted fallback face to prevent FOUT layout shift —
-// both are exposed under the `--font-inter` CSS variable, which globals.css
-// composes the full `--font-sans` stack around.
-const inter = Inter({
+// Geist is the design system's Latin UI face (DESIGN.md typography.fontFamily).
+// globals.css composes the full --font-sans stack around this variable.
+const geistSans = Geist({
   subsets: ["latin"],
   style: ["normal", "italic"],
-  variable: "--font-inter",
+  variable: "--font-geist-sans",
 });
 // Mono has no explicit CJK fallback: CJK characters in a mono context are
 // inherently non-aligned with the grid (Chinese is proportional), so listing CJK
@@ -27,16 +25,19 @@ const inter = Inter({
 const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
-  fallback: ["ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
+  fallback: [
+    "ui-monospace",
+    "SFMono-Regular",
+    "Menlo",
+    "Consolas",
+    "monospace",
+  ],
 });
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#05070b" },
-  ],
+  themeColor: "#f6f4ef",
 };
 
 export const metadata: Metadata = {
@@ -62,12 +63,13 @@ export default async function RootLayout({
       suppressHydrationWarning
       className={cn(
         "antialiased font-sans h-full",
-        inter.variable,
+        geistSans.variable,
         geistMono.variable,
       )}
     >
-      <body className="h-full overflow-hidden">
-        <ThemeProvider>
+      <body className="aurora-theme h-full overflow-hidden">
+        {/* DESIGN.md defines one light canvas, including portalled UI. */}
+        <ThemeProvider forcedTheme="light">
           <AuroraProviders
             locale={locale}
             resources={resources}

@@ -20,12 +20,12 @@ export function DeadEndScreen({
   description: string;
 }) {
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-6 px-6 text-center">
-      <div className="space-y-2">
+    <div className="aurora-centered">
+      <div className="aurora-empty w-full max-w-lg">
         <h1 className="text-display-sm font-semibold tracking-tight">
           {title}
         </h1>
-        <p className="max-w-md text-muted-foreground">{description}</p>
+        <p>{description}</p>
       </div>
       <WorkspaceRecovery />
     </div>

@@ -17,6 +17,22 @@
       "content": "コピー",
       "office": "オフィス",
       "other": "その他"
+    },
+    "eyebrow": "AI ツール",
+    "hero_title": "スキルを選ぶだけ。実行は Aurora が行います。",
+    "stats_runnable_other": "件が実行可能",
+    "stats_total_other": "件のスキル",
+    "visible_count_other": "{{count}} 件が利用可能",
+    "ready": "実行可能",
+    "clear_filters": "すべてのスキルを表示",
+    "inputs": {
+      "text": "テキスト",
+      "image": "画像",
+      "document": "ドキュメント",
+      "audio": "音声",
+      "video": "動画",
+      "spreadsheet": "表計算",
+      "other": "その他"
     }
   },
   "composer": {
@@ -76,7 +92,8 @@
     "delete_description": "ファイルはストレージから削除され、復元できません。",
     "delete_confirm": "ファイルを削除",
     "no_prompt": "プロンプトなし",
-    "skill_unknown": "不明なスキル"
+    "skill_unknown": "不明なスキル",
+    "eyebrow": "作品"
   },
   "history": {
     "title": "履歴",
@@ -116,7 +133,8 @@
     "task_copy": "タスク ID をコピー",
     "task_copied": "コピーしました",
     "task_copy_failed": "コピーできませんでした",
-    "task_unavailable": "このアプリにはまだタスクページがありません。ID をコピーして別の場所で実行を確認してください。"
+    "task_unavailable": "このアプリにはまだタスクページがありません。ID をコピーして別の場所で実行を確認してください。",
+    "eyebrow": "生成"
   },
   "billing": {
     "title": "クレジット",
@@ -205,6 +223,14 @@
     },
     "generations_title": "実行中の生成",
     "generations_empty": "実行中の生成はありません。"
+  },
+  "shell": {
+    "brand_tagline": "AI STUDIO",
+    "menu_open": "メニューを開く",
+    "menu_close": "メニューを閉じる",
+    "account_menu": "アカウント",
+    "nav_group_work": "ワークスペース",
+    "nav_group_account": "アカウント"
   },
   "workspace": {
     "unavailable_title": "このワークスペースを開けません",

@@ -1,0 +1,1758 @@
+/* =============================================================================
+ * Aurora design layer
+ *
+ * The visual system apps/aurora renders: warm paper canvas, one navy chrome
+ * column, violet primary, sparse coral accent, pastel tags. The rules and the
+ * values come from DESIGN.md; the structure is a port of the Aurora AI Tools
+ * reference stylesheet so the two products read as one design.
+ *
+ * Three properties keep this file contained:
+ *
+ * 1. Every class is prefixed `aurora-`. These rules ship unlayered, and an
+ *    unlayered rule outranks every Tailwind utility - an unprefixed `.card` or
+ *    `.sidebar` would silently out-style a packages/ui primitive.
+ * 2. Every color and radius is an `--aurora-*` variable declared here. Type
+ *    consumes shared semantic roles, with scoped Aurora display geometry.
+ * 3. The palette is light-only, matching DESIGN.md, which defines one canvas.
+ *    apps/aurora pins the theme instead of this file inventing a dark palette.
+ *
+ * apps/aurora/app/globals.css imports this file and then maps the Multica
+ * semantic tokens onto this palette, which is what re-themes the shadcn
+ * primitives used inside Aurora (Button, Input, Sheet, Dialog, Tabs, Progress).
+ * ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  --aurora-ink: #172034;
+  --aurora-charcoal: #37352f;
+  --aurora-slate: #5d606b;
+  --aurora-muted: #6f7583;
+  --aurora-soft-muted: #9298a4;
+  --aurora-paper: #f6f4ef;
+  --aurora-surface: #f1efe9;
+  --aurora-card: #ffffff;
+  --aurora-line: #e8e5de;
+  --aurora-line-soft: #efede8;
+  --aurora-line-strong: #cfcbc2;
+  --aurora-navy: #13223a;
+  --aurora-navy-deep: #0e1a2d;
+  --aurora-navy-mid: #1f3354;
+  --aurora-violet: #7166f3;
+  --aurora-violet-pressed: #5d52dc;
+  --aurora-violet-deep: #4a40b8;
+  --aurora-coral: #ff6c50;
+  --aurora-coral-deep: #c9452c;
+  --aurora-green: #2fac7b;
+  --aurora-warning: #d97a1a;
+  --aurora-error: #d65d4c;
+  --aurora-tint-peach: #ffe8d4;
+  --aurora-tint-rose: #fde0ec;
+  --aurora-tint-mint: #d9f3e1;
+  --aurora-tint-lavender: #e6e0f5;
+  --aurora-tint-sky: #dcecfa;
+  --aurora-tint-yellow: #fef7d6;
+  --aurora-on-dark-muted: rgba(255, 255, 255, 0.62);
+  --aurora-shadow-subtle: 0 1px 2px rgba(15, 15, 15, 0.04);
+  --aurora-shadow-card: 0 4px 12px rgba(15, 15, 15, 0.08);
+  --aurora-shadow-modal: 0 16px 48px -8px rgba(15, 15, 15, 0.16);
+  --aurora-on-white: #ffffff;
+  --aurora-green-deep: #1f7a54;
+  --aurora-coral-line: #ffc9bc;
+  --aurora-mask: #000000;
+  --aurora-paper-translucent: rgba(246, 244, 239, 0.92);
+  --aurora-hero-glow: rgba(113, 102, 243, 0.32);
+  --aurora-thumbnail-ink: rgba(23, 32, 52, 0.28);
+  --aurora-r-full: 9999px;
+  --aurora-r-none: 0px;
+  --aurora-r-xs: 4px;
+  --aurora-r-sm: 6px;
+  --aurora-r-md: 8px;
+  --aurora-r-lg: 12px;
+  --aurora-r-xl: 16px;
+  --aurora-sidebar-width: 272px;
+}
+
+/* Shared roles, scoped to the Aurora body including portalled UI. The fluid
+   hero is the sole private type role: shared product headings are not display
+   copy. Keep its binding 32–44px range without adding another numeric ramp. */
+.aurora-theme {
+  --text-display: 32px;
+  --text-display--line-height: 1.2;
+  --aurora-text-hero: clamp(32px, 3.2vw, 44px);
+}
+
+/* The Aurora body scope includes the portalled navigation and generation UI. */
+.aurora-theme :focus-visible,
+.aurora-drawer :focus-visible,
+.aurora-dialog :focus-visible {
+  outline: 2px solid var(--aurora-violet);
+  outline-offset: 2px;
+}
+
+/* Shared primitives keep their behavior; only Aurora raises compact targets. */
+.aurora-theme [data-slot="button"],
+.aurora-theme [data-slot="sheet-close"],
+.aurora-theme [data-slot="dialog-close"] {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.aurora-theme [data-slot="input"],
+.aurora-theme [data-slot="input-group"] {
+  min-height: 44px;
+}
+
+/* InputGroupInput replaces the input slot; size the control, not just its shell. */
+.aurora-theme input[data-slot="input-group-control"] {
+  min-height: 44px;
+}
+
+/* Let the border surround the full target instead of squeezing its interior. */
+.aurora-theme [data-slot="input-group"]:has(> input[data-slot="input-group-control"]) {
+  height: auto;
+}
+
+/* --- Shell: sidebar -------------------------------------------------------- */
+
+.aurora-app {
+  display: flex;
+  height: 100svh;
+  min-height: 0;
+  color: var(--aurora-ink);
+  background: var(--aurora-paper);
+  font-size: var(--text-body);
+  line-height: 1.6;
+}
+
+.aurora-nav-drawer {
+  width: min(var(--aurora-sidebar-width), 94vw);
+  max-width: none;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  background: var(--aurora-navy);
+}
+
+.aurora-nav-drawer .aurora-sidebar {
+  position: static;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  visibility: visible;
+  transform: none;
+}
+
+.aurora-sidebar {
+  z-index: 40;
+  display: flex;
+  width: var(--aurora-sidebar-width);
+  flex: 0 0 auto;
+  flex-direction: column;
+  overflow-y: auto;
+  color: var(--aurora-on-white);
+  background: var(--aurora-navy);
+}
+
+.aurora-sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 20px 20px;
+}
+
+.aurora-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.aurora-brand-mark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: var(--aurora-r-md);
+  color: var(--aurora-on-white);
+  background: linear-gradient(
+    135deg,
+    var(--aurora-violet),
+    var(--aurora-coral)
+  );
+  font-size: var(--text-title);
+  font-weight: 700;
+}
+
+.aurora-brand-copy {
+  display: flex;
+  flex-direction: column;
+}
+
+.aurora-brand-copy strong {
+  font-size: var(--text-title-sm);
+  letter-spacing: 0.12em;
+  line-height: 1.1;
+}
+
+.aurora-brand-copy small {
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+/* The same brand on paper rather than on the navy column: the sign-in card. */
+.aurora-brand--on-light .aurora-brand-copy strong {
+  color: var(--aurora-navy);
+}
+
+.aurora-brand--on-light .aurora-brand-copy small {
+  color: var(--aurora-muted);
+}
+
+.aurora-sidebar-close,
+.aurora-menu-button {
+  display: none;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid var(--aurora-line);
+  border-radius: var(--aurora-r-md);
+  color: var(--aurora-ink);
+  background: var(--aurora-card);
+  font-size: var(--text-title-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.aurora-sidebar-close {
+  border-color: rgba(255, 255, 255, 0.18);
+  color: var(--aurora-on-white);
+  background: transparent;
+}
+
+.aurora-user-panel {
+  margin: 0 14px 20px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--aurora-r-lg);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.aurora-user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.aurora-user-avatar {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--aurora-r-md);
+  color: var(--aurora-violet-deep);
+  background: var(--aurora-tint-lavender);
+  font-size: var(--text-label);
+  font-weight: 600;
+}
+
+.aurora-user-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.aurora-user-copy strong {
+  overflow: hidden;
+  font-size: var(--text-body);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aurora-user-copy span {
+  margin-top: 2px;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: var(--text-micro);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aurora-more-button {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 6px;
+  border: 0;
+  border-radius: var(--aurora-r-md);
+  color: rgba(255, 255, 255, 0.6);
+  background: none;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.aurora-more-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.aurora-token-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: 18px;
+}
+
+.aurora-token-row span {
+  color: var(--aurora-on-dark-muted);
+  font-size: var(--text-micro);
+}
+
+.aurora-token-row strong {
+  font-size: var(--text-title);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.aurora-meter {
+  height: 4px;
+  margin: 10px 0 14px;
+  overflow: hidden;
+  border-radius: var(--aurora-r-xs);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.aurora-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--aurora-violet);
+}
+
+.aurora-recharge-button {
+  min-height: 40px;
+  min-width: 40px;
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--aurora-r-md);
+  color: var(--aurora-on-white);
+  background: transparent;
+  font-size: var(--text-label);
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.aurora-recharge-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.aurora-nav-groups {
+  padding: 0 12px;
+}
+
+.aurora-nav-group {
+  margin-bottom: 20px;
+}
+
+.aurora-nav-group > p {
+  margin: 0 10px 6px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.aurora-nav-link {
+  min-height: 40px;
+  min-width: 40px;
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--aurora-r-md);
+  color: rgba(255, 255, 255, 0.72);
+  background: transparent;
+  font-size: var(--text-body);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.aurora-nav-link:hover {
+  color: var(--aurora-on-white);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.aurora-nav-link[aria-current="page"] {
+  color: var(--aurora-on-white);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.aurora-nav-link[aria-current="page"]::before {
+  position: absolute;
+  left: -12px;
+  width: 3px;
+  height: 20px;
+  border-radius: var(--aurora-r-none) var(--aurora-r-xs) var(--aurora-r-xs)
+    var(--aurora-r-none);
+  background: var(--aurora-violet);
+  content: "";
+}
+
+.aurora-nav-link svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.aurora-sidebar-footer {
+  margin-top: auto;
+  padding: 0 12px 16px;
+}
+
+/* --- Shell: workspace column ---------------------------------------------- */
+
+.aurora-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.aurora-topbar {
+  z-index: 30;
+  display: flex;
+  height: 64px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--aurora-line);
+  background: var(--aurora-paper-translucent);
+  backdrop-filter: blur(12px);
+}
+
+.aurora-topbar-brand {
+  display: none;
+  margin-left: 4px;
+  font-size: var(--text-title-sm);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.aurora-topbar-brand span {
+  color: var(--aurora-violet);
+}
+
+.aurora-topbar-actions {
+  display: flex;
+  margin-left: auto;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Only the navigable chip needs a touch target; hero badges stay compact. */
+a.aurora-status-chip[href] {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.aurora-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid var(--aurora-line);
+  border-radius: var(--aurora-r-full);
+  color: var(--aurora-slate);
+  background: var(--aurora-card);
+  font-size: var(--text-micro);
+  font-weight: 500;
+}
+
+.aurora-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 24px 20px 64px;
+}
+
+/* A full-screen centred message outside the shell: the dead ends, the
+   no-workspace notice and the sign-in fallback. */
+.aurora-centered {
+  display: flex;
+  min-height: 100svh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 48px 24px;
+  text-align: center;
+  background: var(--aurora-paper);
+}
+
+.aurora-page {
+  width: min(1200px, 100%);
+  margin-inline: auto;
+}
+
+/* --- Page head, section head, empty state --------------------------------- */
+
+.aurora-page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0 24px;
+}
+
+.aurora-page-head-main {
+  min-width: 0;
+}
+
+.aurora-page-head h1 {
+  margin: 0;
+  font-size: var(--text-display);
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.aurora-page-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 0 0;
+  color: var(--aurora-muted);
+  font-size: var(--text-label);
+}
+
+.aurora-page-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.aurora-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  color: var(--aurora-violet);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.aurora-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 40px 0 16px;
+}
+
+.aurora-section-head h2 {
+  margin: 0;
+  font-size: var(--text-display-sm);
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.aurora-section-head > span {
+  color: var(--aurora-muted);
+  font-size: var(--text-label);
+}
+
+.aurora-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.aurora-empty {
+  padding: 56px 20px;
+  border: 1px dashed var(--aurora-line-strong);
+  border-radius: var(--aurora-r-lg);
+  text-align: center;
+}
+
+.aurora-empty h3 {
+  margin: 12px 0 6px;
+  color: var(--aurora-ink);
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+
+.aurora-empty p {
+  max-width: 30rem;
+  margin: 0 auto 16px;
+  color: var(--aurora-muted);
+  font-size: var(--text-body);
+}
+
+.aurora-empty-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* --- Hero ------------------------------------------------------------------ */
+
+.aurora-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.35fr 0.65fr;
+  align-items: center;
+  overflow: hidden;
+  padding: 40px 48px;
+  border-radius: var(--aurora-r-xl);
+  color: var(--aurora-on-white);
+  background:
+    radial-gradient(
+      circle at 80% 20%,
+      var(--aurora-hero-glow),
+      transparent 40%
+    ),
+    var(--aurora-navy);
+}
+
+.aurora-hero::before {
+  position: absolute;
+  inset: 0;
+  opacity: 0.08;
+  background-image: radial-gradient(
+    circle,
+    var(--aurora-on-white) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+  content: "";
+  mask-image: linear-gradient(90deg, transparent 30%, var(--aurora-mask));
+}
+
+.aurora-hero > * {
+  position: relative;
+  z-index: 2;
+}
+
+.aurora-hero h1 {
+  margin: 16px 0 12px;
+  font-size: var(--aurora-text-hero);
+  font-weight: 600;
+  letter-spacing: -1px;
+  line-height: 1.12;
+}
+
+.aurora-hero p {
+  max-width: 560px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: var(--text-body-lg);
+  line-height: 1.6;
+}
+
+.aurora-mini-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--aurora-r-full);
+  color: var(--aurora-on-white);
+  font-size: var(--text-micro);
+  font-weight: 500;
+}
+
+.aurora-mini-label::before {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--aurora-r-full);
+  background: var(--aurora-green);
+  content: "";
+}
+
+.aurora-mini-label--warning::before {
+  background: var(--aurora-warning);
+}
+
+.aurora-mini-label--error::before {
+  background: var(--aurora-error);
+}
+
+.aurora-mini-label--muted::before {
+  background: var(--aurora-soft-muted);
+}
+
+.aurora-mini-label--running::before {
+  background: var(--aurora-violet);
+}
+
+.aurora-hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.aurora-hero-stats span {
+  color: var(--aurora-on-dark-muted);
+  font-size: var(--text-label);
+}
+
+.aurora-hero-stats strong {
+  margin-right: 4px;
+  color: var(--aurora-on-white);
+  font-size: var(--text-title);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.aurora-hero-orbit {
+  position: relative;
+  width: 310px;
+  height: 218px;
+  justify-self: end;
+}
+
+.aurora-hero-orbit::before,
+.aurora-hero-orbit::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--aurora-r-full);
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.aurora-hero-orbit::before {
+  width: 208px;
+  height: 208px;
+}
+
+.aurora-hero-orbit::after {
+  width: 290px;
+  height: 150px;
+  transform: translate(-50%, -50%) rotate(-18deg);
+}
+
+.aurora-hero-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: 76px;
+  height: 76px;
+  place-items: center;
+  border-radius: var(--aurora-r-xl);
+  background: var(--aurora-violet);
+  box-shadow: var(--aurora-shadow-modal);
+  font-size: var(--text-title-lg);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 0.9;
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+/* Use the shared micro floor even for the optional uppercase brand label. */
+.aurora-hero-center small {
+  font-size: var(--text-micro);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+}
+
+.aurora-orbit-avatar {
+  position: absolute;
+  padding: 3px;
+  border-radius: var(--aurora-r-lg);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.aurora-orbit-avatar .aurora-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--aurora-r-md);
+}
+
+.aurora-orbit-avatar--1 {
+  top: 2px;
+  left: 50px;
+}
+
+.aurora-orbit-avatar--2 {
+  top: 27px;
+  right: 15px;
+}
+
+.aurora-orbit-avatar--3 {
+  bottom: 2px;
+  left: 31px;
+}
+
+.aurora-orbit-avatar--4 {
+  right: 49px;
+  bottom: 7px;
+}
+
+/* --- Avatars, dots, tags -------------------------------------------------- */
+
+.aurora-avatar {
+  position: relative;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--aurora-r-md);
+  color: var(--aurora-charcoal);
+  background: var(--aurora-surface);
+  font-size: var(--text-label);
+  font-weight: 600;
+}
+
+.aurora-avatar--lg {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--aurora-r-md);
+  font-size: var(--text-body);
+}
+
+.aurora-avatar--coral,
+.aurora-avatar--rust {
+  background: var(--aurora-tint-peach);
+}
+
+.aurora-avatar--violet {
+  background: var(--aurora-tint-lavender);
+}
+
+.aurora-avatar--rose,
+.aurora-avatar--strawberry {
+  background: var(--aurora-tint-rose);
+}
+
+.aurora-avatar--mint {
+  background: var(--aurora-tint-mint);
+}
+
+.aurora-avatar--amber {
+  background: var(--aurora-tint-yellow);
+}
+
+.aurora-avatar--blue {
+  background: var(--aurora-tint-sky);
+}
+
+.aurora-avatar-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--aurora-card);
+  border-radius: var(--aurora-r-full);
+  background: var(--aurora-green);
+}
+
+.aurora-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: var(--aurora-r-full);
+  background: var(--aurora-green);
+}
+
+.aurora-dot--muted {
+  background: var(--aurora-soft-muted);
+}
+
+.aurora-dot--warning {
+  background: var(--aurora-warning);
+}
+
+.aurora-dot--error {
+  background: var(--aurora-error);
+}
+
+.aurora-dot--running {
+  background: var(--aurora-violet);
+}
+
+/* --- Skill cards ---------------------------------------------------------- */
+
+.aurora-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.aurora-card {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 24px;
+  border: 1px solid var(--aurora-line);
+  border-radius: var(--aurora-r-lg);
+  color: var(--aurora-ink);
+  background: var(--aurora-card);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.aurora-card:hover {
+  border-color: var(--aurora-line-strong);
+  box-shadow: var(--aurora-shadow-card);
+  transform: translateY(-2px);
+}
+
+.aurora-card--featured {
+  border-color: var(--aurora-coral-line);
+}
+
+.aurora-card--unavailable {
+  color: var(--aurora-soft-muted);
+}
+
+.aurora-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.aurora-card-name {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.aurora-card-category {
+  color: var(--aurora-soft-muted);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.aurora-card-title {
+  margin-top: 2px;
+  font-size: var(--text-title);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.aurora-card-arrow {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--aurora-line);
+  border-radius: var(--aurora-r-md);
+  color: var(--aurora-muted);
+  background: var(--aurora-card);
+}
+
+.aurora-card:hover .aurora-card-arrow {
+  border-color: var(--aurora-violet);
+  color: var(--aurora-on-white);
+  background: var(--aurora-violet);
+}
+
+.aurora-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.aurora-chips span {
+  padding: 2px 8px;
+  border-radius: var(--aurora-r-sm);
+  color: var(--aurora-charcoal);
+  background: var(--aurora-surface);
+  font-size: var(--text-micro);
+  font-weight: 500;
+}
+
+.aurora-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: auto -24px -24px;
+  margin-top: 16px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--aurora-line-soft);
+}
+
+/* The state cell, not "any direct span": the unavailable case is a pill in the
+   same slot, and a descendant selector here would repaint that pill's text. */
+.aurora-card-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--aurora-green);
+  font-size: var(--text-label);
+  font-weight: 500;
+}
+
+.aurora-card-footer strong {
+  color: var(--aurora-muted);
+  font-size: var(--text-label);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Pill tabs ------------------------------------------------------------ */
+
+.aurora-pill-tabs {
+  display: flex;
+  max-width: 100%;
+  justify-content: flex-start;
+  height: auto;
+  gap: 8px;
+  padding: 2px 0 4px;
+  overflow-x: auto;
+  background: transparent;
+  scrollbar-width: none;
+}
+
+.aurora-pill-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.aurora-pill-tab {
+  min-height: 40px;
+  min-width: 40px;
+  height: auto;
+  flex: 0 0 auto;
+  padding: 7px 16px;
+  border: 1px solid var(--aurora-line);
+  border-radius: var(--aurora-r-full);
+  color: var(--aurora-slate);
+  background: var(--aurora-card);
+  font-size: var(--text-body);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.aurora-pill-tab:hover {
+  border-color: var(--aurora-line-strong);
+  color: var(--aurora-ink);
+}
+
+.aurora-pill-tab[data-active],
+.aurora-pill-tab[aria-selected="true"] {
+  border-color: var(--aurora-navy);
+  color: var(--aurora-on-white);
+  background: var(--aurora-navy);
+}
+
+/* --- Lists and rows ------------------------------------------------------- */
+
+.aurora-list {
+  overflow: hidden;
+  border: 1px solid var(--aurora-line);
+  border-radius: var(--aurora-r-lg);
+  background: var(--aurora-card);
+}
+
+.aurora-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--aurora-line-soft);
+}
+
+.aurora-row:last-child {
+  border-bottom: 0;
+}
+
+.aurora-row-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--aurora-line-soft);
+}
+
+.aurora-row-stack:last-child {
+  border-bottom: 0;
+}
+
+.aurora-row-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.aurora-row-main h3 {
+  margin: 0 0 2px;
+  font-size: var(--text-title-sm);
+  font-weight: 600;
+}
+
+.aurora-row-main p {
+  margin: 0;
+  color: var(--aurora-muted);
+  font-size: var(--text-caption);
+}
+
+.aurora-row-amount {
+  color: var(--aurora-slate);
+  font-size: var(--text-body);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.aurora-icon-tile {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--aurora-r-md);
+  color: var(--aurora-violet-deep);
+  background: var(--aurora-tint-lavender);
+  font-size: var(--text-body);
+}
+
+.aurora-status-pill {
+  min-width: 64px;
+  padding: 2px 10px;
+  border-radius: var(--aurora-r-full);
+  color: var(--aurora-green-deep);
+  background: var(--aurora-tint-mint);
+  font-size: var(--text-micro);
+  font-weight: 600;
+  text-align: center;
+}
+
+.aurora-status-pill--working {
+  color: var(--aurora-violet-deep);
+  background: var(--aurora-tint-lavender);
+}
+
+.aurora-status-pill--failed {
+  color: var(--aurora-coral-deep);
+  background: var(--aurora-tint-rose);
+}
+
+.aurora-status-pill--muted {
+  color: var(--aurora-slate);
+  background: var(--aurora-surface);
+}
+
+/* --- Works grid ----------------------------------------------------------- */
+
+.aurora-works-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.aurora-work-card {
+  padding: 12px;
+  border: 1px solid var(--aurora-line);
+  border-radius: var(--aurora-r-lg);
+  background: var(--aurora-card);
+  transition: box-shadow 0.18s ease;
+}
+
+.aurora-work-card:hover {
+  box-shadow: var(--aurora-shadow-card);
+}
+
+.aurora-work-thumb {
+  position: relative;
+  display: grid;
+  height: 170px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--aurora-r-md);
+  background: var(--aurora-surface);
+}
+
+.aurora-work-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.aurora-work-thumb > strong {
+  color: var(--aurora-thumbnail-ink);
+  font-size: var(--text-display);
+  font-weight: 700;
+}
+
+.aurora-work-tag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  padding: 2px 8px;
+  border-radius: var(--aurora-r-sm);
+  color: var(--aurora-charcoal);
+  background: rgba(255, 255, 255, 0.75);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.aurora-work-card h3 {
+  margin: 12px 4px 2px;
+  font-size: var(--text-title-sm);
+  font-weight: 600;
+}
+
+.aurora-work-card p {
+  margin: 0 4px 4px;
+  color: var(--aurora-muted);
+  font-size: var(--text-caption);
+}
+
+.aurora-work-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px 4px 0;
+}
+
+/* --- Panels and stats ----------------------------------------------------- */
+
+.aurora-panel {
+  padding: 24px;
+  border: 1px solid var(--aurora-line);
+  border-radius: var(--aurora-r-lg);
+  background: var(--aurora-card);
+}
+
+.aurora-stat-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.aurora-stat {
+  padding: 20px 24px;
+}
+
+.aurora-stat > span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--aurora-muted);
+  font-size: var(--text-label);
+}
+
+.aurora-stat > strong {
+  font-size: var(--text-display);
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.aurora-stat small {
+  margin-left: 6px;
+  color: var(--aurora-muted);
+  font-size: var(--text-label);
+}
+
+.aurora-field-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.aurora-field dt {
+  color: var(--aurora-muted);
+  font-size: var(--text-label);
+}
+
+.aurora-field dd {
+  margin: 2px 0 0;
+  font-size: var(--text-body);
+}
+
+/* --- Drawer (generation composer) ----------------------------------------- */
+
+.aurora-drawer {
+  display: flex;
+  width: min(540px, 94vw);
+  max-width: none;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  padding: 28px 28px 20px;
+  border-left: 1px solid var(--aurora-line);
+  background: var(--aurora-card);
+  box-shadow: var(--aurora-shadow-modal);
+}
+
+.aurora-drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 40px 20px 0;
+  border-bottom: 1px solid var(--aurora-line);
+}
+
+.aurora-drawer-head > div {
+  min-width: 0;
+}
+
+.aurora-drawer-head-category {
+  color: var(--aurora-violet);
+  font-size: var(--text-micro);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.aurora-drawer-head h2 {
+  margin: 2px 0 4px;
+  font-size: var(--text-display-sm);
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.aurora-drawer-head p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--aurora-green);
+  font-size: var(--text-label);
+}
+
+.aurora-drawer-section {
+  padding: 20px 0 0;
+}
+
+.aurora-drawer-section h3 {
+  margin: 0 0 10px;
+  font-size: var(--text-title-sm);
+  font-weight: 600;
+}
+
+.aurora-composer {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid var(--aurora-line-strong);
+  border-radius: var(--aurora-r-lg);
+  background: var(--aurora-card);
+}
+
+.aurora-composer:focus-within {
+  border-color: var(--aurora-violet);
+  box-shadow: 0 0 0 1px var(--aurora-violet);
+}
+
+.aurora-composer label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.aurora-composer-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--aurora-line-soft);
+}
+
+.aurora-file-row {
+  min-height: 40px;
+  min-width: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--aurora-muted);
+  font-size: var(--text-body);
+  cursor: pointer;
+}
+
+.aurora-file-row:hover {
+  color: var(--aurora-ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.aurora-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.aurora-thumb {
+  display: grid;
+  width: 80px;
+  height: 80px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--aurora-line);
+  border-radius: var(--aurora-r-md);
+  background: var(--aurora-surface);
+  cursor: pointer;
+}
+
+.aurora-thumb:hover {
+  border-color: var(--aurora-line-strong);
+}
+
+.aurora-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.18s ease;
+}
+
+.aurora-thumb:hover img {
+  transform: scale(1.05);
+}
+
+/* --- Dialog (preview, account) -------------------------------------------- */
+
+.aurora-dialog {
+  width: min(560px, 94vw);
+  max-width: none;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 32px;
+  border-radius: var(--aurora-r-xl);
+  background: var(--aurora-card);
+  box-shadow: var(--aurora-shadow-modal);
+}
+
+.aurora-dialog--wide {
+  width: min(720px, 94vw);
+}
+
+.aurora-dialog--account {
+  width: min(380px, 92vw);
+  padding: 24px;
+}
+
+.aurora-modal-hero {
+  padding: 8px 0 20px;
+  border-bottom: 1px solid var(--aurora-line);
+  text-align: center;
+}
+
+.aurora-modal-hero .aurora-user-avatar {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 12px;
+  border-radius: var(--aurora-r-lg);
+  font-size: var(--text-title-sm);
+}
+
+.aurora-modal-hero h2 {
+  margin: 0 0 2px;
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+
+.aurora-modal-hero p {
+  margin: 0;
+  color: var(--aurora-muted);
+  font-size: var(--text-caption);
+}
+
+.aurora-modal-actions {
+  display: flex;
+  flex-direction: column;
+}
+
+.aurora-modal-actions a,
+.aurora-modal-actions button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--aurora-line-soft);
+  color: var(--aurora-charcoal);
+  background: transparent;
+  font-size: var(--text-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.aurora-modal-actions a:hover,
+.aurora-modal-actions button:hover {
+  background: var(--aurora-paper);
+}
+
+.aurora-plans {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.aurora-plan {
+  position: relative;
+  display: flex;
+  min-height: 136px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 20px;
+  border: 1px solid var(--aurora-line);
+  border-radius: var(--aurora-r-lg);
+  color: var(--aurora-ink);
+  background: var(--aurora-card);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.aurora-plan:hover {
+  border-color: var(--aurora-line-strong);
+  box-shadow: var(--aurora-shadow-card);
+}
+
+.aurora-plan em {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 2px 8px;
+  border-radius: var(--aurora-r-sm);
+  color: var(--aurora-on-white);
+  background: var(--aurora-violet);
+  font-size: var(--text-micro);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.aurora-plan span {
+  margin-bottom: 6px;
+  color: var(--aurora-muted);
+  font-size: var(--text-label);
+}
+
+.aurora-plan strong {
+  font-size: var(--text-display-sm);
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.aurora-plan small {
+  color: var(--aurora-muted);
+  font-size: var(--text-label);
+}
+
+/* --- Tints ---------------------------------------------------------------- */
+/* Declared last on purpose: these share specificity with the surfaces that use
+   them (.aurora-work-thumb, .aurora-icon-tile), so source order decides. */
+
+.aurora-tint-1 {
+  background: var(--aurora-tint-peach);
+}
+
+.aurora-tint-2 {
+  background: var(--aurora-tint-lavender);
+}
+
+.aurora-tint-3 {
+  background: var(--aurora-tint-sky);
+}
+
+.aurora-tint-4 {
+  background: var(--aurora-tint-mint);
+}
+
+.aurora-tint-5 {
+  background: var(--aurora-tint-yellow);
+}
+
+.aurora-tint-6 {
+  background: var(--aurora-tint-rose);
+}
+
+/* --- Responsive ----------------------------------------------------------- */
+
+@media (max-width: 1120px) {
+  .aurora-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .aurora-hero {
+    grid-template-columns: 1.15fr 0.85fr;
+    padding: 36px;
+  }
+
+  .aurora-hero-orbit {
+    width: 260px;
+    transform: scale(0.86);
+    transform-origin: right center;
+  }
+}
+
+@media (max-width: 900px) {
+  .aurora-sidebar {
+    display: none;
+  }
+
+  .aurora-sidebar-close,
+  .aurora-menu-button {
+    display: grid;
+  }
+
+  .aurora-topbar {
+    padding: 0 16px;
+  }
+
+  .aurora-topbar-brand {
+    display: block;
+  }
+
+  .aurora-hero {
+    grid-template-columns: 1fr 0.62fr;
+  }
+
+  .aurora-hero-orbit {
+    width: 210px;
+    transform: scale(0.72);
+  }
+}
+
+@media (max-width: 690px) {
+  .aurora-scroll {
+    padding: 16px 14px 48px;
+  }
+
+  .aurora-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .aurora-card {
+    padding: 18px;
+  }
+
+  .aurora-card-footer {
+    margin-right: -18px;
+    margin-bottom: -18px;
+    margin-left: -18px;
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .aurora-hero {
+    grid-template-columns: 1fr;
+    padding: 28px 24px;
+  }
+
+  .aurora-hero h1 {
+    --aurora-text-hero: 32px;
+  }
+
+  .aurora-hero-orbit {
+    display: none;
+  }
+
+  .aurora-hero-stats {
+    gap: 16px;
+  }
+
+  .aurora-page-head {
+    align-items: flex-start;
+  }
+
+  .aurora-page-head h1 {
+    --text-display: 26px;
+  }
+
+  .aurora-section-head {
+    margin-top: 32px;
+  }
+
+  .aurora-section-head h2 {
+    --text-display-sm: 22px;
+  }
+
+  .aurora-stat-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .aurora-works-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .aurora-work-thumb {
+    height: 130px;
+  }
+
+  .aurora-plans {
+    grid-template-columns: 1fr;
+  }
+
+  .aurora-plan {
+    min-height: 96px;
+  }
+
+  .aurora-dialog {
+    padding: 24px 20px;
+  }
+
+  .aurora-drawer {
+    padding: 22px 18px 16px;
+  }
+
+  .aurora-composer-tools {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-theme [data-slot="sheet-content"],
+  .aurora-theme [data-slot="sheet-overlay"],
+  .aurora-theme *,
+  .aurora-theme *::before,
+  .aurora-theme *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

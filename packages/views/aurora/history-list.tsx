@@ -25,11 +25,7 @@ import {
   type AuroraGeneration,
   type AuroraSkill,
 } from "@multica/core/aurora";
-import {
-  CollectionPageHeader,
-  CollectionPageState,
-} from "../layout/collection-page";
-import { PAGE_TOOLBAR } from "../layout/page-header";
+import { AuroraPageHeader, AuroraPageState } from "./aurora-page-header";
 import { AppLink } from "../navigation";
 import { useLocale, useT, useTimeAgo } from "../i18n";
 import { formatMicroCredits } from "./format";
@@ -119,27 +115,30 @@ export function HistoryList({ generationHref }: HistoryListProps = {}) {
     generationsQuery.isError || isAuroraDegraded(generationsQuery.data);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <CollectionPageHeader
+    <div className="aurora-page">
+      <AuroraPageHeader
         icon={History}
         title={t(($) => $.history.title)}
-        count={generations.length}
+        meta={<span>{generations.length}</span>}
       />
 
       <Tabs
         value={status}
         onValueChange={(next) => setStatus(next as AuroraHistoryStatusFilter)}
-        className="flex min-h-0 flex-1 flex-col gap-0"
+        className="gap-0"
       >
-        <div className={PAGE_TOOLBAR}>
-          <TabsList>
-            <TabsTrigger value={AURORA_HISTORY_STATUS_ALL}>
+        <div className="aurora-toolbar">
+          <TabsList className="aurora-pill-tabs">
+            <TabsTrigger
+              className="aurora-pill-tab"
+              value={AURORA_HISTORY_STATUS_ALL}
+            >
               {t(($) => $.history.status_all)}
             </TabsTrigger>
-            <TabsTrigger value="completed">
+            <TabsTrigger className="aurora-pill-tab" value="completed">
               {t(($) => $.composer.status.completed)}
             </TabsTrigger>
-            <TabsTrigger value="failed">
+            <TabsTrigger className="aurora-pill-tab" value="failed">
               {t(($) => $.composer.status.failed)}
             </TabsTrigger>
           </TabsList>
@@ -161,7 +160,7 @@ export function HistoryList({ generationHref }: HistoryListProps = {}) {
               }
             >
               <SelectTrigger
-                size="sm"
+                className="min-h-10 max-w-full"
                 aria-label={t(($) => $.history.skill_label)}
               >
                 <SelectValue />
@@ -180,10 +179,7 @@ export function HistoryList({ generationHref }: HistoryListProps = {}) {
           ) : null}
         </div>
 
-        <TabsContent
-          value={status}
-          className="min-h-0 flex-1 overflow-y-auto px-4 py-3"
-        >
+        <TabsContent value={status}>
           {generationsQuery.isPending ? (
             <HistorySkeleton />
           ) : loadFailed && !hasGenerations ? (
@@ -192,19 +188,19 @@ export function HistoryList({ generationHref }: HistoryListProps = {}) {
               onRetry={() => void generationsQuery.refetch()}
             />
           ) : !hasGenerations ? (
-            <CollectionPageState
+            <AuroraPageState
               icon={History}
               title={t(($) => $.history.empty_title)}
               description={t(($) => $.history.empty_description)}
             />
           ) : visible.length === 0 ? (
-            <CollectionPageState
+            <AuroraPageState
               icon={History}
               title={t(($) => $.history.no_match_title)}
               description={t(($) => $.history.no_match_description)}
             />
           ) : (
-            <ul className="rounded-lg border border-surface-border">
+            <ul className="aurora-list">
               {visible.map((generation) => (
                 <HistoryRow
                   key={generation.id}
@@ -257,9 +253,9 @@ function HistoryRow({
   const prompt = current.prompt || t(($) => $.works.no_prompt);
 
   return (
-    <li className="flex flex-col gap-2 border-b border-surface-border px-3 py-3 last:border-b-0">
+    <li className="aurora-row-stack">
       <div className="flex items-start gap-3">
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="aurora-row-main flex flex-col">
           <span className="truncate text-body">
             {generationHref ? (
               <AppLink
@@ -282,7 +278,7 @@ function HistoryRow({
           </span>
         </div>
         {credits !== null ? (
-          <span className="shrink-0 font-mono text-caption tabular-nums text-muted-foreground">
+          <span className="aurora-row-amount">
             {t(($) => $.credits, {
               credits: formatMicroCredits(credits, locale),
             })}
@@ -312,7 +308,7 @@ function HistorySkeleton() {
   return (
     <div className="flex flex-col gap-2">
       {Array.from({ length: 3 }, (_, index) => (
-        <Skeleton key={index} className="h-24 w-full rounded-lg" />
+        <Skeleton key={index} className="h-24 w-full rounded-xl" />
       ))}
     </div>
   );

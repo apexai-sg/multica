@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ApiError } from "@multica/core/api";
 import type { AuroraGenerationDetail, AuroraSkill } from "@multica/core/aurora";
@@ -145,6 +145,44 @@ describe("GenerationComposer", () => {
       data: payload({ availableMicro: 50 * MICRO }),
       isPending: false,
     });
+  });
+
+  it("groups the labelled prompt and submit action in the Aurora drawer", () => {
+    renderComposer({});
+    const drawer = screen.getByRole("dialog", { name: "Poster" });
+    expect(drawer).toHaveClass("aurora-drawer");
+    const heading = screen.getByRole("heading", { name: "Poster" });
+    const header = heading.closest(".aurora-drawer-head");
+    expect(header).not.toBeNull();
+    expect(header).toHaveClass("flex-row");
+    expect(header?.querySelector(".aurora-avatar--lg")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    expect(screen.getByText("Image")).toHaveClass("aurora-drawer-head-category");
+    const field = screen.getByLabelText("What should it make?");
+    expect(field).toHaveClass("border-0", "focus-visible:ring-0");
+    const form = field.closest("form");
+    expect(form).toHaveClass("aurora-composer");
+    expect(
+      within(form!).getByRole("button", { name: "Generate" }).parentElement,
+    ).toHaveClass("aurora-composer-tools");
+    expect(drawer).toHaveAccessibleDescription("76 credits per generation");
+  });
+
+  it("keeps the running status live while applying the shared working pill", async () => {
+    mocks.create.mockResolvedValue(payload(detail()));
+    mocks.detail.mockReturnValue({
+      data: payload(detail({ status: "running" })),
+      isPending: false,
+    });
+    renderComposer({});
+    await submitPrompt();
+    expect(screen.getByRole("status")).toHaveTextContent("Generating");
+    expect(screen.getByRole("status")).toHaveClass(
+      "aurora-status-pill",
+      "aurora-status-pill--working",
+    );
   });
 
   it("sends the prompt and follows the generation it started", async () => {

@@ -13,6 +13,7 @@ import { Button, buttonVariants } from "@multica/ui/components/ui/button";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import { Spinner } from "@multica/ui/components/ui/spinner";
 import { copyText } from "@multica/ui/lib/clipboard";
+import { cn } from "@multica/ui/lib/utils";
 import {
   isAuroraDegraded,
   isAuroraGenerationNotFoundError,
@@ -23,12 +24,9 @@ import {
   type AuroraGenerationDetail,
   type AuroraSkill,
 } from "@multica/core/aurora";
-import {
-  CollectionPageHeader,
-  CollectionPageState,
-} from "../layout/collection-page";
 import { AppLink } from "../navigation";
 import { useLocale, useT, useTimeAgo } from "../i18n";
+import { AuroraPageHeader, AuroraPageState } from "./aurora-page-header";
 import { formatElapsed, formatMicroCredits } from "./format";
 import {
   GenerationArtifacts,
@@ -87,15 +85,19 @@ export function GenerationDetail({
     isAuroraGenerationNotFoundError(detailQuery.error);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <CollectionPageHeader
+    <div className="aurora-page">
+      <AuroraPageHeader
         icon={Sparkles}
+        eyebrow={t(($) => $.detail.eyebrow)}
         title={t(($) => $.detail.title)}
         actions={
           backHref ? (
             <AppLink
               href={backHref}
-              className={buttonVariants({ variant: "outline", size: "sm" })}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "min-h-10 min-w-10",
+              )}
             >
               <ArrowLeft aria-hidden="true" className="size-3.5" />
               {t(($) => $.detail.back)}
@@ -103,24 +105,22 @@ export function GenerationDetail({
           ) : undefined
         }
       />
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        {detailQuery.isPending ? (
-          <DetailSkeleton />
-        ) : notFound ? (
-          <CollectionPageState
-            icon={FileQuestion}
-            title={t(($) => $.detail.not_found_title)}
-            description={t(($) => $.detail.not_found_description)}
-          />
-        ) : loadFailed || !generation ? (
-          <AuroraLoadFailed
-            title={t(($) => $.detail.load_failed_title)}
-            onRetry={() => void detailQuery.refetch()}
-          />
-        ) : (
-          <GenerationFields generation={generation} taskHref={taskHref} />
-        )}
-      </div>
+      {detailQuery.isPending ? (
+        <DetailSkeleton />
+      ) : notFound ? (
+        <AuroraPageState
+          icon={FileQuestion}
+          title={t(($) => $.detail.not_found_title)}
+          description={t(($) => $.detail.not_found_description)}
+        />
+      ) : loadFailed || !generation ? (
+        <AuroraLoadFailed
+          title={t(($) => $.detail.load_failed_title)}
+          onRetry={() => void detailQuery.refetch()}
+        />
+      ) : (
+        <GenerationFields generation={generation} taskHref={taskHref} />
+      )}
     </div>
   );
 }
@@ -161,10 +161,10 @@ function GenerationFields({
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-3">
-        <h2 className="text-label font-medium">
-          {t(($) => $.detail.process_title)}
-        </h2>
-        <dl className="grid gap-3 sm:grid-cols-2">
+        <div className="aurora-section-head">
+          <h2>{t(($) => $.detail.process_title)}</h2>
+        </div>
+        <dl className="aurora-field-grid aurora-panel sm:grid-cols-2">
           <Field label={t(($) => $.detail.status_label)}>
             <span className="flex items-center gap-2">
               <GenerationStatusBadge status={generation.status} />
@@ -219,10 +219,10 @@ function GenerationFields({
         ) : null}
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-label font-medium">
-          {t(($) => $.detail.result_title)}
-        </h2>
+      <section className="flex flex-col gap-3">
+        <div className="aurora-section-head">
+          <h2>{t(($) => $.detail.result_title)}</h2>
+        </div>
         <GenerationArtifacts generation={generation} assets={assets} />
         {terminal ? (
           <p className="text-caption text-muted-foreground">
@@ -271,8 +271,10 @@ function TaskSection({
   }
 
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-label font-medium">{t(($) => $.detail.task_title)}</h2>
+    <section className="flex flex-col gap-3">
+      <div className="aurora-section-head">
+        <h2>{t(($) => $.detail.task_title)}</h2>
+      </div>
       {taskHref ? (
         <AppLink
           href={taskHref(taskId)}
@@ -281,7 +283,7 @@ function TaskSection({
           {t(($) => $.detail.task_id_label)}: {taskId}
         </AppLink>
       ) : (
-        <div className="flex flex-col gap-1">
+        <div className="aurora-panel flex flex-col gap-2">
           <span className="text-caption text-muted-foreground">
             {t(($) => $.detail.task_id_label)}
           </span>
@@ -333,7 +335,7 @@ function Field({
   className?: string;
 }) {
   return (
-    <div className={className}>
+    <div className={cn("aurora-field", className)}>
       <dt className="text-caption text-muted-foreground">{label}</dt>
       <dd className="text-body">{children}</dd>
     </div>
@@ -361,9 +363,9 @@ function DetailSkeleton() {
   return (
     <div className="flex flex-col gap-4">
       <Skeleton className="h-5 w-24" />
-      <Skeleton className="h-28 w-full rounded-lg" />
+      <Skeleton className="h-28 w-full rounded-xl" />
       <Skeleton className="h-5 w-20" />
-      <Skeleton className="h-28 w-full rounded-lg" />
+      <Skeleton className="h-28 w-full rounded-xl" />
     </div>
   );
 }

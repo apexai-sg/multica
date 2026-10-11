@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { setApiInstance } from "@multica/core/api";
 import type { ApiClient } from "@multica/core/api/client";
@@ -15,7 +15,9 @@ vi.mock("@multica/core/hooks", async (importOriginal) => ({
   useWorkspaceId: () => "ws-1",
 }));
 
-import { RuntimeStatus } from "./runtime-status";
+import { AuroraRuntimeChip, RuntimeStatus } from "./runtime-status";
+import { NavigationProvider } from "../navigation";
+import { stubNavigationAdapter } from "../test/navigation";
 
 type RuntimeBody = unknown;
 
@@ -93,7 +95,82 @@ afterEach(() => {
   setApiInstance(null as unknown as ApiClient);
 });
 
+describe("AuroraRuntimeChip", () => {
+  function renderChip() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    renderWithI18n(<QueryClientProvider client={client}>
+      <NavigationProvider value={stubNavigationAdapter()}>
+        <AuroraRuntimeChip href="/acme/runtimes" />
+      </NavigationProvider>
+    </QueryClientProvider>);
+    return client;
+  }
+  it.each([
+    ["online", "Online", "aurora-dot"],
+    ["offline", "Offline", "aurora-dot--warning"],
+    ["provisioning", "Preparing", "aurora-dot--running"],
+    ["failed", "Failed", "aurora-dot--error"],
+    ["unconfigured", "Not set up", "aurora-dot--muted"],
+  ])("links a readable %s target with its shared visual vocabulary", async (state, label, dot) => {
+    installReads({ ...(TARGET as object), state });
+    const client = renderChip();
+    const link = await screen.findByRole("link", { name: label });
+    expect(link).toHaveAttribute("href", "/acme/runtimes");
+    expect(link.firstElementChild).toHaveClass(dot);
+    expect(link.firstElementChild).toHaveAttribute("aria-hidden", "true");
+    client.clear();
+  });
+  it("does not claim online when the node is not ready", async () => {
+    installReads({ state: "online", node: { ready: false } });
+    const client = renderChip();
+    expect(await screen.findByRole("link", { name: "Offline" })).toBeVisible();
+    client.clear();
+  });
+  it.each(["pending", "malformed", "failed"])("omits the chip for a %s read", async (kind) => {
+    installApi(() => {
+      if (kind === "pending") return new Promise(() => {});
+      if (kind === "failed") throw new Error("offline");
+      return { node: "broken" };
+    });
+    const client = renderChip();
+    if (kind !== "pending") await waitFor(() => expect(client.isFetching()).toBe(0));
+    expect(screen.queryByRole("link")).toBeNull();
+    client.clear();
+  });
+});
+
 describe("RuntimeStatus", () => {
+  it("wires the execution header and readable node state into the Aurora panel", async () => {
+    renderRuntime();
+    const state = await screen.findByText("Online");
+    const page = screen.getByRole("heading", { name: "Execution", level: 1 }).closest(".aurora-page");
+    expect(page).not.toBeNull();
+    expect(page?.querySelector("header .aurora-eyebrow")).toBeNull();
+    const panel = state.closest("section");
+    expect(panel).toHaveClass("aurora-panel");
+    expect(page).toContainElement(panel);
+    expect(state).toBeVisible();
+    expect(panel?.querySelector(".aurora-dot")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("wires the running list to Aurora rows and the shared readable status pill", async () => {
+    installReads(TARGET, [generation()]);
+    renderRuntime();
+    const row = await screen.findByRole("listitem");
+    expect(screen.getByRole("list")).toHaveClass("aurora-list");
+    expect(row).toHaveClass("aurora-row");
+    expect(within(row).getByText("a launch poster")).toHaveClass("aurora-row-main", "truncate");
+    expect(await within(row).findByText("Generating")).toHaveClass("aurora-status-pill", "aurora-status-pill--working");
+    expect(screen.getByRole("heading", { name: "Running generations", level: 2 }).parentElement).toHaveClass("aurora-section-head");
+  });
+
+  it("uses the panel radius for the pending node skeleton", () => {
+    installApi(() => new Promise(() => {}));
+    const { container } = renderRuntime();
+    expect(container.querySelector('[data-slot="skeleton"]')).toHaveClass("rounded-xl");
+    expect(screen.queryByText("Online")).not.toBeInTheDocument();
+  });
+
   it("shows why the runtime is not ready instead of a bare failure", async () => {
     installReads({
       workspaceId: "ws-1",

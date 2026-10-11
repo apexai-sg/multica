@@ -2,7 +2,7 @@
 
 import { Frown } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
-import { CollectionPageState } from "../layout/collection-page";
+import { AuroraPageState } from "./aurora-page-header";
 import { useT } from "../i18n";
 
 /**
@@ -26,7 +26,7 @@ export function AuroraLoadFailed({
 }) {
   const { t } = useT("aurora");
   return (
-    <CollectionPageState
+    <AuroraPageState
       icon={Frown}
       tone="destructive"
       role="alert"

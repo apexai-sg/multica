@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { RESOURCES } from "./index";
+import { createInstance } from "i18next";
 
 // Schema-level guard: every key in the EN bundle must have a counterpart
 // in every non-English bundle and vice-versa. Catches retrofit drift where a
@@ -13,7 +14,8 @@ import { RESOURCES } from "./index";
 // i18next plural rule: EN uses `_one` + `_other`; zh only uses `_other`
 // because Chinese has no grammatical number. Normalize both forms to
 // `_other` before comparing so a `{ key_one, key_other }` pair in EN
-// matches a single `{ key_other }` in zh.
+// matches a single `{ key_other }` in zh. French also has a legitimate
+// `_many` category for exact millions; it belongs to the same key family.
 
 // Derive the canonical namespace list from disk so the test fails if a JSON
 // file ships without a matching RESOURCES entry. Without this guard the test
@@ -41,7 +43,7 @@ function flattenKeys(obj: unknown, prefix = ""): string[] {
 }
 
 function normalizePlural(key: string): string {
-  return key.replace(/_(one|other)$/, "_count");
+  return key.replace(/_(one|many|other)$/, "_count");
 }
 
 function keySet(bundle: Record<string, unknown>): Set<string> {
@@ -52,6 +54,45 @@ const en = RESOURCES.en;
 const translatedLocales = Object.keys(RESOURCES).filter(
   (locale) => locale !== "en",
 );
+
+describe("Aurora directory plural families", () => {
+  it.each([
+    ["en", 0, "0 skills available", "skills runnable", "skills in the catalog"],
+    ["en", 1, "1 skill available", "skill runnable", "skill in the catalog"],
+    ["en", 3, "3 skills available", "skills runnable", "skills in the catalog"],
+    ["zh-Hans", 0, "0 个 skill 可用", "个 skill 可运行", "个 skill"],
+    ["zh-Hans", 1, "1 个 skill 可用", "个 skill 可运行", "个 skill"],
+    ["zh-Hans", 3, "3 个 skill 可用", "个 skill 可运行", "个 skill"],
+    ["ja", 0, "0 件が利用可能", "件が実行可能", "件のスキル"],
+    ["ja", 1, "1 件が利用可能", "件が実行可能", "件のスキル"],
+    ["ja", 3, "3 件が利用可能", "件が実行可能", "件のスキル"],
+    ["ko", 0, "0개 사용 가능", "개 실행 가능", "개 스킬"],
+    ["ko", 1, "1개 사용 가능", "개 실행 가능", "개 스킬"],
+    ["ko", 3, "3개 사용 가능", "개 실행 가능", "개 스킬"],
+    ["fr", 0, "0 compétence disponible", "compétence exécutable", "compétence au catalogue"],
+    ["fr", 1, "1 compétence disponible", "compétence exécutable", "compétence au catalogue"],
+    ["fr", 3, "3 compétences disponibles", "compétences exécutables", "compétences au catalogue"],
+    ["fr", 1000000, "1000000 compétences disponibles", "compétences exécutables", "compétences au catalogue"],
+  ] as const)("renders %s count %i without fallback or duplicated numerals", async (locale, count, visible, runnable, total) => {
+    const i18n = createInstance();
+    await i18n.init({ lng: locale, fallbackLng: false, resources: RESOURCES });
+    expect(i18n.t(($) => $.directory.visible_count, { ns: "aurora", count })).toBe(visible);
+    expect(i18n.t(($) => $.directory.stats_runnable, { ns: "aurora", count })).toBe(runnable);
+    expect(i18n.t(($) => $.directory.stats_total, { ns: "aurora", count })).toBe(total);
+  });
+  const families = ["visible_count", "stats_runnable", "stats_total"];
+  const categories = { en: ["one", "other"], "zh-Hans": ["other"], ja: ["other"], ko: ["other"], fr: ["many", "one", "other"] };
+  for (const [locale, suffixes] of Object.entries(categories)) {
+    it(`${locale} supplies exactly its grammatical count forms`, () => {
+      const keys = flattenKeys(RESOURCES[locale as keyof typeof RESOURCES].aurora);
+      for (const family of families) {
+        const base = `directory.${family}`;
+        expect(keys.filter((key) => key === base || key.startsWith(base + "_")).sort())
+          .toEqual(suffixes.map((suffix) => base + "_" + suffix).sort());
+      }
+    });
+  }
+});
 
 describe("locale bundle parity", () => {
   it("registers every JSON file in RESOURCES (EN)", () => {

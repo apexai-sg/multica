@@ -302,6 +302,82 @@ describe("HistoryList", () => {
     expect(screen.queryByText("No generations yet")).not.toBeInTheDocument();
   });
 
+  it("counts the loaded list in the Aurora header, not credits or filtered rows", async () => {
+    const user = userEvent.setup();
+    renderHistory();
+
+    const header = screen
+      .getByRole("heading", { name: "History", level: 1 })
+      .closest("header");
+    expect(header).toHaveClass("aurora-page-head");
+    expect(header?.querySelector(".aurora-eyebrow")).toBeNull();
+    expect(header?.querySelector(".aurora-page-meta")).toHaveTextContent(/^1$/);
+    expect(header).not.toHaveTextContent("credits");
+
+    await user.click(screen.getByRole("tab", { name: "Failed" }));
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    expect(header?.querySelector(".aurora-page-meta")).toHaveTextContent(/^1$/);
+  });
+
+  it("wires pill filters and stacked rows without a decorative icon tile", () => {
+    const { container } = renderHistory();
+    expect(container.firstChild).toHaveClass("aurora-page");
+    expect(screen.getByRole("tablist")).toHaveClass("aurora-pill-tabs");
+    for (const tab of screen.getAllByRole("tab")) {
+      expect(tab).toHaveClass("aurora-pill-tab");
+    }
+    expect(
+      screen.getByRole("combobox", { name: "Skill" }).parentElement,
+    ).toHaveClass("aurora-toolbar");
+    const row = screen.getByText("a launch poster").closest("li");
+    expect(row?.parentElement).toHaveClass("aurora-list");
+    expect(row).toHaveClass("aurora-row-stack");
+    expect(screen.getByText("a launch poster").parentElement).toHaveClass(
+      "aurora-row-main", "flex", "flex-col",
+    );
+    expect(screen.getByText("76 credits")).toHaveClass("aurora-row-amount");
+    expect(row?.querySelector(".aurora-icon-tile")).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: "a launch poster" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the skill trigger at the touch target floor within the toolbar", () => {
+    renderHistory();
+    const trigger = screen.getByRole("combobox", { name: "Skill" });
+    expect(trigger).toHaveClass("min-h-10", "max-w-full");
+    expect(trigger).toHaveAttribute("data-size", "default");
+  });
+
+  it("uses Aurora empty and no-match states without changing filter recovery", async () => {
+    install([]);
+    const empty = renderHistory();
+    expect(
+      screen.getByText("No generations yet").closest(".aurora-empty"),
+    ).not.toBeNull();
+    empty.unmount();
+    install([generation()]);
+    renderHistory();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("tab", { name: "Failed" }));
+    expect(
+      screen.getByText("Nothing matches these filters").closest(".aurora-empty"),
+    ).not.toBeNull();
+    await user.click(screen.getByRole("tab", { name: "All" }));
+    expect(screen.getByText("a launch poster")).toBeInTheDocument();
+  });
+
+  it("keeps pending history as card-radius placeholders rather than an empty claim", () => {
+    mocks.generations.mockReturnValue({ data: undefined, isPending: true });
+    const { container } = renderHistory();
+    const placeholders = container.querySelectorAll("[data-slot='skeleton']");
+    expect(placeholders).toHaveLength(3);
+    for (const placeholder of placeholders) {
+      expect(placeholder).toHaveClass("rounded-xl");
+    }
+    expect(screen.queryByText("No generations yet")).not.toBeInTheDocument();
+  });
+
   it("links each row to the app's generation detail route when it provides one", () => {
     renderWithI18n(
       <NavigationProvider value={stubNavigationAdapter()}>

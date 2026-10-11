@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { CircleAlert, Gauge } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
-import { Badge } from "@multica/ui/components/ui/badge";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import {
+  isAuroraDegraded,
   isAuroraGenerationTerminal,
   useAuroraGenerationDetail,
   useAuroraGenerations,
@@ -14,9 +14,10 @@ import {
   type AuroraGeneration,
   type AuroraRuntimeState,
 } from "@multica/core/aurora";
-import { CollectionPageHeader } from "../layout/collection-page";
+import { AuroraPageHeader } from "./aurora-page-header";
 import { useT } from "../i18n";
-import { generationStatusLabel } from "./labels";
+import { AppLink } from "../navigation";
+import { GenerationStatusBadge } from "./generation-artifacts";
 
 /**
  * The workspace's execution view.
@@ -31,20 +32,40 @@ import { generationStatusLabel } from "./labels";
  * screen only reports and guides.
  */
 
-// The same visual vocabulary the runtime manager uses for health
-// (packages/views/runtimes/components/shared.tsx): a semantic dot and a shared
-// token tone, so a node reads the same here as it does there.
-const STATE_VISUAL: Record<
+/**
+ * The runtime state vocabulary, in one place: the dot class, the pill modifier
+ * and the tonal text class. Exported because three surfaces name the same five
+ * states — this page, the directory hero and the topbar chip — and a second
+ * mapping would be a second thing to keep in step.
+ */
+export const AURORA_RUNTIME_VISUAL: Record<
   AuroraRuntimeState,
-  { dot: string; tone: string }
+  { dot: string; pill: string; text: string }
 > = {
-  offline: { dot: "bg-warning", tone: "text-warning" },
-  online: { dot: "bg-success", tone: "text-success" },
-  provisioning: { dot: "bg-info", tone: "text-info" },
-  failed: { dot: "bg-destructive", tone: "text-destructive" },
+  online: {
+    dot: "aurora-dot",
+    pill: "aurora-mini-label",
+    text: "text-success",
+  },
+  offline: {
+    dot: "aurora-dot aurora-dot--warning",
+    pill: "aurora-mini-label aurora-mini-label--warning",
+    text: "text-warning",
+  },
+  provisioning: {
+    dot: "aurora-dot aurora-dot--running",
+    pill: "aurora-mini-label aurora-mini-label--running",
+    text: "text-info",
+  },
+  failed: {
+    dot: "aurora-dot aurora-dot--error",
+    pill: "aurora-mini-label aurora-mini-label--error",
+    text: "text-destructive",
+  },
   unconfigured: {
-    dot: "bg-muted-foreground/40",
-    tone: "text-muted-foreground",
+    dot: "aurora-dot aurora-dot--muted",
+    pill: "aurora-mini-label aurora-mini-label--muted",
+    text: "text-muted-foreground",
   },
 };
 
@@ -79,42 +100,43 @@ export function RuntimeStatus() {
   }, []);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <CollectionPageHeader icon={Gauge} title={t(($) => $.runtime.title)} />
+    <div className="aurora-page">
+      <AuroraPageHeader
+        icon={Gauge}
+        title={t(($) => $.runtime.title)}
+      />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        <div className="flex flex-col gap-6">
-          {runtime.isPending ? (
-            <Skeleton className="h-16 w-full rounded-lg" />
+      <div className="flex flex-col gap-6">
+        {runtime.isPending ? (
+          <Skeleton className="h-16 w-full rounded-xl" />
+        ) : (
+          <RuntimeNodeCard
+            target={target}
+            onRetry={() => void runtime.refetch()}
+            retrying={runtime.isFetching}
+          />
+        )}
+
+        <section className="flex flex-col gap-3">
+          <div className="aurora-section-head">
+            <h2>{t(($) => $.runtime.generations_title)}</h2>
+          </div>
+          {active.length === 0 ? (
+            <p className="text-body text-muted-foreground">
+              {t(($) => $.runtime.generations_empty)}
+            </p>
           ) : (
-            <RuntimeNodeCard
-              target={target}
-              onRetry={() => void runtime.refetch()}
-              retrying={runtime.isFetching}
-            />
+            <ul className="aurora-list">
+              {active.map((generation) => (
+                <ActiveGenerationRow
+                  key={generation.id}
+                  generation={generation}
+                  onSettled={markSettled}
+                />
+              ))}
+            </ul>
           )}
-
-          <section className="flex flex-col gap-2">
-            <h2 className="text-label font-medium">
-              {t(($) => $.runtime.generations_title)}
-            </h2>
-            {active.length === 0 ? (
-              <p className="text-body text-muted-foreground">
-                {t(($) => $.runtime.generations_empty)}
-              </p>
-            ) : (
-              <ul className="rounded-lg border border-surface-border">
-                {active.map((generation) => (
-                  <ActiveGenerationRow
-                    key={generation.id}
-                    generation={generation}
-                    onSettled={markSettled}
-                  />
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
+        </section>
       </div>
     </div>
   );
@@ -138,7 +160,7 @@ function RuntimeNodeCard({
 }) {
   const { t } = useT("aurora");
   const state = target?.state ?? "unconfigured";
-  const visual = STATE_VISUAL[state];
+  const visual = AURORA_RUNTIME_VISUAL[state];
   // Recovery only re-reads the projection; it never provisions or restarts a node.
   const recovery =
     state === "failed" || state === "unconfigured" || state === "offline";
@@ -152,12 +174,12 @@ function RuntimeNodeCard({
     (awaitingFirstGeneration ? "runtime_not_provisioned" : "runtime_offline");
 
   return (
-    <section className="flex flex-col gap-2 rounded-lg border border-surface-border p-3">
+    <section className="aurora-panel flex flex-col gap-2">
       <div className="flex items-center gap-2">
         {state === "failed" ? (
           <CircleAlert
             aria-hidden="true"
-            className={`size-3.5 shrink-0 ${visual.tone}`}
+            className={`size-3.5 shrink-0 ${visual.text}`}
           />
         ) : (
           <span
@@ -165,7 +187,7 @@ function RuntimeNodeCard({
             className={`size-2 shrink-0 rounded-full ${visual.dot}`}
           />
         )}
-        <span className={`text-body font-medium ${visual.tone}`}>
+        <span className={`text-body font-medium ${visual.text}`}>
           {t(($) => $.runtime.status[state])}
         </span>
       </div>
@@ -209,7 +231,6 @@ function ActiveGenerationRow({
   const { t } = useT("aurora");
   const detail = useAuroraGenerationDetail(generation.id);
   const current = detail.data?.value ?? generation;
-  const status = generationStatusLabel(current.status);
 
   useEffect(() => {
     if (isAuroraGenerationTerminal(current.status)) {
@@ -218,13 +239,32 @@ function ActiveGenerationRow({
   }, [current.status, generation.id, onSettled]);
 
   return (
-    <li className="flex items-center gap-3 border-b border-surface-border px-3 py-2 last:border-b-0">
-      <span className="min-w-0 flex-1 truncate text-body">
+    <li className="aurora-row">
+      <span className="aurora-row-main truncate">
         {current.prompt || t(($) => $.works.no_prompt)}
       </span>
-      <Badge variant="secondary" className="shrink-0">
-        {t(($) => $.composer.status[status])}
-      </Badge>
+      <GenerationStatusBadge status={current.status} className="shrink-0" />
     </li>
+  );
+}
+
+/** The runtime state, as a link to the page that explains it. Renders nothing
+ *  until the read resolves: no chip beats a wrong one. */
+export function AuroraRuntimeChip({ href }: { href: string }) {
+  const { t } = useT("aurora");
+  const runtime = useAuroraRuntime();
+  const target = runtime.data?.value;
+  if (
+    !target || runtime.isPending || runtime.isError ||
+    isAuroraDegraded(runtime.data)
+  ) return null;
+  return (
+    <AppLink href={href} className="aurora-status-chip">
+      <span
+        aria-hidden="true"
+        className={AURORA_RUNTIME_VISUAL[target.state].dot}
+      />
+      {t(($) => $.runtime.status[target.state])}
+    </AppLink>
   );
 }

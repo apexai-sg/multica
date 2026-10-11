@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type {
   AuroraAsset,
@@ -63,6 +63,7 @@ function redirectResponse(): Response {
 }
 
 import { WorksList } from "./works-list";
+import { avatarInitial, tintIndex } from "./aurora-avatar-helpers";
 import { toast } from "sonner";
 
 const MICRO = 1_000_000;
@@ -127,6 +128,61 @@ describe("WorksList", () => {
     mocks.generations.mockReturnValue(read([generation()]));
     mocks.assets.mockReturnValue(read([asset()]));
     mocks.skills.mockReturnValue(read([POSTER]));
+  });
+
+  it("renders work cards with canonical tints and decorative image metadata", () => {
+    const { container } = renderWorks();
+    const heading = screen.getByRole("heading", { name: "png", level: 3 });
+    const card = heading.closest("li")!;
+    expect(card).toHaveClass("aurora-work-card");
+    expect(card.parentElement).toHaveClass("aurora-works-grid");
+    const thumb = card.querySelector(".aurora-work-thumb")!;
+    expect(thumb).toHaveClass("aurora-tint-" + tintIndex("asset-1"));
+    expect(thumb).toHaveAttribute("aria-hidden", "true");
+    expect(thumb.querySelector("img")).toHaveAttribute("src", asset().mediaUrl);
+    expect(thumb.querySelector("img")).toHaveAttribute("alt", "");
+    expect(thumb.querySelector("img")).toHaveAttribute("loading", "lazy");
+    expect(within(card).queryByRole("img")).not.toBeInTheDocument();
+    expect(card.querySelector("p")).toHaveTextContent("image");
+    expect(container.querySelector(".aurora-page-head")).toBeInTheDocument();
+    expect(screen.getByText("a launch poster").closest("li")).toHaveClass("aurora-row");
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("uses decorative initials for files the shared predicate cannot preview", () => {
+    const files = [
+      asset({ id: "relative", mediaUrl: "/poster.png", format: "Relative image" }),
+      asset({ id: "document", kind: "future-kind", format: "Future format" }),
+    ];
+    mocks.assets.mockReturnValue(read(files));
+    renderWorks();
+    for (const file of files) {
+      const card = screen.getByRole("heading", { name: file.format! }).closest("li")!;
+      const thumb = card.querySelector(".aurora-work-thumb")!;
+      expect(thumb).toHaveClass("aurora-tint-" + tintIndex(file.id));
+      expect(thumb).toHaveAttribute("aria-hidden", "true");
+      expect(thumb.querySelector("img")).toBeNull();
+      expect(thumb.querySelector("strong")).toHaveTextContent(avatarInitial(file.format!));
+      expect(card.querySelector("p")).toHaveTextContent(file.kind);
+      expect(within(card).getByRole("button", { name: "Download" })).toBeEnabled();
+    }
+  });
+
+  it("does not add a detail line when the format already names the kind", () => {
+    mocks.assets.mockReturnValue(read([asset({ kind: "future-kind", format: "future-kind" })]));
+    renderWorks();
+    const card = screen.getByRole("heading", { name: "future-kind" }).closest("li")!;
+    expect(card.querySelector("p")).toBeNull();
+    expect(card.querySelector(".aurora-work-thumb")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("stacks generation metadata and lets intact file actions wrap on narrow cards", () => {
+    renderWorks();
+    expect(screen.getByText("a launch poster").parentElement).toHaveClass("flex", "flex-col");
+    const download = screen.getByRole("button", { name: "Download" });
+    expect(download.parentElement).toHaveClass("flex-wrap");
+    expect(download).toHaveClass("shrink-0");
+    expect(download.querySelector("svg")).toHaveClass("shrink-0");
   });
 
   it("lists a generation with the skill that produced it", () => {

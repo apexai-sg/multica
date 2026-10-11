@@ -17,6 +17,28 @@
       "content": "Contenu",
       "office": "Bureautique",
       "other": "Autre"
+    },
+    "eyebrow": "OUTILS IA",
+    "hero_title": "Choisissez une compétence, Aurora s'en charge.",
+    "stats_runnable_one": "compétence exécutable",
+    "stats_runnable_many": "compétences exécutables",
+    "stats_runnable_other": "compétences exécutables",
+    "stats_total_one": "compétence au catalogue",
+    "stats_total_many": "compétences au catalogue",
+    "stats_total_other": "compétences au catalogue",
+    "visible_count_one": "{{count}} compétence disponible",
+    "visible_count_many": "{{count}} compétences disponibles",
+    "visible_count_other": "{{count}} compétences disponibles",
+    "ready": "Prêt",
+    "clear_filters": "Afficher toutes les compétences",
+    "inputs": {
+      "text": "Texte",
+      "image": "Images",
+      "document": "Documents",
+      "audio": "Audio",
+      "video": "Vidéo",
+      "spreadsheet": "Tableurs",
+      "other": "Autre"
     }
   },
   "composer": {
@@ -76,7 +98,8 @@
     "delete_description": "Le fichier est supprimé du stockage et ne peut pas être récupéré.",
     "delete_confirm": "Supprimer le fichier",
     "no_prompt": "Aucun prompt",
-    "skill_unknown": "Skill inconnu"
+    "skill_unknown": "Skill inconnu",
+    "eyebrow": "CRÉATIONS"
   },
   "history": {
     "title": "Historique",
@@ -116,7 +139,8 @@
     "task_copy": "Copier l'ID de tâche",
     "task_copied": "Copié",
     "task_copy_failed": "Échec de la copie",
-    "task_unavailable": "Cette application n'a pas encore de page de tâche. Copiez l'ID pour inspecter l'exécution ailleurs."
+    "task_unavailable": "Cette application n'a pas encore de page de tâche. Copiez l'ID pour inspecter l'exécution ailleurs.",
+    "eyebrow": "GÉNÉRATION"
   },
   "billing": {
     "title": "Crédits",
@@ -205,6 +229,14 @@
     },
     "generations_title": "Générations en cours",
     "generations_empty": "Aucune génération en cours."
+  },
+  "shell": {
+    "brand_tagline": "AI STUDIO",
+    "menu_open": "Ouvrir le menu",
+    "menu_close": "Fermer le menu",
+    "account_menu": "Compte",
+    "nav_group_work": "Espace de travail",
+    "nav_group_account": "Compte"
   },
   "workspace": {
     "unavailable_title": "Cet espace de travail n'est pas disponible",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { CreditCard, Wallet } from "lucide-react";
+import { Wallet } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
 import { Progress } from "@multica/ui/components/ui/progress";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
@@ -22,9 +22,9 @@ import {
 } from "@multica/core/aurora";
 import { useWorkspaceSlug } from "@multica/core/paths";
 import {
-  CollectionPageHeader,
-  CollectionPageState,
-} from "../layout/collection-page";
+  AuroraPageHeader,
+  AuroraPageState,
+} from "./aurora-page-header";
 import { useAppOrigin, useNavigation } from "../navigation";
 import { openExternal } from "../platform";
 import { useLocale, useT } from "../i18n";
@@ -174,143 +174,162 @@ export function AuroraBilling() {
   const checkoutError = checkout.error ?? topupCheckout.error;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <CollectionPageHeader icon={Wallet} title={t(($) => $.billing.title)} />
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        {isLoading ? (
-          <BillingSkeleton />
-        ) : loadFailed ? (
-          <AuroraLoadFailed
-            title={t(($) => $.billing.load_failed_title)}
-            onRetry={() => {
-              void balanceQuery.refetch();
-              void transactionsQuery.refetch();
-              void subscriptionQuery.refetch();
-              void topupsQuery.refetch();
-            }}
-          />
-        ) : (
-          <div className="flex flex-col gap-6">
+    <div className="aurora-page">
+      <AuroraPageHeader
+        icon={Wallet}
+        title={t(($) => $.billing.title)}
+      />
+      {isLoading ? (
+        <BillingSkeleton />
+      ) : loadFailed ? (
+        <AuroraLoadFailed
+          title={t(($) => $.billing.load_failed_title)}
+          onRetry={() => {
+            void balanceQuery.refetch();
+            void transactionsQuery.refetch();
+            void subscriptionQuery.refetch();
+            void topupsQuery.refetch();
+          }}
+        />
+      ) : (
+        <div className="flex flex-col gap-6">
+          <div className="aurora-stat-cards">
+            <article className="aurora-panel aurora-stat">
+              <span>{t(($) => $.billing.balance_title)}</span>
+              <strong>{balance}</strong>
+            </article>
             {subscription ? (
-              <PlanSection
-                subscription={subscription}
-                pending={checkout.isPending}
-                canCheckout={returnURLs !== null}
-                onSubscribe={(tier) => {
-                  if (!returnURLs) return;
-                  checkout.mutate(
-                    { tier, billingCycle: "monthly", ...returnURLs },
-                    {
-                      onSuccess: (checkoutUrl) =>
-                        openExternal(checkoutUrl, { webTarget: "same-tab" }),
-                    },
-                  );
-                }}
-              />
+              <article className="aurora-panel aurora-stat">
+                <span>{t(($) => $.billing.subscription.usage_label)}</span>
+                <strong>
+                  {t(($) => $.billing.subscription.usage_value, {
+                    used: subscription.usage.generationsUsedThisMonth,
+                    limit: subscription.limits.generationsPerMonth,
+                  })}
+                </strong>
+              </article>
             ) : null}
-
-            {checkoutError ? (
-              <p role="alert" className="text-caption text-destructive">
-                {isAuroraCheckoutConflictError(checkoutError)
-                  ? t(($) => $.billing.checkout.already_subscribed)
-                  : isAuroraPaymentsUnavailableError(checkoutError)
-                    ? t(($) => $.billing.checkout.unavailable)
-                    : t(($) => $.billing.checkout.failed)}
-              </p>
-            ) : null}
-
-            <section className="flex flex-col gap-1 rounded-lg border border-surface-border p-4">
-              <span className="text-caption text-muted-foreground">
-                {t(($) => $.billing.balance_title)}
-              </span>
-              <span className="font-mono text-display-sm tabular-nums">
-                {balance}
-              </span>
-            </section>
-
-            <section className="flex flex-col gap-2">
-              <h2 className="text-label font-medium">
-                {t(($) => $.billing.topup.title)}
-              </h2>
-              {topups.length === 0 ? (
-                <p className="text-caption text-muted-foreground">
-                  {t(($) => $.billing.topup.empty)}
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {topups.map((topup) => (
-                    <Button
-                      key={topup.id}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={topupCheckout.isPending || !returnURLs}
-                      onClick={() => {
-                        if (!returnURLs) return;
-                        topupCheckout.mutate(
-                          {
-                            topupId: topup.id,
-                            ...returnURLs,
-                          },
-                          {
-                            onSuccess: (checkoutUrl) =>
-                              openExternal(checkoutUrl, {
-                                webTarget: "same-tab",
-                              }),
-                          },
-                        );
-                      }}
-                    >
-                      <CreditCard aria-hidden="true" className="size-3.5" />
-                      {t(($) => $.billing.topup.pack, {
-                        credits: formatCredits(topup.credits, locale),
-                        price: t(
-                          ($) => $.billing.topup.packs[topupPackLabel(topup.id)].price,
-                        ),
-                      })}
-                    </Button>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="flex flex-col gap-2">
-              <h2 className="text-label font-medium">
-                {t(($) => $.billing.transactions_title)}
-              </h2>
-              {transactions.length === 0 ? (
-                <CollectionPageState
-                  icon={Wallet}
-                  title={t(($) => $.billing.transactions_empty_title)}
-                  description={t(
-                    ($) => $.billing.transactions_empty_description,
-                  )}
-                />
-              ) : (
-                <ul className="rounded-lg border border-surface-border">
-                  {transactions.map((transaction) => (
-                    <TransactionRow
-                      key={transaction.id}
-                      transaction={transaction}
-                      // A row the catalog can attribute names the skill; one it
-                      // cannot shows only the kind, which is the same label the
-                      // reader would have fallen back to anyway.
-                      skillName={referenceSkillName(transaction)}
-                      kindLabel={tBilling(
-                        ($) =>
-                          $.transaction.kind[
-                            ledgerKindLabel(transaction.kind)
-                          ],
-                      )}
-                    />
-                  ))}
-                </ul>
-              )}
-            </section>
+            <article className="aurora-panel aurora-stat">
+              <span>{t(($) => $.billing.transactions_title)}</span>
+              <strong>{transactions.length}</strong>
+            </article>
           </div>
-        )}
-      </div>
+          {subscription ? (
+            <PlanSection
+              subscription={subscription}
+              pending={checkout.isPending}
+              canCheckout={returnURLs !== null}
+              onSubscribe={(tier) => {
+                if (!returnURLs) return;
+                checkout.mutate(
+                  { tier, billingCycle: "monthly", ...returnURLs },
+                  {
+                    onSuccess: (checkoutUrl) =>
+                      openExternal(checkoutUrl, { webTarget: "same-tab" }),
+                  },
+                );
+              }}
+            />
+          ) : null}
+
+          {checkoutError ? (
+            <p role="alert" className="text-caption text-destructive">
+              {isAuroraCheckoutConflictError(checkoutError)
+                ? t(($) => $.billing.checkout.already_subscribed)
+                : isAuroraPaymentsUnavailableError(checkoutError)
+                  ? t(($) => $.billing.checkout.unavailable)
+                  : t(($) => $.billing.checkout.failed)}
+            </p>
+          ) : null}
+
+          <section className="flex flex-col gap-2">
+            <div className="aurora-section-head">
+              <h2>{t(($) => $.billing.topup.title)}</h2>
+            </div>
+            {topups.length === 0 ? (
+              <p className="text-caption text-muted-foreground">
+                {t(($) => $.billing.topup.empty)}
+              </p>
+            ) : (
+              <div className="aurora-plans">
+                {topups.map((topup) => (
+                  <button
+                    key={topup.id}
+                    type="button"
+                    className="aurora-plan disabled:pointer-events-none disabled:opacity-50"
+                    aria-label={t(($) => $.billing.topup.pack, {
+                      credits: formatCredits(topup.credits, locale),
+                      price: t(
+                        ($) => $.billing.topup.packs[topupPackLabel(topup.id)].price,
+                      ),
+                    })}
+                    aria-busy={topupCheckout.isPending}
+                    disabled={topupCheckout.isPending || !returnURLs}
+                    onClick={() => {
+                      if (!returnURLs) return;
+                      topupCheckout.mutate(
+                        {
+                          topupId: topup.id,
+                          ...returnURLs,
+                        },
+                        {
+                          onSuccess: (checkoutUrl) =>
+                            openExternal(checkoutUrl, {
+                              webTarget: "same-tab",
+                            }),
+                        },
+                      );
+                    }}
+                  >
+                    <strong>
+                      {t(($) => $.credits, {
+                        credits: formatCredits(topup.credits, locale),
+                      })}
+                    </strong>
+                    <small>
+                      {t(($) => $.billing.topup.packs[topupPackLabel(topup.id)].price)}
+                    </small>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="flex flex-col gap-2">
+            <div className="aurora-section-head">
+              <h2>{t(($) => $.billing.transactions_title)}</h2>
+            </div>
+            {transactions.length === 0 ? (
+              <AuroraPageState
+                icon={Wallet}
+                title={t(($) => $.billing.transactions_empty_title)}
+                description={t(
+                  ($) => $.billing.transactions_empty_description,
+                )}
+              />
+            ) : (
+              <ul className="aurora-list">
+                {transactions.map((transaction) => (
+                  <TransactionRow
+                    key={transaction.id}
+                    transaction={transaction}
+                    // A row the catalog can attribute names the skill; one it
+                    // cannot shows only the kind, which is the same label the
+                    // reader would have fallen back to anyway.
+                    skillName={referenceSkillName(transaction)}
+                    kindLabel={tBilling(
+                      ($) =>
+                        $.transaction.kind[
+                          ledgerKindLabel(transaction.kind)
+                        ],
+                    )}
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      )}
     </div>
   );
 }
@@ -366,13 +385,13 @@ function PlanSection({
     subscription.status === "" || subscription.status === "canceled";
 
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-surface-border p-4">
+    <section className="aurora-panel flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 flex-col">
-          <span className="text-caption text-muted-foreground">
+          <span className="aurora-eyebrow">
             {t(($) => $.billing.subscription.title)}
           </span>
-          <span className="truncate text-label font-medium">
+          <span className="aurora-card-title">
             {t(
               ($) =>
                 $.billing.subscription.tiers[subscriptionTierLabel(subscription.tier)]
@@ -406,12 +425,6 @@ function PlanSection({
       ) : null}
 
       <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between gap-3 text-caption text-muted-foreground">
-          <span>{t(($) => $.billing.subscription.usage_label)}</span>
-          <span className="font-mono tabular-nums">
-            {t(($) => $.billing.subscription.usage_value, { used, limit })}
-          </span>
-        </div>
         <Progress
           value={percent}
           aria-label={t(($) => $.billing.subscription.usage_label)}
@@ -506,8 +519,8 @@ function TransactionRow({
         });
 
   return (
-    <li className="flex items-center gap-3 border-b border-surface-border px-3 py-2 last:border-b-0">
-      <div className="flex min-w-0 flex-1 flex-col">
+    <li className="aurora-row">
+      <div className="aurora-row-main flex flex-col">
         <span className="truncate text-body">{kindLabel}</span>
         {skillName ? (
           <span className="truncate text-caption text-muted-foreground">
@@ -516,7 +529,7 @@ function TransactionRow({
         ) : null}
       </div>
       <div className="flex shrink-0 flex-col items-end">
-        <span className="font-mono text-body tabular-nums">{amount}</span>
+        <span className="aurora-row-amount">{amount}</span>
         <span className="font-mono text-caption tabular-nums text-muted-foreground">
           {t(($) => $.billing.balance_after, {
             amount: formatMicroCredits(transaction.balanceAfterMicro, locale),
@@ -530,9 +543,9 @@ function TransactionRow({
 function BillingSkeleton() {
   return (
     <div className="flex flex-col gap-3">
-      <Skeleton className="h-24 w-full rounded-lg" />
+      <Skeleton className="h-24 w-full rounded-xl" />
       <Skeleton className="h-5 w-20" />
-      <Skeleton className="h-24 w-full rounded-lg" />
+      <Skeleton className="h-24 w-full rounded-xl" />
     </div>
   );
 }
