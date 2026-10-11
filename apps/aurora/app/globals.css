@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 @import "../../../packages/ui/styles/tokens.css";
 @import "../../../packages/ui/styles/base.css";
+@import "../../../packages/views/aurora/aurora.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -12,20 +13,21 @@
 @source "../app/**/*.{ts,tsx}";
 @source "../components/**/*.{ts,tsx}";
 
-/* Font stack. `--font-inter` is the next/font Inter family (+ its synthetic
-   size-adjusted fallback), set on <html> by inter.variable in app/layout.tsx.
+/* Font stack. `--font-geist-sans` is the next/font Geist family (+ its synthetic
+   size-adjusted fallback), set on <html> by geistSans.variable in app/layout.tsx.
    We compose `--font-sans` here in static CSS — rather than baking the CJK tail
    into next/font's `fallback` — so it can be overridden per `<html lang>` and
    stays CSP-safe (no inline <style>).
 
-   Default (en / zh-Hans / ko / fr): Latin chars render with Inter; CJK chars
+   Default (en / zh-Hans / ko / fr): Latin chars render with Geist; CJK chars
    fall through to the platform Chinese fonts, then Korean. Chinese MUST stay
    before Korean so Chinese users never get Korean Hanja glyph shapes (Hangul is
    a separate Unicode block, so Korean users still get Korean fonts for Hangul).
-   Same chain as apps/web/app/globals.css and
-   apps/desktop/src/renderer/src/globals.css — keep the three in step. */
+   The CJK fallback order stays aligned with web and desktop;
+   Aurora alone uses Geist for Latin text. */
 :root {
-  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI",
+  --font-sans:
+    var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI",
     "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Apple SD Gothic Neo",
     "Malgun Gothic", "Noto Sans CJK KR", sans-serif;
 }
@@ -36,11 +38,70 @@
    for shared ideographs. Promote a Japanese-first CJK chain only for Japanese.
    `[lang|="ja"]` is the BCP-47 language-range selector: it matches exactly `ja`
    or `ja-<region>` (layout.tsx emits `ja-JP`), never unrelated 3-letter subtags
-   such as `jam`. Inter still leads for Latin; zh/ko remain as a deep fallback. */
+   such as `jam`. Geist still leads for Latin; zh/ko remain as a deep fallback. */
 html[lang|="ja"] {
-  --font-sans: var(--font-inter), "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+  --font-sans:
+    var(--font-geist-sans), "Hiragino Sans", "Hiragino Kaku Gothic ProN",
     "Yu Gothic", "YuGothic", "Meiryo", "Noto Sans CJK JP", "Noto Sans JP",
     -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-    "Microsoft YaHei", "Noto Sans CJK SC", "Apple SD Gothic Neo", "Malgun Gothic",
-    "Noto Sans CJK KR", sans-serif;
+    "Microsoft YaHei", "Noto Sans CJK SC", "Apple SD Gothic Neo",
+    "Malgun Gothic", "Noto Sans CJK KR", sans-serif;
+}
+
+/* Aurora theme bridge — the DESIGN.md palette mapped onto Multica's semantic
+   tokens. This file belongs to one app, so the bridge ships in Aurora's CSS
+   bundle only: web and desktop keep the Multica palette, and every packages/ui
+   primitive rendered inside Aurora (Button, Input, Sheet, Dialog, Tabs,
+   Progress, Skeleton) picks the new palette up without a second theme.
+
+   The three --text-* overrides are DESIGN.md's floor, not a new scale: helper
+   text 13px, micro 12px, roomy body 16px. Every other step already matches. */
+:root {
+  --background: var(--aurora-paper);
+  --foreground: var(--aurora-ink);
+  --card: var(--aurora-card);
+  --card-foreground: var(--aurora-ink);
+  --popover: var(--aurora-card);
+  --popover-foreground: var(--aurora-ink);
+  --primary: var(--aurora-violet);
+  --primary-foreground: var(--aurora-on-white);
+  --secondary: var(--aurora-surface);
+  --secondary-foreground: var(--aurora-charcoal);
+  --muted: var(--aurora-surface);
+  --muted-foreground: var(--aurora-muted);
+  --accent: var(--aurora-surface);
+  --accent-foreground: var(--aurora-ink);
+  --destructive: var(--aurora-error);
+  --border: var(--aurora-line);
+  --input: var(--aurora-line-strong);
+  --ring: var(--aurora-violet);
+  --success: var(--aurora-green);
+  --warning: var(--aurora-warning);
+  --info: var(--aurora-violet);
+  --brand: var(--aurora-violet);
+  --brand-foreground: var(--aurora-on-white);
+  --faint-foreground: var(--aurora-soft-muted);
+  --app-shell: var(--aurora-paper);
+  --page-canvas: var(--aurora-paper);
+  --surface: var(--aurora-card);
+  --surface-foreground: var(--aurora-ink);
+  --surface-raised: var(--aurora-card);
+  --surface-hover: var(--aurora-surface);
+  --surface-selected: var(--aurora-surface);
+  --surface-selected-foreground: var(--aurora-ink);
+  --surface-border: var(--aurora-line);
+  --sidebar: var(--aurora-navy);
+  --sidebar-foreground: var(--aurora-on-white);
+  --sidebar-primary: var(--aurora-violet);
+  --sidebar-primary-foreground: var(--aurora-on-white);
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-foreground: var(--aurora-on-white);
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: var(--aurora-violet);
+  --text-caption: 13px;
+  --text-caption--line-height: 19px;
+  --text-micro: 12px;
+  --text-micro--line-height: 16px;
+  --text-body-lg: 16px;
+  --text-body-lg--line-height: 26px;
 }
