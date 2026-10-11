@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@multica/ui/components/ui/sheet";
 import type { NavigationAdapter } from "@multica/views/navigation";
 import { NavigationProvider } from "@multica/views/navigation";
 import { renderWithI18n } from "../test/render";
@@ -63,6 +64,52 @@ function shell(pathname: string) {
 function renderShell(pathname: string) { return renderWithI18n(shell(pathname)); }
 
 describe("AuroraShell", () => {
+  it.each([false, true])("keeps page Sheets independent of closed navigation (compact=%s)", async (compact) => {
+    stubCompact(compact);
+    const user = userEvent.setup();
+    renderWithI18n(
+      <NavigationProvider value={stubAdapter("/acme/skills")}>
+        <AuroraShell slug="acme">
+          <Sheet>
+            <SheetTrigger>Open generation</SheetTrigger>
+            <SheetContent><SheetTitle>Generation</SheetTitle></SheetContent>
+          </Sheet>
+        </AuroraShell>
+      </NavigationProvider>,
+    );
+    const opener = screen.getByRole("button", { name: "Open generation" });
+    await user.click(opener);
+    const dialog = await screen.findByRole("dialog", { name: "Generation" });
+    expect(document.querySelector('[data-slot="sheet-overlay"]')).toBeVisible();
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(opener).toHaveFocus();
+  });
+
+  it("keeps the mobile account genuinely nested and restores focus in two stages", async () => {
+    stubCompact(true);
+    const user = userEvent.setup();
+    renderShell("/acme/skills");
+    const menu = screen.getByRole("button", { name: "Open menu" });
+    await user.click(menu);
+    const account = await screen.findByRole("button", { name: "Account" });
+    await user.click(account);
+    const dialog = await screen.findByRole("dialog", { name: "Hannah Han" });
+    expect(document.querySelector('[data-slot="sheet-overlay"]')).toBeVisible();
+    expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeNull();
+    for (let index = 0; index < 5; index++) {
+      await user.tab();
+      await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    }
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Hannah Han" })).toBeNull());
+    expect(account).toHaveFocus();
+    expect(screen.getByRole("dialog", { name: "Aurora" })).toBeVisible();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(menu).toHaveFocus();
+  });
   it("wires the account and runtime destinations into the desktop chrome", async () => {
     const user = userEvent.setup();
     renderShell("/acme/skills");
@@ -72,6 +119,7 @@ describe("AuroraShell", () => {
     expect(screen.getByRole("link", { name: "Top up" })).toHaveAttribute("href", "/acme/billing");
     await user.click(screen.getByRole("button", { name: "Account" }));
     expect(await screen.findByRole("dialog", { name: "Hannah Han" })).toBeVisible();
+    expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeVisible();
   });
   it("opens the mobile navigation by keyboard and returns focus after Escape", async () => {
     stubCompact(true);

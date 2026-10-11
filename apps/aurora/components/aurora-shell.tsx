@@ -169,19 +169,21 @@ export function AuroraShell({
     </nav>
   );
 
-  return (
-    <Sheet open={compact && navOpen} onOpenChange={setNavOpen}>
-      <div className="aurora-app">
-        {/* Keep the primitive mounted through its exit lifecycle on resize;
-            removing the popup early leaves its internal mounted state behind. */}
-        <SheetContent side="left" showCloseButton={false} className="aurora-nav-drawer">
-          <SheetTitle className="sr-only">Aurora</SheetTitle>
-          {compact ? sidebar : null}
-        </SheetContent>
-        {compact ? null : sidebar}
+  const accountDialog = (
+    <AuroraAccountDialog
+      open={accountOpen}
+      onOpenChange={setAccountOpen}
+      creditsHref={routes.billing()}
+    />
+  );
 
-        <div className="aurora-main">
-          <header className="aurora-topbar">
+  return (
+    <div className="aurora-app">
+      {compact ? null : sidebar}
+      <div className="aurora-main">
+        <header className="aurora-topbar">
+          {/* Scope the modal context to navigation, never to page dialogs. */}
+          <Sheet open={compact && navOpen} onOpenChange={setNavOpen}>
             {compact ? (
               <SheetTrigger
                 type="button"
@@ -191,26 +193,27 @@ export function AuroraShell({
                 <Menu aria-hidden="true" className="size-4" />
               </SheetTrigger>
             ) : null}
-            <span className="aurora-topbar-brand">
-              Aurora <span>AI</span>
-            </span>
-            <div className="aurora-topbar-actions">
-              {/* The runtime state belongs in the chrome: every page here starts a
-                  generation, and a node that is offline is the reason the next
-                  one will not. */}
-              <AuroraRuntimeChip href={routes.runtime()} />
-            </div>
-          </header>
-          <main className="aurora-scroll">{children}</main>
-        </div>
-
-        <AuroraAccountDialog
-          open={accountOpen}
-          onOpenChange={setAccountOpen}
-          creditsHref={routes.billing()}
-        />
+            {/* Keep the popup mounted through its exit lifecycle on resize. */}
+            <SheetContent side="left" showCloseButton={false} className="aurora-nav-drawer">
+              <SheetTitle className="sr-only">Aurora</SheetTitle>
+              {compact ? sidebar : null}
+              {compact ? accountDialog : null}
+            </SheetContent>
+          </Sheet>
+          <span className="aurora-topbar-brand">
+            Aurora <span>AI</span>
+          </span>
+          <div className="aurora-topbar-actions">
+            {/* The runtime state belongs in the chrome: every page here starts a
+                generation, and a node that is offline is the reason the next
+                one will not. */}
+            <AuroraRuntimeChip href={routes.runtime()} />
+          </div>
+        </header>
+        <main className="aurora-scroll">{children}</main>
       </div>
-    </Sheet>
+      {compact ? null : accountDialog}
+    </div>
   );
 }
 
