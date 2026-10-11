@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Coins,
@@ -57,16 +57,39 @@ export function AuroraShell({
   const [compact, setCompact] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
 
+  const shellRef = useRef<HTMLDivElement>(null);
+  const closeAccountForResize = useEffectEvent(() => {
+    setAccountOpen(false);
+    return accountOpen;
+  });
+
   useEffect(() => {
     // Match the stylesheet exactly; existing useIsMobile uses a different cutoff.
     const media = window.matchMedia("(max-width: 900px)");
+    let focusFrame = 0;
     const sync = () => {
+      cancelAnimationFrame(focusFrame);
+      const interruptedAccount = closeAccountForResize();
       setCompact(media.matches);
       if (!media.matches) setNavOpen(false);
+      if (interruptedAccount) {
+        // The old opener is removed. Focus the new entry after modal cleanup.
+        focusFrame = requestAnimationFrame(() => {
+          shellRef.current?.querySelector<HTMLButtonElement>(
+            media.matches ? ".aurora-menu-button" : ".aurora-more-button",
+          )?.focus();
+        });
+      }
     };
-    sync();
+    // Initial synchronization is not an interrupted account interaction.
+    setCompact(media.matches);
     media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
+    return () => {
+      media.removeEventListener("change", sync);
+      cancelAnimationFrame(focusFrame);
+    };
+    // Effect Events read current state without resubscribing (not yet recognized by this lint version).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const workItems = [
@@ -178,7 +201,7 @@ export function AuroraShell({
   );
 
   return (
-    <div className="aurora-app">
+    <div ref={shellRef} className="aurora-app">
       {compact ? null : sidebar}
       <div className="aurora-main">
         <header className="aurora-topbar">

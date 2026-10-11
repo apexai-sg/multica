@@ -162,6 +162,38 @@ describe("AuroraShell", () => {
     await user.click(screen.getByRole("button", { name: "Open menu" }));
     expect(await screen.findByRole("link", { name: "Credits" })).toHaveAttribute("aria-current", "page");
   });
+  it.each([false, true])("closes an interrupted account on breakpoint change without resurrection (initial compact=%s)", async (initialCompact) => {
+    const resize = stubCompact(initialCompact);
+    const user = userEvent.setup();
+    renderShell("/acme/skills");
+    if (initialCompact) await user.click(screen.getByRole("button", { name: "Open menu" }));
+    await user.click(screen.getByRole("button", { name: "Account" }));
+    const dialog = await screen.findByRole("dialog", { name: "Hannah Han" });
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+
+    resize(!initialCompact);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(document.querySelector('[data-slot="sheet-overlay"]')).toBeNull();
+    expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeNull();
+    const entry = screen.getByRole("button", { name: initialCompact ? "Account" : "Open menu" });
+    await waitFor(() => expect(entry).toHaveFocus());
+    expect(screen.getByRole("main")).not.toHaveAttribute("aria-hidden");
+    await user.tab();
+    expect(document.activeElement).not.toBe(entry);
+    expect(document.documentElement).not.toHaveAttribute("data-base-ui-scroll-locked");
+
+    // Neither returning to the old layout nor opening navigation revives account.
+    resize(initialCompact);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    resize(true);
+    await user.click(screen.getByRole("button", { name: "Open menu" }));
+    expect(await screen.findByRole("dialog", { name: "Aurora" })).toBeVisible();
+    expect(screen.queryByRole("dialog", { name: "Hannah Han" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Account" }));
+    expect(await screen.findByRole("dialog", { name: "Hannah Han" })).toBeVisible();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Account" })).toHaveFocus());
+  });
   it("unmounts the open sheet on desktop resize without a residual modal lock", async () => {
     const resize = stubCompact(true);
     const user = userEvent.setup();
