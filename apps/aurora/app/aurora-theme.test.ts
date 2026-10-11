@@ -169,6 +169,12 @@ describe("aurora design layer", () => {
     expect(css).toMatch(/\.aurora-theme \[data-slot="input-group"\]:has\(> input\[data-slot="input-group-control"\]\)\s*\{[^}]*height: auto;/);
   });
 
+  it("keeps narrow toolbar tabs left-aligned and wraps competing controls", () => {
+    expect(css).toMatch(/\.aurora-toolbar\s*\{[^}]*flex-wrap: wrap;/);
+    expect(css).toMatch(/\.aurora-pill-tabs\s*\{[^}]*justify-content: flex-start;/);
+    expect(css).toMatch(/\.aurora-pill-tabs\s*\{[^}]*max-width: 100%;/);
+  });
+
   it("imports the stylesheet from the app's globals", () => {
     expect(globals).toContain("packages/views/aurora/aurora.css");
   });
