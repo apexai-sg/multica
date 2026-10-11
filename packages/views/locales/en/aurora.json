@@ -17,6 +17,22 @@
       "content": "Content",
       "office": "Office",
       "other": "Other"
+    },
+    "eyebrow": "AI TOOLS",
+    "hero_title": "Pick a skill. Aurora runs it.",
+    "stats_runnable": "skills runnable",
+    "stats_total": "skills in the catalog",
+    "visible_count": "{{visible}} skills available",
+    "ready": "Ready",
+    "clear_filters": "Show all skills",
+    "inputs": {
+      "text": "Text",
+      "image": "Images",
+      "document": "Documents",
+      "audio": "Audio",
+      "video": "Video",
+      "spreadsheet": "Spreadsheets",
+      "other": "Other"
     }
   },
   "composer": {
@@ -76,7 +92,8 @@
     "delete_description": "The file is removed from storage and cannot be recovered.",
     "delete_confirm": "Delete file",
     "no_prompt": "No prompt",
-    "skill_unknown": "Unknown skill"
+    "skill_unknown": "Unknown skill",
+    "eyebrow": "CREATIONS"
   },
   "history": {
     "title": "History",
@@ -90,7 +107,8 @@
     "skill_all": "All skills",
     "preview_label": "Preview {{format}}",
     "preview_description": "The full-size file this generation produced.",
-    "open_in_new_tab": "Open in new tab"
+    "open_in_new_tab": "Open in new tab",
+    "eyebrow": "HISTORY"
   },
   "detail": {
     "title": "Generation detail",
@@ -116,7 +134,8 @@
     "task_copy": "Copy task ID",
     "task_copied": "Copied",
     "task_copy_failed": "Could not copy",
-    "task_unavailable": "This app has no task page yet. Copy the ID to inspect the run elsewhere."
+    "task_unavailable": "This app has no task page yet. Copy the ID to inspect the run elsewhere.",
+    "eyebrow": "GENERATION"
   },
   "billing": {
     "title": "Credits",
@@ -185,7 +204,8 @@
       "failed": "Could not start the purchase. Try again.",
       "already_subscribed": "You already have a subscription.",
       "unavailable": "Payments are not available on this instance."
-    }
+    },
+    "eyebrow": "CREDITS"
   },
   "runtime": {
     "title": "Execution",
@@ -204,7 +224,16 @@
       "runtime_policy_unavailable": "The runtime policy is unavailable. Ask an administrator to check the runtime configuration."
     },
     "generations_title": "Running generations",
-    "generations_empty": "Nothing is running."
+    "generations_empty": "Nothing is running.",
+    "eyebrow": "EXECUTION"
+  },
+  "shell": {
+    "brand_tagline": "AI STUDIO",
+    "menu_open": "Open menu",
+    "menu_close": "Close menu",
+    "account_menu": "Account",
+    "nav_group_work": "Workspace",
+    "nav_group_account": "Account"
   },
   "workspace": {
     "unavailable_title": "This workspace isn't available",

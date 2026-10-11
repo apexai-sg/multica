@@ -17,6 +17,22 @@
       "content": "Contenu",
       "office": "Bureautique",
       "other": "Autre"
+    },
+    "eyebrow": "OUTILS IA",
+    "hero_title": "Choisissez une compétence, Aurora s'en charge.",
+    "stats_runnable": "compétences exécutables",
+    "stats_total": "compétences au catalogue",
+    "visible_count": "{{visible}} compétences disponibles",
+    "ready": "Prêt",
+    "clear_filters": "Afficher toutes les compétences",
+    "inputs": {
+      "text": "Texte",
+      "image": "Images",
+      "document": "Documents",
+      "audio": "Audio",
+      "video": "Vidéo",
+      "spreadsheet": "Tableurs",
+      "other": "Autre"
     }
   },
   "composer": {
@@ -76,7 +92,8 @@
     "delete_description": "Le fichier est supprimé du stockage et ne peut pas être récupéré.",
     "delete_confirm": "Supprimer le fichier",
     "no_prompt": "Aucun prompt",
-    "skill_unknown": "Skill inconnu"
+    "skill_unknown": "Skill inconnu",
+    "eyebrow": "CRÉATIONS"
   },
   "history": {
     "title": "Historique",
@@ -90,7 +107,8 @@
     "skill_all": "Tous les skills",
     "preview_label": "Aperçu {{format}}",
     "preview_description": "Le fichier en taille réelle produit par cette génération.",
-    "open_in_new_tab": "Ouvrir dans un nouvel onglet"
+    "open_in_new_tab": "Ouvrir dans un nouvel onglet",
+    "eyebrow": "HISTORIQUE"
   },
   "detail": {
     "title": "Détail de la génération",
@@ -116,7 +134,8 @@
     "task_copy": "Copier l'ID de tâche",
     "task_copied": "Copié",
     "task_copy_failed": "Échec de la copie",
-    "task_unavailable": "Cette application n'a pas encore de page de tâche. Copiez l'ID pour inspecter l'exécution ailleurs."
+    "task_unavailable": "Cette application n'a pas encore de page de tâche. Copiez l'ID pour inspecter l'exécution ailleurs.",
+    "eyebrow": "GÉNÉRATION"
   },
   "billing": {
     "title": "Crédits",
@@ -185,7 +204,8 @@
       "failed": "Impossible de lancer l'achat. Réessayez.",
       "already_subscribed": "Vous avez déjà un abonnement.",
       "unavailable": "Les paiements ne sont pas disponibles sur cette instance."
-    }
+    },
+    "eyebrow": "CRÉDITS"
   },
   "runtime": {
     "title": "Exécution",
@@ -204,7 +224,16 @@
       "runtime_policy_unavailable": "La politique du runtime est indisponible. Demandez à un administrateur de vérifier sa configuration."
     },
     "generations_title": "Générations en cours",
-    "generations_empty": "Aucune génération en cours."
+    "generations_empty": "Aucune génération en cours.",
+    "eyebrow": "EXÉCUTION"
+  },
+  "shell": {
+    "brand_tagline": "AI STUDIO",
+    "menu_open": "Ouvrir le menu",
+    "menu_close": "Fermer le menu",
+    "account_menu": "Compte",
+    "nav_group_work": "Espace de travail",
+    "nav_group_account": "Compte"
   },
   "workspace": {
     "unavailable_title": "Cet espace de travail n'est pas disponible",

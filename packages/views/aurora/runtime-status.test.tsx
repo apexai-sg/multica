@@ -15,7 +15,9 @@ vi.mock("@multica/core/hooks", async (importOriginal) => ({
   useWorkspaceId: () => "ws-1",
 }));
 
-import { RuntimeStatus } from "./runtime-status";
+import { AuroraRuntimeChip, RuntimeStatus } from "./runtime-status";
+import { NavigationProvider } from "../navigation";
+import { stubNavigationAdapter } from "../test/navigation";
 
 type RuntimeBody = unknown;
 
@@ -91,6 +93,50 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   setApiInstance(null as unknown as ApiClient);
+});
+
+describe("AuroraRuntimeChip", () => {
+  function renderChip() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    renderWithI18n(<QueryClientProvider client={client}>
+      <NavigationProvider value={stubNavigationAdapter()}>
+        <AuroraRuntimeChip href="/acme/runtimes" />
+      </NavigationProvider>
+    </QueryClientProvider>);
+    return client;
+  }
+  it.each([
+    ["online", "Online", "aurora-dot"],
+    ["offline", "Offline", "aurora-dot--warning"],
+    ["provisioning", "Preparing", "aurora-dot--running"],
+    ["failed", "Failed", "aurora-dot--error"],
+    ["unconfigured", "Not set up", "aurora-dot--muted"],
+  ])("links a readable %s target with its shared visual vocabulary", async (state, label, dot) => {
+    installReads({ ...(TARGET as object), state });
+    const client = renderChip();
+    const link = await screen.findByRole("link", { name: label });
+    expect(link).toHaveAttribute("href", "/acme/runtimes");
+    expect(link.firstElementChild).toHaveClass(dot);
+    expect(link.firstElementChild).toHaveAttribute("aria-hidden", "true");
+    client.clear();
+  });
+  it("does not claim online when the node is not ready", async () => {
+    installReads({ state: "online", node: { ready: false } });
+    const client = renderChip();
+    expect(await screen.findByRole("link", { name: "Offline" })).toBeVisible();
+    client.clear();
+  });
+  it.each(["pending", "malformed", "failed"])("omits the chip for a %s read", async (kind) => {
+    installApi(() => {
+      if (kind === "pending") return new Promise(() => {});
+      if (kind === "failed") throw new Error("offline");
+      return { node: "broken" };
+    });
+    const client = renderChip();
+    if (kind !== "pending") await waitFor(() => expect(client.isFetching()).toBe(0));
+    expect(screen.queryByRole("link")).toBeNull();
+    client.clear();
+  });
 });
 
 describe("RuntimeStatus", () => {

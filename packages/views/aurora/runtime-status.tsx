@@ -6,6 +6,7 @@ import { Button } from "@multica/ui/components/ui/button";
 import { Badge } from "@multica/ui/components/ui/badge";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import {
+  isAuroraDegraded,
   isAuroraGenerationTerminal,
   useAuroraGenerationDetail,
   useAuroraGenerations,
@@ -16,6 +17,7 @@ import {
 } from "@multica/core/aurora";
 import { CollectionPageHeader } from "../layout/collection-page";
 import { useT } from "../i18n";
+import { AppLink } from "../navigation";
 import { generationStatusLabel } from "./labels";
 
 /**
@@ -31,20 +33,40 @@ import { generationStatusLabel } from "./labels";
  * screen only reports and guides.
  */
 
-// The same visual vocabulary the runtime manager uses for health
-// (packages/views/runtimes/components/shared.tsx): a semantic dot and a shared
-// token tone, so a node reads the same here as it does there.
-const STATE_VISUAL: Record<
+/**
+ * The runtime state vocabulary, in one place: the dot class, the pill modifier
+ * and the tonal text class. Exported because three surfaces name the same five
+ * states — this page, the directory hero and the topbar chip — and a second
+ * mapping would be a second thing to keep in step.
+ */
+export const AURORA_RUNTIME_VISUAL: Record<
   AuroraRuntimeState,
-  { dot: string; tone: string }
+  { dot: string; pill: string; text: string }
 > = {
-  offline: { dot: "bg-warning", tone: "text-warning" },
-  online: { dot: "bg-success", tone: "text-success" },
-  provisioning: { dot: "bg-info", tone: "text-info" },
-  failed: { dot: "bg-destructive", tone: "text-destructive" },
+  online: {
+    dot: "aurora-dot",
+    pill: "aurora-mini-label",
+    text: "text-success",
+  },
+  offline: {
+    dot: "aurora-dot aurora-dot--warning",
+    pill: "aurora-mini-label aurora-mini-label--warning",
+    text: "text-warning",
+  },
+  provisioning: {
+    dot: "aurora-dot aurora-dot--running",
+    pill: "aurora-mini-label aurora-mini-label--running",
+    text: "text-info",
+  },
+  failed: {
+    dot: "aurora-dot aurora-dot--error",
+    pill: "aurora-mini-label aurora-mini-label--error",
+    text: "text-destructive",
+  },
   unconfigured: {
-    dot: "bg-muted-foreground/40",
-    tone: "text-muted-foreground",
+    dot: "aurora-dot aurora-dot--muted",
+    pill: "aurora-mini-label aurora-mini-label--muted",
+    text: "text-muted-foreground",
   },
 };
 
@@ -138,7 +160,7 @@ function RuntimeNodeCard({
 }) {
   const { t } = useT("aurora");
   const state = target?.state ?? "unconfigured";
-  const visual = STATE_VISUAL[state];
+  const visual = AURORA_RUNTIME_VISUAL[state];
   // Recovery only re-reads the projection; it never provisions or restarts a node.
   const recovery =
     state === "failed" || state === "unconfigured" || state === "offline";
@@ -157,7 +179,7 @@ function RuntimeNodeCard({
         {state === "failed" ? (
           <CircleAlert
             aria-hidden="true"
-            className={`size-3.5 shrink-0 ${visual.tone}`}
+            className={`size-3.5 shrink-0 ${visual.text}`}
           />
         ) : (
           <span
@@ -165,7 +187,7 @@ function RuntimeNodeCard({
             className={`size-2 shrink-0 rounded-full ${visual.dot}`}
           />
         )}
-        <span className={`text-body font-medium ${visual.tone}`}>
+        <span className={`text-body font-medium ${visual.text}`}>
           {t(($) => $.runtime.status[state])}
         </span>
       </div>
@@ -226,5 +248,26 @@ function ActiveGenerationRow({
         {t(($) => $.composer.status[status])}
       </Badge>
     </li>
+  );
+}
+
+/** The runtime state, as a link to the page that explains it. Renders nothing
+ *  until the read resolves: no chip beats a wrong one. */
+export function AuroraRuntimeChip({ href }: { href: string }) {
+  const { t } = useT("aurora");
+  const runtime = useAuroraRuntime();
+  const target = runtime.data?.value;
+  if (
+    !target || runtime.isPending || runtime.isError ||
+    isAuroraDegraded(runtime.data)
+  ) return null;
+  return (
+    <AppLink href={href} className="aurora-status-chip">
+      <span
+        aria-hidden="true"
+        className={AURORA_RUNTIME_VISUAL[target.state].dot}
+      />
+      {t(($) => $.runtime.status[target.state])}
+    </AppLink>
   );
 }

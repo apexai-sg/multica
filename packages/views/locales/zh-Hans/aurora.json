@@ -17,6 +17,22 @@
       "content": "文案",
       "office": "办公",
       "other": "其他"
+    },
+    "eyebrow": "创作工具",
+    "hero_title": "挑一个功能，Aurora 帮你跑完。",
+    "stats_runnable": "个功能可运行",
+    "stats_total": "个功能",
+    "visible_count": "{{visible}} 个功能可用",
+    "ready": "可运行",
+    "clear_filters": "查看全部功能",
+    "inputs": {
+      "text": "文本",
+      "image": "图片",
+      "document": "文档",
+      "audio": "音频",
+      "video": "视频",
+      "spreadsheet": "表格",
+      "other": "其他"
     }
   },
   "composer": {
@@ -76,7 +92,8 @@
     "delete_description": "文件将从存储中删除，无法恢复。",
     "delete_confirm": "删除文件",
     "no_prompt": "无描述",
-    "skill_unknown": "未知功能"
+    "skill_unknown": "未知功能",
+    "eyebrow": "作品"
   },
   "history": {
     "title": "历史记录",
@@ -90,7 +107,8 @@
     "skill_all": "全部功能",
     "preview_label": "预览 {{format}}",
     "preview_description": "该次生成产出的完整文件。",
-    "open_in_new_tab": "在新标签页打开"
+    "open_in_new_tab": "在新标签页打开",
+    "eyebrow": "历史"
   },
   "detail": {
     "title": "生成详情",
@@ -116,7 +134,8 @@
     "task_copy": "复制任务 ID",
     "task_copied": "已复制",
     "task_copy_failed": "复制失败",
-    "task_unavailable": "此应用还没有任务页面。可复制 ID 到别处查看运行情况。"
+    "task_unavailable": "此应用还没有任务页面。可复制 ID 到别处查看运行情况。",
+    "eyebrow": "生成"
   },
   "billing": {
     "title": "积分",
@@ -185,7 +204,8 @@
       "failed": "无法发起购买，请重试。",
       "already_subscribed": "你已经有订阅了。",
       "unavailable": "该实例未开通支付。"
-    }
+    },
+    "eyebrow": "计费"
   },
   "runtime": {
     "title": "执行",
@@ -204,7 +224,16 @@
       "runtime_policy_unavailable": "运行时策略不可用。请联系管理员检查运行时配置。"
     },
     "generations_title": "进行中的生成",
-    "generations_empty": "当前没有正在进行的生成。"
+    "generations_empty": "当前没有正在进行的生成。",
+    "eyebrow": "运行时"
+  },
+  "shell": {
+    "brand_tagline": "AI STUDIO",
+    "menu_open": "打开菜单",
+    "menu_close": "关闭菜单",
+    "account_menu": "账户",
+    "nav_group_work": "工作区",
+    "nav_group_account": "账户"
   },
   "workspace": {
     "unavailable_title": "工作区不可用",
