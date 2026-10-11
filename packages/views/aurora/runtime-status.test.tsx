@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { setApiInstance } from "@multica/core/api";
 import type { ApiClient } from "@multica/core/api/client";
@@ -140,6 +140,37 @@ describe("AuroraRuntimeChip", () => {
 });
 
 describe("RuntimeStatus", () => {
+  it("wires the execution header and readable node state into the Aurora panel", async () => {
+    renderRuntime();
+    const state = await screen.findByText("Online");
+    const page = screen.getByRole("heading", { name: "Execution", level: 1 }).closest(".aurora-page");
+    expect(page).not.toBeNull();
+    expect(screen.getByText("EXECUTION")).toHaveClass("aurora-eyebrow");
+    const panel = state.closest("section");
+    expect(panel).toHaveClass("aurora-panel");
+    expect(page).toContainElement(panel);
+    expect(state).toBeVisible();
+    expect(panel?.querySelector(".aurora-dot")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("wires the running list to Aurora rows and the shared readable status pill", async () => {
+    installReads(TARGET, [generation()]);
+    renderRuntime();
+    const row = await screen.findByRole("listitem");
+    expect(screen.getByRole("list")).toHaveClass("aurora-list");
+    expect(row).toHaveClass("aurora-row");
+    expect(within(row).getByText("a launch poster")).toHaveClass("aurora-row-main", "truncate");
+    expect(await within(row).findByText("Generating")).toHaveClass("aurora-status-pill", "aurora-status-pill--working");
+    expect(screen.getByRole("heading", { name: "Running generations", level: 2 }).parentElement).toHaveClass("aurora-section-head");
+  });
+
+  it("uses the panel radius for the pending node skeleton", () => {
+    installApi(() => new Promise(() => {}));
+    const { container } = renderRuntime();
+    expect(container.querySelector('[data-slot="skeleton"]')).toHaveClass("rounded-xl");
+    expect(screen.queryByText("Online")).not.toBeInTheDocument();
+  });
+
   it("shows why the runtime is not ready instead of a bare failure", async () => {
     installReads({
       workspaceId: "ws-1",

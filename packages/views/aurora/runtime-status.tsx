@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { CircleAlert, Gauge } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
-import { Badge } from "@multica/ui/components/ui/badge";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import {
   isAuroraDegraded,
@@ -15,10 +14,10 @@ import {
   type AuroraGeneration,
   type AuroraRuntimeState,
 } from "@multica/core/aurora";
-import { CollectionPageHeader } from "../layout/collection-page";
+import { AuroraPageHeader } from "./aurora-page-header";
 import { useT } from "../i18n";
 import { AppLink } from "../navigation";
-import { generationStatusLabel } from "./labels";
+import { GenerationStatusBadge } from "./generation-artifacts";
 
 /**
  * The workspace's execution view.
@@ -101,42 +100,44 @@ export function RuntimeStatus() {
   }, []);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <CollectionPageHeader icon={Gauge} title={t(($) => $.runtime.title)} />
+    <div className="aurora-page">
+      <AuroraPageHeader
+        icon={Gauge}
+        eyebrow={t(($) => $.runtime.eyebrow)}
+        title={t(($) => $.runtime.title)}
+      />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        <div className="flex flex-col gap-6">
-          {runtime.isPending ? (
-            <Skeleton className="h-16 w-full rounded-lg" />
+      <div className="flex flex-col gap-6">
+        {runtime.isPending ? (
+          <Skeleton className="h-16 w-full rounded-xl" />
+        ) : (
+          <RuntimeNodeCard
+            target={target}
+            onRetry={() => void runtime.refetch()}
+            retrying={runtime.isFetching}
+          />
+        )}
+
+        <section className="flex flex-col gap-3">
+          <div className="aurora-section-head">
+            <h2>{t(($) => $.runtime.generations_title)}</h2>
+          </div>
+          {active.length === 0 ? (
+            <p className="text-body text-muted-foreground">
+              {t(($) => $.runtime.generations_empty)}
+            </p>
           ) : (
-            <RuntimeNodeCard
-              target={target}
-              onRetry={() => void runtime.refetch()}
-              retrying={runtime.isFetching}
-            />
+            <ul className="aurora-list">
+              {active.map((generation) => (
+                <ActiveGenerationRow
+                  key={generation.id}
+                  generation={generation}
+                  onSettled={markSettled}
+                />
+              ))}
+            </ul>
           )}
-
-          <section className="flex flex-col gap-2">
-            <h2 className="text-label font-medium">
-              {t(($) => $.runtime.generations_title)}
-            </h2>
-            {active.length === 0 ? (
-              <p className="text-body text-muted-foreground">
-                {t(($) => $.runtime.generations_empty)}
-              </p>
-            ) : (
-              <ul className="rounded-lg border border-surface-border">
-                {active.map((generation) => (
-                  <ActiveGenerationRow
-                    key={generation.id}
-                    generation={generation}
-                    onSettled={markSettled}
-                  />
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
+        </section>
       </div>
     </div>
   );
@@ -174,7 +175,7 @@ function RuntimeNodeCard({
     (awaitingFirstGeneration ? "runtime_not_provisioned" : "runtime_offline");
 
   return (
-    <section className="flex flex-col gap-2 rounded-lg border border-surface-border p-3">
+    <section className="aurora-panel flex flex-col gap-2">
       <div className="flex items-center gap-2">
         {state === "failed" ? (
           <CircleAlert
@@ -231,7 +232,6 @@ function ActiveGenerationRow({
   const { t } = useT("aurora");
   const detail = useAuroraGenerationDetail(generation.id);
   const current = detail.data?.value ?? generation;
-  const status = generationStatusLabel(current.status);
 
   useEffect(() => {
     if (isAuroraGenerationTerminal(current.status)) {
@@ -240,13 +240,11 @@ function ActiveGenerationRow({
   }, [current.status, generation.id, onSettled]);
 
   return (
-    <li className="flex items-center gap-3 border-b border-surface-border px-3 py-2 last:border-b-0">
-      <span className="min-w-0 flex-1 truncate text-body">
+    <li className="aurora-row">
+      <span className="aurora-row-main truncate">
         {current.prompt || t(($) => $.works.no_prompt)}
       </span>
-      <Badge variant="secondary" className="shrink-0">
-        {t(($) => $.composer.status[status])}
-      </Badge>
+      <GenerationStatusBadge status={current.status} className="shrink-0" />
     </li>
   );
 }
