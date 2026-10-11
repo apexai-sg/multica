@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CircleAlert, Download, Library } from "lucide-react";
+import { CircleAlert, Download, Library, Sparkles } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,14 +25,15 @@ import {
   type AuroraAsset,
   type AuroraGeneration,
 } from "@multica/core/aurora";
-import {
-  CollectionPageHeader,
-  CollectionPageState,
-} from "../layout/collection-page";
+import { AuroraPageHeader, AuroraPageState } from "./aurora-page-header";
+import { avatarInitial, tintIndex } from "./aurora-avatar-helpers";
 import { AppLink } from "../navigation";
 import { useLocale, useT } from "../i18n";
 import { formatMicroCredits } from "./format";
-import { GenerationStatusBadge } from "./generation-artifacts";
+import {
+  GenerationStatusBadge,
+  isPreviewableImage,
+} from "./generation-artifacts";
 import { generationStatusLabel, skillDisplayNamesById } from "./labels";
 import { AuroraLoadFailed } from "./load-failed";
 import { useAuroraAssetDownload } from "./use-aurora-asset-download";
@@ -120,101 +121,100 @@ export function WorksList({ generationHref }: WorksListProps = {}) {
       assets.length === 0);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <CollectionPageHeader
+    <div className="aurora-page">
+      <AuroraPageHeader
         icon={Library}
+        eyebrow={t(($) => $.works.eyebrow)}
         title={t(($) => $.works.title)}
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        {isLoading ? (
-          <WorksSkeleton />
-        ) : loadFailed ? (
-          <AuroraLoadFailed
-            title={t(($) => $.works.load_failed_title)}
-            onRetry={() => {
-              void generationsQuery.refetch();
-              void assetsQuery.refetch();
-            }}
-          />
-        ) : (
-          <div className="flex flex-col gap-6">
-            {deleteFailed ? (
-              <Alert variant="destructive">
-                <CircleAlert aria-hidden="true" />
-                <AlertDescription>
-                  {t(($) => $.works.delete_failed)}
-                </AlertDescription>
-              </Alert>
-            ) : null}
+      {isLoading ? (
+        <WorksSkeleton />
+      ) : loadFailed ? (
+        <AuroraLoadFailed
+          title={t(($) => $.works.load_failed_title)}
+          onRetry={() => {
+            void generationsQuery.refetch();
+            void assetsQuery.refetch();
+          }}
+        />
+      ) : (
+        <div className="flex flex-col">
+          {deleteFailed ? (
+            <Alert variant="destructive">
+              <CircleAlert aria-hidden="true" />
+              <AlertDescription>
+                {t(($) => $.works.delete_failed)}
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
-            <section className="flex flex-col gap-2">
-              <h2 className="text-label font-medium">
-                {t(($) => $.works.generations_title)}
-              </h2>
-              {generations.length === 0 ? (
-                <CollectionPageState
-                  icon={Library}
-                  title={t(($) => $.works.generations_empty_title)}
-                  description={t(($) => $.works.generations_empty_description)}
-                />
-              ) : (
-                <ul className="rounded-lg border border-surface-border">
-                  {generations.map((generation) => (
-                    <GenerationRow
-                      key={generation.id}
-                      generation={generation}
-                      skillName={
-                        skillNames.get(generation.skillId) ??
-                        (catalogLoaded
-                          ? t(($) => $.works.skill_unknown)
-                          : null)
-                      }
-                      credits={
-                        // A failed generation is refunded in full, so the
-                        // amount it reserved is not a cost and printing it as
-                        // one claims a spend the client never read. Null is
-                        // "nothing was charged", not "we do not know".
-                        generationStatusLabel(generation.status) === "failed"
-                          ? null
-                          : formatMicroCredits(
-                              generation.creditsReserved,
-                              locale,
-                            )
-                      }
-                      noPrompt={t(($) => $.works.no_prompt)}
-                      generationHref={generationHref}
-                    />
-                  ))}
-                </ul>
-              )}
-            </section>
+          <section className="flex flex-col gap-3">
+            <div className="aurora-section-head">
+              <h2>{t(($) => $.works.generations_title)}</h2>
+            </div>
+            {generations.length === 0 ? (
+              <AuroraPageState
+                icon={Library}
+                title={t(($) => $.works.generations_empty_title)}
+                description={t(($) => $.works.generations_empty_description)}
+              />
+            ) : (
+              <ul className="aurora-list">
+                {generations.map((generation) => (
+                  <GenerationRow
+                    key={generation.id}
+                    generation={generation}
+                    skillName={
+                      skillNames.get(generation.skillId) ??
+                      (catalogLoaded
+                        ? t(($) => $.works.skill_unknown)
+                        : null)
+                    }
+                    credits={
+                      // A failed generation is refunded in full, so the
+                      // amount it reserved is not a cost and printing it as
+                      // one claims a spend the client never read. Null is
+                      // "nothing was charged", not "we do not know".
+                      generationStatusLabel(generation.status) === "failed"
+                        ? null
+                        : formatMicroCredits(
+                            generation.creditsReserved,
+                            locale,
+                          )
+                    }
+                    noPrompt={t(($) => $.works.no_prompt)}
+                    generationHref={generationHref}
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
 
-            <section className="flex flex-col gap-2">
-              <h2 className="text-label font-medium">
-                {t(($) => $.works.assets_title)}
-              </h2>
-              {assets.length === 0 ? (
-                <CollectionPageState
-                  icon={Library}
-                  title={t(($) => $.works.assets_empty_title)}
-                  description={t(($) => $.works.assets_empty_description)}
-                />
-              ) : (
-                <ul className="rounded-lg border border-surface-border">
-                  {assets.map((asset) => (
-                    <AssetRow
-                      key={asset.id}
-                      asset={asset}
-                      onRequestDelete={() => setPendingDelete(asset)}
-                    />
-                  ))}
-                </ul>
-              )}
-            </section>
-          </div>
-        )}
-      </div>
+          <section className="flex flex-col gap-3">
+            <div className="aurora-section-head">
+              <h2>{t(($) => $.works.assets_title)}</h2>
+            </div>
+            {assets.length === 0 ? (
+              <AuroraPageState
+                icon={Library}
+                title={t(($) => $.works.assets_empty_title)}
+                description={t(($) => $.works.assets_empty_description)}
+              />
+            ) : (
+              <ul className="aurora-works-grid">
+                {assets.map((asset) => (
+                  <AssetRow
+                    key={asset.id}
+                    asset={asset}
+                    onRequestDelete={() => setPendingDelete(asset)}
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      )}
 
       <AlertDialog
         open={pendingDelete !== null}
@@ -268,8 +268,11 @@ function GenerationRow({
   const { t } = useT("aurora");
   const prompt = generation.prompt || noPrompt;
   return (
-    <li className="flex items-center gap-3 border-b border-surface-border px-3 py-2 last:border-b-0">
-      <div className="flex min-w-0 flex-1 flex-col">
+    <li className="aurora-row">
+      <span aria-hidden="true" className="aurora-icon-tile">
+        <Sparkles className="size-4" />
+      </span>
+      <div className="aurora-row-main flex flex-col">
         <span className="truncate text-body">
           {generationHref ? (
             <AppLink
@@ -289,7 +292,7 @@ function GenerationRow({
         ) : null}
       </div>
       {credits ? (
-        <span className="shrink-0 font-mono text-caption tabular-nums text-muted-foreground">
+        <span className="aurora-row-amount">
           {t(($) => $.credits, { credits })}
         </span>
       ) : null}
@@ -298,13 +301,7 @@ function GenerationRow({
   );
 }
 
-/**
- * One stored file.
- *
- * Download is a plain anchor rather than a fetch: the route redirects to a
- * short-lived signed URL, so the browser has to follow it itself (the same
- * shape as an attachment download).
- */
+/** One stored file, downloaded through the authenticated asset helper. */
 function AssetRow({
   asset,
   onRequestDelete,
@@ -314,36 +311,46 @@ function AssetRow({
 }) {
   const { t } = useT("aurora");
   const download = useAuroraAssetDownload();
-  // A row that carries no format falls back to its kind, and then has nothing
-  // else to say — the second line is only there to add something.
-  const detail = asset.format ? asset.kind : null;
+  const title = asset.format ?? asset.kind;
+  const detail = title !== asset.kind ? asset.kind : null;
   return (
-    <li className="flex items-center gap-3 border-b border-surface-border px-3 py-2 last:border-b-0">
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-body">{asset.format ?? asset.kind}</span>
-        {detail ? (
-          <span className="truncate text-caption text-muted-foreground">
-            {detail}
-          </span>
-        ) : null}
+    <li className="aurora-work-card min-w-0">
+      <div
+        aria-hidden="true"
+        className={"aurora-work-thumb aurora-tint-" + tintIndex(asset.id)}
+      >
+        {isPreviewableImage(asset) ? (
+          <img src={asset.mediaUrl} alt="" loading="lazy" />
+        ) : (
+          <strong>{avatarInitial(title)}</strong>
+        )}
+        {/* Classification is decorative; the title/detail below owns its text. */}
+        <span
+          className="aurora-work-tag before:content-[attr(data-kind)]"
+          data-kind={asset.kind}
+        />
       </div>
-      <button
-        type="button"
-        onClick={() => void download(asset)}
-        className="inline-flex shrink-0 items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none"
-      >
-        <Download aria-hidden="true" className="size-3.5" />
-        {t(($) => $.works.download)}
-      </button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="shrink-0"
-        onClick={onRequestDelete}
-      >
-        {t(($) => $.works.delete)}
-      </Button>
+      <h3 className="break-words">{title}</h3>
+      {detail ? <p className="break-words">{detail}</p> : null}
+      <div className="aurora-work-actions flex-wrap">
+        <button
+          type="button"
+          onClick={() => void download(asset)}
+          className="aurora-file-row shrink-0"
+        >
+          <Download aria-hidden="true" className="size-3.5 shrink-0" />
+          {t(($) => $.works.download)}
+        </button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="shrink-0"
+          onClick={onRequestDelete}
+        >
+          {t(($) => $.works.delete)}
+        </Button>
+      </div>
     </li>
   );
 }
@@ -352,9 +359,9 @@ function WorksSkeleton() {
   return (
     <div className="flex flex-col gap-2">
       <Skeleton className="h-5 w-28" />
-      <Skeleton className="h-24 w-full rounded-lg" />
+      <Skeleton className="h-24 w-full rounded-xl" />
       <Skeleton className="h-5 w-24" />
-      <Skeleton className="h-24 w-full rounded-lg" />
+      <Skeleton className="h-24 w-full rounded-xl" />
     </div>
   );
 }
