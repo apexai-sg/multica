@@ -124,7 +124,7 @@ export function AuroraAccountPanel({
             </strong>
           </div>
           {limit > 0 ? (
-            <span
+            <div
               className="aurora-meter"
               role="progressbar"
               aria-valuemin={0}
@@ -140,7 +140,7 @@ export function AuroraAccountPanel({
                 className="aurora-meter-fill"
                 style={{ width: percent + "%" }}
               />
-            </span>
+            </div>
           ) : null}
         </>
       ) : null}

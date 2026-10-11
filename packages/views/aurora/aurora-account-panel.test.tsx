@@ -69,6 +69,13 @@ describe("AuroraAccountPanel", () => {
     expect(meter.firstElementChild).toHaveStyle({ width: "40%" });
     expect(screen.getByRole("link", { name: "Top up" })).toHaveAttribute("href", "/acme/billing");
   });
+  it("gives the meter a block box so its fixed height contains the fill", async () => {
+    renderAccount();
+    const meter = await screen.findByRole("progressbar");
+    // An inline span ignores the meter height; its 100%-high block child
+    // then resolves against the whole panel and overlaps navigation.
+    expect(getComputedStyle(meter).display).toBe("block");
+  });
   it("falls back to email when the name is blank", () => {
     auth.user = { ...auth.user!, name: "  " };
     renderAccount();
