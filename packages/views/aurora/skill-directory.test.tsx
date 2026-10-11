@@ -8,6 +8,7 @@ import { NavigationProvider } from "../navigation";
 
 const mocks = vi.hoisted(() => ({
   skills: vi.fn(),
+  runtime: vi.fn(),
   create: vi.fn(),
   detail: vi.fn(),
   balance: vi.fn(),
@@ -18,6 +19,7 @@ vi.mock("@multica/core/aurora", async (importOriginal) => {
   return {
     ...actual,
     useAuroraSkills: () => mocks.skills(),
+    useAuroraRuntime: () => mocks.runtime(),
     // The directory owns the drawer, so the composer's hooks resolve here too.
     useCreateAuroraGeneration: () => ({
       mutateAsync: mocks.create,
@@ -56,7 +58,7 @@ const CATALOG: AuroraSkill[] = [
   nameEn: nameEn as string,
   category: category as string,
   credits: credits as number,
-  input: ["text"],
+  input: id === "poster" ? ["text", "image"] : ["text"],
   output: ["image"],
   featured: false,
   available: true,
@@ -120,6 +122,10 @@ function cards() {
 describe("SkillDirectory", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.runtime.mockReturnValue({
+      data: { value: { state: "online" }, degraded: false },
+      isPending: false,
+    });
     mocks.skills.mockReturnValue({
       data: { value: ALL_SKILLS, degraded: false },
       isPending: false,
@@ -129,6 +135,68 @@ describe("SkillDirectory", () => {
       data: { value: { availableMicro: 0 }, degraded: false },
       isPending: false,
     });
+  });
+
+  it("summarises real catalog totals and runtime in the hero", () => {
+    renderDirectory();
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    expect(hero).toHaveTextContent("Online");
+    expect(hero).toHaveTextContent("13 skills runnable");
+    expect(hero).toHaveTextContent("16 skills in the catalog");
+    expect(hero?.querySelector(".aurora-hero-orbit")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it.each([
+    { isPending: true },
+    { isError: true },
+    { data: { value: { state: "online" }, degraded: true } },
+  ])("does not claim a runtime state from an unreadable read: %j", (overrides) => {
+    mocks.runtime.mockReturnValue({ data: { value: { state: "online" }, degraded: false }, ...overrides });
+    renderDirectory();
+    expect(screen.queryByText("Online")).not.toBeInTheDocument();
+  });
+
+  it("counts visible cards and clears both search and category from the empty state", async () => {
+    const user = userEvent.setup();
+    renderDirectory();
+    expect(screen.getByText("16 skills available")).toBeVisible();
+    await user.click(screen.getByRole("tab", { name: "Video" }));
+    expect(screen.getByText("4 skills available")).toBeVisible();
+    const search = screen.getByRole("searchbox", { name: "Search skills" });
+    expect(search).toHaveAttribute("data-slot", "input-group-control");
+    await user.type(search, "nothing matches");
+    expect(screen.getByText("0 skills available")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Show all skills" }));
+    expect(search).toHaveValue("");
+    expect(screen.getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "true");
+    expect(cards()).toHaveLength(16);
+  });
+
+  it("keeps each card one named target with capabilities, state and one price", () => {
+    renderDirectory();
+    const poster = screen.getByRole("button", { name: /^Image\s*Poster\s*Text\s*Images\s*Ready\s*76 credits$/ });
+    expect(within(poster).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(poster).getAllByText("76 credits")).toHaveLength(1);
+    expect(poster.querySelector(".aurora-avatar")).toHaveAttribute("aria-hidden", "true");
+    expect(poster.querySelector(".aurora-card-arrow")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByRole("button", { name: /PPT/ })).toHaveTextContent("Coming soon");
+  });
+
+  it.each([
+    { data: undefined, isPending: true },
+    { data: { value: [], degraded: true }, isPending: false },
+    { data: undefined, isPending: false, isError: true },
+  ])("does not present an unread catalog as zero skills: %j", (result) => {
+    mocks.skills.mockReturnValue(result);
+    renderDirectory();
+    expect(screen.queryByText(/0 skills (runnable|in the catalog|available)/)).not.toBeInTheDocument();
+  });
+
+  it("reports a successfully read empty catalog honestly", () => {
+    mocks.skills.mockReturnValue({ data: { value: [], degraded: false }, isPending: false });
+    renderDirectory();
+    expect(screen.getByText("0 skills available")).toBeVisible();
+    expect(screen.getByText("No matching skills")).toBeVisible();
   });
 
   it("lists the whole catalog and flags the skills that have not launched", () => {

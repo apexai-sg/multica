@@ -164,6 +164,11 @@ describe("aurora design layer", () => {
       /\.aurora-theme \[data-slot="input"\][^{]*\{\s*min-height: 44px;/,
     );
   });
+  it("sizes the actual grouped input and leaves room inside its bordered group", () => {
+    expect(css).toMatch(/\.aurora-theme input\[data-slot="input-group-control"\][^{]*\{\s*min-height: 44px;/);
+    expect(css).toMatch(/\.aurora-theme \[data-slot="input-group"\]:has\(> input\[data-slot="input-group-control"\]\)\s*\{[^}]*height: auto;/);
+  });
+
   it("imports the stylesheet from the app's globals", () => {
     expect(globals).toContain("packages/views/aurora/aurora.css");
   });

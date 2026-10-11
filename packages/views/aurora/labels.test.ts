@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { AuroraSkill } from "@multica/core/aurora";
 import {
   auroraCategoryLabel,
+  auroraInputLabel,
   generationStatusLabel,
   ledgerKindLabel,
   skillDisplayName,
@@ -24,6 +25,15 @@ function skill(overrides: Partial<AuroraSkill> = {}): AuroraSkill {
     ...overrides,
   };
 }
+
+describe("auroraInputLabel", () => {
+  it.each(["text", "image", "document", "audio", "video", "spreadsheet"])("labels %s", (modality) => {
+    expect(auroraInputLabel(modality)).toBe(modality);
+  });
+  it.each(["hologram", "", "constructor", "toString", "__proto__"])("falls back for %s", (modality) => {
+    expect(auroraInputLabel(modality)).toBe("other");
+  });
+});
 
 describe("generationStatusLabel", () => {
   it("maps each status the server derives from the enqueued task", () => {

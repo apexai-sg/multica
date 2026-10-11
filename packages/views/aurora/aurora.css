@@ -94,6 +94,16 @@
   min-height: 44px;
 }
 
+/* InputGroupInput replaces the input slot; size the control, not just its shell. */
+.aurora-theme input[data-slot="input-group-control"] {
+  min-height: 44px;
+}
+
+/* Let the border surround the full target instead of squeezing its interior. */
+.aurora-theme [data-slot="input-group"]:has(> input[data-slot="input-group-control"]) {
+  height: auto;
+}
+
 /* --- Shell: sidebar -------------------------------------------------------- */
 
 .aurora-app {

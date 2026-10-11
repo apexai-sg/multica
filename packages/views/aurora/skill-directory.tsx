@@ -1,9 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Sparkles } from "lucide-react";
-import { Badge } from "@multica/ui/components/ui/badge";
-import { Input } from "@multica/ui/components/ui/input";
+import { ArrowUpRight, LayoutGrid, Search, SearchX, Sparkles } from "lucide-react";
+import { Button } from "@multica/ui/components/ui/button";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@multica/ui/components/ui/input-group";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import {
   Tabs,
@@ -15,17 +19,16 @@ import { cn } from "@multica/ui/lib/utils";
 import {
   isAuroraDegraded,
   useAuroraSkills,
+  useAuroraRuntime,
   type AuroraSkill,
 } from "@multica/core/aurora";
-import {
-  CollectionPageHeader,
-  CollectionPageState,
-} from "../layout/collection-page";
-import { PAGE_TOOLBAR } from "../layout/page-header";
+import { AuroraAvatar } from "./aurora-avatar";
+import { AuroraPageState } from "./aurora-page-header";
+import { AURORA_RUNTIME_VISUAL } from "./runtime-status";
 import { useLocale, useT } from "../i18n";
 import { GenerationComposer } from "./generation-composer";
 import { formatCredits } from "./format";
-import { auroraCategoryLabel, skillDisplayName } from "./labels";
+import { auroraCategoryLabel, auroraInputLabel, skillDisplayName } from "./labels";
 import { AuroraLoadFailed } from "./load-failed";
 import { AURORA_CATEGORY_ALL, filterAuroraSkills } from "./skill-filter";
 
@@ -49,7 +52,7 @@ export interface SkillDirectoryProps {
 
 // The grid's own geometry, shared by the cards and the skeleton so the page
 // does not jump when the catalog resolves.
-const GRID_CLASS = "grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3";
+const GRID_CLASS = "aurora-card-grid";
 
 // A stable reference for "the catalog has not loaded yet". `data ?? []` would
 // hand the memos below a fresh array on every render while the query is
@@ -91,47 +94,62 @@ export function SkillDirectory({
   // the failure branch; only the one that left rows behind keeps them.
   const catalogUnreadable =
     skillsQuery.isError || isAuroraDegraded(skillsQuery.data);
+  // Do not turn a pending or rejected catalog into a claim of zero skills.
+  const catalogKnown =
+    !skillsQuery.isPending &&
+    (hasCatalog || (!catalogUnreadable && !!skillsQuery.data));
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <CollectionPageHeader
-        icon={Sparkles}
-        title={t(($) => $.directory.title)}
-        count={skills.length}
-        actions={
-          <Input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t(($) => $.directory.search_placeholder)}
-            aria-label={t(($) => $.directory.search_placeholder)}
-            className="w-48 sm:w-56"
-          />
-        }
-      />
+    <div className="aurora-page">
+      <DirectoryHero skills={catalogKnown ? skills : undefined} />
 
-      <Tabs
-        value={category}
-        onValueChange={setCategory}
-        className="flex min-h-0 flex-1 flex-col gap-0"
-      >
-        <div className={PAGE_TOOLBAR}>
-          <TabsList>
-            <TabsTrigger value={AURORA_CATEGORY_ALL}>
+      <div className="aurora-section-head">
+        <div>
+          <p className="aurora-eyebrow">
+            <LayoutGrid aria-hidden="true" className="size-3.5" />
+            {t(($) => $.directory.eyebrow)}
+          </p>
+          <h2>{t(($) => $.directory.title)}</h2>
+        </div>
+        {/* The reference counts what the filter left, not the catalog: the line
+            has to change when the reader narrows the grid, or it is noise. */}
+        {catalogKnown ? (
+          <span>
+            {t(($) => $.directory.visible_count, { visible: visible.length })}
+          </span>
+        ) : null}
+      </div>
+
+      <Tabs value={category} onValueChange={setCategory} className="gap-0">
+        <div className="aurora-toolbar">
+          <TabsList className="aurora-pill-tabs">
+            <TabsTrigger value={AURORA_CATEGORY_ALL} className="aurora-pill-tab">
               {t(($) => $.directory.categories.all)}
             </TabsTrigger>
             {categories.map((value) => (
-              <TabsTrigger key={value} value={value}>
+              <TabsTrigger key={value} value={value} className="aurora-pill-tab">
                 {t(($) => $.directory.categories[auroraCategoryLabel(value)])}
               </TabsTrigger>
             ))}
           </TabsList>
+          {/* The reference puts this box in the top bar, where it looks global
+              but only ever filtered this grid. It stays beside the tabs it
+              belongs to; the box itself is the same one — icon, white field,
+              hairline border, violet border on focus. */}
+          <InputGroup className="w-full max-w-[280px] bg-card">
+            <InputGroupAddon>
+              <Search aria-hidden="true" />
+            </InputGroupAddon>
+            <InputGroupInput
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t(($) => $.directory.search_placeholder)}
+              aria-label={t(($) => $.directory.search_placeholder)}
+            />
+          </InputGroup>
         </div>
-
-        <TabsContent
-          value={category}
-          className="min-h-0 flex-1 overflow-y-auto px-4 py-3"
-        >
+        <TabsContent value={category}>
           {skillsQuery.isPending ? (
             <DirectorySkeleton />
           ) : catalogUnreadable && !hasCatalog ? (
@@ -140,10 +158,25 @@ export function SkillDirectory({
               onRetry={() => void skillsQuery.refetch()}
             />
           ) : visible.length === 0 ? (
-            <CollectionPageState
-              icon={Sparkles}
+            // The reference gives the empty grid a way out instead of only an
+            // apology, and it is the same recovery: clear what was typed and
+            // what was selected.
+            <AuroraPageState
+              icon={SearchX}
               title={t(($) => $.directory.empty_title)}
               description={t(($) => $.directory.empty_description)}
+              actions={
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setQuery("");
+                    setCategory(AURORA_CATEGORY_ALL);
+                  }}
+                >
+                  {t(($) => $.directory.clear_filters)}
+                </Button>
+              }
             />
           ) : (
             <ul className={GRID_CLASS}>
@@ -161,7 +194,6 @@ export function SkillDirectory({
           )}
         </TabsContent>
       </Tabs>
-
       <GenerationComposer
         skill={selected}
         open={selected !== null}
@@ -172,6 +204,62 @@ export function SkillDirectory({
         topUpHref={topUpHref}
       />
     </div>
+  );
+}
+
+function DirectoryHero({ skills }: { skills: AuroraSkill[] | undefined }) {
+  const { t } = useT("aurora");
+  const locale = useLocale();
+  const runtime = useAuroraRuntime();
+  const state =
+    !runtime.isPending && !runtime.isError && !isAuroraDegraded(runtime.data)
+      ? runtime.data?.value?.state
+      : undefined;
+  const runnable = (skills ?? EMPTY_SKILLS).filter((skill) => skill.available);
+  return (
+    <section className="aurora-hero">
+      <div>
+        {state ? (
+          <span className={AURORA_RUNTIME_VISUAL[state].pill}>
+            {t(($) => $.runtime.status[state])}
+          </span>
+        ) : null}
+        <h1>{t(($) => $.directory.hero_title)}</h1>
+        {skills ? (
+          <div className="aurora-hero-stats">
+            <span>
+              <strong>{runnable.length}</strong>{" "}
+              {t(($) => $.directory.stats_runnable)}
+            </span>
+            <span>
+              <strong>{skills.length}</strong>{" "}
+              {t(($) => $.directory.stats_total)}
+            </span>
+          </div>
+        ) : null}
+      </div>
+      {/* Decorative: the four runnable skills as tiles. It carries no fact the
+          stats above do not, which is why it is hidden from assistive tech. */}
+      <div className="aurora-hero-orbit" aria-hidden="true">
+        <div className="aurora-hero-center">
+          <Sparkles className="size-6" />
+        </div>
+        {runnable.slice(0, 4).map((skill, index) => (
+          <span
+            key={skill.id}
+            className={
+              "aurora-orbit-avatar aurora-orbit-avatar--" + (index + 1)
+            }
+          >
+            <AuroraAvatar
+              name={skillDisplayName(skill, locale)}
+              id={skill.id}
+              available
+            />
+          </span>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -197,26 +285,56 @@ function SkillCard({
 }) {
   const { t } = useT("aurora");
   return (
+    // One button, not a card with a button in it: the whole tile is the target,
+    // and the arrow is decoration inside it rather than a second control. The
+    // grid's own test helper counts the buttons in this list.
     <button
       type="button"
       onClick={onSelect}
       className={cn(
-        "flex h-full w-full flex-col items-start gap-2 rounded-lg border border-surface-border bg-card p-3 text-left transition-colors",
-        "hover:border-foreground/20 hover:bg-muted/50",
-        "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none",
-        !skill.available && "text-muted-foreground",
+        "aurora-card",
+        skill.featured && "aurora-card--featured",
+        !skill.available && "aurora-card--unavailable",
       )}
     >
-      <span className="flex w-full items-start justify-between gap-2">
-        <span className="text-body font-medium">{displayName}</span>
-        {!skill.available ? (
-          <Badge variant="outline" className="shrink-0">
-            {t(($) => $.directory.unavailable)}
-          </Badge>
-        ) : null}
+      <span className="aurora-card-top">
+        <AuroraAvatar
+          name={displayName}
+          id={skill.id}
+          size="lg"
+          available={skill.available}
+        />
+        <span className="aurora-card-name">
+          <span className="aurora-card-category">
+            {t(($) => $.directory.categories[auroraCategoryLabel(skill.category)])}
+          </span>
+          <span className="aurora-card-title">{displayName}</span>
+        </span>
+        <span aria-hidden="true" className="aurora-card-arrow">
+          <ArrowUpRight className="size-4" />
+        </span>
       </span>
-      <span className="text-caption text-muted-foreground">
-        {t(($) => $.credits, { credits })}
+      {/* What the skill accepts, from the catalog's own modalities. The
+          reference shows three capability tags here. */}
+      <span className="aurora-chips">
+        {skill.input.map((modality) => (
+          <span key={modality}>
+            {t(($) => $.directory.inputs[auroraInputLabel(modality)])}
+          </span>
+        ))}
+      </span>
+      <span className="aurora-card-footer">
+        {skill.available ? (
+          <span className="aurora-card-state">
+            <span aria-hidden="true" className="aurora-dot" />
+            {t(($) => $.directory.ready)}
+          </span>
+        ) : (
+          <span className="aurora-status-pill aurora-status-pill--muted">
+            {t(($) => $.directory.unavailable)}
+          </span>
+        )}
+        <strong>{t(($) => $.credits, { credits })}</strong>
       </span>
     </button>
   );
@@ -228,7 +346,7 @@ function DirectorySkeleton() {
     <ul className={GRID_CLASS}>
       {Array.from({ length: 8 }, (_, index) => (
         <li key={index}>
-          <Skeleton className="h-20 w-full rounded-lg" />
+          <Skeleton className="h-20 w-full rounded-xl" />
         </li>
       ))}
     </ul>

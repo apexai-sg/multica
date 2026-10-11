@@ -173,6 +173,30 @@ export function topupPackLabel(id: string): AuroraTopupPackLabel {
   return TOPUP_PACK_LABELS[id] ?? "other";
 }
 
+/** What a skill accepts, as `directory.inputs.*`. */
+export type AuroraInputLabel =
+  | "text"
+  | "image"
+  | "document"
+  | "audio"
+  | "video"
+  | "spreadsheet"
+  | "other";
+
+const INPUT_LABELS: Record<string, AuroraInputLabel> = {
+  text: "text",
+  image: "image",
+  document: "document",
+  audio: "audio",
+  video: "video",
+  spreadsheet: "spreadsheet",
+};
+
+/** Unknown wire modalities still receive a translated label. */
+export function auroraInputLabel(modality: string): AuroraInputLabel {
+  return Object.hasOwn(INPUT_LABELS, modality) ? INPUT_LABELS[modality]! : "other";
+}
+
 /** A directory category tab, as `aurora.directory.categories.*`. */
 export type AuroraCategoryLabel =
   | "image"
