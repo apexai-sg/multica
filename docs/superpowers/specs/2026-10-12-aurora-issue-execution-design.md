@@ -2,7 +2,7 @@
 
 日期：2026-10-12
 
-状态：书面规格，待审阅。尚未实施，也还不是实施计划。
+状态：书面规格。实施计划见 [`docs/superpowers/plans/2026-10-12-aurora-issue-execution.md`](../plans/2026-10-12-aurora-issue-execution.md)。尚未实施。
 
 ## 1. 目标与已确认边界
 
