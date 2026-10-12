@@ -16,7 +16,7 @@
 
 ## 全局约束
 
-- 不拆计划。四步：列、创建并入队、claim 提示词、打开现成问题详情。
+- 不拆计划。四步按依赖排：先改 claim，再加 `issue_id`，再创建并入队，最后打开现成问题详情。先入队会让第一轮在没有用户提示词时开跑。
 - 不建外键。`issue_id` 索引用单独迁移，`CREATE INDEX CONCURRENTLY`。
 - **计费不改实现。** 不改 `server/internal/aurora/credit.go`。不改 `settleAuroraOnCompleted` / `settleAuroraOnFailed` 的金额。不加 `file_count`。不按 token。不做透支。不做 7 天超时。一次生成仍预扣目录 `Credits` 一份，键仍是 `reserve:` 加生成 id。成功时现有结算把已扣记成这份预扣；失败时现有退款退回这份预扣。一条生成一条 issue，所以这就是按 issue 计一份。
 - 不新增 `needs_input`。不给评论加 Aurora 门闩。人在这条 issue 上回复，走现有 assignee 入队，不再预扣。这是有意的简单做法，不在本计划里堵。
@@ -54,7 +54,79 @@
 
 ---
 
-### 任务 1：只加 `issue_id`
+### 任务 1：claim 仍带技能文档和 issue id
+
+**文件：**
+- 修改：`server/internal/service/task.go`（只加上下文类型常量）
+- 修改：`server/internal/handler/daemon.go`
+- 修改：`server/internal/daemon/prompt.go`
+- 修改：`server/internal/daemon/prompt_test.go`
+- 测试：`server/internal/handler/daemon_aurora_claim_test.go`
+
+**接口：**
+- 产出：`const AuroraIssueContextType = "aurora_issue"`，定义在 `server/internal/service/task.go`。
+- 产出：`func applyAuroraIssueClaim(resp *AgentTaskResponse, task db.AgentTaskQueue) bool`
+
+技能文档仍由现有的 `ensureTaskSkillBundles` 按 `aurora:` 系统键放入工作目录。不要把 markdown 嵌进 claim。不要改 13 份技能文档。
+
+- [ ] **步骤 1：写会失败的测试**
+
+改 `TestBuildAuroraPromptPointsAtTheSkillDocument`：设上 `IssueID`。删掉期望 `"do not create, update, or comment on issues"`。改为期望 issue id、`Do not create another issue.`，以及 `.claude/skills/`。
+
+`TestApplyAuroraIssueClaimCopiesPromptAndIssue`：issue 已绑定、context 类型是 `aurora_issue` 时，claim 得到 `generation_id`、提示词和附件 id，且不清除 `IssueID`。类型是 `quick_create` 时返回 false。没有 issue 的旧 quick-create 分支留着。
+
+- [ ] **步骤 2：运行，确认失败**
+
+运行：`(cd server && go test ./internal/daemon/ -run 'TestBuildAuroraPrompt' -count=1)`
+
+预期：失败。
+
+- [ ] **步骤 3：改提示词和 claim**
+
+`buildAuroraPrompt` 开头改成：这是一次生成的一轮，就在下面这条 issue 上，不要再建一条 issue。打印 `Issue id`。保留技能文档、提示词和附件。硬规则里删掉「不要评论 issue」。提问时用 `multica issue comment add <issue id>` 写在这条 issue 上。不要把 Aurora task 送进 `buildCommentPrompt` 或普通 issue 简报。`isAuroraTask` 仍在 quick-create 分支前面。
+
+在 `server/internal/service/task.go` 增加：
+
+```go
+const AuroraIssueContextType = "aurora_issue"
+```
+
+任务 3 的入队使用这个常量，不要再定义一次。
+
+```go
+func applyAuroraIssueClaim(resp *AgentTaskResponse, task db.AgentTaskQueue) bool {
+    var ctx struct {
+        Type          string   `json:"type"`
+        GenerationID  string   `json:"generation_id"`
+        Prompt        string   `json:"prompt"`
+        AttachmentIDs []string `json:"attachment_ids"`
+    }
+    if json.Unmarshal(task.Context, &ctx) != nil || ctx.Type != service.AuroraIssueContextType {
+        return false
+    }
+    resp.QuickCreatePrompt = ctx.Prompt
+    resp.QuickCreateAttachmentIDs = append([]string(nil), ctx.AttachmentIDs...)
+    resp.GenerationID = ctx.GenerationID
+    return true
+}
+```
+
+在 `taskToResponse` 之后、对每条 claim 调用。不要放进 `!task.IssueID.Valid` 的分支。`GenerationID` 仍为空时，保留现有的 `GetAuroraGenerationByTaskID` 宽限路径。
+
+- [ ] **步骤 4：运行测试**
+
+运行：`(cd server && go test ./internal/daemon/ -run 'TestBuildAuroraPrompt' -count=1 && go test ./internal/handler/ -run TestApplyAuroraIssueClaimCopiesPromptAndIssue -count=1)`
+
+预期：通过。
+
+- [ ] **步骤 5：提交**
+
+```bash
+git commit -m "feat(aurora): keep the skill brief on an issue claim"
+```
+---
+
+### 任务 2：只加 `issue_id`
 
 **文件：**
 - 新建：`server/migrations/586_aurora_generation_issue.up.sql`
@@ -136,10 +208,9 @@ RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
 ```bash
 git commit -m "feat(aurora): store the issue id on a generation"
 ```
-
 ---
 
-### 任务 2：先建 issue，再按现在的方式预扣，再入队
+### 任务 3：先建 issue，再按现在的方式预扣，再入队
 
 **文件：**
 - 新建：`server/internal/aurora/issue_title.go`
@@ -152,10 +223,9 @@ git commit -m "feat(aurora): store the issue id on a generation"
 - 修改：`packages/core/aurora/schema.ts`
 
 **接口：**
-- 依赖：现有 `Credit.Reserve`、`failGenerationAndRefund`、`IssueService.Create`。
+- 依赖：任务 1 的 `AuroraIssueContextType`，任务 2 的 `issue_id`，现有 `Credit.Reserve`、`failGenerationAndRefund`、`IssueService.Create`。
 - 产出：
   - `func IssueTitle(displayName, prompt string) string`
-  - `const AuroraIssueContextType = "aurora_issue"`
   - `func (s *TaskService) EnqueueAuroraIssueTask(ctx context.Context, issue db.Issue, generationID, prompt string, attachmentIDs []string) (db.AgentTaskQueue, error)`
   - `IssueCreateOpts.SkipAssignedAgentEnqueue bool`
   - 响应字段 `issueNumber`、`issueIdentifier`。客户端默认 `0` 和 `""`。
@@ -189,8 +259,6 @@ git commit -m "feat(aurora): store the issue id on a generation"
 `CreateAgentTask` 的 context `CASE` 在现有 `head_sha` 之外，允许写入 `type`、`generation_id`、`prompt`、`attachment_ids`。没有这些参数时，行为与现在相同。不要改 `CreateDeferredChannelIssueTask`。然后 `make sqlc`。
 
 ```go
-const AuroraIssueContextType = "aurora_issue"
-
 func (s *TaskService) EnqueueAuroraIssueTask(ctx context.Context, issue db.Issue, generationID, prompt string, attachmentIDs []string) (db.AgentTaskQueue, error) {
     return s.enqueueIssueTaskWithAurora(ctx, issue, pgtype.UUID{}, generationID, prompt, attachmentIDs)
 }
@@ -249,70 +317,6 @@ func (h *Handler) abandonAuroraIssue(ctx context.Context, issue db.Issue) {
 ```bash
 git commit -m "feat(aurora): run a generation on an issue"
 ```
-
----
-
-### 任务 3：claim 仍带技能文档和 issue id
-
-**文件：**
-- 修改：`server/internal/handler/daemon.go`
-- 修改：`server/internal/daemon/prompt.go`
-- 修改：`server/internal/daemon/prompt_test.go`
-- 测试：`server/internal/handler/daemon_aurora_claim_test.go`
-
-**接口：**
-- 产出：`func applyAuroraIssueClaim(resp *AgentTaskResponse, task db.AgentTaskQueue) bool`
-
-技能文档仍由现有的 `ensureTaskSkillBundles` 按 `aurora:` 系统键放入工作目录。不要把 markdown 嵌进 claim。不要改 13 份技能文档。
-
-- [ ] **步骤 1：写会失败的测试**
-
-改 `TestBuildAuroraPromptPointsAtTheSkillDocument`：设上 `IssueID`。删掉期望 `"do not create, update, or comment on issues"`。改为期望 issue id、`Do not create another issue.`，以及 `.claude/skills/`。
-
-`TestApplyAuroraIssueClaimCopiesPromptAndIssue`：issue 已绑定、context 类型是 `aurora_issue` 时，claim 得到 `generation_id`、提示词和附件 id，且不清除 `IssueID`。类型是 `quick_create` 时返回 false。没有 issue 的旧 quick-create 分支留着。
-
-- [ ] **步骤 2：运行，确认失败**
-
-运行：`(cd server && go test ./internal/daemon/ -run 'TestBuildAuroraPrompt' -count=1)`
-
-预期：失败。
-
-- [ ] **步骤 3：改提示词和 claim**
-
-`buildAuroraPrompt` 开头改成：这是一次生成的一轮，就在下面这条 issue 上，不要再建一条 issue。打印 `Issue id`。保留技能文档、提示词和附件。硬规则里删掉「不要评论 issue」。提问时用 `multica issue comment add <issue id>` 写在这条 issue 上。不要把 Aurora task 送进 `buildCommentPrompt` 或普通 issue 简报。`isAuroraTask` 仍在 quick-create 分支前面。
-
-```go
-func applyAuroraIssueClaim(resp *AgentTaskResponse, task db.AgentTaskQueue) bool {
-    var ctx struct {
-        Type          string   `json:"type"`
-        GenerationID  string   `json:"generation_id"`
-        Prompt        string   `json:"prompt"`
-        AttachmentIDs []string `json:"attachment_ids"`
-    }
-    if json.Unmarshal(task.Context, &ctx) != nil || ctx.Type != service.AuroraIssueContextType {
-        return false
-    }
-    resp.QuickCreatePrompt = ctx.Prompt
-    resp.QuickCreateAttachmentIDs = append([]string(nil), ctx.AttachmentIDs...)
-    resp.GenerationID = ctx.GenerationID
-    return true
-}
-```
-
-在 `taskToResponse` 之后、对每条 claim 调用。不要放进 `!task.IssueID.Valid` 的分支。`GenerationID` 仍为空时，保留现有的 `GetAuroraGenerationByTaskID` 宽限路径。
-
-- [ ] **步骤 4：运行测试**
-
-运行：`(cd server && go test ./internal/daemon/ -run 'TestBuildAuroraPrompt' -count=1 && go test ./internal/handler/ -run TestApplyAuroraIssueClaimCopiesPromptAndIssue -count=1)`
-
-预期：通过。
-
-- [ ] **步骤 5：提交**
-
-```bash
-git commit -m "feat(aurora): keep the skill brief on an issue claim"
-```
-
 ---
 
 ### 任务 4：打开现成的问题详情
