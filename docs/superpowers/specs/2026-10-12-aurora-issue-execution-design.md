@@ -2,7 +2,7 @@
 
 日期：2026-10-12
 
-状态：书面规格。实施计划见 [`docs/superpowers/plans/2026-10-12-aurora-issue-execution.md`](../plans/2026-10-12-aurora-issue-execution.md)。尚未实施。
+状态：书面规格。实施以 [`docs/superpowers/plans/2026-10-12-aurora-issue-execution.md`](../plans/2026-10-12-aurora-issue-execution.md) 为准。2026-10-13 起，计费不按第 6、7、9 节：一次生成仍预扣一份目录标价，不改账本。优先做的是 Agent 在 issue 上跑，并打开现成的问题详情。
 
 ## 1. 目标与已确认边界
 
