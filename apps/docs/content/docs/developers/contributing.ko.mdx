@@ -92,7 +92,7 @@ pnpm test
 
 루트 명령은 기본적으로 Mobile을 제외합니다. Mobile에는 별도 스크립트와 CI가 있으므로 변경하기 전에 `apps/mobile/AGENTS.md`를 읽으세요.
 
-`pnpm dev:aurora`는 `apps/aurora`를 `AURORA_PORT`(기본값 `3001`)로 제공하며 Web 앱과 같은 백엔드를 사용합니다. 아직 `make up`의 컴포넌트 목록에 없으므로 백엔드를 평소처럼 띄운 뒤 따로 실행합니다. 어느 백엔드에 연결할지는 Web 앱과 같은 `NEXT_PUBLIC_API_URL` / `REMOTE_API_URL` 규칙을 따르며, 둘 다 설정하지 않으면 `next dev`가 앱 자체 오리진을 통해 백엔드를 프록시합니다. 이 앱은 백엔드 표면(`/api`, `/v1`, `/ws`, `/health`, `/uploads`)을 전달하고 예약 slug(reserved slug) 리디렉션에서는 제외합니다. `apps/aurora/config/runtime-urls.ts`의 `isBackendSurfacePath`가 그 경로 목록의 유일한 정의이며, 리라이트와 리디렉션이 모두 이를 읽습니다. 실시간 연결은 백엔드가 이 앱의 오리진을 허용해야 하며, `ALLOWED_ORIGINS`(없으면 `CORS_ALLOWED_ORIGINS`, 그다음 `FRONTEND_ORIGIN`)에 없는 오리진은 WebSocket 핸드셰이크가 403으로 거부됩니다. `AURORA_PORT`의 오리진을 추가하세요.
+`pnpm dev:aurora`는 `apps/aurora`를 `AURORA_PORT`(기본값 `13011`)로 제공하며 Web 앱과 같은 백엔드를 사용합니다. 아직 `make up`의 컴포넌트 목록에 없으므로 백엔드를 평소처럼 띄운 뒤 따로 실행합니다. 어느 백엔드에 연결할지는 Web 앱과 같은 `NEXT_PUBLIC_API_URL` / `REMOTE_API_URL` 규칙을 따르며, 둘 다 설정하지 않으면 `next dev`가 앱 자체 오리진을 통해 백엔드를 프록시합니다. 이 앱은 백엔드 표면(`/api`, `/v1`, `/ws`, `/health`, `/uploads`)을 전달하고 예약 slug(reserved slug) 리디렉션에서는 제외합니다. `apps/aurora/config/runtime-urls.ts`의 `isBackendSurfacePath`가 그 경로 목록의 유일한 정의이며, 리라이트와 리디렉션이 모두 이를 읽습니다. 실시간 연결은 백엔드가 이 앱의 오리진을 허용해야 하며, `ALLOWED_ORIGINS`(없으면 `CORS_ALLOWED_ORIGINS`, 그다음 `FRONTEND_ORIGIN`)에 없는 오리진은 WebSocket 핸드셰이크가 403으로 거부됩니다. `AURORA_PORT`의 오리진을 추가하세요.
 
 ### Backend
 

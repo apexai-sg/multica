@@ -92,7 +92,7 @@ pnpm test
 
 根命令默认排除 Mobile。移动端有独立脚本和 CI，修改前先阅读 `apps/mobile/AGENTS.md`。
 
-`pnpm dev:aurora` 在 `AURORA_PORT`（默认 `3001`）上运行 `apps/aurora`，使用的后端与 Web 应用相同。它还没有进入 `make up` 的组件列表，照常启动后端后单独运行即可。它连哪个后端遵循与 Web 应用相同的 `NEXT_PUBLIC_API_URL` / `REMOTE_API_URL` 规则；两者都未设置时，`next dev` 会通过应用自身来源代理后端。该应用转发后端接口面 `/api`、`/v1`、`/ws`、`/health`、`/uploads`，并让其豁免于保留字（reserved slug）重定向；`apps/aurora/config/runtime-urls.ts` 里的 `isBackendSurfacePath` 是这份路径清单的唯一来源，重写与重定向都读它。实时连接要求后端接受该应用的来源：来源不在 `ALLOWED_ORIGINS`（依次回退到 `CORS_ALLOWED_ORIGINS`、`FRONTEND_ORIGIN`）内时，WebSocket 握手会被 403 拒绝——把 `AURORA_PORT` 对应的来源加进去即可保持连接。
+`pnpm dev:aurora` 在 `AURORA_PORT`（默认 `13011`）上运行 `apps/aurora`，使用的后端与 Web 应用相同。它还没有进入 `make up` 的组件列表，照常启动后端后单独运行即可。它连哪个后端遵循与 Web 应用相同的 `NEXT_PUBLIC_API_URL` / `REMOTE_API_URL` 规则；两者都未设置时，`next dev` 会通过应用自身来源代理后端。该应用转发后端接口面 `/api`、`/v1`、`/ws`、`/health`、`/uploads`，并让其豁免于保留字（reserved slug）重定向；`apps/aurora/config/runtime-urls.ts` 里的 `isBackendSurfacePath` 是这份路径清单的唯一来源，重写与重定向都读它。实时连接要求后端接受该应用的来源：来源不在 `ALLOWED_ORIGINS`（依次回退到 `CORS_ALLOWED_ORIGINS`、`FRONTEND_ORIGIN`）内时，WebSocket 握手会被 403 拒绝——把 `AURORA_PORT` 对应的来源加进去即可保持连接。
 
 ### Backend
 
