@@ -1291,6 +1291,26 @@ func (s *TaskService) enqueueIssueTaskWithAurora(ctx context.Context, issue db.I
 	})
 }
 
+// EnqueueAuroraIssueRound enqueues a continuation round on an existing Aurora
+// generation's issue. The task carries the same aurora_issue context as the
+// first round — the generation id, the original prompt, and the issue's input
+// attachments — plus the comment that opened this round. The caller writes the
+// new task id back onto the generation; this never reserves more credits.
+func (s *TaskService) EnqueueAuroraIssueRound(ctx context.Context, issue db.Issue, generation db.AuroraGeneration, triggerCommentID pgtype.UUID) (db.AgentTaskQueue, error) {
+	attachments, err := s.Queries.ListAttachmentsByIssue(ctx, db.ListAttachmentsByIssueParams{
+		IssueID:     issue.ID,
+		WorkspaceID: issue.WorkspaceID,
+	})
+	if err != nil {
+		return db.AgentTaskQueue{}, fmt.Errorf("load aurora round attachments: %w", err)
+	}
+	attachmentIDs := make([]string, 0, len(attachments))
+	for _, attachment := range attachments {
+		attachmentIDs = append(attachmentIDs, util.UUIDToString(attachment.ID))
+	}
+	return s.enqueueIssueTaskWithAurora(ctx, issue, triggerCommentID, util.UUIDToString(generation.ID), generation.Prompt, attachmentIDs)
+}
+
 func (s *TaskService) enqueueIssueTaskWithCommentPlan(ctx context.Context, issue db.Issue, triggerCommentID pgtype.UUID, coalescedCommentIDs []pgtype.UUID, forceFreshSession bool, handoffNote string, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, fireAt pgtype.Timestamptz, origin RunOrigin, aurora *auroraIssueContext) (db.AgentTaskQueue, error) {
 	if !issue.AssigneeID.Valid {
 		slog.Error("task enqueue failed", "issue_id", util.UUIDToString(issue.ID), "error", "issue has no assignee")

@@ -493,6 +493,45 @@ func (q *Queries) UpdateAuroraGenerationBound(ctx context.Context, arg UpdateAur
 	return i, err
 }
 
+const updateAuroraGenerationRound = `-- name: UpdateAuroraGenerationRound :one
+UPDATE aurora_generation
+SET task_id = $2, status = 'queued', error = NULL, updated_at = now()
+WHERE id = $1 AND workspace_id = $3
+RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id
+`
+
+type UpdateAuroraGenerationRoundParams struct {
+	ID          pgtype.UUID `json:"id"`
+	TaskID      pgtype.UUID `json:"task_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// Task 4's continuation round: point the generation at the new task, return it
+// to queued, and clear the previous round's error. The reservation is left
+// alone on purpose — a follow-up round reuses the single reservation made when
+// the generation was created, so this never becomes a second charge.
+func (q *Queries) UpdateAuroraGenerationRound(ctx context.Context, arg UpdateAuroraGenerationRoundParams) (AuroraGeneration, error) {
+	row := q.db.QueryRow(ctx, updateAuroraGenerationRound, arg.ID, arg.TaskID, arg.WorkspaceID)
+	var i AuroraGeneration
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.UserID,
+		&i.SkillID,
+		&i.Prompt,
+		&i.Status,
+		&i.TaskID,
+		&i.CreditsReserved,
+		&i.CreditsCharged,
+		&i.Error,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IssueID,
+	)
+	return i, err
+}
+
 const updateAuroraGenerationTask = `-- name: UpdateAuroraGenerationTask :one
 UPDATE aurora_generation
 SET task_id = $2, credits_reserved = $3, updated_at = now()

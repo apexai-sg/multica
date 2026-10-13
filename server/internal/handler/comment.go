@@ -2044,6 +2044,20 @@ func (h *Handler) triggerTasksForComment(ctx context.Context, issue db.Issue, co
 		OriginatorUserID:        originatorUserID,
 	})
 	triggers = filterSuppressedCommentAgentTriggers(triggers, suppressAgentIDs)
+
+	// Aurora gate (spec §1.5). A comment on an issue that belongs to an Aurora
+	// generation must never be folded into the live round. Both the steer path
+	// below and enqueueCommentAgentTriggers (through mergeCommentIntoPendingTask
+	// and registerPlannedCommentForActiveTask) do exactly that, so the decision
+	// runs before them. An Aurora issue is handled here and returns; a
+	// non-Aurora issue falls through byte-for-byte as before.
+	if decision := h.auroraIssueRoundDecision(ctx, issue, comment.Content); decision.isAuroraIssue() {
+		if decision.opensNextRound() {
+			h.openAuroraIssueRound(ctx, issue, decision.generation, comment.ID)
+		}
+		return nil
+	}
+
 	h.noteBlockedRuntimeTargets(ctx, issue, targets)
 	triggers, steered := h.steerCommentAgentTriggers(ctx, issue, comment, actorType, triggers, steerTaskIDs)
 	enqueued := h.enqueueCommentAgentTriggers(ctx, issue, comment.ID, triggers)

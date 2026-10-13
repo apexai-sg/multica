@@ -120,3 +120,14 @@ SET status = 'needs_input', updated_at = now()
 WHERE id = $1 AND workspace_id = $2 AND status = 'queued'
 RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
           credits_reserved, credits_charged, error, created_at, updated_at, issue_id;
+
+-- name: UpdateAuroraGenerationRound :one
+-- Task 4's continuation round: point the generation at the new task, return it
+-- to queued, and clear the previous round's error. The reservation is left
+-- alone on purpose — a follow-up round reuses the single reservation made when
+-- the generation was created, so this never becomes a second charge.
+UPDATE aurora_generation
+SET task_id = $2, status = 'queued', error = NULL, updated_at = now()
+WHERE id = $1 AND workspace_id = $3
+RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id;
