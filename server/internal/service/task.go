@@ -1357,13 +1357,15 @@ func (s *TaskService) auroraRoundForIssue(ctx context.Context, issue db.Issue) (
 	}, generation.ID, nil
 }
 
-// pointAuroraRoundAtTask moves the generation's task pointer onto the round
-// just enqueued. Enqueue first, write back second — the order openAuroraIssueRound
-// uses: a claim reads the whole context out of the task row, so the short window
-// where the generation still names the previous task is harmless. A failure
-// leaves the new round running with a stale pointer, so it is logged rather
-// than hidden.
-func (s *TaskService) pointAuroraRoundAtTask(ctx context.Context, generationID, taskID, workspaceID pgtype.UUID) {
+// PointAuroraRoundAtTask moves the generation's task pointer onto the round
+// just enqueued and queues it again. Enqueue first, write back second: a claim
+// reads the whole context out of the task row, so the short window where the
+// generation still names the previous task is harmless. A failure leaves the
+// new round running with a stale pointer, so it is logged rather than hidden.
+func (s *TaskService) PointAuroraRoundAtTask(ctx context.Context, generationID, taskID, workspaceID pgtype.UUID) {
+	if s == nil || s.Queries == nil {
+		return
+	}
 	if _, err := s.Queries.UpdateAuroraGenerationRound(ctx, db.UpdateAuroraGenerationRoundParams{
 		ID:          generationID,
 		TaskID:      taskID,
@@ -1374,6 +1376,96 @@ func (s *TaskService) pointAuroraRoundAtTask(ctx context.Context, generationID, 
 			"task_id", util.UUIDToString(taskID),
 			"error", err)
 	}
+}
+
+// bindAuroraRerun points the generation at a rerun only when that rerun is the
+// assignee round and the round it would replace has already ended. A mention
+// rerun is a different agent, so taking the pointer would make the server treat
+// a task with no aurora_issue context as the Aurora task. A live round keeps
+// its pointer so its provider calls do not start answering 403; the rerun still
+// carries the context, and claim binds the pointer once the live task is done.
+func (s *TaskService) bindAuroraRerun(ctx context.Context, issue db.Issue, task db.AgentTaskQueue, auroraCtx *auroraIssueContext, ownsRound bool) {
+	if auroraCtx == nil || !ownsRound || s.auroraBoundTaskLive(ctx, issue) {
+		return
+	}
+	s.PointAuroraRoundAtTask(ctx, util.MustParseUUID(auroraCtx.generationID), task.ID, issue.WorkspaceID)
+}
+
+// AdoptAuroraRoundOnClaim binds a claimed aurora_issue task to its generation
+// when the generation does not already name it and the task it does name is no
+// longer running. That is how a rerun queued behind a live round becomes an
+// Aurora task at the moment it actually starts, without having taken the
+// pointer away from the round that was still executing.
+func (s *TaskService) AdoptAuroraRoundOnClaim(ctx context.Context, task db.AgentTaskQueue, workspaceID pgtype.UUID) {
+	if s == nil || s.Queries == nil || !task.IssueID.Valid || !workspaceID.Valid {
+		return
+	}
+	var round struct {
+		Type         string `json:"type"`
+		GenerationID string `json:"generation_id"`
+	}
+	if json.Unmarshal(task.Context, &round) != nil || round.Type != AuroraIssueContextType || round.GenerationID == "" {
+		return
+	}
+	generation, err := s.Queries.GetAuroraGenerationByIssueID(ctx, db.GetAuroraGenerationByIssueIDParams{
+		IssueID:     task.IssueID,
+		WorkspaceID: workspaceID,
+	})
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			slog.Warn("aurora claim adopt lookup failed", "task_id", util.UUIDToString(task.ID), "error", err)
+		}
+		return
+	}
+	if util.UUIDToString(generation.ID) != round.GenerationID || generation.TaskID == task.ID {
+		return
+	}
+	if s.auroraTaskLive(ctx, generation.TaskID) {
+		return
+	}
+	s.PointAuroraRoundAtTask(ctx, generation.ID, task.ID, workspaceID)
+}
+
+// auroraBoundTaskLive reports whether the issue's generation currently names a
+// task that has not reached a terminal status. An unreadable task counts as
+// live: moving the pointer off a task we cannot prove is finished is how a
+// running round starts answering 403.
+func (s *TaskService) auroraBoundTaskLive(ctx context.Context, issue db.Issue) bool {
+	generation, err := s.Queries.GetAuroraGenerationByIssueID(ctx, db.GetAuroraGenerationByIssueIDParams{
+		IssueID:     issue.ID,
+		WorkspaceID: issue.WorkspaceID,
+	})
+	if err != nil {
+		return !errors.Is(err, pgx.ErrNoRows)
+	}
+	return s.auroraTaskLive(ctx, generation.TaskID)
+}
+
+func (s *TaskService) auroraTaskLive(ctx context.Context, taskID pgtype.UUID) bool {
+	if !taskID.Valid {
+		return false
+	}
+	task, err := s.Queries.GetAgentTask(ctx, taskID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false
+		}
+		slog.Warn("aurora round liveness lookup failed", "task_id", util.UUIDToString(taskID), "error", err)
+		return true
+	}
+	switch task.Status {
+	case "queued", "dispatched", "running", "waiting_local_directory", "deferred":
+		return true
+	}
+	return false
+}
+
+// rerunTargetsAssignee is the assignee branch of a manual rerun. Only that
+// branch is the round an issue-bound generation owns; a mention rerun targets
+// some other agent.
+func rerunTargetsAssignee(issue db.Issue, agentID pgtype.UUID) bool {
+	return issue.AssigneeType.String == "agent" && issue.AssigneeID.Valid &&
+		util.UUIDToString(issue.AssigneeID) == util.UUIDToString(agentID)
 }
 
 func (s *TaskService) enqueueIssueTaskWithCommentPlan(ctx context.Context, issue db.Issue, triggerCommentID pgtype.UUID, coalescedCommentIDs []pgtype.UUID, forceFreshSession bool, handoffNote string, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, fireAt pgtype.Timestamptz, origin RunOrigin, aurora *auroraIssueContext) (db.AgentTaskQueue, error) {
@@ -6148,6 +6240,7 @@ func (s *TaskService) RerunIssue(ctx context.Context, issueID pgtype.UUID, sourc
 	if err != nil {
 		return nil, err
 	}
+	ownsRound := rerunTargetsAssignee(issue, agentID)
 
 	// A manual rerun is a NEW direct_human trigger attributed to the rerunning
 	// member, not the original run's human (MUL-4302 §5); actorUserID carries them.
@@ -6175,11 +6268,7 @@ func (s *TaskService) RerunIssue(ctx context.Context, issueID pgtype.UUID, sourc
 	if err != nil {
 		return nil, err
 	}
-	if auroraCtx != nil {
-		// Move the generation onto this round and queue it again. This is what
-		// makes the Aurora endpoints resolve the rerun instead of 403ing.
-		s.pointAuroraRoundAtTask(ctx, auroraGenerationID, task.ID, issue.WorkspaceID)
-	}
+	s.bindAuroraRerun(ctx, issue, task, auroraCtx, ownsRound)
 	slog.Info("issue rerun enqueued",
 		"task_id", util.UUIDToString(task.ID),
 		"issue_id", util.UUIDToString(issueID),
@@ -6265,8 +6354,7 @@ func (s *TaskService) promoteNewestSurvivingComment(ctx context.Context, ids []p
 // the assignee branch, because the mention branch targets an agent other than
 // the issue's assignee and therefore is not the round the generation owns.
 func (s *TaskService) enqueueRerunTask(ctx context.Context, issue db.Issue, agentID pgtype.UUID, triggerCommentID pgtype.UUID, coalescedCommentIDs []pgtype.UUID, isLeader bool, squadID pgtype.UUID, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, origin RunOrigin, aurora *auroraIssueContext) (db.AgentTaskQueue, error) {
-	if issue.AssigneeType.String == "agent" && issue.AssigneeID.Valid &&
-		util.UUIDToString(issue.AssigneeID) == util.UUIDToString(agentID) {
+	if rerunTargetsAssignee(issue, agentID) {
 		return s.enqueueIssueTaskWithCommentPlan(ctx, issue, triggerCommentID, coalescedCommentIDs, true, "", actorUserID, rerunOfTaskID, pgtype.Timestamptz{}, origin, aurora)
 	}
 	return s.enqueueMentionTaskWithCommentPlan(ctx, issue, agentID, triggerCommentID, coalescedCommentIDs, isLeader, squadID, true, "", actorUserID, rerunOfTaskID, origin)

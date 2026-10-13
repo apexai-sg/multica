@@ -2530,7 +2530,9 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 	// generation id in the aurora_issue context. It never enters the
 	// quick-create branch below (that branch requires an absent issue), so
 	// apply it to every claim rather than inside that branch.
-	applyAuroraIssueClaim(&resp, *task)
+	if applyAuroraIssueClaim(&resp, *task) && h.TaskService != nil {
+		h.TaskService.AdoptAuroraRoundOnClaim(r.Context(), *task, parseUUID(runtimeWorkspaceID))
+	}
 	if err := (&service.IssueWakeupService{Tasks: h.TaskService}).CheckClaim(r.Context(), *task); err != nil {
 		if !errors.Is(err, service.ErrWakeupForbidden) {
 			return resp, nil, nil, 0, 0, h.rejectClaimSourceLoad(r.Context(), task, err, "wakeup", resp.WakeupID)
