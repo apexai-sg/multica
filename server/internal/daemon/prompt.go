@@ -212,9 +212,10 @@ func BuildPrompt(task Task, provider string, options ...PromptOption) string {
 func buildPromptBody(task Task, provider string) string {
 	// An Aurora generation is enqueued through the quick-create carrier, so
 	// isAuroraTask must be checked before the QuickCreatePrompt branch below.
-	// Otherwise the generic quick-create prompt tells the agent to run
-	// `multica issue create`, and the generation's output would land on a new
-	// issue instead of the run's artifact manifest.
+	// A round can also be bound to an issue, where its output still belongs to
+	// the run's artifact manifest rather than to a new issue; either way the
+	// generic quick-create prompt would wrongly send the agent to
+	// `multica issue create`.
 	if isAuroraTask(task) {
 		return buildAuroraPrompt(task)
 	}
@@ -379,24 +380,34 @@ func buildQuickCreatePrompt(task Task) string {
 //
 // An Aurora run is an ordinary agent run: the same workdir, the same provider
 // CLI, a shell, and the Multica CLI. This prompt therefore carries only what
-// changes every run — the trusted skill identity, the user's generation prompt,
-// and the attachments this run was given. The procedure itself lives in the
-// skill document the daemon delivers into the project's skills directory
+// changes every run — the trusted skill identity, the issue a round runs on
+// once one is bound, the user's generation prompt, the trigger comment, and
+// the attachments this run was given. The procedure itself lives in the skill
+// document the daemon delivers into the project's skills directory
 // (execenv.writeSkillFiles), which is the channel every other agent uses.
 //
 // An Aurora generation is enqueued through the quick-create carrier, so without
 // this branch the model would receive the generic quick-create prompt and try
-// to run `multica issue create`. A generation is not an issue: its output
-// belongs to the run's artifact manifest.
+// to run `multica issue create`. When a round is bound to an issue, that issue
+// is where the agent asks and answers; the generation's output still belongs
+// to the run's artifact manifest, not to a new issue.
 //
 // The trusted skill id comes from the claim's "aurora:<skillID>" system key,
 // never from the untrusted generation prompt.
 func buildAuroraPrompt(task Task) string {
 	skillID, _ := auroraSkillID(task)
 	var b strings.Builder
-	b.WriteString("You are running as an Aurora creation agent for a Multica workspace. This run produces one generation. It is NOT an issue run: do not create, update, or comment on issues.\n\n")
+	if task.IssueID != "" {
+		b.WriteString("You are running as an Aurora creation agent for a Multica workspace. This round runs on the issue below and produces one generation on it. Do not create another issue.\n\n")
+		fmt.Fprintf(&b, "Issue id: `%s`\n\n", task.IssueID)
+	} else {
+		b.WriteString("You are running as an Aurora creation agent for a Multica workspace. This run produces one generation. It is NOT an issue run: do not create, update, or comment on issues.\n\n")
+	}
 	fmt.Fprintf(&b, "Skill: `%s`\n\n", skillID)
 	b.WriteString("Your working directory carries this skill's document in the project skills directory (for Claude: `.claude/skills/`). Read it and follow its steps: it names the inputs, the commands or provider calls to use, the artifact manifest to write, and the failure rules.\n\n")
+	if task.IssueID != "" {
+		fmt.Fprintf(&b, "Read this issue's comments yourself before you start: `multica issue comment list %s --roots-only --summary --compact --output json`. Comments posted while this round runs, or after the previous round, never reach this prompt, so only this read shows them.\n\n", task.IssueID)
+	}
 	fmt.Fprintf(&b, "Task id: `%s`\n", task.ID)
 	if task.GenerationID != "" {
 		fmt.Fprintf(&b, "Generation id: `%s`\n", task.GenerationID)
@@ -406,6 +417,10 @@ func buildAuroraPrompt(task Task) string {
 	if prompt := strings.TrimSpace(task.QuickCreatePrompt); prompt != "" {
 		b.WriteString("The user's generation prompt:\n\n")
 		fmt.Fprintf(&b, "> %s\n\n", strings.ReplaceAll(prompt, "\n", "\n> "))
+	}
+	if comment := strings.TrimSpace(task.TriggerCommentContent); comment != "" {
+		b.WriteString("The person's latest reply on this issue:\n\n")
+		fmt.Fprintf(&b, "> %s\n\n", strings.ReplaceAll(comment, "\n", "\n> "))
 	}
 	if len(task.QuickCreateAttachmentIDs) > 0 {
 		fmt.Fprintf(&b, "Attachments for this run: %s\n", strings.Join(task.QuickCreateAttachmentIDs, ", "))
@@ -417,6 +432,9 @@ func buildAuroraPrompt(task Task) string {
 	b.WriteString("- Do the work yourself with the tools you have; you are the only execution path.\n")
 	b.WriteString("- Write the generation's artifacts and their manifest exactly as the skill document specifies. The platform collects them from there, and the generation fails if the manifest is missing or does not match this run.\n")
 	b.WriteString("- Never submit a second billable provider request for this run. If a provider call fails, stop and report its message.\n")
+	if task.IssueID != "" {
+		fmt.Fprintf(&b, "- If a required input is missing, ask on this issue with `multica issue comment add %s --content-file <path>` and stop; do not guess. Leave the answer for the next round.\n", task.IssueID)
+	}
 	b.WriteString("- When you are done, print one short line naming the produced artifact and stop.\n")
 	return b.String()
 }

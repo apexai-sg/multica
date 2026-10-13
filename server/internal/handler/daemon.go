@@ -2493,6 +2493,28 @@ func claimResponseAgentIdentityMatches(resp AgentTaskResponse) bool {
 	return resp.AgentID != "" && resp.Agent != nil && resp.Agent.ID == resp.AgentID
 }
 
+// applyAuroraIssueClaim copies an issue-bound Aurora round's prompt,
+// attachments and generation id out of the task context onto the claim
+// response. Such a round is enqueued with an issue attached, so it never takes
+// the quick-create branch below (which requires an absent issue); without this
+// the daemon would build an Aurora prompt with no user input. Returns false for
+// every other context shape, leaving the quick-create branch untouched.
+func applyAuroraIssueClaim(resp *AgentTaskResponse, task db.AgentTaskQueue) bool {
+	var ctx struct {
+		Type          string   `json:"type"`
+		GenerationID  string   `json:"generation_id"`
+		Prompt        string   `json:"prompt"`
+		AttachmentIDs []string `json:"attachment_ids"`
+	}
+	if json.Unmarshal(task.Context, &ctx) != nil || ctx.Type != service.AuroraIssueContextType {
+		return false
+	}
+	resp.QuickCreatePrompt = ctx.Prompt
+	resp.QuickCreateAttachmentIDs = append([]string(nil), ctx.AttachmentIDs...)
+	resp.GenerationID = ctx.GenerationID
+	return true
+}
+
 // buildClaimedTaskResponse assembles the full daemon claim payload for a
 // single already-claimed task and computes the exact comment ids embedded in
 // it (deliveredCommentIDs). Shared by the per-runtime handler
@@ -2504,6 +2526,11 @@ func claimResponseAgentIdentityMatches(resp AgentTaskResponse) bool {
 func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQueue, runtime db.AgentRuntime, runtimeID, runtimeWorkspaceID string) (resp AgentTaskResponse, deliveredCommentIDs []pgtype.UUID, issueSnapshot []byte, agentSkillCount, builtinSkillCount int, failure *claimBuildFailure) {
 	// Build response with fresh agent data (name + skills + custom_env + custom_args).
 	resp = taskToResponse(*task, runtimeWorkspaceID)
+	// An issue-bound Aurora round carries its prompt, attachments and
+	// generation id in the aurora_issue context. It never enters the
+	// quick-create branch below (that branch requires an absent issue), so
+	// apply it to every claim rather than inside that branch.
+	applyAuroraIssueClaim(&resp, *task)
 	if err := (&service.IssueWakeupService{Tasks: h.TaskService}).CheckClaim(r.Context(), *task); err != nil {
 		if !errors.Is(err, service.ErrWakeupForbidden) {
 			return resp, nil, nil, 0, 0, h.rejectClaimSourceLoad(r.Context(), task, err, "wakeup", resp.WakeupID)

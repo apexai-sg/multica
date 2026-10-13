@@ -1574,6 +1574,12 @@ type QuickCreateContext struct {
 // QuickCreateContextType marks a task as a quick-create job.
 const QuickCreateContextType = "quick_create"
 
+// AuroraIssueContextType marks a task as an Aurora round bound to an issue.
+// Its context carries the generation prompt, the generation id, and the
+// attachment ids; the claim handler copies them onto the response. Task 2's
+// enqueue path writes this type, so it is declared once here.
+const AuroraIssueContextType = "aurora_issue"
+
 // EnqueueQuickCreateTask creates a queued task that has no issue / chat /
 // autopilot link — the user's natural-language prompt is stored in the
 // task's context JSONB and the agent is expected to translate it into a
