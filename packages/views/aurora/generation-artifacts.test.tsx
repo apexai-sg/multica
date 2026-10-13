@@ -60,6 +60,7 @@ const generation: AuroraGeneration = {
   error: null,
   createdAt: "2026-09-23T00:00:00Z",
   taskId: "",
+  issueIdentifier: "",
 };
 
 describe("GenerationStatusBadge presentation", () => {

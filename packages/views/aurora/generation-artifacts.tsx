@@ -101,6 +101,9 @@ export const GENERATION_STATUS_PILL: Record<AuroraGenerationStatusLabel, string>
   running: "aurora-status-pill aurora-status-pill--working",
   completed: "aurora-status-pill",
   failed: "aurora-status-pill aurora-status-pill--failed",
+  // Waiting on the person, not on the platform: the round is over but the
+  // generation is still live, so it reads like work in flight.
+  needs_input: "aurora-status-pill aurora-status-pill--working",
   unknown: "aurora-status-pill aurora-status-pill--muted",
 };
 

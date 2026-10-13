@@ -20,6 +20,7 @@ function generation(
     error: null,
     createdAt: "",
     taskId: "",
+    issueIdentifier: "",
     ...overrides,
   };
 }
