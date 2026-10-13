@@ -3471,3 +3471,49 @@ func TestCreateAuroraGenerationBindsIssueBeforeEnqueue(t *testing.T) {
 		t.Fatalf("issue creator_id = %s, want %s", creatorID.String(), testUserID)
 	}
 }
+
+// TestAuroraReadsExposeIssueIdentifier proves the list and detail endpoints
+// carry the issue link their consumers read. Only the create response used to
+// set it, so the library, history and detail views could never link to the
+// issue even though they already render the link when the field is present.
+func TestAuroraReadsExposeIssueIdentifier(t *testing.T) {
+	resetAuroraGenerations(t)
+
+	issueID := dbfx.Issue(t, "Aurora issue link")
+	bound := insertGeneration(t, "bound to an issue", testutil.Cols{"issue_id": issueID})
+	unbound := insertGeneration(t, "no issue")
+
+	var prefix string
+	var number int32
+	dbfx.QueryRow(t, `SELECT w.issue_prefix, i.number FROM issue i JOIN workspace w ON w.id = i.workspace_id WHERE i.id = $1`, issueID).Scan(&prefix, &number)
+	want := service.IssueIdentifier(prefix, number)
+
+	list := testutil.Decode[struct {
+		Generations []struct {
+			ID              string `json:"id"`
+			IssueIdentifier string `json:"issueIdentifier"`
+		} `json:"generations"`
+	}](t, testHandler.ListAuroraGenerations, newRequest(http.MethodGet, "/api/aurora/generations", nil), http.StatusOK)
+
+	byID := make(map[string]string, len(list.Generations))
+	for _, g := range list.Generations {
+		byID[g.ID] = g.IssueIdentifier
+	}
+	if byID[bound] != want {
+		t.Fatalf("list issueIdentifier = %q, want %q", byID[bound], want)
+	}
+	if byID[unbound] != "" {
+		t.Fatalf("unbound list issueIdentifier = %q, want empty", byID[unbound])
+	}
+
+	detail := testutil.Decode[struct {
+		Generation struct {
+			ID              string `json:"id"`
+			IssueIdentifier string `json:"issueIdentifier"`
+		} `json:"generation"`
+	}](t, testHandler.GetAuroraGeneration, withURLParam(newRequest(http.MethodGet, "/api/aurora/generations/{id}", nil), "id", bound), http.StatusOK)
+
+	if detail.Generation.IssueIdentifier != want {
+		t.Fatalf("detail issueIdentifier = %q, want %q", detail.Generation.IssueIdentifier, want)
+	}
+}

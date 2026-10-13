@@ -697,6 +697,11 @@ type AuroraGenerationSummaryResponse struct {
 	// The client uses it to link to the task; the wire stays a plain string so
 	// an absent value is unambiguous.
 	TaskID string `json:"taskId"`
+	// IssueIdentifier is the "PREFIX-N" key of the issue this generation runs
+	// on. Omitted when the generation has no issue, or when the workspace
+	// prefix cannot be resolved: the degraded "#N" form carries no prefix, and
+	// the client reads its absence as "no issue link to offer".
+	IssueIdentifier string `json:"issueIdentifier,omitempty"`
 }
 
 // AuroraAssetResponse is one content asset a generation produced. The library
@@ -732,7 +737,7 @@ func assetResponse(row db.AuroraAsset) AuroraAssetResponse {
 // generationSummary projects a generation row into its consumer shape. The
 // status is the row's stored value; the detail endpoint replaces it with the
 // task-derived status for in-flight generations.
-func generationSummary(row db.AuroraGeneration) AuroraGenerationSummaryResponse {
+func generationSummary(row db.AuroraGeneration, issueIdentifier string) AuroraGenerationSummaryResponse {
 	return AuroraGenerationSummaryResponse{
 		ID:              uuidToString(row.ID),
 		SkillID:         row.SkillID,
@@ -743,7 +748,48 @@ func generationSummary(row db.AuroraGeneration) AuroraGenerationSummaryResponse 
 		Error:           textToPtr(row.Error),
 		CreatedAt:       row.CreatedAt.Time.UTC().Format(time.RFC3339Nano),
 		TaskID:          uuidToString(row.TaskID),
+		IssueIdentifier: issueIdentifier,
 	}
+}
+
+// auroraIssueIdentifiers resolves the "PREFIX-N" keys of the issues the given
+// generations run on, for the list and detail endpoints. It is best-effort: a
+// missing issue, an unreadable workspace prefix or a failed lookup yields no
+// entry, so a page still renders without a link instead of failing.
+func (h *Handler) auroraIssueIdentifiers(ctx context.Context, workspaceID pgtype.UUID, issueIDs []pgtype.UUID) map[string]string {
+	identifiers := make(map[string]string, len(issueIDs))
+	unique := make([]pgtype.UUID, 0, len(issueIDs))
+	seen := make(map[string]struct{}, len(issueIDs))
+	for _, issueID := range issueIDs {
+		if !issueID.Valid {
+			continue
+		}
+		key := uuidToString(issueID)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		unique = append(unique, issueID)
+	}
+	if len(unique) == 0 {
+		return identifiers
+	}
+	prefix := h.getIssuePrefix(ctx, workspaceID)
+	if prefix == "" {
+		return identifiers
+	}
+	refs, err := h.Queries.ListIssueRefsInWorkspace(ctx, db.ListIssueRefsInWorkspaceParams{
+		WorkspaceID: workspaceID,
+		Ids:         unique,
+	})
+	if err != nil {
+		slog.Warn("aurora issue identifiers load failed", "workspace_id", uuidToString(workspaceID), "error", err)
+		return identifiers
+	}
+	for _, ref := range refs {
+		identifiers[uuidToString(ref.ID)] = service.IssueIdentifier(prefix, ref.Number)
+	}
+	return identifiers
 }
 
 // ListAuroraGenerations returns the workspace's generations, newest first.
@@ -766,9 +812,19 @@ func (h *Handler) ListAuroraGenerations(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusInternalServerError, "failed to list generations")
 		return
 	}
+	issueIDs := make([]pgtype.UUID, 0, len(rows))
+	for _, row := range rows {
+		issueIDs = append(issueIDs, row.IssueID)
+	}
+	identifiers := h.auroraIssueIdentifiers(r.Context(), workspaceID, issueIDs)
+
 	generations := make([]AuroraGenerationSummaryResponse, 0, len(rows))
 	for _, row := range rows {
-		generations = append(generations, generationSummary(row))
+		identifier := ""
+		if row.IssueID.Valid {
+			identifier = identifiers[uuidToString(row.IssueID)]
+		}
+		generations = append(generations, generationSummary(row, identifier))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"generations": generations})
 }
@@ -801,7 +857,11 @@ func (h *Handler) GetAuroraGeneration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	summary := generationSummary(row)
+	issueIdentifier := ""
+	if row.IssueID.Valid {
+		issueIdentifier = h.auroraIssueIdentifiers(r.Context(), workspaceID, []pgtype.UUID{row.IssueID})[uuidToString(row.IssueID)]
+	}
+	summary := generationSummary(row, issueIdentifier)
 	summary.Status = h.deriveGenerationStatus(r.Context(), row)
 
 	assets, err := h.Queries.ListAuroraAssets(r.Context(), db.ListAuroraAssetsParams{
