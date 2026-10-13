@@ -1346,3 +1346,108 @@ func TestGetLastTaskSessionExcludesOverflowRetiredSession(t *testing.T) {
 	})
 	requireSessionExcluded(t, prior.SessionID, err)
 }
+
+// TestRerunIssueKeepsAuroraRoundIdentity pins that a manual rerun of an issue
+// bound to an Aurora generation revives that round instead of degrading into a
+// generic issue run.
+//
+// The two sides decide "is this an Aurora task?" differently. The daemon reads
+// the agent's `aurora:*` system key, so a rerun still gets the skill brief and
+// artifact collection. The server reads aurora_generation.task_id, which only
+// an Aurora round enqueue writes back. A rerun that writes neither the
+// aurora_issue context nor that pointer therefore disagrees with the daemon:
+// the task loses MULTICA_QUICK_CREATE_TASK_ID, and the provider-run,
+// artifact-import and provider-run-finish endpoints all answer 403 "task is
+// not an Aurora task". A rerun of a failed generation then ends as needs_input
+// without a single provider call.
+func TestRerunIssueKeepsAuroraRoundIdentity(t *testing.T) {
+	if testPool == nil {
+		t.Skip("no database connection")
+	}
+
+	issueID, agentID, runtimeID := setupRerunTestFixture(t)
+	t.Cleanup(func() { cleanupRerunFixture(t, issueID) })
+
+	ctx := context.Background()
+
+	// The failed first round the generation still points at. The rerun has to
+	// take that pointer over.
+	var firstTaskID string
+	if err := testPool.QueryRow(ctx, `
+		INSERT INTO agent_task_queue (agent_id, runtime_id, issue_id, status, priority, started_at, completed_at)
+		VALUES ($1, $2, $3, 'failed', 0, now() - interval '2 minutes', now() - interval '2 minutes')
+		RETURNING id
+	`, agentID, runtimeID, issueID).Scan(&firstTaskID); err != nil {
+		t.Fatalf("seed first-round task: %v", err)
+	}
+
+	const prompt = "生成一张少女在天安门升旗仪式前敬礼的照片"
+	var generationID string
+	if err := testPool.QueryRow(ctx, `
+		INSERT INTO aurora_generation (workspace_id, user_id, skill_id, prompt, status, task_id, error, issue_id)
+		SELECT $1, m.user_id, 'poster', $2, 'failed', $3, 'provider rejected the prompt', $4
+		FROM member m WHERE m.workspace_id = $1 LIMIT 1
+		RETURNING id
+	`, testWorkspaceID, prompt, firstTaskID, issueID).Scan(&generationID); err != nil {
+		t.Fatalf("seed aurora generation: %v", err)
+	}
+	// Registered after cleanupRerunFixture, so it runs first (t.Cleanup is LIFO)
+	// and the generation is gone before the issue it references.
+	t.Cleanup(func() {
+		testPool.Exec(context.Background(), `DELETE FROM aurora_generation WHERE id = $1`, generationID)
+	})
+
+	queries := db.New(testPool)
+	hub := realtime.NewHub()
+	go hub.Run()
+	taskService := service.NewTaskService(queries, nil, hub, events.New())
+
+	task, err := taskService.RerunIssue(ctx,
+		pgtype.UUID{Bytes: parseUUIDBytes(issueID), Valid: true},
+		pgtype.UUID{}, pgtype.UUID{}, pgtype.UUID{}, nil)
+	if err != nil {
+		t.Fatalf("RerunIssue failed: %v", err)
+	}
+	if task == nil {
+		t.Fatal("RerunIssue returned nil task")
+	}
+
+	// Half one: the rerun task carries the aurora_issue context. That is what
+	// the claim handler reads to set QuickCreatePrompt, and therefore what
+	// makes the daemon inject MULTICA_QUICK_CREATE_TASK_ID.
+	var ctxType, ctxGenerationID, ctxPrompt string
+	if err := testPool.QueryRow(ctx, `
+		SELECT COALESCE(context->>'type', ''), COALESCE(context->>'generation_id', ''), COALESCE(context->>'prompt', '')
+		FROM agent_task_queue WHERE id = $1
+	`, task.ID).Scan(&ctxType, &ctxGenerationID, &ctxPrompt); err != nil {
+		t.Fatalf("read rerun task context: %v", err)
+	}
+	if ctxType != service.AuroraIssueContextType {
+		t.Fatalf("rerun task context type = %q, want %q", ctxType, service.AuroraIssueContextType)
+	}
+	if ctxGenerationID != generationID {
+		t.Fatalf("rerun task generation_id = %q, want %q", ctxGenerationID, generationID)
+	}
+	if ctxPrompt != prompt {
+		t.Fatalf("rerun task prompt = %q, want %q", ctxPrompt, prompt)
+	}
+
+	// Half two: the generation points at the rerun task and is queued again, so
+	// the Aurora endpoints resolve it instead of answering 403.
+	var boundTaskID, status string
+	var genError *string
+	if err := testPool.QueryRow(ctx, `
+		SELECT task_id, status, error FROM aurora_generation WHERE id = $1
+	`, generationID).Scan(&boundTaskID, &status, &genError); err != nil {
+		t.Fatalf("read aurora generation: %v", err)
+	}
+	if want := util.UUIDToString(task.ID); boundTaskID != want {
+		t.Fatalf("generation task_id = %q, want the rerun task %q", boundTaskID, want)
+	}
+	if status != "queued" {
+		t.Fatalf("generation status = %q, want queued", status)
+	}
+	if genError != nil {
+		t.Fatalf("generation error = %q, want NULL", *genError)
+	}
+}
