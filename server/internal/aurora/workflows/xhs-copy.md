@@ -102,6 +102,11 @@ is accepted for a text artifact.
 
 ## Failure behavior
 
+- Missing a required input: ask on the issue this run was claimed from —
+  `multica issue comment add <issue id> --content-file ./question.md` — then end
+  this round. Declare it in the manifest: `"outcome": "needs_input"` with
+  `"artifacts": []`. Write no files and call no provider: anything you store is
+  counted as an artifact and billed.
 - The request carries no topic or angle to write from: stop and report it. Do
   not guess a subject.
 - The document cannot be downloaded or yields no text: report it. Do not write

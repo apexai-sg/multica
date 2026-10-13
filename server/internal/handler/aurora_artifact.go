@@ -23,6 +23,11 @@ import (
 // committed deliverable.
 var errAuroraAssetConflict = errors.New("aurora: asset conflicts with an existing row")
 
+// auroraGenerationOutcomeNeedsInput is the artifact report's declarative
+// question-round ending: the round stopped to ask a question and staged no
+// artifacts. It is the only outcome an empty artifact list may carry.
+const auroraGenerationOutcomeNeedsInput = "needs_input"
+
 // AuroraArtifactPayload is one staged content artifact the sandbox daemon
 // produced and reported for a completed generation. StagingID names the object
 // the task-token upload/import endpoints minted; the server resolves the
@@ -73,12 +78,14 @@ func (h *Handler) ReportTaskArtifacts(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		Artifacts []AuroraArtifactPayload `json:"artifacts"`
+		Outcome   string                  `json:"outcome"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if len(req.Artifacts) == 0 {
+	outcome := strings.TrimSpace(req.Outcome)
+	if len(req.Artifacts) == 0 && outcome != auroraGenerationOutcomeNeedsInput {
 		writeError(w, http.StatusBadRequest, "artifacts are required")
 		return
 	}
@@ -96,6 +103,23 @@ func (h *Handler) ReportTaskArtifacts(w http.ResponseWriter, r *http.Request) {
 		// A generation always references a catalog skill; a missing entry is a
 		// data inconsistency. Fail rather than write assets with an empty kind.
 		writeError(w, http.StatusInternalServerError, "unknown skill")
+		return
+	}
+
+	if len(req.Artifacts) == 0 {
+		// outcome is needs_input here. The CAS on status='queued' is idempotent
+		// and refuses to overwrite a row another settlement already moved; no
+		// credits move and no asset is written. A non-empty list keeps the
+		// existing validation and commit path below unchanged.
+		if _, err := h.Queries.MarkAuroraGenerationNeedsInput(r.Context(), db.MarkAuroraGenerationNeedsInputParams{
+			ID:          gen.ID,
+			WorkspaceID: gen.WorkspaceID,
+		}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			slog.Error("aurora needs_input mark failed", "generation_id", uuidToString(gen.ID), "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to mark generation")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"recorded": 0})
 		return
 	}
 

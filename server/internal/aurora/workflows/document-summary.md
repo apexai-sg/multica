@@ -95,6 +95,11 @@ total is rejected. Compute `size_bytes` and `sha256` with `stat -c %s` and
 
 ## Failure behavior
 
+- Missing a required input: ask on the issue this run was claimed from —
+  `multica issue comment add <issue id> --content-file ./question.md` — then end
+  this round. Declare it in the manifest: `"outcome": "needs_input"` with
+  `"artifacts": []`. Write no files and call no provider: anything you store is
+  counted as an artifact and billed.
 - The document cannot be downloaded, is not one of the supported formats, or
   yields no text: stop and report it. Do not summarise from the file name.
 - The text is truncated by the extraction (a very large `pdf`): say so in the

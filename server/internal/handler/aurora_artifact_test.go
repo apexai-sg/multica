@@ -426,3 +426,47 @@ func genIDOfTask(t *testing.T, taskID string) string {
 	}
 	return id.String()
 }
+
+// TestReportTaskArtifactsNeedsInputMarksGeneration pins the question-round
+// exit on the server: an empty artifact batch is accepted only when it declares
+// needs_input, moves the generation to needs_input by CAS, and leaves the
+// reservation untouched.
+func TestReportTaskArtifactsNeedsInputMarksGeneration(t *testing.T) {
+	taskID, generationID := auroraReportFixture(t, "xhs-image")
+	// A generation's stored status stays queued while its task runs; the
+	// needs_input CAS is guarded on that value.
+	dbfx.Exec(t, `UPDATE aurora_generation SET status = 'queued' WHERE id = $1`, generationID)
+
+	report := func() *testutil.Response {
+		t.Helper()
+		req := newDaemonTokenRequest(http.MethodPost, "/api/daemon/tasks/"+taskID+"/artifacts",
+			map[string]any{"outcome": "needs_input", "artifacts": []any{}}, testWorkspaceID, "aurora-needs-input-daemon")
+		req = withURLParam(req, "taskId", taskID)
+		return testutil.Call(t, testHandler.ReportTaskArtifacts, req)
+	}
+
+	report().Want(http.StatusOK)
+
+	assertNeedsInput := func() {
+		t.Helper()
+		var status string
+		var reserved, charged int64
+		dbfx.QueryRow(t, `SELECT status, credits_reserved, credits_charged FROM aurora_generation WHERE id = $1`, generationID).
+			Scan(&status, &reserved, &charged)
+		if status != "needs_input" {
+			t.Fatalf("status = %q, want needs_input", status)
+		}
+		if reserved != 62_000_000 {
+			t.Errorf("credits_reserved = %d, want 62000000", reserved)
+		}
+		if charged != 0 {
+			t.Errorf("credits_charged = %d, want 0", charged)
+		}
+	}
+	assertNeedsInput()
+
+	// The status='queued' CAS makes a replayed report a no-op, not a second
+	// write.
+	report().Want(http.StatusOK)
+	assertNeedsInput()
+}

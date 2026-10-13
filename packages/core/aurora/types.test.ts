@@ -21,6 +21,12 @@ describe("isAuroraGenerationTerminal", () => {
     expect(isAuroraGenerationTerminal("paused-for-review")).toBe(false);
   });
 
+  it("keeps polling a round that stopped to ask a question", () => {
+    // needs_input is a third, declarative ending: the round ended without a
+    // failure and resumes when the person replies, so it is not final.
+    expect(isAuroraGenerationTerminal("needs_input")).toBe(false);
+  });
+
   it("keeps polling when the detail body could not be read", () => {
     expect(isAuroraGenerationTerminal(undefined)).toBe(false);
     expect(isAuroraGenerationTerminal("")).toBe(false);

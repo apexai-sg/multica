@@ -413,6 +413,43 @@ func (q *Queries) ListAuroraGenerations(ctx context.Context, arg ListAuroraGener
 	return items, nil
 }
 
+const markAuroraGenerationNeedsInput = `-- name: MarkAuroraGenerationNeedsInput :one
+UPDATE aurora_generation
+SET status = 'needs_input', updated_at = now()
+WHERE id = $1 AND workspace_id = $2 AND status = 'queued'
+RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id
+`
+
+type MarkAuroraGenerationNeedsInputParams struct {
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// The question-round exit: the round declared outcome needs_input and produced
+// no artifacts. The status='queued' guard makes the write idempotent and stops
+// it from overwriting a row another settlement already moved.
+func (q *Queries) MarkAuroraGenerationNeedsInput(ctx context.Context, arg MarkAuroraGenerationNeedsInputParams) (AuroraGeneration, error) {
+	row := q.db.QueryRow(ctx, markAuroraGenerationNeedsInput, arg.ID, arg.WorkspaceID)
+	var i AuroraGeneration
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.UserID,
+		&i.SkillID,
+		&i.Prompt,
+		&i.Status,
+		&i.TaskID,
+		&i.CreditsReserved,
+		&i.CreditsCharged,
+		&i.Error,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IssueID,
+	)
+	return i, err
+}
+
 const updateAuroraGenerationBound = `-- name: UpdateAuroraGenerationBound :one
 UPDATE aurora_generation
 SET task_id = $2, credits_reserved = $3, issue_id = $4, updated_at = now()

@@ -110,3 +110,13 @@ SET task_id = $2, credits_reserved = $3, issue_id = $4, updated_at = now()
 WHERE id = $1 AND workspace_id = $5
 RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
           credits_reserved, credits_charged, error, created_at, updated_at, issue_id;
+
+-- name: MarkAuroraGenerationNeedsInput :one
+-- The question-round exit: the round declared outcome needs_input and produced
+-- no artifacts. The status='queued' guard makes the write idempotent and stops
+-- it from overwriting a row another settlement already moved.
+UPDATE aurora_generation
+SET status = 'needs_input', updated_at = now()
+WHERE id = $1 AND workspace_id = $2 AND status = 'queued'
+RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id;

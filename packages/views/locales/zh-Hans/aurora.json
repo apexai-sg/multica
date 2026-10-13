@@ -71,6 +71,7 @@
       "running": "生成中",
       "completed": "完成",
       "failed": "失败",
+      "needs_input": "等你回复",
       "unknown": "未知"
     },
     "progress_unreadable": "无法读取该次生成的进度。"

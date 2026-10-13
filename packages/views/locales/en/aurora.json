@@ -74,6 +74,7 @@
       "running": "Generating",
       "completed": "Done",
       "failed": "Failed",
+      "needs_input": "Waiting for your reply",
       "unknown": "Unknown"
     },
     "progress_unreadable": "Could not read this generation's progress."

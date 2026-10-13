@@ -6021,7 +6021,7 @@ func (d *Daemon) handleTask(ctx context.Context, task Task, slot int) {
 	}
 
 	if isAuroraTask(task) {
-		d.attachAuroraArtifacts(ctx, task, &result, taskLog)
+		d.attachAuroraArtifacts(ctx, task, &result, taskLog, auroraSandboxRoot, auroraSandboxOutputRoot)
 	}
 	d.reportTaskResult(ctx, task.ID, result, taskLog)
 
@@ -6335,8 +6335,10 @@ func (d *Daemon) acquireLocalDirectoryLockIfNeeded(ctx context.Context, task Tas
 // endpoint, and populate result.Artifacts so reportTaskResult reports them
 // before the terminal completion. A missing/invalid manifest or any upload
 // failure demotes the run to a blocked failure, which the existing completion
-// path turns into a refund.
-func (d *Daemon) attachAuroraArtifacts(ctx context.Context, task Task, result *TaskResult, taskLog *slog.Logger) {
+// path turns into a refund. A manifest that declares outcome needs_input is not
+// a failure: it carries no artifacts, leaves the result completed, and hands the
+// outcome to the report.
+func (d *Daemon) attachAuroraArtifacts(ctx context.Context, task Task, result *TaskResult, taskLog *slog.Logger, sandboxRoot, outputRoot string) {
 	if result == nil || result.Status != "completed" {
 		return
 	}
@@ -6352,7 +6354,7 @@ func (d *Daemon) attachAuroraArtifacts(ctx context.Context, task Task, result *T
 	// server-side completion guard still fails a generation that reports no
 	// committed asset. Inside the sandbox, a missing or invalid manifest is a
 	// hard failure.
-	if _, statErr := os.Stat(auroraSandboxRoot); statErr != nil {
+	if _, statErr := os.Stat(sandboxRoot); statErr != nil {
 		if errors.Is(statErr, os.ErrNotExist) {
 			return
 		}
@@ -6360,7 +6362,7 @@ func (d *Daemon) attachAuroraArtifacts(ctx context.Context, task Task, result *T
 		result.Comment = "artifact sandbox root is unavailable: " + statErr.Error()
 		return
 	}
-	artifacts, err := CollectAuroraArtifacts(ctx, auroraSandboxOutputRoot, task.ID, skillID, auroraManifestClientSink{
+	artifacts, outcome, err := CollectAuroraArtifacts(ctx, outputRoot, task.ID, skillID, auroraManifestClientSink{
 		client:    d.client,
 		taskToken: task.AuthToken,
 		taskID:    task.ID,
@@ -6371,7 +6373,11 @@ func (d *Daemon) attachAuroraArtifacts(ctx context.Context, task Task, result *T
 		result.Comment = "artifact validation failed: " + err.Error()
 		return
 	}
+	// A needs_input round ends by declaration: zero artifacts, no error, and the
+	// outcome rides the report before the terminal callback. It must not be
+	// turned into a blocked failure.
 	result.Artifacts = artifacts
+	result.Outcome = outcome
 }
 
 // reportTaskResult writes the final task disposition back to the server.
@@ -6385,12 +6391,14 @@ func (d *Daemon) attachAuroraArtifacts(ctx context.Context, task Task, result *T
 // the next chat turn to resume there rather than start over and "forget"
 // the conversation.
 func (d *Daemon) reportTaskResult(ctx context.Context, taskID string, result TaskResult, taskLog *slog.Logger) {
-	// Report Aurora artifacts before the terminal callback. The artifact is the
-	// deliverable, so a failed report demotes the run to a failure: silently
-	// completing would settle a generation the user cannot use. Empty for every
+	// Report Aurora artifacts or the declarative outcome before the terminal
+	// callback. The artifact is the deliverable, so a failed report demotes the
+	// run to a failure: silently completing would settle a generation the user
+	// cannot use. A needs_input round reports zero artifacts and an outcome,
+	// which is what moves the generation without settling it. Empty for every
 	// non-Aurora task, so the common path is untouched.
-	if result.Status == "completed" && len(result.Artifacts) > 0 {
-		if err := d.client.ReportTaskArtifacts(ctx, taskID, result.Artifacts); err != nil {
+	if result.Status == "completed" && (len(result.Artifacts) > 0 || result.Outcome != "") {
+		if err := d.client.ReportTaskArtifacts(ctx, taskID, result.Artifacts, result.Outcome); err != nil {
 			taskLog.Error("report task artifacts failed; failing task", "error", err)
 			result.Status = "blocked"
 			result.Comment = "artifact report failed: " + err.Error()
