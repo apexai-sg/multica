@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import {
   AuroraAccountDialog,
+  AuroraAccountMenu,
   AuroraAccountPanel,
   AuroraRuntimeChip,
 } from "@multica/views/aurora";
@@ -30,7 +31,11 @@ import {
 import { auroraRoutes } from "@/lib/routes";
 
 /**
- * The app's chrome: one navy column, five destinations, one account action.
+ * The app's chrome: one navy column, five destinations, and the account.
+ *
+ * On a wide screen the account card lives behind a top-bar button. At 900px and
+ * below it stays in the navigation sheet, where a popover would be trapped by
+ * the sheet's focus scope — the ⋯ button opens the account dialog instead.
  *
  * A destination is a link, never a button — the shell is the only navigator in
  * Aurora, and a plain anchor keeps middle-click, "copy link" and the browser's
@@ -76,7 +81,7 @@ export function AuroraShell({
         // The old opener is removed. Focus the new entry after modal cleanup.
         focusFrame = requestAnimationFrame(() => {
           shellRef.current?.querySelector<HTMLButtonElement>(
-            media.matches ? ".aurora-menu-button" : ".aurora-more-button",
+            media.matches ? ".aurora-menu-button" : ".aurora-account-trigger",
           )?.focus();
         });
       }
@@ -151,10 +156,12 @@ export function AuroraShell({
         ) : null}
       </div>
 
-      <AuroraAccountPanel
-        creditsHref={routes.billing()}
-        onOpenAccount={() => setAccountOpen(true)}
-      />
+      {compact ? (
+        <AuroraAccountPanel
+          creditsHref={routes.billing()}
+          onOpenAccount={() => setAccountOpen(true)}
+        />
+      ) : null}
 
       <div className="aurora-nav-groups">
         <div className="aurora-nav-group">
@@ -231,11 +238,18 @@ export function AuroraShell({
                 generation, and a node that is offline is the reason the next
                 one will not. */}
             <AuroraRuntimeChip href={routes.runtime()} />
+            {compact ? null : (
+              <AuroraAccountMenu
+                open={accountOpen}
+                onOpenChange={setAccountOpen}
+                creditsHref={routes.billing()}
+                runtimeHref={routes.runtime()}
+              />
+            )}
           </div>
         </header>
         <main className="aurora-scroll">{children}</main>
       </div>
-      {compact ? null : accountDialog}
     </div>
   );
 }

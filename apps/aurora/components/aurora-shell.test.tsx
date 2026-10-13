@@ -110,16 +110,34 @@ describe("AuroraShell", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(menu).toHaveFocus();
   });
-  it("wires the account and runtime destinations into the desktop chrome", async () => {
+  it("moves the account card behind a top-bar button", async () => {
     const user = userEvent.setup();
     renderShell("/acme/skills");
     expect(screen.queryByRole("button", { name: "Open menu" })).toBeNull();
     expect(screen.getAllByRole("navigation")).toHaveLength(1);
     expect(screen.getByRole("link", { name: "Online" })).toHaveAttribute("href", "/acme/runtimes");
-    expect(screen.getByRole("link", { name: "Top up" })).toHaveAttribute("href", "/acme/billing");
-    await user.click(screen.getByRole("button", { name: "Account" }));
-    expect(await screen.findByRole("dialog", { name: "Hannah Han" })).toBeVisible();
-    expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeVisible();
+
+    const nav = screen.getByRole("navigation", { name: "Aurora" });
+    expect(within(nav).queryByText("Available credits")).toBeNull();
+    expect(within(nav).queryByRole("link", { name: "Top up" })).toBeNull();
+
+    const trigger = screen.getByRole("button", { name: "Account" });
+    expect(nav.contains(trigger)).toBe(false);
+    expect(trigger.closest(".aurora-topbar-actions")).not.toBeNull();
+    expect(trigger).toHaveTextContent("Hannah Han");
+    expect(trigger).toHaveTextContent("2,480");
+
+    await user.click(trigger);
+    const menu = await screen.findByRole("dialog", { name: "Hannah Han" });
+    expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeNull();
+    expect(within(menu).getByText("Available credits")).toBeVisible();
+    expect(within(menu).getByText("2,480")).toBeVisible();
+    expect(within(menu).getByText("Creator")).toBeVisible();
+    expect(within(menu).getByText("12 of 30")).toBeVisible();
+    expect(within(menu).getByRole("link", { name: "Top up" })).toHaveAttribute("href", "/acme/billing");
+    expect(within(menu).getByRole("link", { name: "Execution" })).toHaveAttribute("href", "/acme/runtimes");
+    expect(within(menu).getByRole("link", { name: "Credits" })).toHaveAttribute("href", "/acme/billing");
+    expect(within(menu).getByRole("button", { name: "Log out" })).toBeVisible();
   });
   it("opens the mobile navigation by keyboard and returns focus after Escape", async () => {
     stubCompact(true);

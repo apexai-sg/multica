@@ -9,7 +9,7 @@ import type { AuthState } from "@multica/core/auth";
 import { renderWithI18n } from "../test/i18n";
 import { stubNavigationAdapter } from "../test/navigation";
 import { NavigationProvider } from "../navigation";
-import { AuroraAccountDialog, AuroraAccountPanel } from "./aurora-account-panel";
+import { AuroraAccountDialog, AuroraAccountMenu, AuroraAccountPanel } from "./aurora-account-panel";
 
 const { logout, auth } = vi.hoisted(() => ({ logout: vi.fn(), auth: { user: null as AuthState["user"] } }));
 vi.mock("@multica/core/auth", () => ({
@@ -35,6 +35,28 @@ function Account() {
   const [open, setOpen] = useState(false);
   return <><AuroraAccountPanel creditsHref="/acme/billing" onOpenAccount={() => setOpen(true)} />
     <AuroraAccountDialog open={open} onOpenChange={setOpen} creditsHref="/acme/billing" /></>;
+}
+function Menu() {
+  const [open, setOpen] = useState(false);
+  return (
+    <AuroraAccountMenu
+      open={open}
+      onOpenChange={setOpen}
+      creditsHref="/acme/billing"
+      runtimeHref="/acme/runtimes"
+    />
+  );
+}
+function renderMenu() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  clients.push(client);
+  return renderWithI18n(
+    <QueryClientProvider client={client}>
+      <NavigationProvider value={stubNavigationAdapter()}>
+        <Menu />
+      </NavigationProvider>
+    </QueryClientProvider>,
+  );
 }
 function renderAccount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -156,6 +178,43 @@ describe("AuroraAccountDialog", () => {
   it("closes before invoking the existing logout flow", async () => {
     const user = userEvent.setup();
     renderAccount();
+    await user.click(screen.getByRole("button", { name: "Account" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Log out" }));
+    expect(logout).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+});
+
+describe("AuroraAccountMenu", () => {
+  it("prints an unknown marker on the trigger until the wallet is read", () => {
+    installReads(new Promise(() => {}), new Promise(() => {}));
+    renderMenu();
+    const trigger = screen.getByRole("button", { name: "Account" });
+    expect(trigger).toHaveTextContent("—");
+    expect(trigger).not.toHaveTextContent("0");
+    expect(screen.queryByText("Free")).toBeNull();
+  });
+
+  it("opens the card without a modal overlay and returns focus on Escape", async () => {
+    const user = userEvent.setup();
+    renderMenu();
+    const trigger = screen.getByRole("button", { name: "Account" });
+    expect(trigger).toHaveTextContent("Hannah Han");
+    expect(await within(trigger).findByText("2,480")).toBeVisible();
+
+    await user.click(trigger);
+    const menu = await screen.findByRole("dialog", { name: "Hannah Han" });
+    expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeNull();
+    expect(within(menu).getByRole("link", { name: "Top up" })).toHaveAttribute("href", "/acme/billing");
+    expect(within(menu).getByRole("link", { name: "Execution" })).toHaveAttribute("href", "/acme/runtimes");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(trigger).toHaveFocus();
+  });
+
+  it("closes before invoking the existing logout flow", async () => {
+    const user = userEvent.setup();
+    renderMenu();
     await user.click(screen.getByRole("button", { name: "Account" }));
     await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Log out" }));
     expect(logout).toHaveBeenCalledTimes(1);

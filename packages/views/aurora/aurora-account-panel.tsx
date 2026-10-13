@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronRight, LogOut } from "lucide-react";
+import { ChevronDown, ChevronRight, LogOut } from "lucide-react";
+import type { ReactNode } from "react";
 import {
   isAuroraDegraded,
   useAuroraBalance,
@@ -13,6 +14,12 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@multica/ui/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@multica/ui/components/ui/popover";
 import { AppLink } from "../navigation";
 import { useLocale, useT } from "../i18n";
 import { useLogout } from "../auth";
@@ -21,15 +28,22 @@ import { formatMicroCredits } from "./format";
 import { subscriptionTierLabel } from "./labels";
 
 /**
- * The account, on the two surfaces that show it: the sidebar panel and the
- * dialog behind its ⋯ button.
+ * The account, on the surfaces that show it: the compact sidebar panel, the
+ * dialog behind that panel's ⋯ button, and the desktop top-bar menu.
  *
- * Both share the same identity. The panel's unread wallet prints an unknown
- * marker, never a zero that could send the reader to checkout unnecessarily.
+ * They share one identity and one wallet read. An unread wallet prints an
+ * unknown marker, never a zero that could send the reader to checkout
+ * unnecessarily.
  */
 
 /** A glyph, not copy: it stands in for a number the client has not read. */
 const UNKNOWN = "—";
+
+type AccountQuota = {
+  used: number;
+  limit: number;
+  percent: number;
+};
 
 function useAccountIdentity() {
   const user = useAuthStore((state) => state.user);
@@ -37,16 +51,10 @@ function useAccountIdentity() {
   return { name, email: user?.email ?? "" };
 }
 
-export function AuroraAccountPanel({
-  creditsHref,
-  onOpenAccount,
-}: {
-  creditsHref: string;
-  onOpenAccount: () => void;
-}) {
+function useAccountSnapshot() {
   const { t } = useT("aurora");
   const locale = useLocale();
-  const { name } = useAccountIdentity();
+  const identity = useAccountIdentity();
   const balanceQuery = useAuroraBalance();
   const subscriptionQuery = useAuroraSubscription();
 
@@ -67,29 +75,129 @@ export function AuroraAccountPanel({
     used !== undefined &&
     Number.isFinite(limit) &&
     Number.isFinite(used) &&
-    limit >= 0 && used >= 0;
-  const percent =
-    quotaReadable && limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+    limit >= 0 &&
+    used >= 0;
+
+  return {
+    ...identity,
+    tierName: subscription
+      ? t(
+          ($) =>
+            $.billing.subscription.tiers[
+              subscriptionTierLabel(subscription.tier)
+            ].name,
+        )
+      : null,
+    balanceText: balanceReadable
+      ? formatMicroCredits(balance.availableMicro, locale)
+      : UNKNOWN,
+    quota: quotaReadable
+      ? {
+          used,
+          limit,
+          percent: limit > 0 ? Math.min(100, (used / limit) * 100) : 0,
+        }
+      : null,
+  };
+}
+
+function AccountIdentity({
+  name,
+  tierName,
+  title,
+}: {
+  name: string;
+  tierName: string | null;
+  /** Replaces the plain name when the row has to name a dialog or popover. */
+  title?: ReactNode;
+}) {
+  return (
+    <>
+      <span className="aurora-user-avatar" aria-hidden="true">
+        {avatarInitial(name)}
+      </span>
+      <div className="aurora-user-copy">
+        {title ?? <strong>{name}</strong>}
+        {tierName ? <span>{tierName}</span> : null}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Wallet, allowance and the way to buy more. The meter measures the monthly
+ * generation allowance, not the wallet: credits are the reference's decorative
+ * bar there, while the allowance is the number that has a real denominator.
+ */
+function AccountWallet({
+  creditsHref,
+  balanceText,
+  quota,
+}: {
+  creditsHref: string;
+  balanceText: string;
+  quota: AccountQuota | null;
+}) {
+  const { t } = useT("aurora");
+  return (
+    <>
+      <div className="aurora-token-row">
+        <span>{t(($) => $.billing.balance_title)}</span>
+        <strong>{balanceText}</strong>
+      </div>
+      {quota ? (
+        <>
+          <div className="aurora-token-row">
+            <span>{t(($) => $.billing.subscription.usage_label)}</span>
+            <strong>
+              {t(($) => $.billing.subscription.usage_value, {
+                used: quota.used,
+                limit: quota.limit,
+              })}
+            </strong>
+          </div>
+          {quota.limit > 0 ? (
+            <div
+              className="aurora-meter"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={quota.limit}
+              aria-valuenow={Math.min(quota.used, quota.limit)}
+              aria-valuetext={t(($) => $.billing.subscription.usage_value, {
+                used: quota.used,
+                limit: quota.limit,
+              })}
+              aria-label={t(($) => $.billing.subscription.usage_label)}
+            >
+              <span
+                className="aurora-meter-fill"
+                style={{ width: quota.percent + "%" }}
+              />
+            </div>
+          ) : null}
+        </>
+      ) : null}
+      <AppLink href={creditsHref} className="aurora-recharge-button">
+        {t(($) => $.billing.top_up)}
+      </AppLink>
+    </>
+  );
+}
+
+export function AuroraAccountPanel({
+  creditsHref,
+  onOpenAccount,
+}: {
+  creditsHref: string;
+  onOpenAccount: () => void;
+}) {
+  const { t } = useT("aurora");
+  const { name, tierName, balanceText, quota } = useAccountSnapshot();
 
   return (
     <section className="aurora-user-panel">
       <div className="aurora-user-row">
-        <span className="aurora-user-avatar" aria-hidden="true">
-          {avatarInitial(name)}
-        </span>
-        <div className="aurora-user-copy">
-          <strong>{name}</strong>
-          {subscription ? (
-            <span>
-              {t(
-                ($) =>
-                  $.billing.subscription.tiers[
-                    subscriptionTierLabel(subscription.tier)
-                  ].name,
-              )}
-            </span>
-          ) : null}
-        </div>
+        <AccountIdentity name={name} tierName={tierName} />
         <button
           type="button"
           className="aurora-more-button"
@@ -99,55 +207,11 @@ export function AuroraAccountPanel({
           <span aria-hidden="true">•••</span>
         </button>
       </div>
-
-      <div className="aurora-token-row">
-        <span>{t(($) => $.billing.balance_title)}</span>
-        <strong>
-          {balanceReadable
-            ? formatMicroCredits(balance.availableMicro, locale)
-            : UNKNOWN}
-        </strong>
-      </div>
-
-      {/* The meter measures the monthly generation allowance, not the wallet:
-          credits are the reference's decorative bar there, while the allowance
-          is the number that has a real denominator on this API. */}
-      {quotaReadable ? (
-        <>
-          <div className="aurora-token-row">
-            <span>{t(($) => $.billing.subscription.usage_label)}</span>
-            <strong>
-              {t(($) => $.billing.subscription.usage_value, {
-                used,
-                limit,
-              })}
-            </strong>
-          </div>
-          {limit > 0 ? (
-            <div
-              className="aurora-meter"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={limit}
-              aria-valuenow={Math.min(used, limit)}
-              aria-valuetext={t(($) => $.billing.subscription.usage_value, {
-                used,
-                limit,
-              })}
-              aria-label={t(($) => $.billing.subscription.usage_label)}
-            >
-              <span
-                className="aurora-meter-fill"
-                style={{ width: percent + "%" }}
-              />
-            </div>
-          ) : null}
-        </>
-      ) : null}
-
-      <AppLink href={creditsHref} className="aurora-recharge-button">
-        {t(($) => $.billing.top_up)}
-      </AppLink>
+      <AccountWallet
+        creditsHref={creditsHref}
+        balanceText={balanceText}
+        quota={quota}
+      />
     </section>
   );
 }
@@ -196,5 +260,87 @@ export function AuroraAccountDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Desktop personal center. The trigger stays in the top bar; the card that
+ * used to sit in the sidebar opens under it, without a modal overlay.
+ *
+ * Compact keeps the sidebar panel and dialog instead: a popover inside the
+ * navigation sheet is trapped by that sheet's focus scope.
+ */
+export function AuroraAccountMenu({
+  open,
+  onOpenChange,
+  creditsHref,
+  runtimeHref,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  creditsHref: string;
+  runtimeHref: string;
+}) {
+  const { t } = useT("aurora");
+  const { t: tLayout } = useT("layout");
+  const logout = useLogout();
+  const { name, tierName, balanceText, quota } = useAccountSnapshot();
+  const title = name || t(($) => $.shell.account_menu);
+
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger
+        type="button"
+        className="aurora-account-trigger"
+        aria-label={t(($) => $.shell.account_menu)}
+      >
+        <span className="aurora-user-avatar" aria-hidden="true">
+          {avatarInitial(name)}
+        </span>
+        <span className="aurora-account-trigger-name">{name}</span>
+        <span className="aurora-account-trigger-credits" aria-hidden="true">
+          {balanceText}
+        </span>
+        <ChevronDown aria-hidden="true" className="size-3.5 shrink-0" />
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        sideOffset={8}
+        className="aurora-account-menu w-[280px] max-w-[calc(100vw-24px)] gap-0 p-4"
+      >
+        <div className="aurora-user-row">
+          <AccountIdentity
+            name={name}
+            tierName={tierName}
+            title={<PopoverTitle>{title}</PopoverTitle>}
+          />
+        </div>
+        <AccountWallet
+          creditsHref={creditsHref}
+          balanceText={balanceText}
+          quota={quota}
+        />
+        <div className="aurora-account-menu-links">
+          <AppLink href={runtimeHref}>
+            {t(($) => $.runtime.title)}
+            <ChevronRight aria-hidden="true" className="size-4" />
+          </AppLink>
+          <AppLink href={creditsHref}>
+            {t(($) => $.billing.title)}
+            <ChevronRight aria-hidden="true" className="size-4" />
+          </AppLink>
+          <button
+            type="button"
+            onClick={() => {
+              onOpenChange(false);
+              logout();
+            }}
+          >
+            {tLayout(($) => $.sidebar.log_out)}
+            <LogOut aria-hidden="true" className="size-4" />
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
