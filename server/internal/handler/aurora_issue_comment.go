@@ -142,15 +142,5 @@ func (h *Handler) openAuroraIssueRound(ctx context.Context, issue db.Issue, gene
 			"error", err)
 		return
 	}
-	if _, err := h.Queries.UpdateAuroraGenerationRound(ctx, db.UpdateAuroraGenerationRoundParams{
-		ID:          generation.ID,
-		TaskID:      task.ID,
-		WorkspaceID: issue.WorkspaceID,
-	}); err != nil {
-		slog.Warn("aurora issue round write-back failed",
-			"issue_id", uuidToString(issue.ID),
-			"generation_id", uuidToString(generation.ID),
-			"task_id", uuidToString(task.ID),
-			"error", err)
-	}
+	h.TaskService.PointAuroraRoundAtTask(ctx, generation.ID, task.ID, issue.WorkspaceID)
 }

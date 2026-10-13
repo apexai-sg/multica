@@ -11,6 +11,7 @@ import (
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/realtime"
 	"github.com/multica-ai/multica/server/internal/service"
+	"github.com/multica-ai/multica/server/internal/testutil"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
@@ -1345,4 +1346,255 @@ func TestGetLastTaskSessionExcludesOverflowRetiredSession(t *testing.T) {
 		IssueID: pgtype.UUID{Bytes: parseUUIDBytes(issueID), Valid: true},
 	})
 	requireSessionExcluded(t, prior.SessionID, err)
+}
+
+// TestRerunIssueKeepsAuroraRoundIdentity pins that a manual rerun of an issue
+// bound to an Aurora generation revives that round instead of degrading into a
+// generic issue run.
+//
+// The two sides decide "is this an Aurora task?" differently. The daemon reads
+// the agent's `aurora:*` system key, so a rerun still gets the skill brief and
+// artifact collection. The server reads aurora_generation.task_id, which only
+// an Aurora round enqueue writes back. A rerun that writes neither the
+// aurora_issue context nor that pointer therefore disagrees with the daemon:
+// the task loses MULTICA_QUICK_CREATE_TASK_ID, and the provider-run,
+// artifact-import and provider-run-finish endpoints all answer 403 "task is
+// not an Aurora task". A rerun of a failed generation then ends as needs_input
+// without a single provider call.
+func TestRerunIssueKeepsAuroraRoundIdentity(t *testing.T) {
+	if testPool == nil {
+		t.Skip("no database connection")
+	}
+
+	issueID, agentID, runtimeID := setupRerunTestFixture(t)
+	t.Cleanup(func() { cleanupRerunFixture(t, issueID) })
+
+	ctx := context.Background()
+	fx := testutil.New(testPool, testWorkspaceID, testUserID)
+
+	// The failed first round the generation still points at. The rerun has to
+	// take that pointer over.
+	firstTaskID := fx.Task(t, agentID, testutil.Cols{
+		"runtime_id": runtimeID,
+		"issue_id":   issueID,
+		"status":     "failed",
+	})
+	const prompt = "生成一张少女在天安门升旗仪式前敬礼的照片"
+	generationID := fx.Insert(t, "aurora_generation", testutil.Cols{
+		"workspace_id": testWorkspaceID,
+		"user_id":      testUserID,
+		"skill_id":     "poster",
+		"prompt":       prompt,
+		"status":       "failed",
+		"task_id":      firstTaskID,
+		"error":        "provider rejected the prompt",
+		"issue_id":     issueID,
+	})
+
+	queries := db.New(testPool)
+	hub := realtime.NewHub()
+	go hub.Run()
+	taskService := service.NewTaskService(queries, nil, hub, events.New())
+
+	task, err := taskService.RerunIssue(ctx,
+		pgtype.UUID{Bytes: parseUUIDBytes(issueID), Valid: true},
+		pgtype.UUID{}, pgtype.UUID{}, pgtype.UUID{}, nil)
+	if err != nil {
+		t.Fatalf("RerunIssue failed: %v", err)
+	}
+	if task == nil {
+		t.Fatal("RerunIssue returned nil task")
+	}
+
+	// Half one: the rerun task carries the aurora_issue context. That is what
+	// the claim handler reads to set QuickCreatePrompt, and therefore what
+	// makes the daemon inject MULTICA_QUICK_CREATE_TASK_ID.
+	var ctxType, ctxGenerationID, ctxPrompt string
+	if err := testPool.QueryRow(ctx, `
+		SELECT COALESCE(context->>'type', ''), COALESCE(context->>'generation_id', ''), COALESCE(context->>'prompt', '')
+		FROM agent_task_queue WHERE id = $1
+	`, task.ID).Scan(&ctxType, &ctxGenerationID, &ctxPrompt); err != nil {
+		t.Fatalf("read rerun task context: %v", err)
+	}
+	if ctxType != service.AuroraIssueContextType {
+		t.Fatalf("rerun task context type = %q, want %q", ctxType, service.AuroraIssueContextType)
+	}
+	if ctxGenerationID != generationID {
+		t.Fatalf("rerun task generation_id = %q, want %q", ctxGenerationID, generationID)
+	}
+	if ctxPrompt != prompt {
+		t.Fatalf("rerun task prompt = %q, want %q", ctxPrompt, prompt)
+	}
+
+	// Half two: the generation points at the rerun task and is queued again, so
+	// the Aurora endpoints resolve it instead of answering 403.
+	var boundTaskID, status string
+	var genError *string
+	if err := testPool.QueryRow(ctx, `
+		SELECT task_id, status, error FROM aurora_generation WHERE id = $1
+	`, generationID).Scan(&boundTaskID, &status, &genError); err != nil {
+		t.Fatalf("read aurora generation: %v", err)
+	}
+	if want := util.UUIDToString(task.ID); boundTaskID != want {
+		t.Fatalf("generation task_id = %q, want the rerun task %q", boundTaskID, want)
+	}
+	if status != "queued" {
+		t.Fatalf("generation status = %q, want queued", status)
+	}
+	if genError != nil {
+		t.Fatalf("generation error = %q, want NULL", *genError)
+	}
+}
+
+// TestRerunIssueLeavesALiveAuroraRoundAlone pins the two halves of a rerun
+// that arrives while the current round is still executing. Enqueue must not
+// move the pointer — that is what makes the live task's provider calls 403.
+// Once that task has ended, claim binds the rerun, which already carries the
+// aurora_issue context, so the rerun can call the same endpoints.
+func TestRerunIssueLeavesALiveAuroraRoundAlone(t *testing.T) {
+	if testPool == nil {
+		t.Skip("no database connection")
+	}
+
+	issueID, agentID, runtimeID := setupRerunTestFixture(t)
+	t.Cleanup(func() { cleanupRerunFixture(t, issueID) })
+
+	ctx := context.Background()
+	fx := testutil.New(testPool, testWorkspaceID, testUserID)
+	liveTaskID := fx.Task(t, agentID, testutil.Cols{
+		"runtime_id": runtimeID,
+		"issue_id":   issueID,
+		"status":     "running",
+	})
+	generationID := fx.Insert(t, "aurora_generation", testutil.Cols{
+		"workspace_id": testWorkspaceID,
+		"user_id":      testUserID,
+		"skill_id":     "poster",
+		"prompt":       "live round",
+		"status":       "queued",
+		"task_id":      liveTaskID,
+		"issue_id":     issueID,
+	})
+
+	hub := realtime.NewHub()
+	go hub.Run()
+	taskService := service.NewTaskService(db.New(testPool), nil, hub, events.New())
+	rerun, err := taskService.RerunIssue(ctx,
+		pgtype.UUID{Bytes: parseUUIDBytes(issueID), Valid: true},
+		pgtype.UUID{}, pgtype.UUID{}, pgtype.UUID{}, nil)
+	if err != nil {
+		t.Fatalf("RerunIssue failed: %v", err)
+	}
+
+	var boundTaskID, ctxType string
+	if err := testPool.QueryRow(ctx, `
+		SELECT task_id::text FROM aurora_generation WHERE id = $1
+	`, generationID).Scan(&boundTaskID); err != nil {
+		t.Fatalf("read generation: %v", err)
+	}
+	if boundTaskID != liveTaskID {
+		t.Fatalf("generation task_id = %q, want the live task %q", boundTaskID, liveTaskID)
+	}
+	if err := testPool.QueryRow(ctx, `
+		SELECT COALESCE(context->>'type', '') FROM agent_task_queue WHERE id = $1
+	`, rerun.ID).Scan(&ctxType); err != nil {
+		t.Fatalf("read rerun context: %v", err)
+	}
+	if ctxType != service.AuroraIssueContextType {
+		t.Fatalf("rerun context type = %q, want %q", ctxType, service.AuroraIssueContextType)
+	}
+
+	if _, err := testPool.Exec(ctx, `UPDATE agent_task_queue SET status = 'failed' WHERE id = $1`, liveTaskID); err != nil {
+		t.Fatalf("finish live task: %v", err)
+	}
+	taskService.AdoptAuroraRoundOnClaim(ctx, *rerun, pgtype.UUID{Bytes: parseUUIDBytes(testWorkspaceID), Valid: true})
+	if err := testPool.QueryRow(ctx, `
+		SELECT task_id::text FROM aurora_generation WHERE id = $1
+	`, generationID).Scan(&boundTaskID); err != nil {
+		t.Fatalf("read generation after claim adopt: %v", err)
+	}
+	if want := util.UUIDToString(rerun.ID); boundTaskID != want {
+		t.Fatalf("generation task_id after claim = %q, want the rerun %q", boundTaskID, want)
+	}
+}
+
+// TestRerunIssueDoesNotPointAuroraRoundAtAMention pins that rerunning some
+// other agent's task does not take the generation's pointer. That task has no
+// aurora_issue context, so naming it would 403 the round that does.
+func TestRerunIssueDoesNotPointAuroraRoundAtAMention(t *testing.T) {
+	if testPool == nil {
+		t.Skip("no database connection")
+	}
+
+	issueID, agentID, runtimeID := setupRerunTestFixture(t)
+	t.Cleanup(func() { cleanupRerunFixture(t, issueID) })
+
+	ctx := context.Background()
+	fx := testutil.New(testPool, testWorkspaceID, testUserID)
+	ownerTaskID := fx.Task(t, agentID, testutil.Cols{
+		"runtime_id": runtimeID,
+		"issue_id":   issueID,
+		"status":     "failed",
+	})
+	generationID := fx.Insert(t, "aurora_generation", testutil.Cols{
+		"workspace_id": testWorkspaceID,
+		"user_id":      testUserID,
+		"skill_id":     "poster",
+		"prompt":       "owner round",
+		"status":       "failed",
+		"task_id":      ownerTaskID,
+		"issue_id":     issueID,
+	})
+
+	var otherAgentID string
+	if err := testPool.QueryRow(ctx, `
+		INSERT INTO agent (
+			workspace_id, name, description, runtime_mode, runtime_config,
+			runtime_id, visibility, max_concurrent_tasks, owner_id
+		)
+		SELECT a.workspace_id, 'Rerun Mention Agent', '', 'cloud', '{}'::jsonb,
+		       a.runtime_id, 'workspace', 1, a.owner_id
+		FROM agent a WHERE a.id = $1
+		RETURNING id
+	`, agentID).Scan(&otherAgentID); err != nil {
+		t.Fatalf("create mention agent: %v", err)
+	}
+	t.Cleanup(func() {
+		testPool.Exec(context.Background(), `DELETE FROM agent_task_queue WHERE agent_id = $1`, otherAgentID)
+		testPool.Exec(context.Background(), `DELETE FROM agent WHERE id = $1`, otherAgentID)
+	})
+	mentionSourceID := fx.Task(t, otherAgentID, testutil.Cols{
+		"runtime_id": runtimeID,
+		"issue_id":   issueID,
+		"status":     "failed",
+	})
+
+	hub := realtime.NewHub()
+	go hub.Run()
+	taskService := service.NewTaskService(db.New(testPool), nil, hub, events.New())
+	rerun, err := taskService.RerunIssue(ctx,
+		pgtype.UUID{Bytes: parseUUIDBytes(issueID), Valid: true},
+		pgtype.UUID{Bytes: parseUUIDBytes(mentionSourceID), Valid: true},
+		pgtype.UUID{}, pgtype.UUID{}, nil)
+	if err != nil {
+		t.Fatalf("RerunIssue failed: %v", err)
+	}
+
+	var boundTaskID, ctxType string
+	if err := testPool.QueryRow(ctx, `
+		SELECT task_id::text FROM aurora_generation WHERE id = $1
+	`, generationID).Scan(&boundTaskID); err != nil {
+		t.Fatalf("read generation: %v", err)
+	}
+	if boundTaskID != ownerTaskID {
+		t.Fatalf("generation task_id = %q, want the owner round %q", boundTaskID, ownerTaskID)
+	}
+	if err := testPool.QueryRow(ctx, `
+		SELECT COALESCE(context->>'type', '') FROM agent_task_queue WHERE id = $1
+	`, rerun.ID).Scan(&ctxType); err != nil {
+		t.Fatalf("read mention rerun context: %v", err)
+	}
+	if ctxType != "" {
+		t.Fatalf("mention rerun context type = %q, want empty", ctxType)
+	}
 }
