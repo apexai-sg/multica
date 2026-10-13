@@ -2,7 +2,9 @@
 
 日期：2026-10-12
 
-状态：书面规格。实施以 [`docs/superpowers/plans/2026-10-12-aurora-issue-execution.md`](../plans/2026-10-12-aurora-issue-execution.md) 为准。2026-10-13 起，计费不按第 6、7、9 节：一次生成仍预扣一份目录标价，不改账本。优先做的是 Agent 在 issue 上跑，并打开现成的问题详情。
+状态：书面规格。实施以 [`docs/superpowers/plans/2026-10-12-aurora-issue-execution.md`](../plans/2026-10-12-aurora-issue-execution.md) 为准（2026-10-13 第二版）。
+
+本版范围：第 1–6、9 节按实施计划实现，其中第 6 节的「再来一版」入口推迟（由人回 Aurora 抽屉重新提交）。第 7 节的文件数与按文件扣款、7 天超时，以及第 8 节的皮肤，一并推迟，不计入本版验收。第 9 节的提问出口按实施计划任务 3 落地：缺必填信息时不写产物，改为在 manifest 里声明 `outcome` 为 `needs_input`，生成停在非终态、预留不扣不退。第 10 节的验收以实施计划的「验收」一节为准。
 
 ## 1. 目标与已确认边界
 
@@ -117,27 +119,29 @@ claim 必须把技能文档、附件和这条 issue 的 id 交给 Agent。没有
 
 13 份文档的 Failure behavior 各加同一段，不新增标题：
 
-缺必填信息时，在 claim 给出的 issue 上发表评论，写明要问的问题，然后结束这一轮。不要写 artifact manifest。不要存文件。存文件会使文件数增加并扣费。
+缺必填信息时，在 claim 给出的 issue 上发表评论，写明要问的问题，然后在 manifest 里声明 `outcome` 为 `needs_input`、`artifacts` 为空数组，再结束这一轮。不要存文件，不要调用供应商。存文件会被计成产物并扣费。
 
 Steps 开头加一句，指向这段，不复制第二份规则。不新增 `aurora.<verb>`。供应商调用步骤不改。
 
 ## 10. 验收
 
+本版验收以实施计划的「验收」一节为准。下面每条标明本版是否计入；标「推迟」的不是本版判据，也不要照它实施。
+
 - 创建响应带 issue 编号。生成行有 `issue_id`。第一轮 task 的 issue 就是这一条。
 - claim 指向该技能文档，并带上 issue id。不得只用普通 issue 简报代替技能文档。
 - `needs_input` 的评论入队，不第二次预扣，`task_id` 改为新 task。
-- `queued` 或 `running` 时的评论不入队。
-- `completed` 和超时 `failed` 的评论不入队。
-- 再来一版不自动创建生成。提交之后是新的生成和新的 issue。
-- 同一暂存 id 只让 `file_count` 加 1，只扣一次。
-- 审核拒绝不减少 `file_count`。
-- 没存上文件的结束进入 `needs_input`，`file_count` 不变。
-- 余额不够时，第二个文件仍然留下扣款记录，且不重复扣第一个已用预扣抵掉的文件。
-- 7 天超时只退尚未对上文件的预扣。
-- 普通 issue 详情的根节点没有 `aurora-issue`。web 的 `:root` 没有 Aurora 的 `--background` 映射。
-- Aurora 生成的 issue 详情根节点有 `aurora-issue`，弹出层使用同一映射。
+- `queued` 或 `running` 时的评论不入队，也不折进当前轮。
+- `completed` 和 `failed` 的评论不入队。
+- 再来一版不自动创建生成。提交之后是新的生成和新的 issue。（入口本身推迟）
+- 同一暂存 id 只让 `file_count` 加 1，只扣一次。（推迟）
+- 审核拒绝不减少 `file_count`。（推迟）
+- 没存上文件的结束进入 `needs_input`，预留不扣不退。
+- 余额不够时，第二个文件仍然留下扣款记录，且不重复扣第一个已用预扣抵掉的文件。（推迟）
+- 7 天超时只退尚未对上文件的预扣。（推迟）
+- 普通 issue 详情的根节点没有 `aurora-issue`。web 的 `:root` 没有 Aurora 的 `--background` 映射。（皮肤推迟，本版不改样式）
+- Aurora 生成的 issue 详情根节点有 `aurora-issue`，弹出层使用同一映射。（皮肤推迟）
 - 13 份文档都有第 9 节那段话，且没有新的 `aurora.<verb>`。
 
 ## 11. 实施顺序
 
-实施计划另写。顺序是：生成与 issue 的绑定和入队，文件数与扣款，评论续跑和完成锁，问题详情的打开与皮肤，技能文档。前一步的验收不过，不开始下一步。
+以实施计划的五步为准：①claim 认 issue 轮，提示词带 issue 与本轮评论；②建 issue、按现在的方式预扣、再入队；③提问轮（不写产物也能体面结束）；④评论门闩与续跑轮；⑤打开现成的问题详情。前一步的验收不过，不开始下一步。文件数与扣款、7 天超时、皮肤不在本版的顺序里。
