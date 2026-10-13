@@ -47,6 +47,8 @@
     "attachments_label_audio": "Audio",
     "attachments_label_video": "Video",
     "attachments_label_audio_video": "Audio or video",
+    "attachments_choose": "Choose files",
+    "attachments_hint": "{{formats}} · up to {{max}}",
     "attachment_uploading": "Uploading…",
     "attachment_uploaded": "Uploaded",
     "attachment_upload_failed": "Upload failed.",

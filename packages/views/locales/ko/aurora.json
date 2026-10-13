@@ -44,6 +44,8 @@
     "attachments_label_audio": "오디오",
     "attachments_label_video": "비디오",
     "attachments_label_audio_video": "오디오 또는 비디오",
+    "attachments_choose": "파일 선택",
+    "attachments_hint": "{{formats}} · 최대 {{max}}개",
     "attachment_uploading": "업로드 중…",
     "attachment_uploaded": "업로드됨",
     "attachment_upload_failed": "업로드에 실패했습니다.",
