@@ -167,6 +167,11 @@ than 20 artifacts, or more than 600 MiB in total is rejected. Compute
 
 ## Failure behavior
 
+- Missing a required input: ask on the issue this run was claimed from —
+  `multica issue comment add <issue id> --content-file ./question.md` — then end
+  this round. Declare it in the manifest: `"outcome": "needs_input"` with
+  `"artifacts": []`. Write no files and call no provider: anything you store is
+  counted as an artifact and billed.
 - No `name` in the request, or a document that cannot be read: stop and report
   it. Do not fall back to a placeholder name.
 - `chromium` exits non-zero or writes no PDF: report its stderr and stop. Do not

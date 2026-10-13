@@ -50,6 +50,8 @@
     "attachments_label_audio": "Audio",
     "attachments_label_video": "Vidéo",
     "attachments_label_audio_video": "Audio ou vidéo",
+    "attachments_choose": "Choisir des fichiers",
+    "attachments_hint": "{{formats}} · jusqu'à {{max}}",
     "attachment_uploading": "Envoi…",
     "attachment_uploaded": "Envoyé",
     "attachment_upload_failed": "Échec de l'envoi.",
@@ -77,6 +79,7 @@
       "running": "Génération",
       "completed": "Terminé",
       "failed": "Échec",
+      "needs_input": "En attente de votre réponse",
       "unknown": "Inconnu"
     },
     "progress_unreadable": "Impossible de lire la progression de cette génération."

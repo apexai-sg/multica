@@ -92,7 +92,7 @@ pnpm test
 
 ルートコマンドはデフォルトで Mobile を除外します。Mobile には独自のスクリプトと CI があるため、変更前に `apps/mobile/AGENTS.md` を読んでください。
 
-`pnpm dev:aurora` は `apps/aurora` を `AURORA_PORT`（既定 `3001`）で配信し、Web アプリと同じバックエンドを使います。まだ `make up` のコンポーネント一覧には入っていないため、バックエンドを通常どおり起動したうえで単独で実行します。接続先は Web アプリと同じ `NEXT_PUBLIC_API_URL` / `REMOTE_API_URL` の規則に従い、どちらも未設定の場合、`next dev` がアプリ自身のオリジン経由でバックエンドをプロキシします。このアプリはバックエンド面（`/api`、`/v1`、`/ws`、`/health`、`/uploads`）を転送し、予約 slug（reserved slug）のリダイレクトからは除外します。`apps/aurora/config/runtime-urls.ts` の `isBackendSurfacePath` がそのパス一覧の唯一の定義で、リライトとリダイレクトの両方がこれを参照します。リアルタイム接続にはバックエンドがこのアプリのオリジンを許可している必要があり、`ALLOWED_ORIGINS`（`CORS_ALLOWED_ORIGINS`、次に `FRONTEND_ORIGIN` へフォールバック）に含まれないオリジンは WebSocket ハンドシェイクが 403 で拒否されます。`AURORA_PORT` のオリジンを追加してください。
+`pnpm dev:aurora` は `apps/aurora` を `AURORA_PORT`（既定 `13011`）で配信し、Web アプリと同じバックエンドを使います。まだ `make up` のコンポーネント一覧には入っていないため、バックエンドを通常どおり起動したうえで単独で実行します。接続先は Web アプリと同じ `NEXT_PUBLIC_API_URL` / `REMOTE_API_URL` の規則に従い、どちらも未設定の場合、`next dev` がアプリ自身のオリジン経由でバックエンドをプロキシします。このアプリはバックエンド面（`/api`、`/v1`、`/ws`、`/health`、`/uploads`）を転送し、予約 slug（reserved slug）のリダイレクトからは除外します。`apps/aurora/config/runtime-urls.ts` の `isBackendSurfacePath` がそのパス一覧の唯一の定義で、リライトとリダイレクトの両方がこれを参照します。リアルタイム接続にはバックエンドがこのアプリのオリジンを許可している必要があり、`ALLOWED_ORIGINS`（`CORS_ALLOWED_ORIGINS`、次に `FRONTEND_ORIGIN` へフォールバック）に含まれないオリジンは WebSocket ハンドシェイクが 403 で拒否されます。`AURORA_PORT` のオリジンを追加してください。
 
 ### バックエンド
 

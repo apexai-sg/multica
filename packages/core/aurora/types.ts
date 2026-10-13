@@ -76,6 +76,9 @@ export const AURORA_GENERATION_POLL_MS = 3_000;
  * negation of "queued"/"running" on purpose: an unrecognised status from a
  * newer server would otherwise read as final and stop the poll in the window
  * before the generation's assets existed.
+ *
+ * "needs_input" is not final either: it is the third, declarative ending — the
+ * round stopped to ask a question and resumes when the person replies.
  */
 export function isAuroraGenerationTerminal(status: string | undefined): boolean {
   return status === "completed" || status === "failed";

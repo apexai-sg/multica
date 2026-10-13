@@ -44,6 +44,8 @@
     "attachments_label_audio": "音声",
     "attachments_label_video": "動画",
     "attachments_label_audio_video": "音声または動画",
+    "attachments_choose": "ファイルを選択",
+    "attachments_hint": "{{formats}} · 最大 {{max}} 件",
     "attachment_uploading": "アップロード中…",
     "attachment_uploaded": "アップロード済み",
     "attachment_upload_failed": "アップロードに失敗しました。",
@@ -71,6 +73,7 @@
       "running": "生成中",
       "completed": "完了",
       "failed": "失敗",
+      "needs_input": "返信を待っています",
       "unknown": "不明"
     },
     "progress_unreadable": "この生成の進行状況を読み取れませんでした。"

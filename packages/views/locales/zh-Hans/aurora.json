@@ -44,6 +44,8 @@
     "attachments_label_audio": "音频",
     "attachments_label_video": "视频",
     "attachments_label_audio_video": "音频或视频",
+    "attachments_choose": "选择文件",
+    "attachments_hint": "{{formats}} · 最多 {{max}} 个",
     "attachment_uploading": "上传中…",
     "attachment_uploaded": "已上传",
     "attachment_upload_failed": "上传失败。",
@@ -71,6 +73,7 @@
       "running": "生成中",
       "completed": "完成",
       "failed": "失败",
+      "needs_input": "等你回复",
       "unknown": "未知"
     },
     "progress_unreadable": "无法读取该次生成的进度。"

@@ -63,12 +63,20 @@ export interface GenerationDetailProps {
    * copyable form instead — an app without a task page must not invent one.
    */
   taskHref?: (taskId: string) => string;
+  /**
+   * The app's route for the issue the generation ran on. Takes the
+   * `issueIdentifier` and returns null when it cannot build a URL — what core's
+   * `auroraIssueHref` does for a missing or degraded identifier — in which case
+   * no issue link is offered.
+   */
+  issueHref?: (identifier: string) => string | null;
 }
 
 export function GenerationDetail({
   generationId,
   backHref,
   taskHref,
+  issueHref,
 }: GenerationDetailProps) {
   const { t } = useT("aurora");
   const detailQuery = useAuroraGenerationDetail(generationId);
@@ -83,6 +91,10 @@ export function GenerationDetail({
   const notFound =
     detailQuery.isError &&
     isAuroraGenerationNotFoundError(detailQuery.error);
+  const issueUrl =
+    generation?.issueIdentifier && issueHref
+      ? issueHref(generation.issueIdentifier)
+      : null;
 
   return (
     <div className="aurora-page">
@@ -91,17 +103,32 @@ export function GenerationDetail({
         eyebrow={t(($) => $.detail.eyebrow)}
         title={t(($) => $.detail.title)}
         actions={
-          backHref ? (
-            <AppLink
-              href={backHref}
-              className={cn(
-                buttonVariants({ variant: "outline", size: "sm" }),
-                "min-h-10 min-w-10",
-              )}
-            >
-              <ArrowLeft aria-hidden="true" className="size-3.5" />
-              {t(($) => $.detail.back)}
-            </AppLink>
+          issueUrl || backHref ? (
+            <>
+              {issueUrl ? (
+                <AppLink
+                  href={issueUrl}
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "min-h-10 min-w-10",
+                  )}
+                >
+                  {generation?.issueIdentifier}
+                </AppLink>
+              ) : null}
+              {backHref ? (
+                <AppLink
+                  href={backHref}
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "min-h-10 min-w-10",
+                  )}
+                >
+                  <ArrowLeft aria-hidden="true" className="size-3.5" />
+                  {t(($) => $.detail.back)}
+                </AppLink>
+              ) : null}
+            </>
           ) : undefined
         }
       />

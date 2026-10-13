@@ -22,7 +22,14 @@ postgres_port=5432
 backend_port=$((18080 + offset))
 frontend_port=$((13000 + offset))
 frontend_origin="http://localhost:${frontend_port}"
+# Aurora is not part of `make up` and shares this checkout's backend, so it
+# takes its own port. Held 11 below the web port: same 13xxx family, never the
+# same port as this checkout's web app.
+aurora_port=$((13000 + offset - 11))
 
+# Unquoted heredoc: the body is expanded, so it must stay a plain ${var}
+# reference or literal text. Backticks and $( ) here would run at generation
+# time and write their output into the env file.
 cat > "$ENV_FILE" <<EOF
 POSTGRES_DB=${postgres_db}
 POSTGRES_USER=multica
@@ -45,6 +52,7 @@ FRONTEND_PORT=${frontend_port}
 FRONTEND_ORIGIN=${frontend_origin}
 NEXT_PUBLIC_API_URL=http://localhost:${backend_port}
 NEXT_PUBLIC_WS_URL=ws://localhost:${backend_port}/ws
+AURORA_PORT=${aurora_port}
 EOF
 
 echo "Generated $ENV_FILE for worktree '$worktree_name'"
@@ -52,6 +60,7 @@ echo "  Shared Postgres: localhost:${postgres_port}"
 echo "  Database: ${postgres_db}"
 echo "  Backend:  http://localhost:${backend_port}"
 echo "  Frontend: ${frontend_origin}"
+echo "  Aurora:   http://localhost:${aurora_port}"
 echo ""
 echo "Next steps:"
 echo "  make setup-worktree"

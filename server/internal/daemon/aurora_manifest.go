@@ -41,6 +41,10 @@ const (
 	auroraManifestMaxMetadataBytes = 16 << 10
 	auroraManifestMaxMetadataDepth = 8
 
+	// auroraOutcomeNeedsInput is the manifest's declarative "this round stopped
+	// to ask a question" ending. A manifest carrying it may list no artifacts.
+	auroraOutcomeNeedsInput = "needs_input"
+
 	auroraArtifactMaxImageBytes = 25 << 20
 	auroraArtifactMaxTextBytes  = 25 << 20
 	auroraArtifactMaxPDFBytes   = 25 << 20
@@ -80,6 +84,7 @@ type auroraManifest struct {
 	Version     int                      `json:"version"`
 	TaskID      string                   `json:"task_id"`
 	SkillID     string                   `json:"skill_id"`
+	Outcome     string                   `json:"outcome"`
 	Producer    auroraManifestProducer   `json:"producer"`
 	ProviderRun json.RawMessage          `json:"provider_run"`
 	Artifacts   []auroraManifestArtifact `json:"artifacts"`
@@ -176,36 +181,50 @@ var auroraManifestProducersByRoute = map[string]string{
 }
 
 // CollectAuroraArtifacts validates the v1 manifest under outputRoot against the
-// task and skill, then returns the reportable artifacts: local files are
-// streamed through sink, staged provider objects pass their staging id through.
-func CollectAuroraArtifacts(ctx context.Context, outputRoot, taskID, skillID string, sink AuroraArtifactSink) ([]TaskArtifact, error) {
+// task and skill, then returns the reportable artifacts and the run's
+// declarative outcome: local files are streamed through sink, staged provider
+// objects pass their staging id through.
+//
+// A manifest whose outcome is "needs_input" is the round's third ending: it
+// stops to ask a question instead of delivering, so it may list no artifacts.
+// Every header check (schema/version/task_id/skill_id/producer) still runs; only
+// the empty-artifact guard is skipped. Every other manifest is validated
+// unchanged, so a delivered run with no artifacts still fails.
+func CollectAuroraArtifacts(ctx context.Context, outputRoot, taskID, skillID string, sink AuroraArtifactSink) ([]TaskArtifact, string, error) {
 	if sink == nil {
-		return nil, fmt.Errorf("%w: no artifact upload sink", errAuroraManifestInvalid)
+		return nil, "", fmt.Errorf("%w: no artifact upload sink", errAuroraManifestInvalid)
 	}
 	policy, ok := aurora.ExecutionPolicy(skillID)
 	if !ok {
-		return nil, fmt.Errorf("%w: skill %q is not executable", errAuroraManifestInvalid, skillID)
+		return nil, "", fmt.Errorf("%w: skill %q is not executable", errAuroraManifestInvalid, skillID)
 	}
 	producerID, ok := auroraManifestProducersByRoute[policy.Route]
 	if !ok {
-		return nil, fmt.Errorf("%w: skill %q has no producer contract", errAuroraManifestInvalid, skillID)
+		return nil, "", fmt.Errorf("%w: skill %q has no producer contract", errAuroraManifestInvalid, skillID)
 	}
 
 	root, err := os.OpenRoot(outputRoot)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errAuroraManifestMissing, err)
+		return nil, "", fmt.Errorf("%w: %v", errAuroraManifestMissing, err)
 	}
 	defer root.Close()
 
 	manifest, err := readAuroraManifest(root)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if err := validateAuroraManifestHeader(manifest, taskID, skillID, producerID); err != nil {
-		return nil, err
+		return nil, "", err
+	}
+
+	outcome := strings.TrimSpace(manifest.Outcome)
+	if outcome == auroraOutcomeNeedsInput {
+		// The question round declares its ending; provider_run may be null and
+		// the artifact list empty. Nothing is uploaded and no file is billed.
+		return nil, outcome, nil
 	}
 	if err := validateAuroraManifestArtifacts(manifest, policy); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	out := make([]TaskArtifact, 0, len(manifest.Artifacts))
@@ -215,19 +234,19 @@ func CollectAuroraArtifacts(ctx context.Context, outputRoot, taskID, skillID str
 		case "file":
 			collected, err := collectAuroraLocalArtifact(ctx, root, artifact, sink)
 			if err != nil {
-				return nil, err
+				return nil, "", err
 			}
 			out = append(out, collected)
 		case "staged_object":
 			out = append(out, collectAuroraStagedArtifact(artifact))
 		default:
-			return nil, fmt.Errorf("%w: unknown source type %q", errAuroraManifestInvalid, artifact.Source.Type)
+			return nil, "", fmt.Errorf("%w: unknown source type %q", errAuroraManifestInvalid, artifact.Source.Type)
 		}
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("%w: manifest declares no artifacts", errAuroraManifestInvalid)
+		return nil, "", fmt.Errorf("%w: manifest declares no artifacts", errAuroraManifestInvalid)
 	}
-	return out, nil
+	return out, outcome, nil
 }
 
 // readAuroraManifest opens the manifest inside the already-opened root and reads

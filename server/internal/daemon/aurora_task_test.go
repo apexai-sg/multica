@@ -223,3 +223,33 @@ func TestAuroraTaskGetsTheOrdinaryExecutionSurface(t *testing.T) {
 		t.Errorf("the agent's own MCP server was dropped:\n%s", mcpRaw)
 	}
 }
+
+// TestAttachAuroraArtifactsNeedsInputDoesNotBlock is the daemon half of the
+// question-round exit: a manifest that declares outcome needs_input with no
+// artifacts leaves the result completed (not blocked) and carries the outcome so
+// the report happens before the terminal callback.
+func TestAttachAuroraArtifactsNeedsInputDoesNotBlock(t *testing.T) {
+	outputRoot := t.TempDir()
+	sandboxRoot := t.TempDir()
+	manifest := auroraTestManifest()
+	manifest.Outcome = auroraOutcomeNeedsInput
+	writeAuroraTestManifest(t, outputRoot, manifest)
+
+	task := Task{
+		ID:    auroraTestTaskID,
+		Agent: &AgentData{SystemKey: "aurora:" + auroraTestSkill},
+	}
+	result := TaskResult{Status: "completed"}
+	d := &Daemon{}
+	d.attachAuroraArtifacts(context.Background(), task, &result, slog.Default(), sandboxRoot, outputRoot)
+
+	if result.Status != "completed" {
+		t.Fatalf("status = %q, want completed: a question round must not be blocked", result.Status)
+	}
+	if result.Outcome != auroraOutcomeNeedsInput {
+		t.Fatalf("outcome = %q, want %q", result.Outcome, auroraOutcomeNeedsInput)
+	}
+	if len(result.Artifacts) != 0 {
+		t.Fatalf("artifacts = %d, want 0", len(result.Artifacts))
+	}
+}

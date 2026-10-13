@@ -53,9 +53,16 @@ export interface WorksListProps {
    * rather than a link.
    */
   generationHref?: (generationId: string) => string;
+  /**
+   * The app's route for the issue a generation runs on. Takes the
+   * `issueIdentifier` and returns null when it cannot build a URL — what core's
+   * `auroraIssueHref` does for a missing or degraded identifier — in which case
+   * the row keeps `generationHref`.
+   */
+  issueHref?: (identifier: string) => string | null;
 }
 
-export function WorksList({ generationHref }: WorksListProps = {}) {
+export function WorksList({ generationHref, issueHref }: WorksListProps = {}) {
   const { t } = useT("aurora");
   const locale = useLocale();
   const generationsQuery = useAuroraGenerations();
@@ -185,6 +192,7 @@ export function WorksList({ generationHref }: WorksListProps = {}) {
                     }
                     noPrompt={t(($) => $.works.no_prompt)}
                     generationHref={generationHref}
+                    issueHref={issueHref}
                   />
                 ))}
               </ul>
@@ -256,6 +264,7 @@ function GenerationRow({
   credits,
   noPrompt,
   generationHref,
+  issueHref,
 }: {
   generation: AuroraGeneration;
   /** Null when the catalog could not name the skill — nothing to say, not a fact. */
@@ -264,9 +273,19 @@ function GenerationRow({
   credits: string | null;
   noPrompt: string;
   generationHref?: (generationId: string) => string;
+  issueHref?: (identifier: string) => string | null;
 }) {
   const { t } = useT("aurora");
   const prompt = generation.prompt || noPrompt;
+  // The issue is where the run's conversation lives, so it wins over the
+  // generation page when the app can build its URL; an empty or degraded
+  // identifier leaves the row on the generation route.
+  const issueUrl =
+    generation.issueIdentifier && issueHref
+      ? issueHref(generation.issueIdentifier)
+      : null;
+  const href =
+    issueUrl ?? (generationHref ? generationHref(generation.id) : null);
   return (
     <li className="aurora-row">
       <span aria-hidden="true" className="aurora-icon-tile">
@@ -274,9 +293,9 @@ function GenerationRow({
       </span>
       <div className="aurora-row-main flex flex-col">
         <span className="truncate text-body">
-          {generationHref ? (
+          {href ? (
             <AppLink
-              href={generationHref(generation.id)}
+              href={href}
               className="transition-colors hover:text-foreground hover:underline"
             >
               {prompt}

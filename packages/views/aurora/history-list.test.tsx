@@ -62,6 +62,7 @@ function generation(
     error: null,
     createdAt: "2026-09-23T00:00:00Z",
     taskId: "",
+    issueIdentifier: "",
     ...overrides,
   };
 }
@@ -382,6 +383,40 @@ describe("HistoryList", () => {
     renderWithI18n(
       <NavigationProvider value={stubNavigationAdapter()}>
         <HistoryList generationHref={(id) => "/acme/works/" + id} />
+      </NavigationProvider>,
+    );
+
+    expect(
+      screen.getByRole("link", { name: "a launch poster" }),
+    ).toHaveAttribute("href", "/acme/works/gen-1");
+  });
+
+  it("links a row to its issue when the app provides an issue route", () => {
+    install([generation({ issueIdentifier: "MUL-42" })]);
+
+    renderWithI18n(
+      <NavigationProvider value={stubNavigationAdapter()}>
+        <HistoryList
+          generationHref={(id) => "/acme/works/" + id}
+          issueHref={(identifier) => "/acme/issues/" + identifier}
+        />
+      </NavigationProvider>,
+    );
+
+    expect(
+      screen.getByRole("link", { name: "a launch poster" }),
+    ).toHaveAttribute("href", "/acme/issues/MUL-42");
+  });
+
+  it("keeps the generation route when the app cannot build an issue URL", () => {
+    install([generation({ issueIdentifier: "#42" })]);
+
+    renderWithI18n(
+      <NavigationProvider value={stubNavigationAdapter()}>
+        <HistoryList
+          generationHref={(id) => "/acme/works/" + id}
+          issueHref={() => null}
+        />
       </NavigationProvider>,
     );
 

@@ -255,6 +255,7 @@ type AuroraGeneration struct {
 	Error           pgtype.Text        `json:"error"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	IssueID         pgtype.UUID        `json:"issue_id"`
 }
 
 type AuroraModerationLog struct {

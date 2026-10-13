@@ -40,14 +40,16 @@ import { AURORA_CATEGORY_ALL, filterAuroraSkills } from "./skill-filter";
  * would make a half-written prompt survive a refresh as a linkable address,
  * which is not what a consumer picking a skill out of a grid expects — so it
  * stays component state, and picking a skill is a click rather than a
- * navigation. `worksHref` and `topUpHref` are forwarded to the drawer so the
- * app keeps owning the library and checkout routes.
+ * navigation. `worksHref`, `topUpHref` and `issueHref` are forwarded to the
+ * drawer so the app keeps owning the library, checkout and issue routes.
  */
 export interface SkillDirectoryProps {
   /** The app's library route, offered on a finished generation. */
   worksHref?: string;
   /** The app's checkout route, offered when a skill costs more than the wallet holds. */
   topUpHref?: string;
+  /** The app's route for the issue a generation runs on, forwarded to the drawer. */
+  issueHref?: (identifier: string) => string | null;
 }
 
 // The grid's own geometry, shared by the cards and the skeleton so the page
@@ -64,6 +66,7 @@ const EMPTY_SKILLS: AuroraSkill[] = [];
 export function SkillDirectory({
   worksHref,
   topUpHref,
+  issueHref,
 }: SkillDirectoryProps = {}) {
   const { t } = useT("aurora");
   const locale = useLocale();
@@ -202,6 +205,7 @@ export function SkillDirectory({
         }}
         worksHref={worksHref}
         topUpHref={topUpHref}
+        issueHref={issueHref}
       />
     </div>
   );

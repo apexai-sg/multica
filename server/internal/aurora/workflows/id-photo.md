@@ -82,6 +82,11 @@ total is rejected. Compute `size_bytes` and `sha256` from the file
 
 ## Failure behavior
 
+- Missing a required input: ask on the issue this run was claimed from —
+  `multica issue comment add <issue id> --content-file ./question.md` — then end
+  this round. Declare it in the manifest: `"outcome": "needs_input"` with
+  `"artifacts": []`. Write no files and call no provider: anything you store is
+  counted as an artifact and billed.
 - The attachment is missing, unreadable, or not a PNG/JPEG: stop and report it.
   Do not synthesise a portrait.
 - `convert` exits non-zero: report its stderr and stop. Do not retry with a

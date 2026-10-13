@@ -142,7 +142,8 @@ func newAuroraTestSink() *auroraTestSink {
 
 func collectAuroraTestArtifacts(t *testing.T, root string, sink AuroraArtifactSink) ([]TaskArtifact, error) {
 	t.Helper()
-	return CollectAuroraArtifacts(context.Background(), root, auroraTestTaskID, auroraTestSkill, sink)
+	artifacts, _, err := CollectAuroraArtifacts(context.Background(), root, auroraTestTaskID, auroraTestSkill, sink)
+	return artifacts, err
 }
 
 // collectAuroraTestManifest writes the manifest and collects, returning the
@@ -555,5 +556,45 @@ func TestAuroraManifestRejectsUnknownArtifactKind(t *testing.T) {
 func TestAuroraManifestUsesPolicyForSkillOutputs(t *testing.T) {
 	if _, ok := aurora.ExecutionPolicy(auroraTestSkill); !ok {
 		t.Fatalf("test skill %s is not an available catalog entry", auroraTestSkill)
+	}
+}
+
+// TestCollectAuroraArtifactsNeedsInputOutcome is the question-round exit: a
+// manifest that declares outcome needs_input may list zero artifacts and
+// collects to a nil artifact slice with no error, while the empty-artifact guard
+// still rejects a delivered manifest that produced nothing.
+func TestCollectAuroraArtifactsNeedsInputOutcome(t *testing.T) {
+	root := t.TempDir()
+	manifest := auroraTestManifest()
+	manifest.Outcome = auroraOutcomeNeedsInput
+	writeAuroraTestManifest(t, root, manifest)
+
+	artifacts, outcome, err := CollectAuroraArtifacts(context.Background(), root, auroraTestTaskID, auroraTestSkill, newAuroraTestSink())
+	if err != nil {
+		t.Fatalf("CollectAuroraArtifacts: %v", err)
+	}
+	if outcome != auroraOutcomeNeedsInput {
+		t.Fatalf("outcome = %q, want %q", outcome, auroraOutcomeNeedsInput)
+	}
+	if len(artifacts) != 0 {
+		t.Fatalf("artifacts = %d, want 0", len(artifacts))
+	}
+
+	// Every header check still runs before the outcome is honoured.
+	mismatched := auroraTestManifest()
+	mismatched.Outcome = auroraOutcomeNeedsInput
+	mismatched.Producer.ID = "some-other-producer"
+	badRoot := t.TempDir()
+	writeAuroraTestManifest(t, badRoot, mismatched)
+	if _, _, err := CollectAuroraArtifacts(context.Background(), badRoot, auroraTestTaskID, auroraTestSkill, newAuroraTestSink()); err == nil {
+		t.Fatal("a needs_input manifest with a mismatched producer was accepted")
+	}
+
+	// The load-bearing guard: no outcome and no artifacts is still a failure.
+	delivered := t.TempDir()
+	writeAuroraTestManifest(t, delivered, auroraTestManifest())
+	_, _, err = CollectAuroraArtifacts(context.Background(), delivered, auroraTestTaskID, auroraTestSkill, newAuroraTestSink())
+	if err == nil || !strings.Contains(err.Error(), "manifest declares no artifacts") {
+		t.Fatalf("empty delivered manifest error = %v, want the no-artifacts guard", err)
 	}
 }

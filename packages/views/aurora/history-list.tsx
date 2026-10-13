@@ -74,9 +74,19 @@ export interface HistoryListProps {
    * need.
    */
   generationHref?: (generationId: string) => string;
+  /**
+   * The app's route for the issue a generation runs on. Takes the
+   * `issueIdentifier` and returns null when it cannot build a URL — what core's
+   * `auroraIssueHref` does for a missing or degraded identifier — in which case
+   * the row keeps `generationHref`.
+   */
+  issueHref?: (identifier: string) => string | null;
 }
 
-export function HistoryList({ generationHref }: HistoryListProps = {}) {
+export function HistoryList({
+  generationHref,
+  issueHref,
+}: HistoryListProps = {}) {
   const { t } = useT("aurora");
   const locale = useLocale();
   const generationsQuery = useAuroraGenerations();
@@ -210,6 +220,7 @@ export function HistoryList({ generationHref }: HistoryListProps = {}) {
                     (catalogLoaded ? t(($) => $.works.skill_unknown) : null)
                   }
                   generationHref={generationHref}
+                  issueHref={issueHref}
                 />
               ))}
             </ul>
@@ -232,11 +243,13 @@ function HistoryRow({
   generation,
   skillName,
   generationHref,
+  issueHref,
 }: {
   generation: AuroraGeneration;
   /** Null when the catalog could not name the skill — nothing to say, not a fact. */
   skillName: string | null;
   generationHref?: (generationId: string) => string;
+  issueHref?: (identifier: string) => string | null;
 }) {
   const { t } = useT("aurora");
   const locale = useLocale();
@@ -251,15 +264,24 @@ function HistoryRow({
   const credits = generationCredits(current);
   const assets = detailQuery.data?.value?.assets ?? EMPTY_ASSETS;
   const prompt = current.prompt || t(($) => $.works.no_prompt);
+  // The issue is where the run's conversation lives, so it wins over the
+  // generation page when the app can build its URL; an empty or degraded
+  // identifier leaves the row on the generation route.
+  const issueUrl =
+    current.issueIdentifier && issueHref
+      ? issueHref(current.issueIdentifier)
+      : null;
+  const href =
+    issueUrl ?? (generationHref ? generationHref(current.id) : null);
 
   return (
     <li className="aurora-row-stack">
       <div className="flex items-start gap-3">
         <div className="aurora-row-main flex flex-col">
           <span className="truncate text-body">
-            {generationHref ? (
+            {href ? (
               <AppLink
-                href={generationHref(current.id)}
+                href={href}
                 className="transition-colors hover:text-foreground hover:underline"
               >
                 {prompt}

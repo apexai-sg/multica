@@ -1,7 +1,20 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { CircleAlert, CreditCard, FileDown, Sparkles, X } from "lucide-react";
+import {
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type FormEvent,
+} from "react";
+import {
+  CircleAlert,
+  CreditCard,
+  FileDown,
+  Sparkles,
+  Upload,
+  X,
+} from "lucide-react";
 import {
   Alert,
   AlertAction,
@@ -9,7 +22,6 @@ import {
   AlertTitle,
 } from "@multica/ui/components/ui/alert";
 import { Button } from "@multica/ui/components/ui/button";
-import { Input } from "@multica/ui/components/ui/input";
 import { Label } from "@multica/ui/components/ui/label";
 import {
   Sheet,
@@ -125,6 +137,13 @@ export interface GenerationComposerProps {
   worksHref?: string;
   /** The app's checkout route. Omitted, the shortfall offers no way to top up. */
   topUpHref?: string;
+  /**
+   * The app's route for the issue a generation runs on. Takes the
+   * `issueIdentifier` and returns null when it cannot build a URL — what core's
+   * `auroraIssueHref` does for a missing or degraded identifier — in which case
+   * the drawer keeps polling the generation instead.
+   */
+  issueHref?: (identifier: string) => string | null;
 }
 
 export function GenerationComposer({
@@ -133,6 +152,7 @@ export function GenerationComposer({
   onOpenChange,
   worksHref,
   topUpHref,
+  issueHref,
 }: GenerationComposerProps) {
   if (!skill) return null;
   return (
@@ -146,6 +166,7 @@ export function GenerationComposer({
           skill={skill}
           worksHref={worksHref}
           topUpHref={topUpHref}
+          issueHref={issueHref}
         />
       </SheetContent>
     </Sheet>
@@ -177,10 +198,12 @@ function ComposerBody({
   skill,
   worksHref,
   topUpHref,
+  issueHref,
 }: {
   skill: AuroraSkill;
   worksHref?: string;
   topUpHref?: string;
+  issueHref?: (identifier: string) => string | null;
 }) {
   const { t } = useT("aurora");
   const download = useAuroraAssetDownload();
@@ -191,6 +214,8 @@ function ComposerBody({
   const [outcome, setOutcome] = useState<SubmitOutcome>({ kind: "idle" });
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const nextAttachmentKey = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [draggingFiles, setDraggingFiles] = useState(false);
 
   const generationId = outcome.kind === "started" ? outcome.generationId : "";
   const detail = useAuroraGenerationDetail(generationId);
@@ -219,6 +244,14 @@ function ComposerBody({
             ? t(($) => $.composer.attachments_label_audio_video)
             : t(($) => $.composer.attachments_label_image);
   const accept = acceptForKinds(attachmentKinds);
+  // Named from the same tokens the file dialog filters on, so the hint cannot
+  // drift from the policy the server enforces.
+  const acceptedFormats = accept
+    .split(",")
+    .map((token) =>
+      (token.startsWith(".") ? token.slice(1) : token.replace(/^image\//, "")).toUpperCase(),
+    )
+    .join(", ");
   const maxAttachments = attachmentRules.reduce(
     (sum, rule) => sum + rule.max,
     0,
@@ -258,12 +291,16 @@ function ComposerBody({
 
   // Pick files, upload each through the existing authenticated upload API, and
   // keep the prompt and every successful selection on all failure paths.
-  async function handleAttachmentsPicked(
-    event: ChangeEvent<HTMLInputElement>,
-  ) {
+  function handleAttachmentsPicked(event: ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(event.target.files ?? []);
     // Reset so choosing the same file again still fires a change event.
     event.target.value = "";
+    void uploadFiles(picked);
+  }
+
+  // The picker and a drop share one path, so the policy check, the per-file
+  // failures and the upload call exist once.
+  async function uploadFiles(picked: File[]) {
     if (picked.length === 0) return;
 
     const room = Math.max(0, maxAttachments - attachments.length);
@@ -326,6 +363,13 @@ function ComposerBody({
     }
   }
 
+  function handleFileDrop(event: DragEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    setDraggingFiles(false);
+    if (!skill.available) return;
+    void uploadFiles(Array.from(event.dataTransfer?.files ?? []));
+  }
+
   function removeAttachment(key: number) {
     setAttachments((prev) => prev.filter((item) => item.key !== key));
   }
@@ -340,6 +384,16 @@ function ComposerBody({
         prompt: trimmedPrompt,
         attachmentIds: uploadedAttachmentIds,
       });
+      // A usable issue identifier means the result belongs on the issue detail,
+      // not in this drawer: open it and let the drawer stop following the
+      // generation. A missing or degraded identifier (the old server's "#N")
+      // keeps the polling path below.
+      const identifier = created.value?.issueIdentifier ?? "";
+      const issueUrl = identifier && issueHref ? issueHref(identifier) : null;
+      if (issueUrl) {
+        window.location.assign(issueUrl);
+        return;
+      }
       setOutcome(
         created.value
           ? { kind: "started", generationId: created.value.id }
@@ -407,43 +461,77 @@ function ComposerBody({
       ) : null}
 
       <form className="aurora-composer" onSubmit={handleSubmit}>
-        <Label htmlFor="aurora-prompt">
-          {t(($) => $.composer.prompt_label)}
-        </Label>
-        <Textarea
-          id="aurora-prompt"
-          className="border-0 px-0 focus-visible:ring-0"
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          placeholder={t(($) => $.composer.prompt_placeholder)}
-          rows={5}
-          // The prompt is the whole input, and losing it costs the user their
-          // work — so it is kept rather than cleared when the submit fails.
-          disabled={!skill.available}
-        />
+        <div className="aurora-field">
+          <Label className="aurora-field-label" htmlFor="aurora-prompt">
+            {t(($) => $.composer.prompt_label)}
+          </Label>
+          <Textarea
+            id="aurora-prompt"
+            className="aurora-textarea"
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            placeholder={t(($) => $.composer.prompt_placeholder)}
+            rows={5}
+            // The prompt is the whole input, and losing it costs the user their
+            // work — so it is kept rather than cleared when the submit fails.
+            disabled={!skill.available}
+          />
+        </div>
         {attachmentRules.length > 0 ? (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="aurora-attachments">{attachmentLabel}</Label>
-            <Input
+          <div className="aurora-field">
+            <Label className="aurora-field-label" htmlFor="aurora-attachments">
+              {attachmentLabel}
+            </Label>
+            {/* The native control stays in the tree — it owns the accept
+                policy and is what the label addresses — while the dropzone in
+                front of it is the visible affordance. */}
+            <input
+              ref={fileInputRef}
               id="aurora-attachments"
+              className="aurora-file-input"
               type="file"
               accept={accept}
               multiple={maxAttachments > 1}
+              tabIndex={-1}
               disabled={!skill.available}
-              onChange={(event) => void handleAttachmentsPicked(event)}
+              onChange={handleAttachmentsPicked}
             />
+            <button
+              type="button"
+              className="aurora-dropzone"
+              data-dragging={draggingFiles ? "" : undefined}
+              disabled={!skill.available}
+              aria-describedby="aurora-attachments-hint"
+              onClick={() => fileInputRef.current?.click()}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                if (skill.available) setDraggingFiles(true);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                if (skill.available) setDraggingFiles(true);
+              }}
+              onDragLeave={() => setDraggingFiles(false)}
+              onDrop={handleFileDrop}
+            >
+              <Upload aria-hidden="true" />
+              {t(($) => $.composer.attachments_choose)}
+            </button>
+            <p className="aurora-field-hint" id="aurora-attachments-hint">
+              {t(($) => $.composer.attachments_hint, {
+                formats: acceptedFormats,
+                max: String(maxAttachments),
+              })}
+            </p>
             {attachments.length > 0 ? (
-              <ul className="flex flex-col gap-1">
+              <ul className="aurora-attachment-list">
                 {attachments.map((item) => (
-                  <li
-                    key={item.key}
-                    className="flex items-center gap-2 text-caption"
-                  >
-                    <span className="min-w-0 flex-1 truncate">{item.name}</span>
-                    <span className="shrink-0 text-muted-foreground">
+                  <li key={item.key} data-status={item.status}>
+                    <span className="aurora-attachment-name">{item.name}</span>
+                    <span className="aurora-attachment-meta">
                       {formatFileSize(item.size)}
                     </span>
-                    <span className="shrink-0 text-muted-foreground">
+                    <span className="aurora-attachment-meta">
                       {item.status === "uploading"
                         ? t(($) => $.composer.attachment_uploading)
                         : item.status === "uploaded"

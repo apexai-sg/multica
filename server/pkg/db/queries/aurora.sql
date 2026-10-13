@@ -2,11 +2,11 @@
 INSERT INTO aurora_generation (workspace_id, user_id, skill_id, prompt, status)
 VALUES ($1, $2, $3, $4, 'queued')
 RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
-          credits_reserved, credits_charged, error, created_at, updated_at;
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id;
 
 -- name: GetAuroraGeneration :one
 SELECT id, workspace_id, user_id, skill_id, prompt, status, task_id,
-       credits_reserved, credits_charged, error, created_at, updated_at
+       credits_reserved, credits_charged, error, created_at, updated_at, issue_id
 FROM aurora_generation
 WHERE id = $1 AND workspace_id = $2;
 
@@ -15,24 +15,24 @@ UPDATE aurora_generation
 SET task_id = $2, credits_reserved = $3, updated_at = now()
 WHERE id = $1 AND workspace_id = $4
 RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
-          credits_reserved, credits_charged, error, created_at, updated_at;
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id;
 
 -- name: UpdateAuroraGenerationTerminal :one
 UPDATE aurora_generation
 SET status = $2, error = $3, credits_charged = $4, updated_at = now()
 WHERE id = $1 AND workspace_id = $5
 RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
-          credits_reserved, credits_charged, error, created_at, updated_at;
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id;
 
 -- name: GetAuroraGenerationByTaskID :one
 SELECT id, workspace_id, user_id, skill_id, prompt, status, task_id,
-       credits_reserved, credits_charged, error, created_at, updated_at
+       credits_reserved, credits_charged, error, created_at, updated_at, issue_id
 FROM aurora_generation
 WHERE task_id = $1;
 
 -- name: ListAuroraGenerations :many
 SELECT id, workspace_id, user_id, skill_id, prompt, status, task_id,
-       credits_reserved, credits_charged, error, created_at, updated_at
+       credits_reserved, credits_charged, error, created_at, updated_at, issue_id
 FROM aurora_generation
 WHERE workspace_id = $1
 ORDER BY created_at DESC
@@ -96,3 +96,38 @@ JOIN member m ON m.workspace_id = w.id
 WHERE m.user_id = $1 AND m.role = 'owner'
 ORDER BY w.created_at ASC
 LIMIT 1;
+
+-- name: GetAuroraGenerationByIssueID :one
+-- 任务 4 的评论门闩用它判断这条 issue 属于哪次生成、是否终态。
+SELECT id, workspace_id, user_id, skill_id, prompt, status, task_id,
+       credits_reserved, credits_charged, error, created_at, updated_at, issue_id
+FROM aurora_generation
+WHERE issue_id = $1 AND workspace_id = $2;
+
+-- name: UpdateAuroraGenerationBound :one
+UPDATE aurora_generation
+SET task_id = $2, credits_reserved = $3, issue_id = $4, updated_at = now()
+WHERE id = $1 AND workspace_id = $5
+RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id;
+
+-- name: MarkAuroraGenerationNeedsInput :one
+-- The question-round exit: the round declared outcome needs_input and produced
+-- no artifacts. The status='queued' guard makes the write idempotent and stops
+-- it from overwriting a row another settlement already moved.
+UPDATE aurora_generation
+SET status = 'needs_input', updated_at = now()
+WHERE id = $1 AND workspace_id = $2 AND status = 'queued'
+RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id;
+
+-- name: UpdateAuroraGenerationRound :one
+-- Task 4's continuation round: point the generation at the new task, return it
+-- to queued, and clear the previous round's error. The reservation is left
+-- alone on purpose — a follow-up round reuses the single reservation made when
+-- the generation was created, so this never becomes a second charge.
+UPDATE aurora_generation
+SET task_id = $2, status = 'queued', error = NULL, updated_at = now()
+WHERE id = $1 AND workspace_id = $3
+RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id;

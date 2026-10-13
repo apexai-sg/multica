@@ -333,6 +333,12 @@ type TaskResult struct {
 	// callback so the server can commit aurora_asset rows — the artifact is the
 	// deliverable, so a failed report fails the task.
 	Artifacts []TaskArtifact `json:"-"`
+	// Outcome is the declarative ending a completed Aurora run wrote in its
+	// manifest. Empty means the round delivered its artifacts; "needs_input"
+	// means it stopped to ask a question and produced none. The daemon reports
+	// it out-of-band before the terminal callback so the server can move the
+	// generation without settling it.
+	Outcome string `json:"-"`
 }
 
 // TaskArtifact is one validated, server-staged content asset a completed task

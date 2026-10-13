@@ -2267,6 +2267,7 @@ func TestBuildAuroraPromptPointsAtTheSkillDocument(t *testing.T) {
 	task := Task{
 		ID:                       "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
 		GenerationID:             "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+		IssueID:                  "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
 		Agent:                    &AgentData{SystemKey: "aurora:poster"},
 		QuickCreatePrompt:        "橘猫窗台晒太阳图片生成（暖色调，生成一张高清图）",
 		QuickCreateAttachmentIDs: []string{"11111111-1111-4111-8111-111111111111"},
@@ -2279,7 +2280,9 @@ func TestBuildAuroraPromptPointsAtTheSkillDocument(t *testing.T) {
 		"11111111-1111-4111-8111-111111111111",
 		"multica attachment download",
 		".claude/skills/",
-		"do not create, update, or comment on issues",
+		"multica issue comment add",
+		"cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+		"Do not create another issue.",
 		// The run must be able to find its own output root and manifest without
 		// guessing: the skill document and the platform have to agree on them.
 		"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -2309,6 +2312,41 @@ func TestBuildAuroraPromptPointsAtTheSkillDocument(t *testing.T) {
 	generic := BuildPrompt(Task{QuickCreatePrompt: "fix the login button"}, "claude")
 	if !strings.Contains(generic, "quick-create assistant") || !strings.Contains(generic, "multica issue create") {
 		t.Errorf("non-Aurora quick-create prompt changed\n---\n%s", generic)
+	}
+}
+
+// TestBuildAuroraPromptWithoutIssueKeepsTheOldWording pins the intermediate
+// state this task ships in: until a round is bound to an issue, an Aurora run
+// must keep saying it is NOT an issue run and must not tell the model to avoid
+// creating a second issue it never had.
+func TestBuildAuroraPromptWithoutIssueKeepsTheOldWording(t *testing.T) {
+	t.Parallel()
+
+	out := BuildPrompt(Task{Agent: &AgentData{SystemKey: "aurora:poster"}}, "claude")
+	if !strings.Contains(out, "It is NOT an issue run") {
+		t.Errorf("Aurora prompt without an issue must keep the non-issue wording\n---\n%s", out)
+	}
+	if strings.Contains(out, "Do not create another issue.") {
+		t.Errorf("Aurora prompt without an issue must not claim an issue is bound\n---\n%s", out)
+	}
+}
+
+// TestBuildAuroraPromptCarriesTheTriggerComment pins the follow-up round's real
+// input: a person's reply on the issue arrives as the trigger comment and must
+// be embedded verbatim so a resumed session cannot miss it.
+func TestBuildAuroraPromptCarriesTheTriggerComment(t *testing.T) {
+	t.Parallel()
+
+	out := BuildPrompt(Task{
+		Agent:                 &AgentData{SystemKey: "aurora:poster"},
+		IssueID:               "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+		TriggerCommentContent: "把背景换成海边的日落",
+	}, "claude")
+	if !strings.Contains(out, "把背景换成海边的日落") {
+		t.Errorf("Aurora prompt missing the trigger comment\n---\n%s", out)
+	}
+	if !strings.Contains(out, "The person's latest reply on this issue:") {
+		t.Errorf("Aurora prompt missing the trigger-comment heading\n---\n%s", out)
 	}
 }
 

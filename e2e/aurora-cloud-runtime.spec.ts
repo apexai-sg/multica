@@ -30,7 +30,7 @@ const SKILL_NAME = "Xiaohongshu Image";
 const AURORA_BASE_URL = (
   process.env.MULTICA_AURORA_BASE_URL ??
   process.env.AURORA_ORIGIN ??
-  `http://localhost:${process.env.AURORA_PORT?.trim() || "3001"}`
+  `http://localhost:${process.env.AURORA_PORT?.trim() || "13011"}`
 ).replace(/\/+$/, "");
 
 let api: TestApiClient | null = null;

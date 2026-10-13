@@ -657,16 +657,20 @@ func (c *Client) ReportTaskUsage(ctx context.Context, taskID string, usage []Tas
 }
 
 // ReportTaskArtifacts reports the uploaded content assets a completed Aurora
-// task produced. Like ReportTaskUsage it is an out-of-band channel, distinct
-// from the complete callback because the terminal report carries no file
-// metadata. Empty (every non-Aurora task) is a no-op.
-func (c *Client) ReportTaskArtifacts(ctx context.Context, taskID string, artifacts []TaskArtifact) error {
-	if len(artifacts) == 0 {
+// task produced, or the declarative outcome of a round that produced none. Like
+// ReportTaskUsage it is an out-of-band channel, distinct from the complete
+// callback because the terminal report carries no file metadata. A needs_input
+// round sends an empty artifact list with its outcome; empty for every
+// non-Aurora task is a no-op.
+func (c *Client) ReportTaskArtifacts(ctx context.Context, taskID string, artifacts []TaskArtifact, outcome string) error {
+	if len(artifacts) == 0 && outcome == "" {
 		return nil
 	}
-	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/tasks/%s/artifacts", taskID), map[string]any{
-		"artifacts": artifacts,
-	}, nil)
+	body := map[string]any{"artifacts": artifacts}
+	if outcome != "" {
+		body["outcome"] = outcome
+	}
+	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/tasks/%s/artifacts", taskID), body, nil)
 }
 
 // auroraArtifactUploadResponse is the subset of Task 6's staging response the

@@ -3,6 +3,7 @@
 import { use } from "react";
 import { WorksList } from "@multica/views/aurora";
 import { auroraRoutes } from "@/lib/routes";
+import { auroraIssueHrefFor } from "@/lib/issue-link";
 
 /**
  * The library.
@@ -17,5 +18,10 @@ export default function WorksPage({
 }) {
   const { workspaceSlug } = use(params);
   const routes = auroraRoutes(workspaceSlug);
-  return <WorksList generationHref={(id) => routes.work(id)} />;
+  return (
+    <WorksList
+      generationHref={(id) => routes.work(id)}
+      issueHref={auroraIssueHrefFor(workspaceSlug)}
+    />
+  );
 }

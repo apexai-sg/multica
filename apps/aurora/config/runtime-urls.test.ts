@@ -6,6 +6,7 @@ import {
   resolveBrowserWsUrl,
   resolveDevRemoteApiUrl,
   resolveRemoteApiUrl,
+  resolveWebOrigin,
   runtimeRewriteDestination,
 } from "./runtime-urls";
 
@@ -98,6 +99,28 @@ describe("browser runtime URLs", () => {
         NEXT_PUBLIC_WS_URL: "wss://socket.test/ws",
       }),
     ).toBe("wss://socket.test/ws");
+  });
+});
+
+describe("resolveWebOrigin", () => {
+  it("returns the configured Multica web origin", () => {
+    expect(
+      resolveWebOrigin({ NEXT_PUBLIC_WEB_ORIGIN: "https://mca.example" }),
+    ).toBe("https://mca.example");
+  });
+
+  it("strips a trailing slash so the issue path can be appended", () => {
+    expect(
+      resolveWebOrigin({ NEXT_PUBLIC_WEB_ORIGIN: "https://mca.example/" }),
+    ).toBe("https://mca.example");
+  });
+
+  it("ignores an unset, relative or non-http value", () => {
+    expect(resolveWebOrigin({})).toBeUndefined();
+    expect(resolveWebOrigin({ NEXT_PUBLIC_WEB_ORIGIN: "" })).toBeUndefined();
+    expect(
+      resolveWebOrigin({ NEXT_PUBLIC_WEB_ORIGIN: "mca.example" }),
+    ).toBeUndefined();
   });
 });
 

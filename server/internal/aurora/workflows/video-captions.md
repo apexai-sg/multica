@@ -179,6 +179,11 @@ total is rejected. Compute `size_bytes` and `sha256` with `stat -c %s` and
 
 ## Failure behavior
 
+- Missing a required input: ask on the issue this run was claimed from —
+  `multica issue comment add <issue id> --content-file ./question.md` — then end
+  this round. Declare it in the manifest: `"outcome": "needs_input"` with
+  `"artifacts": []`. Write no files and call no provider: anything you store is
+  counted as an artifact and billed.
 - A response whose `x-api-status-code` is anything other than `20000000`,
   including a missing header: report it, call `.../asr.recognize/finish` with
   `{"state":"failed","error_code":"provider_failed"}`, and write no manifest.

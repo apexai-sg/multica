@@ -331,6 +331,13 @@ SELECT
     sqlc.narg(handoff_note),
     sqlc.narg(squad_id),
     CASE
+        WHEN COALESCE(sqlc.narg('type')::text, '') <> ''
+        THEN jsonb_build_object(
+            'type', sqlc.narg('type')::text,
+            'generation_id', sqlc.narg('generation_id')::text,
+            'prompt', sqlc.narg('prompt')::text,
+            'attachment_ids', COALESCE(sqlc.narg('attachment_ids')::text[], '{}'::text[])
+        )
         WHEN COALESCE(sqlc.narg('head_sha')::text, '') <> ''
         THEN jsonb_build_object('head_sha', sqlc.narg('head_sha')::text)
         ELSE NULL

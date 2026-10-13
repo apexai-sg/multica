@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "sh -c 'next dev --port \"${AURORA_PORT:-3001}\"'",
+    "dev": "sh -c 'next dev --port \"${AURORA_PORT:-13011}\"'",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",

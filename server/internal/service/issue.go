@@ -137,6 +137,12 @@ type IssueCreateOpts struct {
 	// still resolving, then promotes the returned task after attachment binding.
 	// Zero preserves the ordinary immediate enqueue path.
 	AssignedAgentRunFireAt time.Time
+
+	// SkipAssignedAgentEnqueue suppresses the automatic task for an agent
+	// assignee, along with the squad-leader and runtime-notice branches. Aurora
+	// assigns its issue to the skill's system agent but enqueues the round
+	// itself, so without this the issue would carry a second, ordinary task.
+	SkipAssignedAgentEnqueue bool
 }
 
 // ErrActiveDuplicate signals that the duplicate guard found an active
@@ -537,7 +543,7 @@ func (s *IssueService) Create(ctx context.Context, p IssueCreateParams, opts Iss
 	s.publishIssueCreated(issue, attachments, labels, p.CreatorType, actorID, opts)
 	s.captureCreatedAnalytics(issue, p.CreatorType, actorID, opts)
 	if opts.AssignedAgentRunFireAt.IsZero() {
-		assignedTaskID = s.maybeEnqueueOnAssign(ctx, issue, p.CreatorType, actorID, opts.AssignedAgentRunFireAt)
+		assignedTaskID = s.maybeEnqueueOnAssign(ctx, issue, p.CreatorType, actorID, opts.AssignedAgentRunFireAt, opts.SkipAssignedAgentEnqueue)
 	}
 
 	return IssueCreateResult{Issue: issue, Attachments: attachments, Labels: labels, AssignedTaskID: assignedTaskID}, nil
@@ -827,7 +833,14 @@ func classifyOrigin(issue db.Issue, opts IssueCreateOpts) (source, taskID, autop
 	}
 }
 
-func (s *IssueService) maybeEnqueueOnAssign(ctx context.Context, issue db.Issue, creatorType, actorID string, agentRunFireAt time.Time) pgtype.UUID {
+func (s *IssueService) maybeEnqueueOnAssign(ctx context.Context, issue db.Issue, creatorType, actorID string, agentRunFireAt time.Time, skipEnqueue bool) pgtype.UUID {
+	// Aurora and any future caller that runs its own enqueue opts out of the
+	// whole assignee path: no task, no squad-leader trigger, and no runtime
+	// notice. Returning before the assignee check also keeps that caller from
+	// depending on the assignee shape.
+	if skipEnqueue {
+		return pgtype.UUID{}
+	}
 	if !issue.AssigneeType.Valid || !issue.AssigneeID.Valid {
 		return pgtype.UUID{}
 	}

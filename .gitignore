@@ -65,6 +65,7 @@ fleet-config.private.json
 
 # local settings
 .claude/
+.superpowers/
 .tool-versions
 
 # feature tracking

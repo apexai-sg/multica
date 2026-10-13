@@ -70,15 +70,17 @@ const (
 	auroraStatusFailed    = "failed"
 )
 
-// auroraTerminal reports whether a generation status is terminal.
-func auroraTerminal(status string) bool {
-	return status == auroraStatusCompleted || status == auroraStatusFailed
-}
-
 // settleableAuroraGeneration loads the generation a task backs and reports
 // whether it is still eligible to settle: present (the task is an Aurora task)
-// and non-terminal. A lookup failure settles as a no-op — never a second
-// charge or refund — so a transient DB error is logged, not acted on.
+// and still in flight. Only a stored status of queued settles. A lookup failure
+// settles as a no-op — never a second charge or refund — so a transient DB
+// error is logged, not acted on.
+//
+// Requiring queued is what makes a question round free: the round already moved
+// the row to needs_input, so its terminal task settles to nothing and the
+// reservation stays held. It also keeps the load-bearing failure path intact: a
+// run that failed without an outcome never moved the row, stays queued, and is
+// judged failed and refunded as before.
 func (s *TaskService) settleableAuroraGeneration(ctx context.Context, taskID pgtype.UUID) (db.AuroraGeneration, bool) {
 	gen, err := s.Queries.GetAuroraGenerationByTaskID(ctx, taskID)
 	if err != nil {
@@ -88,7 +90,10 @@ func (s *TaskService) settleableAuroraGeneration(ctx context.Context, taskID pgt
 		}
 		return db.AuroraGeneration{}, false
 	}
-	return gen, !auroraTerminal(gen.Status)
+	if gen.Status != "queued" {
+		return db.AuroraGeneration{}, false
+	}
+	return gen, true
 }
 
 // settleAuroraOnCompleted settles a generation whose backing task completed.

@@ -24,6 +24,7 @@ export type AuroraGenerationStatusLabel =
   | "running"
   | "completed"
   | "failed"
+  | "needs_input"
   | "unknown";
 
 const GENERATION_STATUS_LABELS: Record<string, AuroraGenerationStatusLabel> = {
@@ -31,6 +32,7 @@ const GENERATION_STATUS_LABELS: Record<string, AuroraGenerationStatusLabel> = {
   running: "running",
   completed: "completed",
   failed: "failed",
+  needs_input: "needs_input",
 };
 
 /**

@@ -2265,20 +2265,27 @@ SELECT
     $11,
     CASE
         WHEN COALESCE($12::text, '') <> ''
-        THEN jsonb_build_object('head_sha', $12::text)
+        THEN jsonb_build_object(
+            'type', $12::text,
+            'generation_id', $13::text,
+            'prompt', $14::text,
+            'attachment_ids', COALESCE($15::text[], '{}'::text[])
+        )
+        WHEN COALESCE($16::text, '') <> ''
+        THEN jsonb_build_object('head_sha', $16::text)
         ELSE NULL
     END,
-    $13,
-    $14,
-    $15,
-    $16,
     $17,
     $18,
     $19,
     $20,
     $21,
     $22,
-    COALESCE($23::uuid, gen_random_uuid())
+    $23,
+    $24,
+    $25,
+    $26,
+    COALESCE($27::uuid, gen_random_uuid())
 WHERE lock_task_owner_rows($1, $3, $2)
 RETURNING id, agent_id, issue_id, status, priority, dispatched_at, started_at, completed_at, result, error, created_at, context, runtime_id, session_id, work_dir, trigger_comment_id, chat_session_id, autopilot_run_id, attempt, max_attempts, parent_task_id, failure_reason, trigger_summary, force_fresh_session, is_leader_task, wait_reason, initiator_user_id, handoff_note, prepare_lease_expires_at, squad_id, runtime_mcp_overlay, escalation_for_task_id, fire_at, originator_user_id, runtime_connected_apps, coalesced_comment_ids, delivered_comment_ids, chat_input_task_id, chat_finalize_deferred_at, originator_source, delegated_from_task_id, retry_of_task_id, rerun_of_task_id, rule_version_id, trigger_evidence_kind, trigger_evidence_ref_id, accountable_user_id, session_rollout_missing, retired_session_id, quick_actions_disabled, regenerate_quick_actions_for, branch_name, durable_work_dir, channel_context_revision, comment_thread_id, cancelled_by_type, cancelled_by_id, cancelled_by_name, issue_snapshot
 `
@@ -2295,6 +2302,10 @@ type CreateAgentTaskParams struct {
 	IsLeaderTask         pgtype.Bool   `json:"is_leader_task"`
 	HandoffNote          pgtype.Text   `json:"handoff_note"`
 	SquadID              pgtype.UUID   `json:"squad_id"`
+	Type                 pgtype.Text   `json:"type"`
+	GenerationID         pgtype.Text   `json:"generation_id"`
+	Prompt               pgtype.Text   `json:"prompt"`
+	AttachmentIds        []string      `json:"attachment_ids"`
 	HeadSha              pgtype.Text   `json:"head_sha"`
 	OriginatorUserID     pgtype.UUID   `json:"originator_user_id"`
 	AccountableUserID    pgtype.UUID   `json:"accountable_user_id"`
@@ -2340,6 +2351,10 @@ func (q *Queries) CreateAgentTask(ctx context.Context, arg CreateAgentTaskParams
 		arg.IsLeaderTask,
 		arg.HandoffNote,
 		arg.SquadID,
+		arg.Type,
+		arg.GenerationID,
+		arg.Prompt,
+		arg.AttachmentIds,
 		arg.HeadSha,
 		arg.OriginatorUserID,
 		arg.AccountableUserID,

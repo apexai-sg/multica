@@ -318,3 +318,59 @@ func TestTruncateRunesLeavesShortStringsAlone(t *testing.T) {
 		t.Fatalf("a non-positive limit must not truncate: %q", got)
 	}
 }
+
+// TestSettleSkipsNeedsInputGeneration pins the question-round exit at the
+// settlement boundary: once the round is marked needs_input, neither the
+// completion nor the failure settlement moves a ledger row or changes the
+// status, so the reservation stays held.
+func TestSettleSkipsNeedsInputGeneration(t *testing.T) {
+	svc, pool, workspaceID, userID, agentID := newAuroraCompletionService(t)
+	ctx := context.Background()
+	user := util.MustParseUUID(userID)
+	ws := util.MustParseUUID(workspaceID)
+
+	if err := svc.Credit.Grant(ctx, user, ws, 1_000_000_000, aurora.LedgerKindAdjustment, "needs-input-seed-"+userID); err != nil {
+		t.Fatalf("Grant: %v", err)
+	}
+	genID, taskID := seedAuroraTask(t, pool, workspaceID, userID, agentID, 62_000_000)
+	if err := svc.Credit.Reserve(ctx, user, ws, 62_000_000, util.UUIDToString(genID)); err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE aurora_generation SET status = 'needs_input' WHERE id = $1`, genID); err != nil {
+		t.Fatalf("mark needs_input: %v", err)
+	}
+
+	var ledgerBefore int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM credit_ledger WHERE user_id = $1`, userID).Scan(&ledgerBefore); err != nil {
+		t.Fatalf("count ledger: %v", err)
+	}
+
+	svc.settleAuroraOnCompleted(ctx, db.AgentTaskQueue{ID: taskID})
+	svc.settleAuroraOnFailed(ctx, db.AgentTaskQueue{ID: taskID}, "agent_error")
+
+	gen := auroraGenRow(t, pool, genID)
+	if gen.Status != "needs_input" {
+		t.Fatalf("status = %q, want needs_input", gen.Status)
+	}
+	if gen.CreditsCharged != 0 {
+		t.Fatalf("credits_charged = %d, want 0", gen.CreditsCharged)
+	}
+	if gen.Error.Valid {
+		t.Fatalf("error = %q, want unset", gen.Error.String)
+	}
+
+	var ledgerAfter int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM credit_ledger WHERE user_id = $1`, userID).Scan(&ledgerAfter); err != nil {
+		t.Fatalf("count ledger: %v", err)
+	}
+	if ledgerAfter != ledgerBefore {
+		t.Fatalf("ledger rows = %d after settling a needs_input round, want %d", ledgerAfter, ledgerBefore)
+	}
+	bal, err := svc.Credit.Balance(ctx, user)
+	if err != nil {
+		t.Fatalf("Balance: %v", err)
+	}
+	if bal != 1_000_000_000-62_000_000 {
+		t.Fatalf("balance = %d, want the reservation held (%d)", bal, 1_000_000_000-62_000_000)
+	}
+}
