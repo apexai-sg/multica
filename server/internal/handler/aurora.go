@@ -21,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/aurora"
+	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/storage"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
@@ -73,6 +74,11 @@ type AuroraGenerationResponse struct {
 	Prompt          string `json:"prompt"`
 	Status          string `json:"status"`
 	CreditsReserved int64  `json:"creditsReserved"`
+	// IssueIdentifier is the "PREFIX-N" key of the issue this generation runs
+	// on. Omitted entirely when the workspace prefix could not be resolved:
+	// the degraded "#N" form carries no prefix, and the client reads the
+	// absence as "no issue link to offer".
+	IssueIdentifier string `json:"issueIdentifier,omitempty"`
 }
 
 // CreateAuroraGeneration validates the skill, lazily seeds the workspace's
@@ -210,10 +216,51 @@ func (h *Handler) CreateAuroraGeneration(w http.ResponseWriter, r *http.Request)
 	amountMicro := int64(entry.Credits) * microCreditsPerCredit
 	reference := uuidToString(row.ID)
 
+	// Bind the issue before reserving or enqueuing. attributionForIssueTask
+	// resolves the run's accountable human from the issue creator, so a create
+	// without CreatorID would fall back and, in a fail-closed workspace, refuse
+	// the enqueue. The assignee-driven auto-enqueue is suppressed: the Aurora
+	// enqueue below is the only task this issue gets.
+	agent, err := h.Queries.GetAgentBySystemKey(r.Context(), db.GetAgentBySystemKeyParams{
+		WorkspaceID: workspaceID,
+		SystemKey:   pgtype.Text{String: "aurora:" + entry.ID, Valid: true},
+	})
+	if err != nil {
+		// Nothing has been reserved yet, so there is nothing to refund.
+		h.markGenerationFailed(r.Context(), workspaceID, row.ID, "system agent unavailable")
+		writeError(w, http.StatusInternalServerError, "failed to create generation")
+		return
+	}
+
+	created, err := h.IssueService.Create(r.Context(), service.IssueCreateParams{
+		WorkspaceID:   workspaceID,
+		Title:         aurora.IssueTitle(entry.Name, req.Prompt),
+		Description:   pgtype.Text{String: req.Prompt, Valid: true},
+		Status:        "todo",
+		Priority:      "none",
+		AssigneeType:  pgtype.Text{String: "agent", Valid: true},
+		AssigneeID:    agent.ID,
+		CreatorType:   "member",
+		CreatorID:     userUUID,
+		AttachmentIDs: attachmentIDs,
+		// Aurora titles are "skill：prompt", so the same prompt submitted twice
+		// deliberately produces the same title. The duplicate guard is for
+		// human-authored issues and must not block a second generation.
+		AllowDuplicate: true,
+	}, service.IssueCreateOpts{SkipAssignedAgentEnqueue: true})
+	if err != nil {
+		slog.Error("failed to create aurora issue", "workspace_id", uuidToString(workspaceID), "error", err)
+		h.markGenerationFailed(r.Context(), workspaceID, row.ID, "issue create failed")
+		writeError(w, http.StatusInternalServerError, "failed to create generation")
+		return
+	}
+	issue := created.Issue
+
 	// Reserve before enqueue: a short wallet must never leave behind a queued
 	// task for work no one was charged for.
 	if err := h.Credit.Reserve(r.Context(), userUUID, workspaceID, amountMicro, reference); err != nil {
 		if errors.Is(err, aurora.ErrInsufficientCredits) {
+			h.abandonAuroraIssue(r.Context(), issue)
 			h.markGenerationFailed(r.Context(), workspaceID, row.ID, "insufficient credits")
 			writeError(w, http.StatusPaymentRequired, "insufficient credits")
 			return
@@ -222,45 +269,48 @@ func (h *Handler) CreateAuroraGeneration(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Enqueue on the skill's system agent, then write the task id and reserved
-	// amount back onto the row. Any failure after the reservation refunds it, so
-	// the user is never charged for work that never started.
-	agent, err := h.Queries.GetAgentBySystemKey(r.Context(), db.GetAgentBySystemKeyParams{
-		WorkspaceID: workspaceID,
-		SystemKey:   pgtype.Text{String: "aurora:" + entry.ID, Valid: true},
-	})
-	if err != nil {
-		h.failGenerationAndRefund(r.Context(), userUUID, workspaceID, row.ID, amountMicro, "system agent unavailable")
-		writeError(w, http.StatusInternalServerError, "failed to enqueue generation")
-		return
+	attachmentIDStrings := make([]string, 0, len(attachmentIDs))
+	for _, id := range attachmentIDs {
+		attachmentIDStrings = append(attachmentIDStrings, uuidToString(id))
 	}
-
-	task, err := h.TaskService.EnqueueQuickCreateTask(r.Context(), workspaceID, userUUID, agent.ID, pgtype.UUID{}, req.Prompt, "high", "", pgtype.UUID{}, pgtype.UUID{}, attachmentIDs)
+	task, err := h.TaskService.EnqueueAuroraIssueTask(r.Context(), issue, reference, req.Prompt, attachmentIDStrings)
 	if err != nil {
+		h.abandonAuroraIssue(r.Context(), issue)
 		h.failGenerationAndRefund(r.Context(), userUUID, workspaceID, row.ID, amountMicro, "enqueue failed")
 		writeError(w, http.StatusInternalServerError, "failed to enqueue generation")
 		return
 	}
 
-	updated, err := h.Queries.UpdateAuroraGenerationTask(r.Context(), db.UpdateAuroraGenerationTaskParams{
+	// The generation row has no task id until this write, so cancelling the
+	// task on failure resolves no generation and cannot refund twice.
+	updated, err := h.Queries.UpdateAuroraGenerationBound(r.Context(), db.UpdateAuroraGenerationBoundParams{
 		ID:              row.ID,
 		TaskID:          task.ID,
 		CreditsReserved: amountMicro,
+		IssueID:         issue.ID,
 		WorkspaceID:     workspaceID,
 	})
 	if err != nil {
+		if _, cancelErr := h.TaskService.CancelTaskWithReason(r.Context(), task.ID, "failed to bind generation", "aurora_bind_failed"); cancelErr != nil {
+			slog.Warn("aurora generation task cancel failed", "task_id", uuidToString(task.ID), "error", cancelErr)
+		}
+		h.abandonAuroraIssue(r.Context(), issue)
 		h.failGenerationAndRefund(r.Context(), userUUID, workspaceID, row.ID, amountMicro, "failed to record task")
 		writeError(w, http.StatusInternalServerError, "failed to record generation task")
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, map[string]any{"generation": AuroraGenerationResponse{
+	resp := AuroraGenerationResponse{
 		ID:              uuidToString(updated.ID),
 		SkillID:         updated.SkillID,
 		Prompt:          updated.Prompt,
 		Status:          updated.Status,
 		CreditsReserved: updated.CreditsReserved,
-	}})
+	}
+	if prefix := h.getIssuePrefix(r.Context(), issue.WorkspaceID); prefix != "" {
+		resp.IssueIdentifier = service.IssueIdentifier(prefix, issue.Number)
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"generation": resp})
 }
 
 // auroraInputError marks an attachment rejection the caller caused. The
@@ -504,6 +554,22 @@ func (h *Handler) failGenerationAndRefund(ctx context.Context, userID, workspace
 		}
 	}
 	h.markGenerationFailed(ctx, workspaceID, generationID, reason)
+}
+
+// abandonAuroraIssue cancels the issue Aurora created when the generation fails
+// before its round can run. The omitted assignee nargs write NULL, unassigning
+// the skill's system agent so nothing is left waiting on it; the write is
+// best-effort because the caller is already returning an error.
+func (h *Handler) abandonAuroraIssue(ctx context.Context, issue db.Issue) {
+	if !issue.ID.Valid {
+		return
+	}
+	if _, err := h.Queries.UpdateIssue(ctx, db.UpdateIssueParams{
+		ID:     issue.ID,
+		Status: pgtype.Text{String: "cancelled", Valid: true},
+	}); err != nil {
+		slog.Warn("aurora issue abandon failed", "issue_id", uuidToString(issue.ID), "error", err)
+	}
 }
 
 // Aurora list paging bounds. The ledger and generation lists are bounded by

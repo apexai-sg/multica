@@ -2,11 +2,11 @@
 INSERT INTO aurora_generation (workspace_id, user_id, skill_id, prompt, status)
 VALUES ($1, $2, $3, $4, 'queued')
 RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
-          credits_reserved, credits_charged, error, created_at, updated_at;
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id;
 
 -- name: GetAuroraGeneration :one
 SELECT id, workspace_id, user_id, skill_id, prompt, status, task_id,
-       credits_reserved, credits_charged, error, created_at, updated_at
+       credits_reserved, credits_charged, error, created_at, updated_at, issue_id
 FROM aurora_generation
 WHERE id = $1 AND workspace_id = $2;
 
@@ -15,24 +15,24 @@ UPDATE aurora_generation
 SET task_id = $2, credits_reserved = $3, updated_at = now()
 WHERE id = $1 AND workspace_id = $4
 RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
-          credits_reserved, credits_charged, error, created_at, updated_at;
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id;
 
 -- name: UpdateAuroraGenerationTerminal :one
 UPDATE aurora_generation
 SET status = $2, error = $3, credits_charged = $4, updated_at = now()
 WHERE id = $1 AND workspace_id = $5
 RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
-          credits_reserved, credits_charged, error, created_at, updated_at;
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id;
 
 -- name: GetAuroraGenerationByTaskID :one
 SELECT id, workspace_id, user_id, skill_id, prompt, status, task_id,
-       credits_reserved, credits_charged, error, created_at, updated_at
+       credits_reserved, credits_charged, error, created_at, updated_at, issue_id
 FROM aurora_generation
 WHERE task_id = $1;
 
 -- name: ListAuroraGenerations :many
 SELECT id, workspace_id, user_id, skill_id, prompt, status, task_id,
-       credits_reserved, credits_charged, error, created_at, updated_at
+       credits_reserved, credits_charged, error, created_at, updated_at, issue_id
 FROM aurora_generation
 WHERE workspace_id = $1
 ORDER BY created_at DESC
@@ -96,3 +96,17 @@ JOIN member m ON m.workspace_id = w.id
 WHERE m.user_id = $1 AND m.role = 'owner'
 ORDER BY w.created_at ASC
 LIMIT 1;
+
+-- name: GetAuroraGenerationByIssueID :one
+-- 任务 4 的评论门闩用它判断这条 issue 属于哪次生成、是否终态。
+SELECT id, workspace_id, user_id, skill_id, prompt, status, task_id,
+       credits_reserved, credits_charged, error, created_at, updated_at, issue_id
+FROM aurora_generation
+WHERE issue_id = $1 AND workspace_id = $2;
+
+-- name: UpdateAuroraGenerationBound :one
+UPDATE aurora_generation
+SET task_id = $2, credits_reserved = $3, issue_id = $4, updated_at = now()
+WHERE id = $1 AND workspace_id = $5
+RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id;

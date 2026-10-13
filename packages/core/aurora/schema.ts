@@ -103,6 +103,13 @@ export const auroraGenerationSchema = z.object({
    * treats "" as "no task link to offer", which is the same state as absent.
    */
   taskId: z.string().default(""),
+  /**
+   * The "PREFIX-N" key of the issue this generation runs on, or "" when the
+   * server could not resolve a workspace prefix (the degraded "#N" form, which
+   * the client reads as "no issue link"). Defaulted so an older server's
+   * response still parses.
+   */
+  issueIdentifier: z.string().default(""),
 });
 export type AuroraGeneration = z.infer<typeof auroraGenerationSchema>;
 

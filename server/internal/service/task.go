@@ -1256,10 +1256,42 @@ func (s *TaskService) ResolveIssueReviewSHAParam(ctx context.Context, issueID pg
 }
 
 func (s *TaskService) enqueueIssueTask(ctx context.Context, issue db.Issue, triggerCommentID pgtype.UUID, forceFreshSession bool, handoffNote string, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, fireAt pgtype.Timestamptz, origin RunOrigin) (db.AgentTaskQueue, error) {
-	return s.enqueueIssueTaskWithCommentPlan(ctx, issue, triggerCommentID, nil, forceFreshSession, handoffNote, actorUserID, rerunOfTaskID, fireAt, origin)
+	return s.enqueueIssueTaskWithCommentPlan(ctx, issue, triggerCommentID, nil, forceFreshSession, handoffNote, actorUserID, rerunOfTaskID, fireAt, origin, nil)
 }
 
-func (s *TaskService) enqueueIssueTaskWithCommentPlan(ctx context.Context, issue db.Issue, triggerCommentID pgtype.UUID, coalescedCommentIDs []pgtype.UUID, forceFreshSession bool, handoffNote string, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, fireAt pgtype.Timestamptz, origin RunOrigin) (db.AgentTaskQueue, error) {
+// auroraIssueContext carries the values written into an issue-bound Aurora
+// round's task context. A nil pointer on the ordinary enqueue paths leaves the
+// context untouched (NULL when there is no head_sha).
+type auroraIssueContext struct {
+	generationID  string
+	prompt        string
+	attachmentIDs []string
+}
+
+// EnqueueAuroraIssueTask enqueues the first round of an Aurora generation on
+// its issue. The task carries the aurora_issue context — the generation id, the
+// prompt, and the validated attachment ids — so the daemon builds the skill
+// brief and the agent can ask a question back on the same issue.
+func (s *TaskService) EnqueueAuroraIssueTask(ctx context.Context, issue db.Issue, generationID, prompt string, attachmentIDs []string) (db.AgentTaskQueue, error) {
+	return s.enqueueIssueTaskWithAurora(ctx, issue, pgtype.UUID{}, generationID, prompt, attachmentIDs)
+}
+
+// enqueueIssueTaskWithAurora is the shared issue-round enqueue for Aurora;
+// task 4's continuation rounds use it with the triggering comment. A nil
+// attachment list is normalized to an empty slice so the context marshals
+// attachment_ids as [] rather than null.
+func (s *TaskService) enqueueIssueTaskWithAurora(ctx context.Context, issue db.Issue, triggerCommentID pgtype.UUID, generationID, prompt string, attachmentIDs []string) (db.AgentTaskQueue, error) {
+	if attachmentIDs == nil {
+		attachmentIDs = []string{}
+	}
+	return s.enqueueIssueTaskWithCommentPlan(ctx, issue, triggerCommentID, nil, false, "", pgtype.UUID{}, pgtype.UUID{}, pgtype.Timestamptz{}, OriginDerived, &auroraIssueContext{
+		generationID:  generationID,
+		prompt:        prompt,
+		attachmentIDs: attachmentIDs,
+	})
+}
+
+func (s *TaskService) enqueueIssueTaskWithCommentPlan(ctx context.Context, issue db.Issue, triggerCommentID pgtype.UUID, coalescedCommentIDs []pgtype.UUID, forceFreshSession bool, handoffNote string, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, fireAt pgtype.Timestamptz, origin RunOrigin, aurora *auroraIssueContext) (db.AgentTaskQueue, error) {
 	if !issue.AssigneeID.Valid {
 		slog.Error("task enqueue failed", "issue_id", util.UUIDToString(issue.ID), "error", "issue has no assignee")
 		return db.AgentTaskQueue{}, fmt.Errorf("issue has no assignee")
@@ -1322,6 +1354,12 @@ func (s *TaskService) enqueueIssueTaskWithCommentPlan(ctx context.Context, issue
 		// Stamp the reviewed head so dedup can distinguish this run's target
 		// from a later request against a new HEAD (TEN-356).
 		HeadSha: headShaText(s.ResolveIssueReviewSHA(ctx, issue.ID)),
+	}
+	if aurora != nil {
+		createParams.Type = pgtype.Text{String: AuroraIssueContextType, Valid: true}
+		createParams.GenerationID = pgtype.Text{String: aurora.generationID, Valid: true}
+		createParams.Prompt = pgtype.Text{String: aurora.prompt, Valid: true}
+		createParams.AttachmentIds = aurora.attachmentIDs
 	}
 	var task db.AgentTaskQueue
 	err = s.runFleetTx(ctx, createParams.AgentID, func(ctx context.Context, qtx *db.Queries) error {
@@ -6122,7 +6160,7 @@ func (s *TaskService) promoteNewestSurvivingComment(ctx context.Context, ids []p
 func (s *TaskService) enqueueRerunTask(ctx context.Context, issue db.Issue, agentID pgtype.UUID, triggerCommentID pgtype.UUID, coalescedCommentIDs []pgtype.UUID, isLeader bool, squadID pgtype.UUID, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, origin RunOrigin) (db.AgentTaskQueue, error) {
 	if issue.AssigneeType.String == "agent" && issue.AssigneeID.Valid &&
 		util.UUIDToString(issue.AssigneeID) == util.UUIDToString(agentID) {
-		return s.enqueueIssueTaskWithCommentPlan(ctx, issue, triggerCommentID, coalescedCommentIDs, true, "", actorUserID, rerunOfTaskID, pgtype.Timestamptz{}, origin)
+		return s.enqueueIssueTaskWithCommentPlan(ctx, issue, triggerCommentID, coalescedCommentIDs, true, "", actorUserID, rerunOfTaskID, pgtype.Timestamptz{}, origin, nil)
 	}
 	return s.enqueueMentionTaskWithCommentPlan(ctx, issue, agentID, triggerCommentID, coalescedCommentIDs, isLeader, squadID, true, "", actorUserID, rerunOfTaskID, origin)
 }

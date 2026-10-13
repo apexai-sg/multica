@@ -104,7 +104,7 @@ const createAuroraGeneration = `-- name: CreateAuroraGeneration :one
 INSERT INTO aurora_generation (workspace_id, user_id, skill_id, prompt, status)
 VALUES ($1, $2, $3, $4, 'queued')
 RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
-          credits_reserved, credits_charged, error, created_at, updated_at
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id
 `
 
 type CreateAuroraGenerationParams struct {
@@ -135,6 +135,7 @@ func (q *Queries) CreateAuroraGeneration(ctx context.Context, arg CreateAuroraGe
 		&i.Error,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IssueID,
 	)
 	return i, err
 }
@@ -193,7 +194,7 @@ func (q *Queries) GetAuroraAsset(ctx context.Context, arg GetAuroraAssetParams) 
 
 const getAuroraGeneration = `-- name: GetAuroraGeneration :one
 SELECT id, workspace_id, user_id, skill_id, prompt, status, task_id,
-       credits_reserved, credits_charged, error, created_at, updated_at
+       credits_reserved, credits_charged, error, created_at, updated_at, issue_id
 FROM aurora_generation
 WHERE id = $1 AND workspace_id = $2
 `
@@ -219,13 +220,48 @@ func (q *Queries) GetAuroraGeneration(ctx context.Context, arg GetAuroraGenerati
 		&i.Error,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IssueID,
+	)
+	return i, err
+}
+
+const getAuroraGenerationByIssueID = `-- name: GetAuroraGenerationByIssueID :one
+SELECT id, workspace_id, user_id, skill_id, prompt, status, task_id,
+       credits_reserved, credits_charged, error, created_at, updated_at, issue_id
+FROM aurora_generation
+WHERE issue_id = $1 AND workspace_id = $2
+`
+
+type GetAuroraGenerationByIssueIDParams struct {
+	IssueID     pgtype.UUID `json:"issue_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// 任务 4 的评论门闩用它判断这条 issue 属于哪次生成、是否终态。
+func (q *Queries) GetAuroraGenerationByIssueID(ctx context.Context, arg GetAuroraGenerationByIssueIDParams) (AuroraGeneration, error) {
+	row := q.db.QueryRow(ctx, getAuroraGenerationByIssueID, arg.IssueID, arg.WorkspaceID)
+	var i AuroraGeneration
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.UserID,
+		&i.SkillID,
+		&i.Prompt,
+		&i.Status,
+		&i.TaskID,
+		&i.CreditsReserved,
+		&i.CreditsCharged,
+		&i.Error,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IssueID,
 	)
 	return i, err
 }
 
 const getAuroraGenerationByTaskID = `-- name: GetAuroraGenerationByTaskID :one
 SELECT id, workspace_id, user_id, skill_id, prompt, status, task_id,
-       credits_reserved, credits_charged, error, created_at, updated_at
+       credits_reserved, credits_charged, error, created_at, updated_at, issue_id
 FROM aurora_generation
 WHERE task_id = $1
 `
@@ -246,6 +282,7 @@ func (q *Queries) GetAuroraGenerationByTaskID(ctx context.Context, taskID pgtype
 		&i.Error,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IssueID,
 	)
 	return i, err
 }
@@ -329,7 +366,7 @@ func (q *Queries) ListAuroraAssets(ctx context.Context, arg ListAuroraAssetsPara
 
 const listAuroraGenerations = `-- name: ListAuroraGenerations :many
 SELECT id, workspace_id, user_id, skill_id, prompt, status, task_id,
-       credits_reserved, credits_charged, error, created_at, updated_at
+       credits_reserved, credits_charged, error, created_at, updated_at, issue_id
 FROM aurora_generation
 WHERE workspace_id = $1
 ORDER BY created_at DESC
@@ -364,6 +401,7 @@ func (q *Queries) ListAuroraGenerations(ctx context.Context, arg ListAuroraGener
 			&i.Error,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IssueID,
 		); err != nil {
 			return nil, err
 		}
@@ -375,12 +413,55 @@ func (q *Queries) ListAuroraGenerations(ctx context.Context, arg ListAuroraGener
 	return items, nil
 }
 
+const updateAuroraGenerationBound = `-- name: UpdateAuroraGenerationBound :one
+UPDATE aurora_generation
+SET task_id = $2, credits_reserved = $3, issue_id = $4, updated_at = now()
+WHERE id = $1 AND workspace_id = $5
+RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id
+`
+
+type UpdateAuroraGenerationBoundParams struct {
+	ID              pgtype.UUID `json:"id"`
+	TaskID          pgtype.UUID `json:"task_id"`
+	CreditsReserved int64       `json:"credits_reserved"`
+	IssueID         pgtype.UUID `json:"issue_id"`
+	WorkspaceID     pgtype.UUID `json:"workspace_id"`
+}
+
+func (q *Queries) UpdateAuroraGenerationBound(ctx context.Context, arg UpdateAuroraGenerationBoundParams) (AuroraGeneration, error) {
+	row := q.db.QueryRow(ctx, updateAuroraGenerationBound,
+		arg.ID,
+		arg.TaskID,
+		arg.CreditsReserved,
+		arg.IssueID,
+		arg.WorkspaceID,
+	)
+	var i AuroraGeneration
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.UserID,
+		&i.SkillID,
+		&i.Prompt,
+		&i.Status,
+		&i.TaskID,
+		&i.CreditsReserved,
+		&i.CreditsCharged,
+		&i.Error,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IssueID,
+	)
+	return i, err
+}
+
 const updateAuroraGenerationTask = `-- name: UpdateAuroraGenerationTask :one
 UPDATE aurora_generation
 SET task_id = $2, credits_reserved = $3, updated_at = now()
 WHERE id = $1 AND workspace_id = $4
 RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
-          credits_reserved, credits_charged, error, created_at, updated_at
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id
 `
 
 type UpdateAuroraGenerationTaskParams struct {
@@ -411,6 +492,7 @@ func (q *Queries) UpdateAuroraGenerationTask(ctx context.Context, arg UpdateAuro
 		&i.Error,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IssueID,
 	)
 	return i, err
 }
@@ -420,7 +502,7 @@ UPDATE aurora_generation
 SET status = $2, error = $3, credits_charged = $4, updated_at = now()
 WHERE id = $1 AND workspace_id = $5
 RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
-          credits_reserved, credits_charged, error, created_at, updated_at
+          credits_reserved, credits_charged, error, created_at, updated_at, issue_id
 `
 
 type UpdateAuroraGenerationTerminalParams struct {
@@ -453,6 +535,7 @@ func (q *Queries) UpdateAuroraGenerationTerminal(ctx context.Context, arg Update
 		&i.Error,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IssueID,
 	)
 	return i, err
 }

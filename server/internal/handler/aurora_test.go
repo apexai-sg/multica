@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/aurora"
+	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/storage"
 	"github.com/multica-ai/multica/server/internal/testutil"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
@@ -83,11 +84,24 @@ func TestListAuroraSkills(t *testing.T) {
 func cleanupAuroraSystemAgents(t *testing.T) {
 	t.Helper()
 	names := make([]string, 0, len(aurora.Catalog()))
+	titlePrefixes := make([]string, 0, len(aurora.Catalog()))
 	for _, e := range aurora.Catalog() {
 		names = append(names, e.Name)
+		titlePrefixes = append(titlePrefixes, e.Name+"：")
 	}
 	t.Cleanup(func() {
 		ctx := context.Background()
+		// A generation now owns an issue titled "<skill name>：<prompt>". Remove
+		// them so this shared workspace does not leak Aurora issues into later
+		// tests that page or filter the whole issue list. Deleting an issue
+		// cascades to the task rows that reference it.
+		for _, prefix := range titlePrefixes {
+			if _, err := testPool.Exec(ctx,
+				`DELETE FROM issue WHERE workspace_id = $1 AND title LIKE $2`,
+				testWorkspaceID, prefix+"%"); err != nil {
+				t.Errorf("cleanup aurora issues: %v", err)
+			}
+		}
 		if _, err := testPool.Exec(ctx,
 			`DELETE FROM agent WHERE workspace_id = $1 AND system_key LIKE 'aurora:%'`, testWorkspaceID); err != nil {
 			t.Errorf("cleanup aurora agents: %v", err)
@@ -3186,9 +3200,11 @@ func TestCreateAuroraGenerationConcurrentFleetFailureIs503(t *testing.T) {
 	}
 }
 
-// auroraClaimFixture drives one real Aurora generation through the handler and
-// returns its claimed (dispatched) task, runtime, and generation id for
-// claim-time tests.
+// auroraClaimFixture builds a legacy quick-create Aurora round: a task with no
+// issue, an aurora system agent, and a generation row keyed to the task. New
+// rounds are issue-bound and carry their generation id in the task context, so
+// this is the shape that still exercises the DB-link grace on the quick-create
+// claim path.
 func auroraClaimFixture(t *testing.T) (db.AgentTaskQueue, db.AgentRuntime, string) {
 	t.Helper()
 	creditTestReset(t)
@@ -3199,28 +3215,47 @@ func auroraClaimFixture(t *testing.T) (db.AgentTaskQueue, db.AgentRuntime, strin
 	if err := testHandler.Credit.Grant(ctx, user, ws, 1_000_000_000, aurora.LedgerKindAdjustment, creditRef("seed")); err != nil {
 		t.Fatalf("Grant: %v", err)
 	}
-	out := testutil.Decode[struct {
-		Generation struct {
-			ID string `json:"id"`
-		} `json:"generation"`
-	}](t, testHandler.CreateAuroraGeneration, newRequest(http.MethodPost, "/api/aurora/generations", map[string]any{
-		"skillId": "text-image",
-		"prompt":  "claim generation lookup regression",
-	}), http.StatusCreated)
-	generationID := out.Generation.ID
-
-	var taskID pgtype.UUID
-	if err := testPool.QueryRow(ctx, `SELECT task_id FROM aurora_generation WHERE id = $1`, generationID).Scan(&taskID); err != nil {
-		t.Fatalf("load generation task id: %v", err)
+	if err := testHandler.ensureAuroraSystemAgents(ctx, ws, user); err != nil {
+		t.Fatalf("ensure aurora system agents: %v", err)
 	}
+	agent, err := testHandler.Queries.GetAgentBySystemKey(ctx, db.GetAgentBySystemKeyParams{
+		WorkspaceID: ws,
+		SystemKey:   pgtype.Text{String: "aurora:text-image", Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("load aurora system agent: %v", err)
+	}
+	task, err := testHandler.TaskService.EnqueueQuickCreateTask(ctx, ws, user, agent.ID, pgtype.UUID{},
+		"claim generation lookup regression", "high", "", pgtype.UUID{}, pgtype.UUID{}, nil)
+	if err != nil {
+		t.Fatalf("enqueue quick-create task: %v", err)
+	}
+	generation, err := testHandler.Queries.CreateAuroraGeneration(ctx, db.CreateAuroraGenerationParams{
+		WorkspaceID: ws,
+		UserID:      user,
+		SkillID:     "text-image",
+		Prompt:      "claim generation lookup regression",
+	})
+	if err != nil {
+		t.Fatalf("create generation row: %v", err)
+	}
+	if _, err := testHandler.Queries.UpdateAuroraGenerationTask(ctx, db.UpdateAuroraGenerationTaskParams{
+		ID:              generation.ID,
+		TaskID:          task.ID,
+		CreditsReserved: 0,
+		WorkspaceID:     ws,
+	}); err != nil {
+		t.Fatalf("link generation to task: %v", err)
+	}
+	generationID := uuidToString(generation.ID)
 	t.Cleanup(func() {
-		testPool.Exec(context.Background(), `DELETE FROM agent_task_queue WHERE id = $1`, taskID)
+		testPool.Exec(context.Background(), `DELETE FROM agent_task_queue WHERE id = $1`, task.ID)
 		testPool.Exec(context.Background(), `DELETE FROM aurora_generation WHERE id = $1`, generationID)
 	})
 	// The real claim flow marks the task dispatched before assembling the
 	// response; mirror that so the failure path can settle it.
-	dbfx.Exec(t, `UPDATE agent_task_queue SET status = 'dispatched', dispatched_at = now() WHERE id = $1`, taskID)
-	task, err := testHandler.Queries.GetAgentTask(ctx, taskID)
+	dbfx.Exec(t, `UPDATE agent_task_queue SET status = 'dispatched', dispatched_at = now() WHERE id = $1`, task.ID)
+	task, err = testHandler.Queries.GetAgentTask(ctx, task.ID)
 	if err != nil {
 		t.Fatalf("load task: %v", err)
 	}
@@ -3329,4 +3364,110 @@ func TestClaimAuroraTaskGenerationLookupSettlesOrRetries(t *testing.T) {
 			t.Fatalf("task status = %q, want it preserved for redelivery", status)
 		}
 	})
+}
+
+// TestCreateAuroraGenerationBindsIssueBeforeEnqueue proves create binds a real
+// issue before enqueue: the generation row carries its id, exactly one task is
+// enqueued on the issue (so the assignee-driven auto-enqueue is suppressed),
+// that task carries the aurora_issue context for this generation, and the
+// issue is titled and attributed from the catalog and requester.
+func TestCreateAuroraGenerationBindsIssueBeforeEnqueue(t *testing.T) {
+	creditTestReset(t)
+	cleanupAuroraSystemAgents(t)
+	ctx := context.Background()
+	user := parseUUID(testUserID)
+	ws := parseUUID(testWorkspaceID)
+
+	if err := testHandler.Credit.Grant(ctx, user, ws, 1_000_000_000, aurora.LedgerKindAdjustment, creditRef("seed")); err != nil {
+		t.Fatalf("Grant: %v", err)
+	}
+
+	prompt := "绑定 issue 的亲子游封面"
+	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
+		"skillId": "xhs-image",
+		"prompt":  prompt,
+	})
+	out := testutil.Decode[struct {
+		Generation struct {
+			ID              string `json:"id"`
+			IssueIdentifier string `json:"issueIdentifier"`
+			CreditsReserved int64  `json:"creditsReserved"`
+		} `json:"generation"`
+	}](t, testHandler.CreateAuroraGeneration, req, http.StatusCreated)
+
+	gen := out.Generation
+	if gen.ID == "" {
+		t.Fatal("expected non-empty generation id")
+	}
+	const wantReserved = 62_000_000 // xhs-image: 62 credits x 1e6 micro
+	if gen.CreditsReserved != wantReserved {
+		t.Fatalf("creditsReserved = %d, want %d", gen.CreditsReserved, wantReserved)
+	}
+	// The identifier is the workspace prefix plus the issue number. The "#N"
+	// degraded form has no prefix and the client must read it as absent, so the
+	// assertion rejects it explicitly.
+	if gen.IssueIdentifier == "" || strings.HasPrefix(gen.IssueIdentifier, "#") || !strings.Contains(gen.IssueIdentifier, "-") {
+		t.Fatalf("issueIdentifier = %q, want PREFIX-N", gen.IssueIdentifier)
+	}
+
+	var issueID, taskID pgtype.UUID
+	var reserved int64
+	dbfx.QueryRow(t, `SELECT issue_id, task_id, credits_reserved FROM aurora_generation WHERE id = $1`, gen.ID).
+		Scan(&issueID, &taskID, &reserved)
+	if !issueID.Valid {
+		t.Fatal("expected non-null issue_id on the generation row")
+	}
+	if !taskID.Valid {
+		t.Fatal("expected non-null task_id on the generation row")
+	}
+	if reserved != wantReserved {
+		t.Fatalf("row credits_reserved = %d, want %d", reserved, wantReserved)
+	}
+	t.Cleanup(func() {
+		testPool.Exec(context.Background(), `DELETE FROM agent_task_queue WHERE issue_id = $1`, issueID)
+		testPool.Exec(context.Background(), `DELETE FROM issue WHERE id = $1`, issueID)
+		testPool.Exec(context.Background(), `DELETE FROM aurora_generation WHERE id = $1`, gen.ID)
+	})
+
+	// Exactly one task on the issue: the Aurora enqueue, not also the
+	// assignee-driven auto-enqueue that SkipAssignedAgentEnqueue suppresses.
+	if got := dbfx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id = $1`, issueID); got != 1 {
+		t.Fatalf("issue has %d tasks, want exactly 1", got)
+	}
+
+	var taskIssueID pgtype.UUID
+	var rawCtx []byte
+	dbfx.QueryRow(t, `SELECT issue_id, context FROM agent_task_queue WHERE id = $1`, taskID).
+		Scan(&taskIssueID, &rawCtx)
+	if taskIssueID.String() != issueID.String() {
+		t.Fatalf("task issue_id = %s, want %s", taskIssueID.String(), issueID.String())
+	}
+	var taskCtx struct {
+		Type         string `json:"type"`
+		GenerationID string `json:"generation_id"`
+	}
+	if err := json.Unmarshal(rawCtx, &taskCtx); err != nil {
+		t.Fatalf("unmarshal task context: %v", err)
+	}
+	if taskCtx.Type != service.AuroraIssueContextType {
+		t.Fatalf("task context type = %q, want %q", taskCtx.Type, service.AuroraIssueContextType)
+	}
+	if taskCtx.GenerationID != gen.ID {
+		t.Fatalf("task generation_id = %q, want %q", taskCtx.GenerationID, gen.ID)
+	}
+
+	var title string
+	var creatorType pgtype.Text
+	var creatorID pgtype.UUID
+	dbfx.QueryRow(t, `SELECT title, creator_type, creator_id FROM issue WHERE id = $1`, issueID).
+		Scan(&title, &creatorType, &creatorID)
+	if want := "小红书图片：" + prompt; title != want {
+		t.Fatalf("issue title = %q, want %q", title, want)
+	}
+	if !creatorType.Valid || creatorType.String != "member" {
+		t.Fatalf("issue creator_type = %q, want member", creatorType.String)
+	}
+	if creatorID.String() != testUserID {
+		t.Fatalf("issue creator_id = %s, want %s", creatorID.String(), testUserID)
+	}
 }
