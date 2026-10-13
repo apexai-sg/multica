@@ -27,6 +27,9 @@ frontend_origin="http://localhost:${frontend_port}"
 # same port as this checkout's web app.
 aurora_port=$((13000 + offset - 11))
 
+# Unquoted heredoc: the body is expanded, so it must stay a plain ${var}
+# reference or literal text. Backticks and $( ) here would run at generation
+# time and write their output into the env file.
 cat > "$ENV_FILE" <<EOF
 POSTGRES_DB=${postgres_db}
 POSTGRES_USER=multica
@@ -49,7 +52,6 @@ FRONTEND_PORT=${frontend_port}
 FRONTEND_ORIGIN=${frontend_origin}
 NEXT_PUBLIC_API_URL=http://localhost:${backend_port}
 NEXT_PUBLIC_WS_URL=ws://localhost:${backend_port}/ws
-# Aurora dev server (`pnpm dev:aurora`), which is not part of `make up`.
 AURORA_PORT=${aurora_port}
 EOF
 
