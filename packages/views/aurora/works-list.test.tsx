@@ -81,6 +81,7 @@ function generation(
     error: null,
     createdAt: "2026-09-23T00:00:00Z",
     taskId: "",
+    issueIdentifier: "",
     ...overrides,
   };
 }
@@ -401,5 +402,48 @@ describe("WorksList", () => {
 
     await user.click(row);
     expect(push).toHaveBeenCalledWith("/acme/works/gen-1");
+  });
+
+  it("links a generation that ran on an issue to that issue when the app can", async () => {
+    const user = userEvent.setup();
+    const push = vi.fn();
+    mocks.generations.mockReturnValue(
+      read([generation({ issueIdentifier: "MUL-42" })]),
+    );
+
+    renderWithI18n(
+      <NavigationProvider value={stubNavigationAdapter({ push })}>
+        <WorksList
+          generationHref={(id) => "/acme/works/" + id}
+          issueHref={(identifier) => "/acme/issues/" + identifier}
+        />
+      </NavigationProvider>,
+    );
+
+    const row = screen.getByRole("link", { name: "a launch poster" });
+    expect(row).toHaveAttribute("href", "/acme/issues/MUL-42");
+
+    await user.click(row);
+    expect(push).toHaveBeenCalledWith("/acme/issues/MUL-42");
+  });
+
+  it("keeps the generation route when the app cannot build an issue URL", () => {
+    mocks.generations.mockReturnValue(
+      read([generation({ issueIdentifier: "#42" })]),
+    );
+
+    renderWithI18n(
+      <NavigationProvider value={stubNavigationAdapter()}>
+        <WorksList
+          generationHref={(id) => "/acme/works/" + id}
+          issueHref={() => null}
+        />
+      </NavigationProvider>,
+    );
+
+    expect(screen.getByRole("link", { name: "a launch poster" })).toHaveAttribute(
+      "href",
+      "/acme/works/gen-1",
+    );
   });
 });

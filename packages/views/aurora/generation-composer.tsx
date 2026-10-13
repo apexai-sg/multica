@@ -125,6 +125,13 @@ export interface GenerationComposerProps {
   worksHref?: string;
   /** The app's checkout route. Omitted, the shortfall offers no way to top up. */
   topUpHref?: string;
+  /**
+   * The app's route for the issue a generation runs on. Takes the
+   * `issueIdentifier` and returns null when it cannot build a URL — what core's
+   * `auroraIssueHref` does for a missing or degraded identifier — in which case
+   * the drawer keeps polling the generation instead.
+   */
+  issueHref?: (identifier: string) => string | null;
 }
 
 export function GenerationComposer({
@@ -133,6 +140,7 @@ export function GenerationComposer({
   onOpenChange,
   worksHref,
   topUpHref,
+  issueHref,
 }: GenerationComposerProps) {
   if (!skill) return null;
   return (
@@ -146,6 +154,7 @@ export function GenerationComposer({
           skill={skill}
           worksHref={worksHref}
           topUpHref={topUpHref}
+          issueHref={issueHref}
         />
       </SheetContent>
     </Sheet>
@@ -177,10 +186,12 @@ function ComposerBody({
   skill,
   worksHref,
   topUpHref,
+  issueHref,
 }: {
   skill: AuroraSkill;
   worksHref?: string;
   topUpHref?: string;
+  issueHref?: (identifier: string) => string | null;
 }) {
   const { t } = useT("aurora");
   const download = useAuroraAssetDownload();
@@ -340,6 +351,16 @@ function ComposerBody({
         prompt: trimmedPrompt,
         attachmentIds: uploadedAttachmentIds,
       });
+      // A usable issue identifier means the result belongs on the issue detail,
+      // not in this drawer: open it and let the drawer stop following the
+      // generation. A missing or degraded identifier (the old server's "#N")
+      // keeps the polling path below.
+      const identifier = created.value?.issueIdentifier ?? "";
+      const issueUrl = identifier && issueHref ? issueHref(identifier) : null;
+      if (issueUrl) {
+        window.location.assign(issueUrl);
+        return;
+      }
       setOutcome(
         created.value
           ? { kind: "started", generationId: created.value.id }

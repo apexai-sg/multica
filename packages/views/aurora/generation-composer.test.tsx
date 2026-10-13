@@ -96,6 +96,7 @@ function detail(
     error: null,
     createdAt: "2026-09-23T00:00:00Z",
     taskId: "",
+    issueIdentifier: "",
     assets: [],
     ...overrides,
   };
@@ -130,6 +131,26 @@ async function submitPrompt(prompt = "a launch poster") {
  */
 function payload<T>(value: T, degraded = false) {
   return { value, degraded };
+}
+
+/**
+ * Swap window.location for one whose assign can be asserted. jsdom's own
+ * Location is read-only and real navigation is unimplemented, so the test uses
+ * a stand-in and restores the original afterwards.
+ */
+function stubLocationAssign(assign: ReturnType<typeof vi.fn>): () => void {
+  const original = window.location;
+  Object.defineProperty(window, "location", {
+    writable: true,
+    configurable: true,
+    value: { assign, href: original.href, origin: original.origin },
+  });
+  return () =>
+    Object.defineProperty(window, "location", {
+      writable: true,
+      configurable: true,
+      value: original,
+    });
 }
 
 describe("GenerationComposer", () => {
@@ -639,5 +660,51 @@ describe("GenerationComposer", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("reference.png")).toBeInTheDocument();
     expect(screen.getByLabelText("What should it make?")).toHaveValue("a poster");
+  });
+
+  it("opens the issue after submit instead of polling the drawer", async () => {
+    const assign = vi.fn();
+    const restore = stubLocationAssign(assign);
+    try {
+      mocks.create.mockResolvedValue(
+        payload(detail({ issueIdentifier: "MUL-42" })),
+      );
+
+      renderComposer({
+        issueHref: (identifier) => "/acme/issues/" + identifier,
+      });
+      await submitPrompt();
+
+      expect(assign).toHaveBeenCalledWith("/acme/issues/MUL-42");
+      // The drawer never starts following the generation, so the issue page —
+      // not a drawer poll — is where the run is watched.
+      expect(mocks.detail).not.toHaveBeenCalledWith("gen-1");
+      expect(screen.queryByText("Generating")).not.toBeInTheDocument();
+    } finally {
+      restore();
+    }
+  });
+
+  it("keeps the drawer polling when the response has no usable issue identifier", async () => {
+    const assign = vi.fn();
+    const restore = stubLocationAssign(assign);
+    try {
+      mocks.create.mockResolvedValue(
+        payload(detail({ issueIdentifier: "#42" })),
+      );
+      mocks.detail.mockReturnValue({
+        data: payload(detail({ status: "running" })),
+        isPending: false,
+      });
+
+      renderComposer({ issueHref: () => null });
+      await submitPrompt();
+
+      expect(assign).not.toHaveBeenCalled();
+      expect(mocks.detail).toHaveBeenCalledWith("gen-1");
+      expect(await screen.findByText("Generating")).toBeInTheDocument();
+    } finally {
+      restore();
+    }
   });
 });

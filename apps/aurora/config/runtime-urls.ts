@@ -106,6 +106,16 @@ export function resolveBrowserWsUrl(env: RuntimeEnv): string | undefined {
   return apiUrl ? tryDeriveWsUrl(apiUrl) : undefined;
 }
 
+/**
+ * The Multica web app whose issue detail Aurora opens after submit, or
+ * undefined. Unset means the issue renders inside Aurora at the same path, so
+ * the fallback stays an empty value rather than a guessed origin. Only an
+ * http(s) origin is usable for a cross-app hand-off.
+ */
+export function resolveWebOrigin(env: RuntimeEnv): string | undefined {
+  return cleanHttpUrl(env.NEXT_PUBLIC_WEB_ORIGIN);
+}
+
 // Paths the backend serves as a tree: anything beneath them belongs to it too.
 const BACKEND_PATH_TREES = ["/v1", "/api", "/uploads"];
 // Endpoints it serves at exactly one path — `/ws` for the realtime handshake,

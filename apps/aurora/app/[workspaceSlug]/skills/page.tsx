@@ -1,5 +1,9 @@
+"use client";
+
+import { use } from "react";
 import { SkillDirectory } from "@multica/views/aurora";
 import { auroraRoutes } from "@/lib/routes";
+import { auroraIssueHrefFor } from "@/lib/issue-link";
 
 /**
  * The skill directory.
@@ -9,11 +13,16 @@ import { auroraRoutes } from "@/lib/routes";
  * that an app which has not built it offers nothing to click, rather than a
  * link that 404s.
  */
-export default async function SkillsPage({
+export default function SkillsPage({
   params,
 }: {
   params: Promise<{ workspaceSlug: string }>;
 }) {
-  const { workspaceSlug } = await params;
-  return <SkillDirectory worksHref={auroraRoutes(workspaceSlug).works()} />;
+  const { workspaceSlug } = use(params);
+  return (
+    <SkillDirectory
+      worksHref={auroraRoutes(workspaceSlug).works()}
+      issueHref={auroraIssueHrefFor(workspaceSlug)}
+    />
+  );
 }

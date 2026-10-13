@@ -71,6 +71,7 @@ function detail(
     error: null,
     createdAt: "2026-09-23T00:00:00Z",
     taskId: "",
+    issueIdentifier: "",
     assets: [],
     ...overrides,
   };
@@ -418,5 +419,24 @@ describe("GenerationDetail", () => {
       "href",
       "/acme/tasks/task-1",
     );
+  });
+
+  it("links to the issue the generation ran on when the app provides one", () => {
+    mocks.detail.mockReturnValue(read(detail({ issueIdentifier: "MUL-42" })));
+
+    renderDetail({ issueHref: (identifier) => "/acme/issues/" + identifier });
+
+    expect(screen.getByRole("link", { name: "MUL-42" })).toHaveAttribute(
+      "href",
+      "/acme/issues/MUL-42",
+    );
+  });
+
+  it("offers no issue link when the app cannot build one", () => {
+    mocks.detail.mockReturnValue(read(detail({ issueIdentifier: "#42" })));
+
+    renderDetail({ issueHref: () => null });
+
+    expect(screen.queryByRole("link", { name: "#42" })).not.toBeInTheDocument();
   });
 });
