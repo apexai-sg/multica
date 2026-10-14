@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"syscall"
 	"testing"
 	"time"
 
@@ -146,7 +145,7 @@ func privateConfig(t *testing.T) Config {
 	return cfg
 }
 func TestPrivateConfigConsumesCheckedBytes(t *testing.T) {
-	for _, replacement := range []string{"symlink", "fifo"} {
+	for _, replacement := range configReplacementCases {
 		t.Run(replacement, func(t *testing.T) {
 			cfg := privateConfig(t)
 			reader := func(path string) ([]byte, error) {
@@ -164,7 +163,7 @@ func TestPrivateConfigConsumesCheckedBytes(t *testing.T) {
 							t.Fatal(e)
 						}
 					} else {
-						if e := syscall.Mkfifo(path, 0600); e != nil {
+						if e := makeFifo(path, 0600); e != nil {
 							t.Fatal(e)
 						}
 					}
@@ -186,11 +185,7 @@ func TestPrivateConfigConsumesCheckedBytes(t *testing.T) {
 				}
 			case <-time.After(time.Second):
 				// Release an unsafe second FIFO open so RED leaves no blocked goroutine.
-				f, err := os.OpenFile(cfg.ConfigFile, os.O_WRONLY|syscall.O_NONBLOCK, 0)
-				if err == nil {
-					_, _ = f.Write([]byte("{}"))
-					_ = f.Close()
-				}
+				releaseBlockedFifo(cfg.ConfigFile)
 				<-done
 				t.Fatal("unchecked second FIFO open blocked validation")
 			}
@@ -200,7 +195,7 @@ func TestPrivateConfigConsumesCheckedBytes(t *testing.T) {
 
 // Removing the ambient HOME gate must fail before the parser can acquire paths.
 func TestPrivateDatabaseRejectsHomeBeforeParser(t *testing.T) {
-	for _, root := range []string{"absent", "malformed", "fifo"} {
+	for _, root := range homeRootCases {
 		t.Run(root, func(t *testing.T) {
 			home := t.TempDir()
 			dir := filepath.Join(home, ".postgresql")
@@ -214,7 +209,7 @@ func TestPrivateDatabaseRejectsHomeBeforeParser(t *testing.T) {
 					t.Fatal(err)
 				}
 			case "fifo":
-				if err := syscall.Mkfifo(path, 0600); err != nil {
+				if err := makeFifo(path, 0600); err != nil {
 					t.Fatal(err)
 				}
 			}
