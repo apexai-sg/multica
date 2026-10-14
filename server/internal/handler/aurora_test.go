@@ -3474,7 +3474,7 @@ func TestCreateAuroraGenerationBindsIssueBeforeEnqueue(t *testing.T) {
 	var creatorID pgtype.UUID
 	dbfx.QueryRow(t, `SELECT title, creator_type, creator_id FROM issue WHERE id = $1`, issueID).
 		Scan(&title, &creatorType, &creatorID)
-	if want := "小红书图片：" + prompt; title != want {
+	if want := entry.Name + "：" + prompt; title != want {
 		t.Fatalf("issue title = %q, want %q", title, want)
 	}
 	if !creatorType.Valid || creatorType.String != "member" {
