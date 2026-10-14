@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"maps"
 	"net/http"
 	"strings"
 	"testing"
@@ -23,8 +24,10 @@ import (
 // uncommitted storage objects are removed and the generation is failed and
 // refunded exactly once.
 
-// auroraReportFixture seeds the task/generation pair a report acts on.
-func auroraReportFixture(t *testing.T, skillID string) (taskID, generationID string) {
+// auroraReportFixture seeds the task/generation pair a report acts on. Callers
+// that need another generation shape — the issue-bound round, for instance —
+// pass the differing columns through over.
+func auroraReportFixture(t *testing.T, skillID string, over ...testutil.Cols) (taskID, generationID string) {
 	t.Helper()
 	issueID := dbfx.Issue(t, "aurora artifact report issue")
 	agentID := dbfx.Agent(t, "AuroraArtifactReportAgent "+uuid.NewString(), handlerTestRuntimeID(t))
@@ -33,7 +36,7 @@ func auroraReportFixture(t *testing.T, skillID string) (taskID, generationID str
 		"status":     "running",
 		"issue_id":   issueID,
 	})
-	generationID = dbfx.Insert(t, "aurora_generation", testutil.Cols{
+	cols := testutil.Cols{
 		"workspace_id":     testWorkspaceID,
 		"user_id":          testUserID,
 		"skill_id":         skillID,
@@ -41,7 +44,11 @@ func auroraReportFixture(t *testing.T, skillID string) (taskID, generationID str
 		"status":           "running",
 		"task_id":          taskID,
 		"credits_reserved": int64(62_000_000),
-	})
+	}
+	for _, o := range over {
+		maps.Copy(cols, o)
+	}
+	generationID = dbfx.Insert(t, "aurora_generation", cols)
 	return taskID, generationID
 }
 
