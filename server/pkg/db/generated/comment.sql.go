@@ -583,8 +583,9 @@ type GetLatestAgentCommentSinceParams struct {
 }
 
 // The reply a run wrote on its issue when the agent posted it itself. Same
-// predicate as HasAgentCommentedSince, newest first: the completion path binds
-// the run's files to exactly the comment that invariant counts.
+// author and time window as HasAgentCommentedSince plus the workspace guard,
+// newest first: the completion path binds the run's files to exactly the
+// comment that invariant counts.
 func (q *Queries) GetLatestAgentCommentSince(ctx context.Context, arg GetLatestAgentCommentSinceParams) (Comment, error) {
 	row := q.db.QueryRow(ctx, getLatestAgentCommentSince,
 		arg.IssueID,

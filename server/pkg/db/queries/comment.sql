@@ -588,8 +588,9 @@ SELECT EXISTS (
 
 -- name: GetLatestAgentCommentSince :one
 -- The reply a run wrote on its issue when the agent posted it itself. Same
--- predicate as HasAgentCommentedSince, newest first: the completion path binds
--- the run's files to exactly the comment that invariant counts.
+-- author and time window as HasAgentCommentedSince plus the workspace guard,
+-- newest first: the completion path binds the run's files to exactly the
+-- comment that invariant counts.
 SELECT * FROM comment
 WHERE issue_id = @issue_id
   AND workspace_id = @workspace_id
