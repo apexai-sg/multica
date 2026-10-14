@@ -338,3 +338,11 @@ WHERE task_id = @task_id
   AND comment_id IS NOT NULL
   AND workspace_id = @workspace_id
 LIMIT 1;
+
+-- name: DeleteAttachmentsByURL :many
+-- Drop every attachment row pointing at one stored object. The library calls
+-- this when it deletes an asset: the bytes are going away, so a reply that
+-- showed them must stop claiming to have a file.
+DELETE FROM attachment
+WHERE url = @url AND workspace_id = @workspace_id
+RETURNING comment_id;

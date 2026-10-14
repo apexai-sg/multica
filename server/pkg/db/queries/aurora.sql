@@ -131,3 +131,12 @@ SET task_id = $2, status = 'queued', error = NULL, updated_at = now()
 WHERE id = $1 AND workspace_id = $3
 RETURNING id, workspace_id, user_id, skill_id, prompt, status, task_id,
           credits_reserved, credits_charged, error, created_at, updated_at, issue_id;
+
+-- name: ListAuroraAssetMediaURLs :many
+-- Which of these stored objects the content library still points at. Used when
+-- a comment or issue delete releases attachment objects: a completed Aurora
+-- run stores its deliverable once and the library owns those bytes, so the
+-- reply's link going away must not reclaim the file.
+SELECT media_url FROM aurora_asset
+WHERE media_url = ANY(@urls::text[])
+  AND media_url IS NOT NULL;

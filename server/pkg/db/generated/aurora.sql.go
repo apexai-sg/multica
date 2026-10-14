@@ -307,6 +307,36 @@ func (q *Queries) GetPersonalWorkspaceForUser(ctx context.Context, userID pgtype
 	return id, err
 }
 
+const listAuroraAssetMediaURLs = `-- name: ListAuroraAssetMediaURLs :many
+SELECT media_url FROM aurora_asset
+WHERE media_url = ANY($1::text[])
+  AND media_url IS NOT NULL
+`
+
+// Which of these stored objects the content library still points at. Used when
+// a comment or issue delete releases attachment objects: a completed Aurora
+// run stores its deliverable once and the library owns those bytes, so the
+// reply's link going away must not reclaim the file.
+func (q *Queries) ListAuroraAssetMediaURLs(ctx context.Context, urls []string) ([]pgtype.Text, error) {
+	rows, err := q.db.Query(ctx, listAuroraAssetMediaURLs, urls)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.Text{}
+	for rows.Next() {
+		var media_url pgtype.Text
+		if err := rows.Scan(&media_url); err != nil {
+			return nil, err
+		}
+		items = append(items, media_url)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAuroraAssets = `-- name: ListAuroraAssets :many
 SELECT id, generation_id, workspace_id, kind, media_url, format, created_at,
        manifest_artifact_id, name, mime_type, size_bytes, sha256, role, metadata

@@ -388,6 +388,40 @@ func (q *Queries) DeleteAttachmentsBySourceContext(ctx context.Context, arg Dele
 	return items, nil
 }
 
+const deleteAttachmentsByURL = `-- name: DeleteAttachmentsByURL :many
+DELETE FROM attachment
+WHERE url = $1 AND workspace_id = $2
+RETURNING comment_id
+`
+
+type DeleteAttachmentsByURLParams struct {
+	Url         string      `json:"url"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// Drop every attachment row pointing at one stored object. The library calls
+// this when it deletes an asset: the bytes are going away, so a reply that
+// showed them must stop claiming to have a file.
+func (q *Queries) DeleteAttachmentsByURL(ctx context.Context, arg DeleteAttachmentsByURLParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, deleteAttachmentsByURL, arg.Url, arg.WorkspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var comment_id pgtype.UUID
+		if err := rows.Scan(&comment_id); err != nil {
+			return nil, err
+		}
+		items = append(items, comment_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteCommentAttachments = `-- name: DeleteCommentAttachments :many
 DELETE FROM attachment
 WHERE comment_id = $1 AND workspace_id = $2

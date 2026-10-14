@@ -3738,7 +3738,7 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.deleteS3Objects(r.Context(), deleted.AttachmentURLs)
+	h.reclaimAttachmentObjects(r.Context(), deleted.AttachmentURLs)
 	slog.Info("comment deleted", append(logger.RequestAttrs(r),
 		"comment_id", commentId,
 		"issue_id", uuidToString(comment.IssueID),

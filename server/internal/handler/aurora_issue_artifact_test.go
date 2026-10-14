@@ -215,3 +215,95 @@ func TestIssueAttachmentListExcludesRunProjections(t *testing.T) {
 		t.Fatalf("issue attachments = %+v, want only the human-supplied brief.png", got)
 	}
 }
+
+// reclaimTestStorage records every object deletion the reclamation helper
+// requests, whichever storage call carries it.
+type reclaimTestStorage struct {
+	mockStorage
+	deletedKeys []string
+}
+
+func (s *reclaimTestStorage) DeleteObject(_ context.Context, key string) error {
+	s.deletedKeys = append(s.deletedKeys, key)
+	return nil
+}
+
+func (s *reclaimTestStorage) DeleteKeys(_ context.Context, keys []string) {
+	s.deletedKeys = append(s.deletedKeys, keys...)
+}
+
+func withReclaimStorage(t *testing.T, s *reclaimTestStorage) {
+	t.Helper()
+	previous := testHandler.Storage
+	testHandler.Storage = s
+	t.Cleanup(func() { testHandler.Storage = previous })
+}
+
+// TestReclaimAttachmentObjectsKeepsLibraryOwnedBytes proves the ownership rule:
+// a comment or issue delete releases attachment rows, but an object the content
+// library still points at must survive, because the library owns those bytes.
+func TestReclaimAttachmentObjectsKeepsLibraryOwnedBytes(t *testing.T) {
+	store := &reclaimTestStorage{}
+	withReclaimStorage(t, store)
+	_, generationID, _ := auroraIssueReportFixture(t, "xhs-image")
+	assetURL := "https://cdn.example.test/aurora/xhs-image.png"
+	insertAsset(t, generationID, testutil.Cols{"media_url": assetURL})
+
+	testHandler.reclaimAttachmentObjects(context.Background(), []string{assetURL})
+	if len(store.deletedKeys) != 0 {
+		t.Fatalf("deleted keys = %v, want none: the library still owns this object", store.deletedKeys)
+	}
+
+	orphan := "https://cdn.example.test/upload/plain.png"
+	testHandler.reclaimAttachmentObjects(context.Background(), []string{orphan})
+	if len(store.deletedKeys) != 1 {
+		t.Fatalf("deleted keys = %v, want exactly the orphan", store.deletedKeys)
+	}
+}
+
+// TestDeleteAuroraAssetUnlinksTheReplyAndRebroadcastsIt proves the other half of
+// the ownership rule: deleting a library asset reclaims the object, drops the
+// attachment rows that showed it, bumps each affected comment's revision and
+// rebroadcasts it so no client keeps a broken thumbnail.
+func TestDeleteAuroraAssetUnlinksTheReplyAndRebroadcastsIt(t *testing.T) {
+	store := &reclaimTestStorage{}
+	withReclaimStorage(t, store)
+	taskID, generationID, issueID := auroraIssueReportFixture(t, "xhs-image")
+	assetURL := "https://cdn.example.test/aurora/xhs-image.png"
+	assetID := insertAsset(t, generationID, testutil.Cols{"media_url": assetURL})
+	commentID := dbfx.Insert(t, "comment", testutil.Cols{
+		"issue_id":     issueID,
+		"workspace_id": testWorkspaceID,
+		"author_type":  "agent",
+		"author_id":    roundTaskAgent(t, taskID),
+		"content":      "Produced it",
+		"type":         "comment",
+		"revision":     int64(3),
+	})
+	dbfx.Insert(t, "attachment", testutil.Cols{
+		"workspace_id": testWorkspaceID, "issue_id": issueID, "comment_id": commentID,
+		"uploader_type": "agent", "uploader_id": roundTaskAgent(t, taskID),
+		"filename": "xhs-image.png", "url": assetURL,
+		"content_type": "image/png", "size_bytes": int64(9),
+	})
+
+	updates := make(chan struct{}, 4)
+	testHandler.Bus.Subscribe(protocol.EventCommentUpdated, func(events.Event) { updates <- struct{}{} })
+
+	req := withURLParam(newRequest(http.MethodDelete, "/api/aurora/assets/"+assetID, nil), "id", assetID)
+	testutil.Call(t, testHandler.DeleteAuroraAsset, req).Want(http.StatusNoContent)
+
+	if n := dbfx.Count(t, "SELECT count(*) FROM attachment WHERE url = $1", assetURL); n != 0 {
+		t.Fatalf("attachment rows for the deleted asset = %d, want 0", n)
+	}
+	var revision int64
+	dbfx.QueryRow(t, "SELECT revision FROM comment WHERE id = $1", commentID).Scan(&revision)
+	if revision <= 3 {
+		t.Fatalf("comment revision = %d, want bumped past 3", revision)
+	}
+	select {
+	case <-updates:
+	case <-time.After(2 * time.Second):
+		t.Fatal("deleting a library asset did not rebroadcast the reply")
+	}
+}

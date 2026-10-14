@@ -1134,13 +1134,12 @@ func (h *Handler) DeleteAuroraAsset(w http.ResponseWriter, r *http.Request) {
 
 	// No storage backend, or no object on the row, means nothing to reclaim;
 	// the row still goes.
-	if h.Storage != nil {
-		if mediaURL := auroraAssetObjectURL(asset); mediaURL != "" {
-			if err := h.Storage.DeleteObject(r.Context(), h.Storage.KeyFromURL(mediaURL)); err != nil {
-				slog.Error("failed to delete aurora asset object", "asset_id", uuidToString(asset.ID), "error", err)
-				writeError(w, http.StatusInternalServerError, "failed to delete asset file")
-				return
-			}
+	mediaURL := auroraAssetObjectURL(asset)
+	if h.Storage != nil && mediaURL != "" {
+		if err := h.Storage.DeleteObject(r.Context(), h.Storage.KeyFromURL(mediaURL)); err != nil {
+			slog.Error("failed to delete aurora asset object", "asset_id", uuidToString(asset.ID), "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to delete asset file")
+			return
 		}
 	}
 
@@ -1152,6 +1151,31 @@ func (h *Handler) DeleteAuroraAsset(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete asset")
 		return
+	}
+
+	// The reply that showed this file must stop claiming to have it: drop the
+	// reference rows, bump each affected comment's revision and rebroadcast it,
+	// so no client keeps a broken thumbnail.
+	removed, err := h.Queries.DeleteAttachmentsByURL(r.Context(), db.DeleteAttachmentsByURLParams{
+		Url: mediaURL, WorkspaceID: asset.WorkspaceID,
+	})
+	if err != nil {
+		slog.Error("failed to unlink deleted asset from comments", "asset_id", uuidToString(asset.ID), "error", err)
+	} else {
+		seen := make(map[string]struct{}, len(removed))
+		for _, commentUUID := range removed {
+			commentID := uuidToString(commentUUID)
+			if _, ok := seen[commentID]; ok {
+				continue
+			}
+			seen[commentID] = struct{}{}
+			if _, err := h.Queries.BumpCommentRevision(r.Context(), db.BumpCommentRevisionParams{
+				ID: commentUUID, WorkspaceID: asset.WorkspaceID,
+			}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				slog.Warn("failed to bump comment revision after asset delete", "comment_id", commentID, "error", err)
+			}
+			h.publishCommentWithAttachments(r.Context(), asset.WorkspaceID, commentUUID, "system", "")
+		}
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -1649,3 +1649,40 @@ func (h *Handler) deleteS3Objects(ctx context.Context, urls []string) {
 	}
 	h.Storage.DeleteKeys(ctx, keys)
 }
+
+// reclaimAttachmentObjects deletes the stored objects a deleted comment or
+// issue released, minus the ones the Aurora library still points at.
+//
+// Ownership: a completed Aurora run stores its deliverable once, and the
+// library (aurora_asset) owns those bytes; the reply comment is a view of the
+// same object. Deleting the reply therefore unlinks the file without
+// destroying the library entry, which is what keeps the asset row from
+// dangling. A failed ownership read skips the reclaim entirely: leaking an
+// object is recoverable, silently deleting a library deliverable is not.
+func (h *Handler) reclaimAttachmentObjects(ctx context.Context, urls []string) {
+	if h.Storage == nil || len(urls) == 0 {
+		return
+	}
+	libraryOwned, err := h.Queries.ListAuroraAssetMediaURLs(ctx, urls)
+	if err != nil {
+		slog.Error("reclaim attachments: ownership lookup failed", "error", err)
+		return
+	}
+	owned := make(map[string]struct{}, len(libraryOwned))
+	for _, url := range libraryOwned {
+		// media_url is nullable, so sqlc hands back pgtype.Text; the query's
+		// IS NOT NULL filter means a valid row is all this can see.
+		if !url.Valid {
+			continue
+		}
+		owned[url.String] = struct{}{}
+	}
+	pending := make([]string, 0, len(urls))
+	for _, url := range urls {
+		if _, ok := owned[url]; ok {
+			continue
+		}
+		pending = append(pending, url)
+	}
+	h.deleteS3Objects(ctx, pending)
+}
