@@ -2075,7 +2075,7 @@ func TestBriefByteIdenticalAcrossRunsForEveryKind(t *testing.T) {
 		// A managed Aurora generation is enqueued through the quick-create
 		// carrier but must render its own brief; its trusted skill id is the
 		// only stable marker, so it is the field under test here.
-		"aurora":    {AuroraSkillID: "poster", QuickCreatePrompt: "a poster", AgentID: "a-1", AgentName: "Eve"},
+		"aurora":    {AuroraSkillID: "ecommerce-bidding-strategy", QuickCreatePrompt: "a poster", AgentID: "a-1", AgentName: "Eve"},
 		"autopilot": {AutopilotRunID: "run-1", AutopilotID: "ap-1", AgentID: "a-1", AgentName: "Eve"},
 		// WeCom is the channel a real deployment flips the file-delivery
 		// verdict on. The Slack row above catches the same leak today, but only

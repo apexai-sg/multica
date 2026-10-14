@@ -18,8 +18,8 @@ func TestClassifyTask(t *testing.T) {
 		{"quick-create", TaskContextForEnv{QuickCreatePrompt: "p"}, kindQuickCreate},
 		// An Aurora generation is enqueued through the quick-create carrier, so
 		// the QuickCreatePrompt is also set; AuroraSkillID must win.
-		{"aurora", TaskContextForEnv{AuroraSkillID: "poster", QuickCreatePrompt: "p"}, kindAurora},
-		{"tiebreak-aurora-vs-chat", TaskContextForEnv{AuroraSkillID: "poster", ChatSessionID: "c"}, kindAurora},
+		{"aurora", TaskContextForEnv{AuroraSkillID: "ecommerce-bidding-strategy", QuickCreatePrompt: "p"}, kindAurora},
+		{"tiebreak-aurora-vs-chat", TaskContextForEnv{AuroraSkillID: "ecommerce-bidding-strategy", ChatSessionID: "c"}, kindAurora},
 		{"autopilot", TaskContextForEnv{AutopilotRunID: "r"}, kindAutopilotRunOnly},
 		{"issue-comment-triggered", TaskContextForEnv{IssueID: "i", TriggerCommentID: "c"}, kindIssue},
 		{"issue-assignment-triggered", TaskContextForEnv{IssueID: "i"}, kindIssue},
@@ -178,7 +178,7 @@ func TestBuildMetaSkillContentSlimKindMatrix(t *testing.T) {
 			Repos: baseRepo, AgentSkills: baseSkill},
 		kindIssue: {IssueID: "i-1", AgentName: "Eve", AgentID: "eve-1",
 			Repos: baseRepo, AgentSkills: baseSkill},
-		kindAurora: {AuroraSkillID: "poster", QuickCreatePrompt: "p", AgentName: "Eve", AgentID: "eve-1",
+		kindAurora: {AuroraSkillID: "ecommerce-bidding-strategy", QuickCreatePrompt: "p", AgentName: "Eve", AgentID: "eve-1",
 			Repos: baseRepo, AgentSkills: baseSkill},
 	}
 
@@ -416,14 +416,14 @@ func TestBuildMetaSkillContentAuroraUsesOrdinaryAgentSurface(t *testing.T) {
 	t.Parallel()
 
 	out := buildMetaSkillContent("claude", TaskContextForEnv{
-		AuroraSkillID:     "poster",
+		AuroraSkillID:     "ecommerce-bidding-strategy",
 		QuickCreatePrompt: "橘猫窗台晒太阳图片生成",
 		AgentName:         "Eve",
 		AgentID:           "eve-1",
 		// The daemon resolves the Aurora agent's attached skill onto the task,
 		// which is what puts the skill in the brief's index. In production the
 		// attached skill IS the run's skill.
-		AgentSkills: []SkillContextForEnv{{Name: "poster"}},
+		AgentSkills: []SkillContextForEnv{{Name: "ecommerce-bidding-strategy"}},
 	})
 
 	for _, want := range []string{

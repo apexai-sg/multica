@@ -1383,7 +1383,7 @@ func TestRerunIssueKeepsAuroraRoundIdentity(t *testing.T) {
 	generationID := fx.Insert(t, "aurora_generation", testutil.Cols{
 		"workspace_id": testWorkspaceID,
 		"user_id":      testUserID,
-		"skill_id":     "poster",
+		"skill_id":     "ecommerce-bidding-strategy",
 		"prompt":       prompt,
 		"status":       "failed",
 		"task_id":      firstTaskID,
@@ -1469,7 +1469,7 @@ func TestRerunIssueLeavesALiveAuroraRoundAlone(t *testing.T) {
 	generationID := fx.Insert(t, "aurora_generation", testutil.Cols{
 		"workspace_id": testWorkspaceID,
 		"user_id":      testUserID,
-		"skill_id":     "poster",
+		"skill_id":     "ecommerce-bidding-strategy",
 		"prompt":       "live round",
 		"status":       "queued",
 		"task_id":      liveTaskID,
@@ -1539,7 +1539,7 @@ func TestRerunIssueDoesNotPointAuroraRoundAtAMention(t *testing.T) {
 	generationID := fx.Insert(t, "aurora_generation", testutil.Cols{
 		"workspace_id": testWorkspaceID,
 		"user_id":      testUserID,
-		"skill_id":     "poster",
+		"skill_id":     "ecommerce-bidding-strategy",
 		"prompt":       "owner round",
 		"status":       "failed",
 		"task_id":      ownerTaskID,

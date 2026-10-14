@@ -370,7 +370,7 @@ func TestAuroraManagedDaemonEnrollsClaimsAndCompletesWithFakeClaude(t *testing.T
 	// work a managed sandbox node is supposed to claim.
 	systemAgent, err := testHandler.Queries.GetAgentBySystemKey(ctx, db.GetAgentBySystemKeyParams{
 		WorkspaceID: workspaceUUID,
-		SystemKey:   pgtype.Text{String: "aurora:poster", Valid: true},
+		SystemKey:   pgtype.Text{String: "aurora:ecommerce-bidding-strategy", Valid: true},
 	})
 	if err != nil {
 		t.Fatalf("load Aurora system agent: %v", err)
@@ -388,7 +388,7 @@ func TestAuroraManagedDaemonEnrollsClaimsAndCompletesWithFakeClaude(t *testing.T
 	// must carry the generation the production create path would have written.
 	if _, err := testPool.Exec(ctx, `
 		INSERT INTO aurora_generation (workspace_id, user_id, skill_id, prompt, status, task_id)
-		VALUES ($1, $2, 'poster', $3, 'queued', $4)
+		VALUES ($1, $2, 'ecommerce-bidding-strategy', $3, 'queued', $4)
 	`, workspaceID, ownerID, "A poster of a lighthouse at dusk", taskID); err != nil {
 		t.Fatalf("seed aurora generation: %v", err)
 	}

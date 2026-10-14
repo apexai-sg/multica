@@ -28,12 +28,7 @@ import (
 	"github.com/multica-ai/multica/server/internal/testutil"
 )
 
-var (
-	matrixPNGBytes  = []byte("\x89PNG\r\n\x1a\n\x00matrix-image")
-	matrixMP4Bytes  = []byte("\x00\x00\x00\x18ftypmp42matrix-video")
-	matrixTextBytes = []byte("# Matrix artifact\n\nbody\n")
-	matrixPDFBytes  = []byte("%PDF-1.4\nmatrix-pdf\n")
-)
+var matrixTextBytes = []byte("# Matrix artifact\n\nbody\n")
 
 type matrixAttachment struct {
 	filename    string
@@ -58,48 +53,28 @@ type matrixSkillCase struct {
 	outputs    []matrixArtifact
 }
 
-func matrixImageArtifact() matrixArtifact {
-	return matrixArtifact{id: "primary-1", kind: "image", format: "png", mime: "image/png", name: "primary-1.png", role: "primary", content: matrixPNGBytes}
-}
-
-func matrixVideoArtifact() matrixArtifact {
-	return matrixArtifact{id: "primary-1", kind: "video", format: "mp4", mime: "video/mp4", name: "primary-1.mp4", role: "primary", content: matrixMP4Bytes}
-}
-
 func matrixTextArtifact(id, name, format, mime string) matrixArtifact {
 	return matrixArtifact{id: id, kind: "text", format: format, mime: mime, name: name, role: "primary", content: matrixTextBytes}
 }
 
 // auroraMatrixCases is the fixed route table as the server sees it: one case
-// per available skill with its required input attachment and the output
-// artifacts its route is allowed to report.
+// per available expert. Every expert takes a written request plus at most one
+// source document and reports a single Markdown artifact on the shared
+// claude-text route.
 func auroraMatrixCases() []matrixSkillCase {
-	image := &matrixAttachment{filename: "ref.png", contentType: "image/png", size: 2048}
 	document := &matrixAttachment{filename: "notes.md", contentType: "text/markdown", size: 2048}
-	audio := &matrixAttachment{filename: "clip.mp3", contentType: "audio/mpeg", size: 8192}
-	video := &matrixAttachment{filename: "clip.mp4", contentType: "video/mp4", size: 8192}
-
-	return []matrixSkillCase{
-		{skillID: "poster", attachment: image, outputs: []matrixArtifact{matrixImageArtifact()}},
-		{skillID: "xhs-image", attachment: image, outputs: []matrixArtifact{matrixImageArtifact()}},
-		{skillID: "product-image", attachment: image, outputs: []matrixArtifact{matrixImageArtifact()}},
-		{skillID: "text-image", outputs: []matrixArtifact{matrixImageArtifact()}},
-		{skillID: "image-edit", attachment: image, outputs: []matrixArtifact{matrixImageArtifact()}},
-		{skillID: "id-photo", attachment: image, outputs: []matrixArtifact{matrixImageArtifact()}},
-		{skillID: "image-video", attachment: image, outputs: []matrixArtifact{matrixVideoArtifact()}},
-		{skillID: "text-video", outputs: []matrixArtifact{matrixVideoArtifact()}},
-		{skillID: "video-captions", attachment: video, outputs: []matrixArtifact{
-			{id: "transcript-1", kind: "text", format: "txt", mime: "text/plain", name: "transcript-1.txt", role: "transcript", content: matrixTextBytes},
-			matrixVideoArtifact(),
-		}},
-		{skillID: "xhs-copy", attachment: document, outputs: []matrixArtifact{matrixTextArtifact("primary-1", "copy.md", "md", "text/markdown")}},
-		{skillID: "document-summary", attachment: document, outputs: []matrixArtifact{matrixTextArtifact("primary-1", "summary.md", "md", "text/markdown")}},
-		{skillID: "resume", attachment: document, outputs: []matrixArtifact{
-			{id: "primary-1", kind: "pdf", format: "pdf", mime: "application/pdf", name: "resume.pdf", role: "primary", content: matrixPDFBytes},
-			{id: "resume-md", kind: "text", format: "md", mime: "text/markdown", name: "resume.md", role: "supporting", content: matrixTextBytes},
-		}},
-		{skillID: "transcription", attachment: audio, outputs: []matrixArtifact{matrixTextArtifact("primary-1", "transcript.txt", "txt", "text/plain")}},
+	cases := make([]matrixSkillCase, 0, len(aurora.Catalog()))
+	for _, entry := range aurora.Catalog() {
+		if !entry.Available {
+			continue
+		}
+		cases = append(cases, matrixSkillCase{
+			skillID:    entry.ID,
+			attachment: document,
+			outputs:    []matrixArtifact{matrixTextArtifact("primary-1", entry.ID+".md", "md", "text/markdown")},
+		})
 	}
+	return cases
 }
 
 // matrixFakeRunner stands in for the managed sandbox daemon. It stages the

@@ -46,8 +46,8 @@ func TestListAuroraSkills(t *testing.T) {
 	if got := response.Header().Get("Content-Type"); got != "application/json" {
 		t.Errorf("Content-Type = %q, want application/json", got)
 	}
-	if len(out.Skills) != 16 {
-		t.Fatalf("expected 16 skills, got %d", len(out.Skills))
+	if len(out.Skills) != 24 {
+		t.Fatalf("expected 24 experts, got %d", len(out.Skills))
 	}
 	available := 0
 	for _, s := range out.Skills {
@@ -62,14 +62,16 @@ func TestListAuroraSkills(t *testing.T) {
 			available++
 		}
 	}
-	if available != 13 {
-		t.Errorf("expected 13 available skills in response, got %d", available)
+	if available != len(out.Skills) {
+		t.Errorf("available skills = %d of %d, want every listed expert", available, len(out.Skills))
 	}
-	poster := out.Skills[0]
-	if poster.ID != "poster" || poster.Name != "海报制作" || poster.NameEn != "Poster" || poster.Category != "image" || poster.Credits != 76 ||
-		!reflect.DeepEqual(poster.Input, []string{"text", "image"}) || !reflect.DeepEqual(poster.Output, []string{"image"}) ||
-		poster.Featured == nil || !*poster.Featured || poster.Available == nil || !*poster.Available {
-		t.Errorf("unexpected poster response: %#v", poster)
+	first := out.Skills[0]
+	if first.ID != "content-creation-lyrics-songwriting" || first.Name != "歌词创作专家" ||
+		first.NameEn != "Content Creation Lyrics Songwriting Expert" || first.Category != "content-creation" ||
+		first.Credits != 60 ||
+		!reflect.DeepEqual(first.Input, []string{"text", "document"}) || !reflect.DeepEqual(first.Output, []string{"text"}) ||
+		first.Featured == nil || !*first.Featured || first.Available == nil || !*first.Available {
+		t.Errorf("unexpected first catalog entry: %#v", first)
 	}
 }
 
@@ -133,7 +135,7 @@ func TestCreateAuroraGenerationReservesAndEnqueues(t *testing.T) {
 
 	prompt := "生成一张新加坡亲子游封面"
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  prompt,
 	})
 	out := testutil.Decode[struct {
@@ -154,7 +156,7 @@ func TestCreateAuroraGenerationReservesAndEnqueues(t *testing.T) {
 	if gen.Status != "queued" {
 		t.Fatalf("expected queued, got %q", gen.Status)
 	}
-	if gen.SkillID != "xhs-image" {
+	if gen.SkillID != "ecommerce-bidding-strategy" {
 		t.Fatalf("expected skillId xhs-image, got %q", gen.SkillID)
 	}
 	if gen.Prompt != prompt {
@@ -223,7 +225,7 @@ func TestCreateAuroraGenerationRejectsInsufficientCredits(t *testing.T) {
 	}
 
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  "余额不足的生成请求",
 	})
 	testutil.Call(t, testHandler.CreateAuroraGeneration, req).Want(http.StatusPaymentRequired)
@@ -262,19 +264,22 @@ func TestCreateAuroraGenerationRejectsUnknownSkill(t *testing.T) {
 	testutil.Call(t, testHandler.CreateAuroraGeneration, req).Want(http.StatusBadRequest)
 }
 
-func TestCreateAuroraGenerationRejectsUnavailableSkill(t *testing.T) {
-	// avatar-video is phase-2 (spec §9.2): listed in the catalog but not
-	// submittable until its execution path exists.
-	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "avatar-video",
-		"prompt":  "x",
-	})
-	testutil.Call(t, testHandler.CreateAuroraGeneration, req).Want(http.StatusBadRequest)
+// TestCreateAuroraGenerationRejectsRetiredSkill keeps the sixteen hand-written
+// skills out of the API surface: the catalog now carries the vendored experts
+// only, so a retired id and a phase-2 placeholder are both unknown.
+func TestCreateAuroraGenerationRejectsRetiredSkill(t *testing.T) {
+	for _, skillID := range []string{"poster", "xhs-image", "text-video", "avatar-video", "ppt", "excel"} {
+		req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
+			"skillId": skillID,
+			"prompt":  "x",
+		})
+		testutil.Call(t, testHandler.CreateAuroraGeneration, req).Want(http.StatusBadRequest)
+	}
 }
 
 func TestCreateAuroraGenerationRejectsMissingPrompt(t *testing.T) {
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 	})
 	testutil.Call(t, testHandler.CreateAuroraGeneration, req).Want(http.StatusBadRequest)
 }
@@ -353,13 +358,14 @@ func TestCreateAuroraGenerationAttachmentIDsReachEnqueue(t *testing.T) {
 		t.Fatalf("Grant: %v", err)
 	}
 
-	first := insertAuroraAttachment(t, "reference.png", "image/png", 2048, testUserID)
-	second := insertAuroraAttachment(t, "detail.jpeg", "image/jpeg", 4096, testUserID)
+	// One document is the expert input contract: a written request plus at most
+	// one source document.
+	document := insertAuroraAttachment(t, "notes.md", "text/markdown", 2048, testUserID)
 
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]any{
-		"skillId":       "xhs-image",
-		"prompt":        "two references",
-		"attachmentIds": []string{first, second},
+		"skillId":       "ecommerce-bidding-strategy",
+		"prompt":        "one source document",
+		"attachmentIds": []string{document},
 	})
 	out := testutil.Decode[struct {
 		Generation struct {
@@ -368,8 +374,8 @@ func TestCreateAuroraGenerationAttachmentIDsReachEnqueue(t *testing.T) {
 	}](t, testHandler.CreateAuroraGeneration, req, http.StatusCreated)
 
 	ids := auroraTaskAttachmentIDs(t, out.Generation.ID)
-	if !reflect.DeepEqual(ids, []string{first, second}) {
-		t.Fatalf("task attachment_ids = %v, want %v", ids, []string{first, second})
+	if !reflect.DeepEqual(ids, []string{document}) {
+		t.Fatalf("task attachment_ids = %v, want %v", ids, []string{document})
 	}
 }
 
@@ -388,7 +394,7 @@ func TestAuroraGenerationIDReachesClaimPayload(t *testing.T) {
 	}
 
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]any{
-		"skillId": "text-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  "a claim regression",
 	})
 	out := testutil.Decode[struct {
@@ -438,8 +444,8 @@ func TestCreateAuroraGenerationAttachmentRejectedBeforeReserve(t *testing.T) {
 	mgr := &fakeSandboxManager{}
 	withSandboxManager(t, mgr)
 
-	image := insertAuroraAttachment(t, "reference.png", "image/png", 2048, testUserID)
-	foreignOwner := insertAuroraAttachment(t, "not-mine.png", "image/png", 2048, "66666666-6666-6666-6666-666666666666")
+	document := insertAuroraAttachment(t, "notes.md", "text/markdown", 2048, testUserID)
+	foreignOwner := insertAuroraAttachment(t, "not-mine.md", "text/markdown", 2048, "66666666-6666-6666-6666-666666666666")
 
 	otherWorkspace := dbfx.Insert(t, "workspace", testutil.Cols{
 		"name":         "Aurora attachment foreign workspace",
@@ -451,25 +457,24 @@ func TestCreateAuroraGenerationAttachmentRejectedBeforeReserve(t *testing.T) {
 		"workspace_id":  otherWorkspace,
 		"uploader_type": "member",
 		"uploader_id":   testUserID,
-		"filename":      "foreign.png",
-		"url":           "https://storage.test/foreign.png",
-		"content_type":  "image/png",
+		"filename":      "foreign.md",
+		"url":           "https://storage.test/foreign.md",
+		"content_type":  "text/markdown",
 		"size_bytes":    int64(2048),
 	})
 
-	tooMany := []string{image, uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()}
+	tooMany := []string{document, uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()}
 
 	cases := []struct {
 		name string
 		body map[string]any
 	}{
-		{"foreign workspace file", map[string]any{"skillId": "poster", "prompt": "x", "attachmentIds": []string{foreignWorkspace}}},
-		{"foreign owner file", map[string]any{"skillId": "poster", "prompt": "x", "attachmentIds": []string{foreignOwner}}},
-		{"missing required file", map[string]any{"skillId": "document-summary", "prompt": "x"}},
-		{"more than four ids", map[string]any{"skillId": "poster", "prompt": "x", "attachmentIds": tooMany}},
-		{"duplicate ids", map[string]any{"skillId": "poster", "prompt": "x", "attachmentIds": []string{image, image}}},
-		{"malformed id", map[string]any{"skillId": "poster", "prompt": "x", "attachmentIds": []string{"not-a-uuid"}}},
-		{"unknown id", map[string]any{"skillId": "poster", "prompt": "x", "attachmentIds": []string{uuid.NewString()}}},
+		{"foreign workspace file", map[string]any{"skillId": "ecommerce-bidding-strategy", "prompt": "x", "attachmentIds": []string{foreignWorkspace}}},
+		{"foreign owner file", map[string]any{"skillId": "ecommerce-bidding-strategy", "prompt": "x", "attachmentIds": []string{foreignOwner}}},
+		{"more than one document", map[string]any{"skillId": "ecommerce-bidding-strategy", "prompt": "x", "attachmentIds": tooMany}},
+		{"duplicate ids", map[string]any{"skillId": "ecommerce-bidding-strategy", "prompt": "x", "attachmentIds": []string{document, document}}},
+		{"malformed id", map[string]any{"skillId": "ecommerce-bidding-strategy", "prompt": "x", "attachmentIds": []string{"not-a-uuid"}}},
+		{"unknown id", map[string]any{"skillId": "ecommerce-bidding-strategy", "prompt": "x", "attachmentIds": []string{uuid.NewString()}}},
 	}
 
 	beforeGenerations := dbfx.Count(t, "SELECT count(*) FROM aurora_generation WHERE workspace_id = $1", testWorkspaceID)
@@ -1022,7 +1027,7 @@ func insertGeneration(t *testing.T, prompt string, over ...testutil.Cols) string
 	cols := testutil.Cols{
 		"workspace_id": testWorkspaceID,
 		"user_id":      testUserID,
-		"skill_id":     "xhs-image",
+		"skill_id":     "ecommerce-bidding-strategy",
 		"prompt":       prompt,
 		"status":       "queued",
 	}
@@ -1144,7 +1149,7 @@ func TestGetAuroraGenerationIncludesAssets(t *testing.T) {
 	}](t, testHandler.GetAuroraGeneration, req, http.StatusOK)
 
 	g := out.Generation
-	if g.ID != genID || g.SkillID != "xhs-image" || g.Prompt != "detail prompt" {
+	if g.ID != genID || g.SkillID != "ecommerce-bidding-strategy" || g.Prompt != "detail prompt" {
 		t.Fatalf("unexpected generation: %#v", g)
 	}
 	if g.Status != "completed" {
@@ -1224,7 +1229,7 @@ func TestGetAuroraGenerationNotFound(t *testing.T) {
 	genID := dbfx.Insert(t, "aurora_generation", testutil.Cols{
 		"workspace_id": otherWS,
 		"user_id":      testUserID,
-		"skill_id":     "xhs-image",
+		"skill_id":     "ecommerce-bidding-strategy",
 		"prompt":       "other workspace",
 		"status":       "queued",
 	})
@@ -1279,7 +1284,7 @@ func insertAssetInOtherWorkspace(t *testing.T, slug string) string {
 	genID := dbfx.Insert(t, "aurora_generation", testutil.Cols{
 		"workspace_id": otherWS,
 		"user_id":      testUserID,
-		"skill_id":     "xhs-image",
+		"skill_id":     "ecommerce-bidding-strategy",
 		"prompt":       "other workspace asset",
 		"status":       "completed",
 	})
@@ -2347,7 +2352,7 @@ func seedAuroraGenerationForUser(t *testing.T, userID string) string {
 	return dbfx.Insert(t, "aurora_generation", testutil.Cols{
 		"workspace_id": testWorkspaceID,
 		"user_id":      userID,
-		"skill_id":     "xhs-image",
+		"skill_id":     "ecommerce-bidding-strategy",
 		"prompt":       "seeded for an entitlement test",
 		"status":       "completed",
 	})
@@ -2370,7 +2375,7 @@ func TestCreateAuroraGenerationWithEntitlementSerializesConcurrentRequests(t *te
 				context.Background(),
 				parseUUID(testUserID),
 				parseUUID(testWorkspaceID),
-				"xhs-image",
+				"ecommerce-bidding-strategy",
 				fmt.Sprintf("concurrent entitlement request %d", i),
 			)
 		}(i)
@@ -2406,7 +2411,7 @@ func TestCreateAuroraGenerationRejectsOverMonthlyLimit(t *testing.T) {
 	}
 
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  "超出月度上限的生成请求",
 	})
 	testutil.Call(t, testHandler.CreateAuroraGeneration, req).Want(http.StatusTooManyRequests)
@@ -2433,7 +2438,7 @@ func TestCreateAuroraGenerationRejectsOverConcurrency(t *testing.T) {
 	dbfx.Exec(t, `UPDATE aurora_generation SET task_id = $1 WHERE user_id = $2 AND task_id IS NULL`, taskID, testUserID)
 
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  "超出并发上限的生成请求",
 	})
 	testutil.Call(t, testHandler.CreateAuroraGeneration, req).Want(http.StatusTooManyRequests)
@@ -2466,7 +2471,7 @@ func TestCreateAuroraGenerationGrantsFreeMonthlyCreditsOnce(t *testing.T) {
 
 	req := func() *http.Request {
 		return newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-			"skillId": "xhs-image",
+			"skillId": "ecommerce-bidding-strategy",
 			"prompt":  "免费额度发放测试",
 		})
 	}
@@ -2793,7 +2798,7 @@ func TestCreateGenerationEnsuresSandboxBeforeReserve(t *testing.T) {
 	withSandboxManager(t, mgr)
 
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  "ensure before reserve",
 	})
 	out := testutil.Decode[struct {
@@ -2851,7 +2856,7 @@ func TestCreateGenerationFleetDisabledReturns503WithoutReserve(t *testing.T) {
 	withSandboxManager(t, nil)
 
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  "fleet disabled",
 	})
 	body := testutil.Decode[struct {
@@ -2903,7 +2908,7 @@ func TestCreateGenerationFleetFailureReturns503WithoutReserveOrEnqueue(t *testin
 	withSandboxManager(t, mgr)
 
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  "fleet failure",
 	})
 	body := testutil.Decode[struct {
@@ -3018,7 +3023,7 @@ func TestCreateAuroraGenerationOnLocalFleet(t *testing.T) {
 	withSandboxManager(t, aurora.NewSandboxManager(testHandler.Queries, testPool, prov, auroraEnrollmentImageDigest, nil))
 
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  "local fleet acceptance",
 	})
 	out := testutil.Decode[struct {
@@ -3073,7 +3078,7 @@ func TestCreateAuroraGenerationFleetFailureIs503(t *testing.T) {
 	withSandboxManager(t, aurora.NewSandboxManager(testHandler.Queries, testPool, prov, auroraEnrollmentImageDigest, nil))
 
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  "fleet failure acceptance",
 	})
 	body := testutil.Decode[struct {
@@ -3147,7 +3152,7 @@ func TestCreateAuroraGenerationConcurrentFleetFailureIs503(t *testing.T) {
 		go func() {
 			<-start
 			req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-				"skillId": "xhs-image",
+				"skillId": "ecommerce-bidding-strategy",
 				"prompt":  prompt,
 			})
 			rec := httptest.NewRecorder()
@@ -3215,12 +3220,12 @@ func auroraClaimFixture(t *testing.T) (db.AgentTaskQueue, db.AgentRuntime, strin
 	if err := testHandler.Credit.Grant(ctx, user, ws, 1_000_000_000, aurora.LedgerKindAdjustment, creditRef("seed")); err != nil {
 		t.Fatalf("Grant: %v", err)
 	}
-	if err := testHandler.ensureAuroraSystemAgents(ctx, ws, user); err != nil {
+	if err := testHandler.ensureAuroraExpertSeed(ctx, ws, user, "ecommerce-bidding-strategy"); err != nil {
 		t.Fatalf("ensure aurora system agents: %v", err)
 	}
 	agent, err := testHandler.Queries.GetAgentBySystemKey(ctx, db.GetAgentBySystemKeyParams{
 		WorkspaceID: ws,
-		SystemKey:   pgtype.Text{String: "aurora:text-image", Valid: true},
+		SystemKey:   pgtype.Text{String: "aurora:ecommerce-bidding-strategy", Valid: true},
 	})
 	if err != nil {
 		t.Fatalf("load aurora system agent: %v", err)
@@ -3233,7 +3238,7 @@ func auroraClaimFixture(t *testing.T) (db.AgentTaskQueue, db.AgentRuntime, strin
 	generation, err := testHandler.Queries.CreateAuroraGeneration(ctx, db.CreateAuroraGenerationParams{
 		WorkspaceID: ws,
 		UserID:      user,
-		SkillID:     "text-image",
+		SkillID:     "ecommerce-bidding-strategy",
 		Prompt:      "claim generation lookup regression",
 	})
 	if err != nil {
@@ -3384,7 +3389,7 @@ func TestCreateAuroraGenerationBindsIssueBeforeEnqueue(t *testing.T) {
 
 	prompt := "绑定 issue 的亲子游封面"
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  prompt,
 	})
 	out := testutil.Decode[struct {

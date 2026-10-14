@@ -145,7 +145,7 @@ func TestReportTaskArtifactsCommitsStagedAssets(t *testing.T) {
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
 	first := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
 	second := seedAuroraStaging(t, store, taskID, generationID, "secondary-1", "secondary-1.png", "supporting", []byte("\x89PNG\r\n\x1a\n\x00\x01"), "{}")
 
@@ -200,7 +200,7 @@ func TestReportTaskArtifactsIdenticalRetryCreatesNoDuplicate(t *testing.T) {
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
 	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
 	payload := staged.payload("primary")
 
@@ -226,7 +226,7 @@ func TestReportTaskArtifactsConflictingAssetFailsClosed(t *testing.T) {
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
 	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
 	// A previous write already owns this manifest id with a different hash.
 	dbfx.Insert(t, "aurora_asset", testutil.Cols{
@@ -263,7 +263,7 @@ func TestReportTaskArtifactsRejectsUnknownStagingID(t *testing.T) {
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
 	payload := AuroraArtifactPayload{
 		ManifestArtifactID: "primary-1",
 		StagingID:          uuid.NewString(),
@@ -291,10 +291,10 @@ func TestReportTaskArtifactsRejectsForeignStagingID(t *testing.T) {
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 
-	foreignTaskID, foreignGenerationID := auroraReportFixture(t, "xhs-image")
+	foreignTaskID, foreignGenerationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
 	staged := seedAuroraStaging(t, store, foreignTaskID, foreignGenerationID, "primary-1", "primary-1.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
 	if got := reportAuroraArtifacts(t, taskID, staged.payload("primary")); got.Code != http.StatusBadRequest {
 		t.Fatalf("foreign staging id status = %d, want 400: %s", got.Code, got.Body.String())
 	}
@@ -310,7 +310,7 @@ func TestReportTaskArtifactsRejectsMetadataMismatch(t *testing.T) {
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
 	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
 	payload := staged.payload("primary")
 	payload.SHA256 = "sha256:" + strings.Repeat("b", 64)
@@ -335,7 +335,7 @@ func TestReportTaskArtifactsModerationFailureDeletesStagingObjects(t *testing.T)
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: false, Reason: "image is explicit"}})
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
 	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
 
 	if got := reportAuroraArtifacts(t, taskID, staged.payload("primary")); got.Code != http.StatusUnprocessableEntity {
@@ -367,7 +367,7 @@ func TestReportTaskArtifactsTransactionFailureLeavesNoPartialAssets(t *testing.T
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 	withAuroraTxStarter(t, auroraRefusingTxStarter{})
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
 	first := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
 	second := seedAuroraStaging(t, store, taskID, generationID, "secondary-1", "secondary-1.png", "supporting", []byte("\x89PNG\r\n\x1a\n\x00\x01"), "{}")
 
@@ -439,7 +439,7 @@ func genIDOfTask(t *testing.T, taskID string) string {
 // needs_input, moves the generation to needs_input by CAS, and leaves the
 // reservation untouched.
 func TestReportTaskArtifactsNeedsInputMarksGeneration(t *testing.T) {
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
 	// A generation's stored status stays queued while its task runs; the
 	// needs_input CAS is guarded on that value.
 	dbfx.Exec(t, `UPDATE aurora_generation SET status = 'queued' WHERE id = $1`, generationID)

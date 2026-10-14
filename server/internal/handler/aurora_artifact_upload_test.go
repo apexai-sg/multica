@@ -199,7 +199,7 @@ func TestAuroraArtifactUploadStreamsFileIntoStaging(t *testing.T) {
 	}
 	store := &artifactTestStorage{}
 	withArtifactStorage(t, store)
-	agentID, taskID, generationID := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, generationID := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	content := []byte(artifactTestPNG + "primary image payload")
 	fields := artifactUploadFields("primary-1", "primary-1.png", "image", "primary", "png", "image/png", len(content), artifactSHA256Field(content))
@@ -243,8 +243,8 @@ func TestAuroraArtifactUploadRejectsForeignTask(t *testing.T) {
 		t.Skip("database not available")
 	}
 	withArtifactStorage(t, &artifactTestStorage{})
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
-	_, otherTaskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
+	_, otherTaskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	content := []byte(artifactTestPNG)
 	fields := artifactUploadFields("primary-1", "primary-1.png", "image", "primary", "png", "image/png", len(content), artifactSHA256Field(content))
@@ -261,7 +261,7 @@ func TestAuroraArtifactUploadRejectsForeignWorkspace(t *testing.T) {
 		t.Skip("database not available")
 	}
 	withArtifactStorage(t, &artifactTestStorage{})
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	content := []byte(artifactTestPNG)
 	fields := artifactUploadFields("primary-1", "primary-1.png", "image", "primary", "png", "image/png", len(content), artifactSHA256Field(content))
@@ -293,7 +293,7 @@ func TestAuroraArtifactUploadRequiresTaskToken(t *testing.T) {
 		t.Skip("database not available")
 	}
 	withArtifactStorage(t, &artifactTestStorage{})
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	content := []byte(artifactTestPNG)
 	fields := artifactUploadFields("primary-1", "primary-1.png", "image", "primary", "png", "image/png", len(content), artifactSHA256Field(content))
@@ -308,7 +308,7 @@ func TestAuroraArtifactUploadRejectsDuplicateArtifactID(t *testing.T) {
 	}
 	store := &artifactTestStorage{}
 	withArtifactStorage(t, store)
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	content := []byte(artifactTestPNG)
 	fields := artifactUploadFields("primary-1", "primary-1.png", "image", "primary", "png", "image/png", len(content), artifactSHA256Field(content))
@@ -338,7 +338,7 @@ func TestAuroraArtifactUploadRejectsMIMEMismatch(t *testing.T) {
 	}
 	store := &artifactTestStorage{}
 	withArtifactStorage(t, store)
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	content := []byte("this is plainly text, not a png")
 	fields := artifactUploadFields("primary-1", "primary-1.png", "image", "primary", "png", "image/png", len(content), artifactSHA256Field(content))
@@ -359,7 +359,7 @@ func TestAuroraArtifactUploadRejectsUnsupportedMIME(t *testing.T) {
 	}
 	store := &artifactTestStorage{}
 	withArtifactStorage(t, store)
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	content := []byte(artifactTestPNG)
 	fields := artifactUploadFields("primary-1", "primary-1.bin", "image", "primary", "png", "application/x-msdownload", len(content), artifactSHA256Field(content))
@@ -378,7 +378,7 @@ func TestAuroraArtifactUploadRejectsKindOutsideSkillPolicy(t *testing.T) {
 	store := &artifactTestStorage{}
 	withArtifactStorage(t, store)
 	// text-image only produces image artifacts; a video is a policy violation.
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "text-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	content := []byte(artifactTestPNG)
 	fields := artifactUploadFields("primary-1", "primary-1.png", "image", "primary", "png", "image/png", len(content), artifactSHA256Field(content))
@@ -403,7 +403,7 @@ func TestAuroraArtifactUploadAcceptsTheVideoCaptionsTranscript(t *testing.T) {
 	}
 	store := &artifactTestStorage{}
 	withArtifactStorage(t, store)
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "video-captions")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	content := []byte("hello world")
 	transcript := artifactUploadFields("transcript-1", "transcript.txt", "text", "transcript", "txt", "text/plain", len(content), artifactSHA256Field(content))
@@ -423,7 +423,7 @@ func TestAuroraArtifactUploadRejectsOversizeStream(t *testing.T) {
 	}
 	store := &artifactTestStorage{}
 	withArtifactStorage(t, store)
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	// Declare the cap itself so the declared-size check passes, then stream one
 	// byte more than the cap.
@@ -445,7 +445,7 @@ func TestAuroraArtifactUploadRejectsShortDeclaredSize(t *testing.T) {
 	}
 	store := &artifactTestStorage{}
 	withArtifactStorage(t, store)
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	content := []byte(artifactTestPNG + "short")
 	fields := artifactUploadFields("primary-1", "primary-1.png", "image", "primary", "png", "image/png", len(content)+100, artifactSHA256Field(content))
@@ -466,7 +466,7 @@ func TestAuroraArtifactUploadRejectsLongDeclaredSize(t *testing.T) {
 	}
 	store := &artifactTestStorage{}
 	withArtifactStorage(t, store)
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	content := []byte(artifactTestPNG + "much longer than declared")
 	fields := artifactUploadFields("primary-1", "primary-1.png", "image", "primary", "png", "image/png", 4, artifactSHA256Field(content))
@@ -484,7 +484,7 @@ func TestAuroraArtifactUploadRejectsHashMismatch(t *testing.T) {
 	}
 	store := &artifactTestStorage{}
 	withArtifactStorage(t, store)
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	content := []byte(artifactTestPNG + "hash me")
 	fields := artifactUploadFields("primary-1", "primary-1.png", "image", "primary", "png", "image/png", len(content), "sha256:"+strings.Repeat("0", 64))
@@ -505,7 +505,7 @@ func TestAuroraArtifactUploadStorageFailureLeavesNoRow(t *testing.T) {
 	}
 	store := &artifactTestStorage{failUpload: true}
 	withArtifactStorage(t, store)
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	content := []byte(artifactTestPNG)
 	fields := artifactUploadFields("primary-1", "primary-1.png", "image", "primary", "png", "image/png", len(content), artifactSHA256Field(content))
@@ -535,7 +535,7 @@ func TestAuroraArtifactImportStreamsRemoteIntoStaging(t *testing.T) {
 	withArtifactStorage(t, store)
 	withArtifactImportClient(t, artifactTestHTTPSClient(t, server))
 
-	agentID, taskID, generationID := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, generationID := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 	resp := testutil.Call(t, testHandler.ImportAuroraArtifact,
 		artifactImportRequest(taskID, agentID, taskID, artifactImportBody(server.URL+"/file", nil))).Want(http.StatusOK)
 	var got artifactTestResponse
@@ -599,8 +599,8 @@ func TestAuroraArtifactImportRejectsForeignTask(t *testing.T) {
 		t.Skip("database not available")
 	}
 	withArtifactStorage(t, &artifactTestStorage{})
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
-	_, otherTaskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
+	_, otherTaskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	testutil.Call(t, testHandler.ImportAuroraArtifact,
 		artifactImportRequest(otherTaskID, agentID, taskID, artifactImportBody("https://example.invalid/x", nil))).Want(http.StatusForbidden)
@@ -615,7 +615,7 @@ func TestAuroraArtifactImportRequiresTaskToken(t *testing.T) {
 		t.Skip("database not available")
 	}
 	withArtifactStorage(t, &artifactTestStorage{})
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	req := artifactImportRequest(taskID, agentID, taskID, artifactImportBody("https://example.invalid/x", nil))
 	req.Header.Del("X-Actor-Source")
@@ -627,7 +627,7 @@ func TestAuroraArtifactImportRejectsURLCredentials(t *testing.T) {
 		t.Skip("database not available")
 	}
 	withArtifactStorage(t, &artifactTestStorage{})
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	testutil.Call(t, testHandler.ImportAuroraArtifact,
 		artifactImportRequest(taskID, agentID, taskID, artifactImportBody("https://user:secret@example.com/x", nil))).Want(http.StatusBadRequest)
@@ -638,7 +638,7 @@ func TestAuroraArtifactImportRejectsHTTPURL(t *testing.T) {
 		t.Skip("database not available")
 	}
 	withArtifactStorage(t, &artifactTestStorage{})
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	testutil.Call(t, testHandler.ImportAuroraArtifact,
 		artifactImportRequest(taskID, agentID, taskID, artifactImportBody("http://example.com/x", nil))).Want(http.StatusBadRequest)
@@ -660,7 +660,7 @@ func TestAuroraArtifactImportRevalidatesRedirects(t *testing.T) {
 	store := &artifactTestStorage{}
 	withArtifactStorage(t, store)
 	withArtifactImportClient(t, artifactTestHTTPSClient(t, server))
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	t.Run("allowed redirect is followed", func(t *testing.T) {
 		got := testutil.Decode[artifactTestResponse](t, testHandler.ImportAuroraArtifact,
@@ -699,7 +699,7 @@ func TestAuroraArtifactImportRejectsExcessiveResponseBytes(t *testing.T) {
 
 	withArtifactStorage(t, &artifactTestStorage{})
 	withArtifactImportClient(t, artifactTestHTTPSClient(t, server))
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	testutil.Call(t, testHandler.ImportAuroraArtifact,
 		artifactImportRequest(taskID, agentID, taskID, artifactImportBody(server.URL+"/oversize", nil))).Want(http.StatusRequestEntityTooLarge)
@@ -714,7 +714,7 @@ func TestAuroraArtifactImportRejectsUnsupportedMIME(t *testing.T) {
 		t.Skip("database not available")
 	}
 	withArtifactStorage(t, &artifactTestStorage{})
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	testutil.Call(t, testHandler.ImportAuroraArtifact,
 		artifactImportRequest(taskID, agentID, taskID, artifactImportBody("https://example.invalid/x",
@@ -732,7 +732,7 @@ func TestAuroraArtifactImportRejectsSniffedMIMEMismatch(t *testing.T) {
 
 	withArtifactStorage(t, &artifactTestStorage{})
 	withArtifactImportClient(t, artifactTestHTTPSClient(t, server))
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	testutil.Call(t, testHandler.ImportAuroraArtifact,
 		artifactImportRequest(taskID, agentID, taskID, artifactImportBody(server.URL+"/file", nil))).Want(http.StatusUnsupportedMediaType)
@@ -754,7 +754,7 @@ func TestAuroraArtifactImportTimeout(t *testing.T) {
 	client.Timeout = 50 * time.Millisecond
 	withArtifactStorage(t, &artifactTestStorage{})
 	withArtifactImportClient(t, client)
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	testutil.Call(t, testHandler.ImportAuroraArtifact,
 		artifactImportRequest(taskID, agentID, taskID, artifactImportBody(server.URL+"/slow", nil))).Want(http.StatusGatewayTimeout)
@@ -777,7 +777,7 @@ func TestAuroraArtifactImportDeletesObjectAfterStagingInsertFailure(t *testing.T
 	store := &artifactTestStorage{}
 	withArtifactStorage(t, store)
 	withArtifactImportClient(t, artifactTestHTTPSClient(t, server))
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	body := artifactImportBody(server.URL+"/file", map[string]any{"manifest_artifact_id": "primary-1"})
 	testutil.Call(t, testHandler.ImportAuroraArtifact,
@@ -805,7 +805,7 @@ func TestAuroraArtifactImportStorageFailureLeavesNoRow(t *testing.T) {
 
 	withArtifactStorage(t, &artifactTestStorage{failUpload: true})
 	withArtifactImportClient(t, artifactTestHTTPSClient(t, server))
-	agentID, taskID, _ := seedAuroraArtifactTask(t, "xhs-image")
+	agentID, taskID, _ := seedAuroraArtifactTask(t, "ecommerce-bidding-strategy")
 
 	testutil.Call(t, testHandler.ImportAuroraArtifact,
 		artifactImportRequest(taskID, agentID, taskID, artifactImportBody(server.URL+"/file", nil))).Want(http.StatusBadGateway)

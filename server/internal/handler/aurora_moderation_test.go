@@ -132,7 +132,7 @@ func TestAuroraModerationBlocksBlockedPrompt(t *testing.T) {
 	resetAuroraModerationLog(t)
 
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  "帮我写一篇关于儿童色情的推广文案",
 	})
 	testutil.Call(t, testHandler.CreateAuroraGeneration, req).Want(http.StatusUnprocessableEntity)
@@ -193,7 +193,7 @@ func TestAuroraModerationAllowsCleanPrompt(t *testing.T) {
 	}
 
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  "生成一张新加坡亲子游封面",
 	})
 	testutil.Call(t, testHandler.CreateAuroraGeneration, req).Want(http.StatusCreated)
@@ -217,7 +217,7 @@ func TestAuroraModerationFailsClosedWhenPromptScreenErrors(t *testing.T) {
 	withAuroraModeration(t, moderator)
 
 	req := newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  "生成一张新加坡亲子游封面",
 	})
 	testutil.Call(t, testHandler.CreateAuroraGeneration, req).Want(http.StatusInternalServerError)
@@ -388,7 +388,7 @@ func runningAuroraGeneration(t *testing.T, reservedMicro int64) (generationID, t
 	generationID = dbfx.Insert(t, "aurora_generation", testutil.Cols{
 		"workspace_id":     testWorkspaceID,
 		"user_id":          testUserID,
-		"skill_id":         "xhs-image",
+		"skill_id":         "ecommerce-bidding-strategy",
 		"prompt":           "artifact moderation",
 		"status":           "running",
 		"task_id":          taskID,

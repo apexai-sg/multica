@@ -17,7 +17,7 @@ import (
 )
 
 func TestEnsureTaskSkillBundles_AuroraRequiresDocument(t *testing.T) {
-	task := Task{Agent: &AgentData{SystemKey: "aurora:text-image"}}
+	task := Task{Agent: &AgentData{SystemKey: "aurora:ecommerce-bidding-strategy"}}
 	d := &Daemon{}
 	err := d.ensureTaskSkillBundles(context.Background(), &task)
 	if err == nil || !strings.Contains(err.Error(), "required Aurora skill document") {
@@ -30,10 +30,10 @@ func TestEnsureTaskSkillBundles_AuroraResolvedDocument(t *testing.T) {
 		name, source, content string
 		wantError             bool
 	}{
-		{"文字生成图片", "workspace", "# Workflow", false},
-		{"文字生成图片", "workspace", "  ", true},
+		{"竞价策略专家", "workspace", "# Workflow", false},
+		{"竞价策略专家", "workspace", "  ", true},
 		{"unrelated", "workspace", "# Workflow", true},
-		{"文字生成图片", "plugin", "# Workflow", true},
+		{"竞价策略专家", "plugin", "# Workflow", true},
 	} {
 		t.Run(tc.name+tc.source+tc.content, func(t *testing.T) {
 			bundle := SkillData{ID: "skill-1", Source: tc.source, Name: tc.name, Content: tc.content}
@@ -43,7 +43,7 @@ func TestEnsureTaskSkillBundles_AuroraResolvedDocument(t *testing.T) {
 			if err := d.skillCache.Store("ws-1", bundle); err != nil {
 				t.Fatal(err)
 			}
-			task := Task{WorkspaceID: "ws-1", Agent: &AgentData{SystemKey: "aurora:text-image", Name: "renamed agent", SkillRefs: []SkillRefData{ref}}}
+			task := Task{WorkspaceID: "ws-1", Agent: &AgentData{SystemKey: "aurora:ecommerce-bidding-strategy", Name: "renamed agent", SkillRefs: []SkillRefData{ref}}}
 			err := d.ensureTaskSkillBundles(context.Background(), &task)
 			if (err != nil) != tc.wantError {
 				t.Fatalf("delivery error = %v, want error %v", err, tc.wantError)
