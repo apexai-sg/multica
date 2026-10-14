@@ -40,7 +40,7 @@ describe("filterAuroraSkills", () => {
     // An unavailable skill still belongs in its category tab — it is the
     // "coming soon" half of the directory, not a hidden row.
     const office = filterAuroraSkills(CATALOG, "", "office");
-    expect(office.map((s) => s.id)).toEqual(["ppt"]);
+    expect(office.map((s) => s.id)).toEqual(["excel"]);
   });
 
   it("matches the English name for a reader who is looking at the English one", () => {
@@ -68,10 +68,10 @@ describe("filterAuroraSkills", () => {
   });
 
   it("applies the category and the query together", () => {
-    expect(filterAuroraSkills(CATALOG, "文案", "image")).toEqual([]);
+    expect(filterAuroraSkills(CATALOG, "文案", "office")).toEqual([]);
     expect(
-      filterAuroraSkills(CATALOG, "文案", "content").map((s) => s.id),
-    ).toEqual(["xhs-copy"]);
+      filterAuroraSkills(CATALOG, "文案", "media").map((s) => s.id),
+    ).toEqual(["media-short-video-copy"]);
   });
 
   it("returns nothing rather than everything when nothing matches", () => {

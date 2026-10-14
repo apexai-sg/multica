@@ -533,7 +533,7 @@ describe("GenerationComposer", () => {
   it("derives the document accept filter from the parsed policy", () => {
     renderComposer({
       skill: skill({
-        id: "document-summary",
+        id: "legal-legal-research",
         attachments: [
           { kinds: ["document"], min: 1, max: 1, maxBytes: 25 << 20 },
         ],
@@ -548,7 +548,7 @@ describe("GenerationComposer", () => {
   it("derives an audio-or-video accept filter from the parsed policy", () => {
     renderComposer({
       skill: skill({
-        id: "transcription",
+        id: "media-script-breakdown",
         attachments: [
           { kinds: ["audio", "video"], min: 1, max: 1, maxBytes: 100 << 20 },
         ],
@@ -603,7 +603,7 @@ describe("GenerationComposer", () => {
     const user = userEvent.setup();
     mocks.upload.mockResolvedValue({ id: "att-1" });
     renderComposer({
-      skill: skill({ id: "image-edit", attachments: [REQUIRED_IMAGE_RULE] }),
+      skill: skill({ id: "design-ui-prototype", attachments: [REQUIRED_IMAGE_RULE] }),
     });
 
     const submit = screen.getByRole("button", { name: "Generate" });
@@ -619,7 +619,7 @@ describe("GenerationComposer", () => {
     const user = userEvent.setup();
     mocks.upload.mockResolvedValue({ id: "att-1" });
     renderComposer({
-      skill: skill({ id: "image-edit", attachments: [REQUIRED_IMAGE_RULE] }),
+      skill: skill({ id: "design-ui-prototype", attachments: [REQUIRED_IMAGE_RULE] }),
     });
 
     await user.type(screen.getByLabelText("What should it make?"), "a poster");
@@ -638,7 +638,7 @@ describe("GenerationComposer", () => {
     const user = userEvent.setup();
     mocks.upload.mockRejectedValue(new Error("storage down"));
     renderComposer({
-      skill: skill({ id: "image-edit", attachments: [REQUIRED_IMAGE_RULE] }),
+      skill: skill({ id: "design-ui-prototype", attachments: [REQUIRED_IMAGE_RULE] }),
     });
 
     await user.type(screen.getByLabelText("What should it make?"), "a poster");
