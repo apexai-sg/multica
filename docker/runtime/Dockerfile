@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Build context: repository root. Installation/build are separately opt-in.
 # Native target-platform stages retain amd64/arm64 support without cross-ABI copies.
-FROM golang:1.26.6-bookworm AS builder
+FROM golang:1.26.9-bookworm AS builder
 WORKDIR /src
 COPY server/ ./
 RUN CGO_ENABLED=0 go build -o /out/multica ./cmd/multica && CGO_ENABLED=0 go build -o /out/fleet-node ./cmd/fleet-node
