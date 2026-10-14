@@ -79,6 +79,12 @@ _features/
 *.app
 server/server
 data/
+# The vendored expert library is snapshot content, not build output: two
+# sub-skills ship a data/ tree (legal_database.json, risk_rules.json) that the
+# rule above would otherwise drop from a fresh checkout, and go:embed would then
+# lose the whole sub-skill.
+!server/internal/aurora/experts/**/data/
+!server/internal/aurora/experts/**/data/**
 .kilo
 .idea
 .gstack/
