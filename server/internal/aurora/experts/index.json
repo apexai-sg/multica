@@ -1,0 +1,4746 @@
+{
+  "schema": 1,
+  "source": "octop expert_market snapshot (SkillHub skillsets)",
+  "experts": [
+    {
+      "slug": "content-creation-lyrics-songwriting",
+      "name_zh": "歌词创作专家",
+      "name_en": "Content Creation Lyrics Songwriting Expert",
+      "scene": "content-creation",
+      "description_zh": "覆盖歌词创作从「主驱动 Suno 浏览器自动化」到「作词方法论 + 元标签专家 + 风格仿写 + 情感弧线」再到「输出层 MV 流水线」的完整工具集，全部免 API Key",
+      "description_en": "Expert workflow for Content Creation Lyrics Songwriting Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "acestep-songwriting",
+          "name": "content-creation-lyrics-songwriting--acestep-songwriting",
+          "display_zh": "acestep-songwriting",
+          "display_en": "acestep-songwriting",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 7913,
+              "sha256": "32823ee8f6f315c1021a80ffacd8cadb74ca8c8ba79529ac9bb3f0e1d492a90c"
+            }
+          ]
+        },
+        {
+          "slug": "insight-song",
+          "name": "content-creation-lyrics-songwriting--insight-song",
+          "display_zh": "insight-song",
+          "display_en": "insight-song",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 7945,
+              "sha256": "59ee08eaff00d31197d4027db6ee4ca96be3face4fa01c8b7dcc1d235c875874"
+            }
+          ]
+        },
+        {
+          "slug": "songwriting-and-ai-music",
+          "name": "content-creation-lyrics-songwriting--songwriting-and-ai-music",
+          "display_zh": "songwriting-and-ai-music",
+          "display_en": "songwriting-and-ai-music",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 25531,
+              "sha256": "7c54b74567fff03f54af4af1d17e78d4091ebe73617b8b455113a64dba53025e"
+            },
+            {
+              "path": "references/chinese-style-prompt-patterns.md",
+              "size": 10409,
+              "sha256": "b1e9c40f9cc26c050e67409c297a3ec95e7076dd5a7afba95c98d5221f4377cb"
+            },
+            {
+              "path": "references/yufangzefang-prompt-package.md",
+              "size": 3923,
+              "sha256": "b24bf84a9f0e1c2d43b776b553d3c23925c87739c7a9e48e2b99ba3bee9dafe1"
+            }
+          ]
+        },
+        {
+          "slug": "suno-browser-songmaking",
+          "name": "content-creation-lyrics-songwriting--suno-browser-songmaking",
+          "display_zh": "suno-browser-songmaking",
+          "display_en": "suno-browser-songmaking",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1605,
+              "sha256": "83c53add72068ec3d962d7760c0d6f4912850bc0a8f0ce81ccb8ab1318a1d67b"
+            },
+            {
+              "path": "references/suno-workflow.md",
+              "size": 1564,
+              "sha256": "fd827d936e26ab548de94930d3f4756d75c93d84d74bf8dd3c53c44214639339"
+            }
+          ]
+        },
+        {
+          "slug": "suno-music-composer",
+          "name": "content-creation-lyrics-songwriting--suno-music-composer",
+          "display_zh": "suno-music-composer",
+          "display_en": "suno-music-composer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 2708,
+              "sha256": "212583e80d0ecb1ec292ba7ff5bc11b055b3ffefca6daac4418434b2776fce14"
+            },
+            {
+              "path": "package.json",
+              "size": 790,
+              "sha256": "e5e79436c0073b8e6cdb05085d554cfb83abddb02f0fe4e93f7de36f6a4f5d64"
+            }
+          ]
+        },
+        {
+          "slug": "suno-poetry-music-creator",
+          "name": "content-creation-lyrics-songwriting--suno-poetry-music-creator",
+          "display_zh": "suno-poetry-music-creator",
+          "display_en": "suno-poetry-music-creator",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 889,
+              "sha256": "b8a0f0bdb5c11e15e51f966c880b60b0d72cbd176da90f402855a7decae9d5b4"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 7617,
+              "sha256": "a641f724e4d9d9341adf4b06e03fe1c9b512846725ce7329b88775428e66fb83"
+            },
+            {
+              "path": "references/chinese-rhyme.md",
+              "size": 15871,
+              "sha256": "d33181ad97df56d7c5e819b2bc7ea8a50154f8eb329abc65e088bd279f394726"
+            },
+            {
+              "path": "references/lyric-examples.md",
+              "size": 3920,
+              "sha256": "d0f7dea0836e6311c8ec1cfc2c2d7a8ec13241c7bcc7f9377fe1d7c9cb7f2637"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "content-creation-novel-writing",
+      "name_zh": "网文/小说创作专家",
+      "name_en": "Content Creation Novel Writing Expert",
+      "scene": "content-creation",
+      "description_zh": "覆盖网文创作从「章节连贯爽文主驱动」到「番茄平台垂直特化 + 严谨结构化引擎」再到「平台变现方法论 + 风格续写」的完整工具集，全部免 API Key",
+      "description_en": "Expert workflow for Content Creation Novel Writing Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "chinese-novelist-skill",
+          "name": "content-creation-novel-writing--chinese-novelist-skill",
+          "display_zh": "chinese-novelist-skill",
+          "display_en": "chinese-novelist-skill",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 6631,
+              "sha256": "06710b53543bb96276ca406f77fd621f684eb1cbba299f12e0381a051ff9b339"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 6649,
+              "sha256": "62ac473a16f6f56aba818b862638ddcc47813c0393dd946415ab5f4eebbd4ed5"
+            },
+            {
+              "path": "references/chapter-guide.md",
+              "size": 7592,
+              "sha256": "b68d6ec967293be161fa5f0af9a5186ed841c8d8626b1e8a8930249006bfe4f3"
+            },
+            {
+              "path": "references/chapter-template.md",
+              "size": 426,
+              "sha256": "6f102428bf40f150950915ac8ebe2fa5be7e18502fe607de9da6b4922014261f"
+            },
+            {
+              "path": "references/character-building.md",
+              "size": 5691,
+              "sha256": "4fb405c8d86fd8fabc237a4c78c97ffe2aabb6a4cdd6fc9e75f58594c66efe92"
+            },
+            {
+              "path": "references/character-template.md",
+              "size": 373,
+              "sha256": "8802145d52a6bcd1012dda9eb3aa815d0dba1cceb601584267fb4cf3cb1dc03c"
+            },
+            {
+              "path": "references/consistency.md",
+              "size": 1087,
+              "sha256": "8a06bf67f8d1dc454e7771e1d979d94ad7775b41217b0bfb611d3db481a2298d"
+            },
+            {
+              "path": "references/content-expansion.md",
+              "size": 1490,
+              "sha256": "c58764582fc3cc003462a4ad3f421acd0028997bb7c0007a172ded3569474bbd"
+            },
+            {
+              "path": "references/dialogue-writing.md",
+              "size": 7041,
+              "sha256": "c1b21ce087034db4e60d18d3ce293b29e935504ef2aa3a55b5d4864ac3456dd6"
+            },
+            {
+              "path": "references/hook-techniques.md",
+              "size": 4825,
+              "sha256": "a9e62358fbfd227a99ee3f03b2d03dc9680bc714270386041436ac4a9fb63beb"
+            },
+            {
+              "path": "references/outline-template.md",
+              "size": 1163,
+              "sha256": "5274ad8e75b43368cfe31b4d940b7ff76121cae2ec8b61dbd999a19d5c557c52"
+            },
+            {
+              "path": "references/plot-structures.md",
+              "size": 6533,
+              "sha256": "13958bf17c875509509eb308bae30aeed451ac2ad85b9f669e96a97f70df4814"
+            },
+            {
+              "path": "references/quality-checklist.md",
+              "size": 5276,
+              "sha256": "ce41f47877b18610ff36168ff0337ae7c9856b18cc09c0966ffa87ce6f00f836"
+            },
+            {
+              "path": "scripts/check_chapter_wordcount.py",
+              "size": 5709,
+              "sha256": "59ed0a0a0463b4f89be8f1d51875eba4537c328927cc25a2962cb9fdb99004a6"
+            }
+          ]
+        },
+        {
+          "slug": "fanqie-masterclass",
+          "name": "content-creation-novel-writing--fanqie-masterclass",
+          "display_zh": "fanqie-masterclass",
+          "display_en": "fanqie-masterclass",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 4353,
+              "sha256": "e0c22fb82f72e67dfeab667910051d2615197ec9774dab18e4449e9c0df7b9c8"
+            },
+            {
+              "path": "references/ai-flavor-words.md",
+              "size": 2575,
+              "sha256": "a1746dde095e8f39b5c09053b0c88d52ca14f207012f08b5aefeac83ad147448"
+            },
+            {
+              "path": "references/chapter1-platform.md",
+              "size": 3877,
+              "sha256": "b67f3920ee0827a63f6e56c2a313a32c6e84b1a10cf71249fb58944bc85b6b8a"
+            },
+            {
+              "path": "references/chapter2-standards.md",
+              "size": 8194,
+              "sha256": "06b59bc01912358f85b78cc53aa7fc665aec289927fd8e5237d02df787b72da2"
+            },
+            {
+              "path": "references/chapter3-ideas.md",
+              "size": 7070,
+              "sha256": "a17998972f2db2873fdefdf7abcb83d6f59c22e3006eded211870de2ddb08e7f"
+            },
+            {
+              "path": "references/chapter4-ai-workflow.md",
+              "size": 4630,
+              "sha256": "ea1e282e1a571348b721c9ce160ff6dae72e02378e4033b03e604d9940a607a6"
+            },
+            {
+              "path": "references/chapter5-polish.md",
+              "size": 4872,
+              "sha256": "8c6b4f835f1352b97efe608792502100a05f965cf431d063455112ad36fb047e"
+            },
+            {
+              "path": "references/chapter6-monetize.md",
+              "size": 6189,
+              "sha256": "8eb2013b486e045ed8cf66dbaac65e63b5e29c118eb1c1e99c185160ae43a852"
+            },
+            {
+              "path": "references/chapter7-overseas.md",
+              "size": 7743,
+              "sha256": "1cba732c32e19917041bfe39892e9d44afb79d2b2c48fe94cabf71f9217bb42e"
+            },
+            {
+              "path": "references/checklists.md",
+              "size": 3829,
+              "sha256": "dd5aa5ff2e0f53aada48b729ee2b08cc94a50a11fa9e794514a6c55dc8d84b9e"
+            },
+            {
+              "path": "references/intro-templates.md",
+              "size": 6044,
+              "sha256": "f4cd9b706eeeff7f476df2be674859c5839421fef80742bf43f894e2cbb4a30d"
+            },
+            {
+              "path": "references/physiological-reactions.md",
+              "size": 4289,
+              "sha256": "42a361f650fa739ecd1dd1962791f15fa13018ebc9c79fcea46e54bbc8077850"
+            },
+            {
+              "path": "references/title-formulas.md",
+              "size": 5445,
+              "sha256": "c31c9b6bbe8fd89575f72d89dd4bd805c0cfb1fdc959d2130fac7f430e876062"
+            }
+          ]
+        },
+        {
+          "slug": "g113593",
+          "name": "content-creation-novel-writing--g113593",
+          "display_zh": "g113593",
+          "display_en": "g113593",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 8746,
+              "sha256": "6a9527f376f5019275c7050dfaadd73ba7bbead6fe3e87a0a9b9858f3b81d09b"
+            },
+            {
+              "path": "references/交付前必查.md",
+              "size": 1857,
+              "sha256": "a732c7480d345a145e2d62459bc43570b9e271f32550541c3d348b78b00da8be"
+            },
+            {
+              "path": "references/文风与去AI味.md",
+              "size": 4297,
+              "sha256": "b511d4641aec4a8c7f0b09642a71b37fd040643985cac4e03b02c786e0472b77"
+            },
+            {
+              "path": "references/番茄情绪曲线.md",
+              "size": 4058,
+              "sha256": "a9b0ae511d63fbf596314ab3500b4ba02029c89eac05d0a0a501ea99545c2cfe"
+            },
+            {
+              "path": "references/章节引擎.md",
+              "size": 5544,
+              "sha256": "b19ee0f6be878e74e81efa019981c0dc81d09bc6882556482c836c8d9719313b"
+            },
+            {
+              "path": "references/章节模板.md",
+              "size": 518,
+              "sha256": "043b25979cbb59f5557ef64900fdca87eae7c7e8dc719cac5506862bd1ed9bd6"
+            },
+            {
+              "path": "scripts/check_chapter_tomato.py",
+              "size": 15742,
+              "sha256": "0d1385f84bb8e7a4b8361e6b98a839d21a0dc81b12acd8bb398f1d18e5c8b98f"
+            },
+            {
+              "path": "templates/人物档案.md",
+              "size": 1664,
+              "sha256": "59b4658099978732e6764b982a333d49fc02a783265937d2e7a77bebf9d853fd"
+            },
+            {
+              "path": "templates/大纲.md",
+              "size": 4682,
+              "sha256": "da16fd3eed74dc123e233fbd23f8ce8d7ddba064b370420167a7cb59dc70ae24"
+            },
+            {
+              "path": "安装说明.md",
+              "size": 1666,
+              "sha256": "441e0e977dca651cac359bd23c8a87e1ed9d0bb21ffcd6b8f5a46a8bc92fcf50"
+            }
+          ]
+        },
+        {
+          "slug": "novel-generator",
+          "name": "content-creation-novel-writing--novel-generator",
+          "display_zh": "novel-generator",
+          "display_en": "novel-generator",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 4304,
+              "sha256": "91c9944e8132c84c72aa1a6645f70999057dd75d95246477c79e0f364e425eb8"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 12095,
+              "sha256": "a00a041d85716352a31b04e2d960a2f71f2c6c2226cf5890f38cd583e87c08aa"
+            },
+            {
+              "path": "assets/CHAPTER-TEMPLATE.md",
+              "size": 3021,
+              "sha256": "79e77134f8e335711717c7ef9fc872ba9c380e4768c83cb3855a43b4e73ca164"
+            },
+            {
+              "path": "assets/LEARNINGS-TEMPLATE.md",
+              "size": 2904,
+              "sha256": "29359caf3bc6660ec75f968ed621d92b6519f4e538e813ec01a632986825a3dc"
+            },
+            {
+              "path": "assets/PROMPT-TEMPLATE.md",
+              "size": 3824,
+              "sha256": "ae4e9cc317c0d50f537b2614f449d691df2b4304888a6f00d3dadf5d444b1eaf"
+            },
+            {
+              "path": "references/examples.md",
+              "size": 8728,
+              "sha256": "1ba9134a9b648ca32da886b4ac83163e603f8f747a0601e582396bb2e13ddaf2"
+            },
+            {
+              "path": "references/plot-structures.md",
+              "size": 4907,
+              "sha256": "b89cc8c1331d8648e6c3575a1390d3da626f452dc0762a2a8f04b9997f866492"
+            },
+            {
+              "path": "references/prompt-guide.md",
+              "size": 3899,
+              "sha256": "256d62f05198aba5d2e42a2e9ef18c1381e69aecf04585f26a22f34810d550bb"
+            },
+            {
+              "path": "scripts/init-novel.sh",
+              "size": 4166,
+              "sha256": "9338a5784a828d46d732f41f0d6cc33dfb9b9044b8532279fa065b3e1d08a6f1"
+            }
+          ]
+        },
+        {
+          "slug": "novel-writer-structure",
+          "name": "content-creation-novel-writing--novel-writer-structure",
+          "display_zh": "novel-writer-structure",
+          "display_en": "novel-writer-structure",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 5453,
+              "sha256": "fcc03de761b14f00ce3a96dacbe94189de1b8340233fd0113e006771876a42b5"
+            },
+            {
+              "path": "references/state-tracking-template.md",
+              "size": 525,
+              "sha256": "2233ac6209fc60d54a37d79499fd57dd61d84521b4c64c02cd6cd7b46d668aef"
+            }
+          ]
+        },
+        {
+          "slug": "novel-writer-v2",
+          "name": "content-creation-novel-writing--novel-writer-v2",
+          "display_zh": "novel-writer-v2",
+          "display_en": "novel-writer-v2",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 6486,
+              "sha256": "3bdb89765ad9d8bf8e655484021f7ff92d008cc46afd4baa6b0a9de6163e0655"
+            },
+            {
+              "path": "scripts/requirements.txt",
+              "size": 12,
+              "sha256": "8a6a1bf041d2fadd811e8ef4365801b2ba4f634dde57e88630e091b5cc6ca7d2"
+            },
+            {
+              "path": "scripts/write_chapter.py",
+              "size": 13191,
+              "sha256": "430399f9e54320c1ffcecef3b93d8a6638e17c161947cf899f61fa1b578d4735"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "content-creation-screenwriting",
+      "name_zh": "剧本创作专家",
+      "name_en": "Content Creation Screenwriting Expert",
+      "scene": "content-creation",
+      "description_zh": "覆盖剧本创作从「短剧主驱动 + 专业流水线」到「电影编剧经典方法论 + 广播剧/有声剧专项」再到「多代理工程化 + 去 AI 味多轮审查」的完整工具集，全部免 API Key",
+      "description_en": "Expert workflow for Content Creation Screenwriting Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "drama-script",
+          "name": "content-creation-screenwriting--drama-script",
+          "display_zh": "drama-script",
+          "display_en": "drama-script",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 12079,
+              "sha256": "34c960c6800b1d9c0c87dbb54980728a414c9b88948601f4e720c75e43474ef1"
+            },
+            {
+              "path": "references/agents/agent-character-profile.md",
+              "size": 5870,
+              "sha256": "196469494180d80c1cf5d18a31df95db640f545160d0d659b3cccbe9f9694f14"
+            },
+            {
+              "path": "references/agents/agent-episode-outline.md",
+              "size": 6379,
+              "sha256": "1309cdaf2d4eb48a91f6534ad1998895a4c0cda07ab2e95bd84876c9342e5826"
+            },
+            {
+              "path": "references/agents/agent-screenplay.md",
+              "size": 8758,
+              "sha256": "f390d2a06faa3b0b7f6a31e97eb350ff5dbacc3db2ef0884d031befb1e43f667"
+            },
+            {
+              "path": "references/agents/agent-story-bible.md",
+              "size": 6389,
+              "sha256": "7bf15d11c5801086dd8705ed8f4925aa6195e2b2e21edbae5287b87ec7f5c1d1"
+            },
+            {
+              "path": "references/checkpoint-resume.md",
+              "size": 1555,
+              "sha256": "b237b9b1f53aedac49851e3c4bc185a4cd9feb94f005437533b16d34a9e36399"
+            },
+            {
+              "path": "references/common-agent-rules.md",
+              "size": 1378,
+              "sha256": "4a5d4de66bd0aa19885aab822cdd26518d664e4b558a85486ff9e41543939bf7"
+            },
+            {
+              "path": "references/master-setup.md",
+              "size": 20283,
+              "sha256": "bd3316042e69be5a530aff2dba964e7a85046a2670966e9120f11e4822439b3d"
+            }
+          ]
+        },
+        {
+          "slug": "short-drama-pro",
+          "name": "content-creation-screenwriting--short-drama-pro",
+          "display_zh": "short-drama-pro",
+          "display_en": "short-drama-pro",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 2710,
+              "sha256": "f5aad317bc8a1ff9cd8c10a2060523738d4eeae1856591b09ac64aef6135d1a8"
+            }
+          ]
+        },
+        {
+          "slug": "short-drama-writer",
+          "name": "content-creation-screenwriting--short-drama-writer",
+          "display_zh": "short-drama-writer",
+          "display_en": "short-drama-writer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1813,
+              "sha256": "cf4dc53b2421ccdd93a35264b445870c8475cb218a38e55f47ced07c97d3cedc"
+            },
+            {
+              "path": "scripts/drama.sh",
+              "size": 7980,
+              "sha256": "c9f19e89d95474cf1796ffed500bb1221284374b8f513043111cc555fbe1fc4e"
+            },
+            {
+              "path": "scripts/drama_gen.py",
+              "size": 20611,
+              "sha256": "d7c2b98fd7b0cfc25ec2ee6b8cf91d6d55625e9d8335f3bcd297ba3074746356"
+            },
+            {
+              "path": "scripts/script.sh",
+              "size": 2651,
+              "sha256": "26122ca7fa509f0df0b14c94713a7f3e43fd2799e3db032adb4a91b42cb9e62e"
+            },
+            {
+              "path": "tips.md",
+              "size": 441,
+              "sha256": "3926040ca38f4ccfc83e9ab8f4480026d4c0d449140bfbdfd865d4d7467126c2"
+            }
+          ]
+        },
+        {
+          "slug": "text-echo-chamber",
+          "name": "content-creation-screenwriting--text-echo-chamber",
+          "display_zh": "text-echo-chamber",
+          "display_en": "text-echo-chamber",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 19172,
+              "sha256": "b5ce0d83f9ec9f7f7b999df4abd32b380d2e5c10b71cc85f61610d35d12cc156"
+            }
+          ]
+        },
+        {
+          "slug": "wahoo",
+          "name": "content-creation-screenwriting--wahoo",
+          "display_zh": "wahoo",
+          "display_en": "wahoo",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 21642,
+              "sha256": "7c925d8781cb6f7fc54da9f91b7a94cf43c4c0506712e9da75b85fbb9dcca3cb"
+            },
+            {
+              "path": "references/cases/mastercases.md",
+              "size": 5457,
+              "sha256": "a1735c51a65530ac60094d4c82d31e7266fe8533410e705e731daa9c502af522"
+            },
+            {
+              "path": "references/creative/engine.md",
+              "size": 7321,
+              "sha256": "ea242281be74109937f93743566dc9041883d44aa2ef2ef88026be0f6a4b601c"
+            },
+            {
+              "path": "references/creative/memory.md",
+              "size": 2858,
+              "sha256": "1e3adae17322e7f2cc63283f8782081835ab1f78b88c82f451d68ee1674116fd"
+            },
+            {
+              "path": "references/creative/process.md",
+              "size": 5215,
+              "sha256": "bb7227a37661b4df1197afb98b286948f6f39b5f62fb55ae62d1ea3739ba0bdb"
+            },
+            {
+              "path": "references/formats/feature.md",
+              "size": 7380,
+              "sha256": "1d988a4f7095f7ee80519be81c293a3859d56f1934d0bde07487a4b38e27938e"
+            },
+            {
+              "path": "references/formats/series.md",
+              "size": 7677,
+              "sha256": "635d7f119da3129fb4e10a16190c713971cb499c5ac0a331dad876e0333cd300"
+            },
+            {
+              "path": "references/formats/shortfilm.md",
+              "size": 5497,
+              "sha256": "a62f3f0751223007cc7da2372fe3f75e5b4f2a01c28ef4b218174088fae0d620"
+            },
+            {
+              "path": "references/formats/ultrashort.md",
+              "size": 6677,
+              "sha256": "9a56b4bfca28486f3bdb009cfb94019d54fba0b8cd584542493c669a80f378c5"
+            },
+            {
+              "path": "references/methodology/foundation.md",
+              "size": 6645,
+              "sha256": "a3faf3b5b085c414adcbb319dbc9a2f601202f908976bb6d74ef43e5f96d6fe3"
+            }
+          ]
+        },
+        {
+          "slug": "walrus03",
+          "name": "content-creation-screenwriting--walrus03",
+          "display_zh": "walrus03",
+          "display_en": "walrus03",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 13519,
+              "sha256": "a9cf6f72cde5260255f9b27f41f0e5651a1079d27fa800eaa56d91914af7d0eb"
+            },
+            {
+              "path": "references/审查标准.md",
+              "size": 6037,
+              "sha256": "64f27e1428524241df285cc73a6f3cd3127852058c674e68c031803e28c38672"
+            },
+            {
+              "path": "references/平台规范.md",
+              "size": 4141,
+              "sha256": "17d4b01968c72b91a2c249f9fb46578bdfece222ec5e7b607c9b96b27eae2595"
+            },
+            {
+              "path": "references/爽点库.md",
+              "size": 5223,
+              "sha256": "7179a22579c807f2aa5afc130776ddff832f91557f73da3c350385ee0ce60687"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "design-prd-writing",
+      "name_zh": "PRD 撰写专家",
+      "name_en": "Design Prd Writing Expert",
+      "scene": "design",
+      "description_zh": "从多轮对话式需求探索与EPIC分解、RICE优先级排序与客户访谈分析框架，到结构化PRD创建（含用户故事与验收标准）、专业PRD撰写润色、PRD转设计需求文档（信息架构/交互流程/页面布局），再到PRD量化评审打分的完整PRD撰写工作流。支持需求分析、优先级排序、文档生成、设计交付和质量评审全链路。",
+      "description_en": "Expert workflow for Design Prd Writing Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "prd",
+          "name": "design-prd-writing--prd",
+          "display_zh": "prd",
+          "display_en": "prd",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 3917,
+              "sha256": "db318a2e536126ad915c42bc885579bc9a827945c9332c9b116c97ce9f6fb357"
+            },
+            {
+              "path": "references/agent-usage.md",
+              "size": 3102,
+              "sha256": "e60c901704d2568b68e05f24745be0cd095349afaf1e8af87309c1160538df9a"
+            },
+            {
+              "path": "references/output-patterns.md",
+              "size": 4060,
+              "sha256": "be7d049bdadb33439330fde3ccd1b430326321001c81bfa6e270a46736b5e7b5"
+            },
+            {
+              "path": "references/workflows.md",
+              "size": 2292,
+              "sha256": "50d41436d73050c321fbb92eb79ecd10a7a3703b9c27a7fa86bad64ac2d8f179"
+            },
+            {
+              "path": "skill-card.md",
+              "size": 2354,
+              "sha256": "04d47dc26b87aef5841f460e3687ce2f7f61614f5be3d0d786baa1d945df9ae5"
+            }
+          ]
+        },
+        {
+          "slug": "prd-reviewer",
+          "name": "design-prd-writing--prd-reviewer",
+          "display_zh": "prd-reviewer",
+          "display_en": "prd-reviewer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 7912,
+              "sha256": "d0e100c2163256c774a2855dc87723ac0d0152fcb96ab2ff2111470675125150"
+            }
+          ]
+        },
+        {
+          "slug": "prd-to-design-doc",
+          "name": "design-prd-writing--prd-to-design-doc",
+          "display_zh": "prd-to-design-doc",
+          "display_en": "prd-to-design-doc",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 2821,
+              "sha256": "2c47058f73baa9b24cf8d667c453947fb1dd5981d8bac2dc443021dfa3bcc18a"
+            },
+            {
+              "path": "references/design-doc-template.md",
+              "size": 5824,
+              "sha256": "6f9c7ee143bd5fde4d19d03d6b5c46effd4a1faa81d04d0e8fd9155084e6fdee"
+            }
+          ]
+        },
+        {
+          "slug": "prd-writer-pro",
+          "name": "design-prd-writing--prd-writer-pro",
+          "display_zh": "prd-writer-pro",
+          "display_en": "prd-writer-pro",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 5572,
+              "sha256": "df712281bc569f236b36abc1c12b870080a7fc9eed90fb9c910f44df493a7c0b"
+            },
+            {
+              "path": "examples/stock-alert-prd.md",
+              "size": 4897,
+              "sha256": "a8caf80390357b04fccc32c6ea6dea7a690d954609fdb84e4c077bfcf67eee7f"
+            },
+            {
+              "path": "templates/prd-template.md",
+              "size": 2648,
+              "sha256": "a2005045b930c9fb1088797c7cf5daad2299ddb81997d4dd256ffbce2cade3f0"
+            }
+          ]
+        },
+        {
+          "slug": "requirements-analysis",
+          "name": "design-prd-writing--requirements-analysis",
+          "display_zh": "requirements-analysis",
+          "display_en": "requirements-analysis",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 5204,
+              "sha256": "058473e151887bea3c4ad3c539ce9d2ce4be7c812aa38bff80d6430b69d6d488"
+            },
+            {
+              "path": "references/complete-example.md",
+              "size": 7291,
+              "sha256": "0ba5dc46c448eb91b58c419993c0d3f77c4167b710115e031571614842a869cd"
+            },
+            {
+              "path": "references/epic-template.md",
+              "size": 824,
+              "sha256": "15e862b33e9a26c4bb471386ae11862e837092360e1088340beecb3a10be95f4"
+            },
+            {
+              "path": "references/prioritization-methods.md",
+              "size": 5587,
+              "sha256": "8aafd22375f690de597aad04f616d8a86800bfd3678315d08d1a0545a3930e82"
+            },
+            {
+              "path": "references/requirement-template.md",
+              "size": 1191,
+              "sha256": "5425990f7b4391681a14bbc789da05d2f0e744a740fd93f892783e58d473d94e"
+            },
+            {
+              "path": "references/user-story-template.md",
+              "size": 1256,
+              "sha256": "46f3f15a06bf0c16e7d72ccc6b2e7da58997cebc92b161cf5db9ceb1f1681ccf"
+            }
+          ]
+        },
+        {
+          "slug": "software-manager-skill",
+          "name": "design-prd-writing--software-manager-skill",
+          "display_zh": "software-manager-skill",
+          "display_en": "software-manager-skill",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 8579,
+              "sha256": "d58a8e0df8ac85a0984b5dfb8c963463c50dd3be22a1d2aee7b4bdc7815f22fb"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 58990,
+              "sha256": "17f9636b9b26d4de5c877aff61b12c969a7fb073395d20453be0234c17367aad"
+            },
+            {
+              "path": "references/agile-dev.md",
+              "size": 9124,
+              "sha256": "b308e737788b1b29a2e100111e3ef377d5050abf98d3ac28ed60d06fbfcb4ba4"
+            },
+            {
+              "path": "references/browser-support.md",
+              "size": 1325,
+              "sha256": "780db7b06b22958e2f42dad3dfbf735927567b8ab16b434687f7cf7909a4a1a8"
+            },
+            {
+              "path": "references/data-analysis-metrics.md",
+              "size": 15336,
+              "sha256": "7dbcf9bc80e6f33c38681521528872d5c85411629e08c0ecf8be0d339a9f7eed"
+            },
+            {
+              "path": "references/h5-mobile-best-practices.md",
+              "size": 2837,
+              "sha256": "a5d58cc536f5ff71d60f66e51fa74a5195b2564b1bfa40a58570e31ff17dc57f"
+            },
+            {
+              "path": "references/icon-sources.md",
+              "size": 2446,
+              "sha256": "bb8f7c921edb8255eb39ee1397c447daa4eb4e7f70186390189f40faae92cd7c"
+            },
+            {
+              "path": "references/mermaid-guide.md",
+              "size": 12716,
+              "sha256": "87508e108331f5e4905be552679cc0892c8c92d1a6cd94a4b82bec06c51970ab"
+            },
+            {
+              "path": "references/pm-career-path.md",
+              "size": 7369,
+              "sha256": "bcb961ed440ab4bcc2196ef22d67e2d342062e65183e4bcc1e416b457a169514"
+            },
+            {
+              "path": "references/pm-framework.md",
+              "size": 13205,
+              "sha256": "0631614f254415bc3c6dc918f941d3b131c351adadad084a1cdb9eafb4e9c1b1"
+            },
+            {
+              "path": "references/pm-responsibilities.md",
+              "size": 17886,
+              "sha256": "bec69705a578d0988f0b1f87a3173dceb48d18b58ff2aeb965fd9fd10a423179"
+            },
+            {
+              "path": "references/pm-skills.md",
+              "size": 11042,
+              "sha256": "730a4dea20ba8cffb52438c9d5434565e54bb5ce1df8c0ce4c0253d8f78cce7b"
+            },
+            {
+              "path": "references/prd-template.md",
+              "size": 14715,
+              "sha256": "b13272f31a4fbe9eb6b783c931578b98ba06df5019330913c3f13385a8b42ada"
+            },
+            {
+              "path": "references/sdlc-product-process.md",
+              "size": 9801,
+              "sha256": "2fe4692b3cdaea0cd831879bea0d1851c39a5f33b09ad927b3769ccc0b8a3f8c"
+            },
+            {
+              "path": "references/tailwind-core/Functions-and-directives.txt",
+              "size": 8073,
+              "sha256": "03327b6a89b1ef0798a05cd05318d0adba05b32c250cd1fa677d3327cc1294e8"
+            },
+            {
+              "path": "references/tailwind-core/animation.txt",
+              "size": 6438,
+              "sha256": "88a7f0c8cd27376ae7d01a22cab17ec30cdae074a118a614e82b12606e241c90"
+            },
+            {
+              "path": "references/tailwind-core/configuration.txt",
+              "size": 8077,
+              "sha256": "ba75b2997a15a1c034073305eda66bc0bfb86d1ccf5f1c417d5ecf529d0ca106"
+            },
+            {
+              "path": "references/tailwind-core/content-configuration.txt",
+              "size": 8063,
+              "sha256": "286e462b566959029b0479e4c676d0cbc35828e48022c6508ba96d9a2adb558d"
+            },
+            {
+              "path": "references/tailwind-core/customization.txt",
+              "size": 214,
+              "sha256": "606e98e5480154edb475327d996cc82891d2e6b1dd64e9a1aac0e29781ed1117"
+            },
+            {
+              "path": "references/tailwind-core/dark-mode.txt",
+              "size": 6042,
+              "sha256": "4d603c64a205aaaef8b751f865bfb431b230ee1a70ff4222f559967c3916cca3"
+            },
+            {
+              "path": "references/tailwind-core/hover-focus-and-other-states.txt",
+              "size": 8045,
+              "sha256": "29ca0a4f46c024df7c4a43ab36caa5a2a54b8e1fa7d52d46b61da43a5eb8a225"
+            },
+            {
+              "path": "references/tailwind-core/responsive-design.txt",
+              "size": 6807,
+              "sha256": "54c4d2a355b580fa6df51d49a749ad1bb162eaa1a63fa4f81430d74cefd0b7b0"
+            },
+            {
+              "path": "references/tailwind-core/theme.txt",
+              "size": 8051,
+              "sha256": "efdadbe69ed325ff0dadf7fc8b0b20631d3874f2d0a94690492801075768c67e"
+            },
+            {
+              "path": "references/tailwind-core/utility-first.txt",
+              "size": 7229,
+              "sha256": "597f7fab3cdaead8e517af75ee91ffbfe5913a2e1d0381ea0a52ffc221a348ec"
+            },
+            {
+              "path": "references/tailwind-installation.md",
+              "size": 1420,
+              "sha256": "f159b994babe12da966f69dc140fb41d13d00e16d6fcb8d012e49b3d2c470e04"
+            },
+            {
+              "path": "scripts/mermaid_render_multi.js",
+              "size": 13473,
+              "sha256": "037115b860232056524c19b1a3ff65edff5cef59add381c0af5748f27e6f8457"
+            },
+            {
+              "path": "scripts/prd_export.py",
+              "size": 9700,
+              "sha256": "8a9b9f1eb5e741c6d37036a5477b1a454986ddc830d235eb10e447fee0941d5a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "design-ui-prototype",
+      "name_zh": "UI 原型设计专家",
+      "name_en": "Design Ui Prototype Expert",
+      "scene": "design",
+      "description_zh": "从产品需求零提问直出PRD到设计方向、设计稿像素级还原，到设计令牌体系与组件规范制定、UI设计质量审查与反模式识别，再到低保真线框图绘制和高保真生产级HTML/Tailwind原型输出的完整UI原型设计工作流。支持Figma/Sketch设计稿解析、响应式布局、移动优先设计、设计系统构建和交互原型生成。",
+      "description_en": "Expert workflow for Design Ui Prototype Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "afrexai-ui-design-system",
+          "name": "design-ui-prototype--afrexai-ui-design-system",
+          "display_zh": "afrexai-ui-design-system",
+          "display_en": "afrexai-ui-design-system",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 2549,
+              "sha256": "29e80fa949f15543c24031a01ab8cf8c0fcb93788d7ee453b3638eb2a70f3913"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 27649,
+              "sha256": "5ab98204744d341a6be2562557894d4ed9384d7adf3023d4e327d13eec300f4f"
+            }
+          ]
+        },
+        {
+          "slug": "design-to-code",
+          "name": "design-ui-prototype--design-to-code",
+          "display_zh": "design-to-code",
+          "display_en": "design-to-code",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 699,
+              "sha256": "1eb2e4e3e9f8ad913d21d5ac2bf94d212001bcdec005ea7a1d78dfa44683b654"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 4316,
+              "sha256": "5d2f6a79cdb3da0e16968bf1a832f02e3687ea292fbd54447d99215a88dd4d2d"
+            },
+            {
+              "path": "clawhub.json",
+              "size": 779,
+              "sha256": "0f2467288607b528f14cea26a653d13e47dd768371e03bc555133e64480fba1b"
+            }
+          ]
+        },
+        {
+          "slug": "frontend-design-pro",
+          "name": "design-ui-prototype--frontend-design-pro",
+          "display_zh": "frontend-design-pro",
+          "display_en": "frontend-design-pro",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 4638,
+              "sha256": "712672192662836519dbc7991e728b32894bad57f240a399edf59c25e0cee38d"
+            }
+          ]
+        },
+        {
+          "slug": "prd-to-prototype",
+          "name": "design-ui-prototype--prd-to-prototype",
+          "display_zh": "prd-to-prototype",
+          "display_en": "prd-to-prototype",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 10460,
+              "sha256": "0b77135225fa5e1210c8bffd508798bcd3012f080dac801fe9001d6636033825"
+            }
+          ]
+        },
+        {
+          "slug": "ui-design",
+          "name": "design-ui-prototype--ui-design",
+          "display_zh": "ui-design",
+          "display_en": "ui-design",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 2215,
+              "sha256": "a93fa2671f8b1acce452890faa2900b34ef79548a98e214e8dcfb82d598f34fe"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 14338,
+              "sha256": "9dcf5b5238a1e89a5e71d983e1c071c47aafc19d319e96872fcfb32433cfac82"
+            }
+          ]
+        },
+        {
+          "slug": "wireframe",
+          "name": "design-ui-prototype--wireframe",
+          "display_zh": "wireframe",
+          "display_en": "wireframe",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 2101,
+              "sha256": "9d7a4ddff8c3f77e41e6f1b47322193e3adfa1032dae4d1b8b0a5b1ed1f5dbfb"
+            },
+            {
+              "path": "scripts/script.sh",
+              "size": 16145,
+              "sha256": "d2a531521ae1775a0df9f26af5508dd8c659415de5fe653a4087cf8a4663b317"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ecommerce-bidding-strategy",
+      "name_zh": "竞价策略专家",
+      "name_en": "Ecommerce Bidding Strategy Expert",
+      "scene": "ecommerce",
+      "description_zh": "从亚马逊Listing优化与PPC广告管理（标题优化/五点描述/后台关键词/PPC广告/评价管理/排名提升）与跨平台PPC策略规划（Google Ads/Meta等平台推荐/利润分析/广告投放方案），经亚马逊PPC广告构建与优化（关键词分组/出价策略/广告活动结构/效果优化）与多平台预算分配出价优化（Meta/Google/TikTok/YouTube/Amazon出价策略），到多平台广告创建优化（A/B测试/成本分析/ROI分析/精准定向/素材推荐）与Google Shopping广告优化（商品信息流/竞价策略/广告系列结构/绩效分析/ROAS优化）的完整竞价策略工作流。覆盖Listing优化、策略规划、广告构建、出价优化、效果监控、ROAS提升全链路。",
+      "description_en": "Expert workflow for Ecommerce Bidding Strategy Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "ad-campaign-optimizer",
+          "name": "ecommerce-bidding-strategy--ad-campaign-optimizer",
+          "display_zh": "ad-campaign-optimizer",
+          "display_en": "ad-campaign-optimizer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 2236,
+              "sha256": "c24cd21439fd2b3e4008fbcf6a59d62d293afc59961ad92f75923a0d99da3874"
+            },
+            {
+              "path": "skill.json",
+              "size": 221,
+              "sha256": "ba0e3ec3ec987c8f0c3af245cecf1bfd68be02189c0621589f6cd96f13006241"
+            }
+          ]
+        },
+        {
+          "slug": "amazon-listing-optimizer",
+          "name": "ecommerce-bidding-strategy--amazon-listing-optimizer",
+          "display_zh": "亚马逊Listing优化",
+          "display_en": "Amazon Listing Optimizer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 4220,
+              "sha256": "a54a3873899908fba65732881871ca051b2f697d32161ba852dc72d38763e762"
+            },
+            {
+              "path": "references/listing-writing-guide.md",
+              "size": 2655,
+              "sha256": "f563e6b548c87be7bb51aaf9544277a41f110c942085f2e0453f970090ed4d9e"
+            }
+          ]
+        },
+        {
+          "slug": "amazon-ppc-campaign",
+          "name": "ecommerce-bidding-strategy--amazon-ppc-campaign",
+          "display_zh": "amazon-ppc-campaign",
+          "display_en": "amazon-ppc-campaign",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 23274,
+              "sha256": "f57880ee264ee493233b356ee1e74a4fa1907141b081fdfe22c56845d7f930ec"
+            },
+            {
+              "path": "scripts/fetch-competitor.sh",
+              "size": 2406,
+              "sha256": "3f3f62063248c2bc2f6362bf4c2e2528ced894b3cdb0d898243cf4cc573881bd"
+            }
+          ]
+        },
+        {
+          "slug": "budget-bidding-optimizer",
+          "name": "ecommerce-bidding-strategy--budget-bidding-optimizer",
+          "display_zh": "budget-bidding-optimizer",
+          "display_en": "budget-bidding-optimizer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 4277,
+              "sha256": "95e8b8e157f0073691667cf5596ff1d16d279f6b88ad9d5b9757da67c95cd1ff"
+            },
+            {
+              "path": "metadata.json",
+              "size": 80,
+              "sha256": "51666ae89797ba91084f1a40b1b1804cada64cdce7704528019db8e49bfce157"
+            }
+          ]
+        },
+        {
+          "slug": "ecommerce-ppc-strategy-planner",
+          "name": "ecommerce-bidding-strategy--ecommerce-ppc-strategy-planner",
+          "display_zh": "ecommerce-ppc-strategy-planner",
+          "display_en": "ecommerce-ppc-strategy-planner",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 22396,
+              "sha256": "558231246cb8b10d0b7a24cd7e80ccafac06754b73d5bd59e20ec17058d46395"
+            }
+          ]
+        },
+        {
+          "slug": "google-ads",
+          "name": "ecommerce-bidding-strategy--google-ads",
+          "display_zh": "google-ads",
+          "display_en": "google-ads",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 5530,
+              "sha256": "8c053e971722c7f1a65f949a897cd14eafb50cb31877739da762de0024ba83f9"
+            },
+            {
+              "path": "references/api-setup.md",
+              "size": 7991,
+              "sha256": "25282acfd007f547148c27835db1e918a3ff690b99fc967a5252827f4234d46f"
+            },
+            {
+              "path": "references/browser-workflows.md",
+              "size": 5793,
+              "sha256": "8086004213b91ad649ea3443cea158a05a670b44def7f1c0e38589577ff71e4b"
+            },
+            {
+              "path": "skill-card.md",
+              "size": 2654,
+              "sha256": "e6449ab8970d7481378b9089cf75664f5bd82a4d5eb6528310f65a0c1ec668e9"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ecommerce-pricing-analysis",
+      "name_zh": "定价分析专家",
+      "name_en": "Ecommerce Pricing Analysis Expert",
+      "scene": "ecommerce",
+      "description_zh": "电商商品的长期定价策略与日常调价管理：跨境与国内全球比价、竞品价格长期追踪、Amazon Buy Box 调价规则、通用动态定价方法论（心理定价/利润率/数据驱动）、跨境多币种定价、价值定价与溢价论证。区别于「促销策划」（活动机制），本包关注的是日常价格结构与定价决策。",
+      "description_en": "Expert workflow for Ecommerce Pricing Analysis Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "competitor-analysis-report",
+          "name": "ecommerce-pricing-analysis--competitor-analysis-report",
+          "display_zh": "competitor-analysis-report",
+          "display_en": "competitor-analysis-report",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 5932,
+              "sha256": "dd93521a043538c379df7c7d9b296780e88d32ffd1e9648544f8d87060d14ca1"
+            }
+          ]
+        },
+        {
+          "slug": "competitor-watch",
+          "name": "ecommerce-pricing-analysis--competitor-watch",
+          "display_zh": "competitor-watch",
+          "display_en": "competitor-watch",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 11456,
+              "sha256": "4b0ff72370a7b410864f14d8d80a35404f394559d52491eadf66f31561a5f9eb"
+            },
+            {
+              "path": "config.example.json",
+              "size": 4785,
+              "sha256": "93bee49f99e4527903e5d0f5ef4b25408d34dcf23a9ccbdbc02a614caf49d8eb"
+            },
+            {
+              "path": "scripts/add-competitor.sh",
+              "size": 5494,
+              "sha256": "52d029be571ab55ab69847bc4e8169a51bbcee718980c5ff873e7efb078f0d0f"
+            },
+            {
+              "path": "scripts/check.sh",
+              "size": 6555,
+              "sha256": "08b270d103b36e80c4c463ddd324923a408bfcdc36f69843b6c232b95bc5f9df"
+            },
+            {
+              "path": "scripts/diff.sh",
+              "size": 3893,
+              "sha256": "fcc9ca743fc1490a511dc656e5218879f0ee01ff014992aa978211ff291deb9d"
+            },
+            {
+              "path": "scripts/report.sh",
+              "size": 3584,
+              "sha256": "1bf85c7a43569c0e1179bdfa33629f5b6569420adea9c7fef0dd80fb5c906ce3"
+            },
+            {
+              "path": "scripts/setup.sh",
+              "size": 1708,
+              "sha256": "b03b3bb560a9acfb996580ce5e428644abba24af595771ded98b1465d3a715d5"
+            }
+          ]
+        },
+        {
+          "slug": "market-research",
+          "name": "ecommerce-pricing-analysis--market-research",
+          "display_zh": "market-research",
+          "display_en": "market-research",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 7396,
+              "sha256": "4c04a3e847037e603c65e085497b6c73d03427cbfc0a840e5d2d002ccae50f4f"
+            },
+            {
+              "path": "competitor-analysis.md",
+              "size": 3087,
+              "sha256": "995fc92cb50f685e3369ef1e3e235ec7c0425f0d6ab6500b41c54e8bca62a686"
+            },
+            {
+              "path": "evidence-grading.md",
+              "size": 1322,
+              "sha256": "6ff41dd0e76cb58359d4c84c84be09e75875318ac6e59dc508c0a38af58d98e7"
+            },
+            {
+              "path": "validation.md",
+              "size": 3634,
+              "sha256": "dcbaa98fba9b8834a4aa09fc9116471fd9c121198b3e190d5c56eb8b6de03bcd"
+            }
+          ]
+        },
+        {
+          "slug": "price-hunter",
+          "name": "ecommerce-pricing-analysis--price-hunter",
+          "display_zh": "price-hunter",
+          "display_en": "price-hunter",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 4653,
+              "sha256": "3cd7abb88041cda8e26f181d8cdcca1f41e4cf3c2d0d78c4b1d191390875283f"
+            }
+          ]
+        },
+        {
+          "slug": "pricing-strategy",
+          "name": "ecommerce-pricing-analysis--pricing-strategy",
+          "display_zh": "pricing-strategy",
+          "display_en": "pricing-strategy",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 7874,
+              "sha256": "aa8ee4cfa7773421ebfbc7fc85d8c0496248ff8bbf466edecd40d06c44399763"
+            }
+          ]
+        },
+        {
+          "slug": "reverse-costing",
+          "name": "ecommerce-pricing-analysis--reverse-costing",
+          "display_zh": "reverse-costing",
+          "display_en": "reverse-costing",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1593,
+              "sha256": "e83045126580828d085fefc27cccd694166ba1c96ad75103469513c92e38cbb8"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ecommerce-product-copywriting",
+      "name_zh": "商品文案专家",
+      "name_en": "Ecommerce Product Copywriting Expert",
+      "scene": "ecommerce",
+      "description_zh": "从淘宝商品文案生成（宝贝标题/详情页文案/主图文案/促销活动/关键词挖掘/大促文案）与全平台上架文案生成（跨境电商多平台listing/短视频脚本/FAQ生成/组合套装文案/标题优化诊断/用户痛点挖掘），经电商爆款文案生成（淘宝/拼多多/抖音/京东高转化商品标题/详情页文案/卖点提炼/促销文案）与跨境电商多语种文案生成（Amazon/Shopee/Temu/TikTok商品标题/短描述/详细描述/SEO关键词优化），到SEO优化产品描述生成（关键词/功能/优势/行动号召/多平台适配）与中文电商文案人性化优化（去AI痕迹/保留销售意图/自然转化/本土化表达）的完整商品文案工作流。覆盖淘宝文案、全平台listing、爆款文案、跨境多语种、SEO优化、去AI化全链路。",
+      "description_en": "Expert workflow for Ecommerce Product Copywriting Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "cross-border-copywriter",
+          "name": "ecommerce-product-copywriting--cross-border-copywriter",
+          "display_zh": "cross-border-copywriter",
+          "display_en": "cross-border-copywriter",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 10786,
+              "sha256": "29c8e097eaa4a48a87957041947d5a98e6644253ad462590629e8c6cb5c84cda"
+            },
+            {
+              "path": "cross_border_copywriter.py",
+              "size": 13797,
+              "sha256": "f428c4f032503c9f2f2fa131af780815c0b90b3165303753051aefe208e6eb7a"
+            },
+            {
+              "path": "requirements.txt",
+              "size": 3362,
+              "sha256": "b63e9b015e09b271eaf9f2ced7dec549409e26af8ab4a0f831f7d1afd2364263"
+            },
+            {
+              "path": "start.sh",
+              "size": 2895,
+              "sha256": "fa5dbf187f338df928bd04847c3f8ddcb011c4021acf06d0efd4268bdaba1f09"
+            }
+          ]
+        },
+        {
+          "slug": "crossborder-listing",
+          "name": "ecommerce-product-copywriting--crossborder-listing",
+          "display_zh": "crossborder-listing",
+          "display_en": "crossborder-listing",
+          "files": [
+            {
+              "path": "LICENSE.md",
+              "size": 1061,
+              "sha256": "a626f501880f8ed9e34950c07de1d738b64755b93701ca280aa34b3b213a2dd8"
+            },
+            {
+              "path": "README.md",
+              "size": 423,
+              "sha256": "85c84570d77c9ca13b1d3c911a646c12aa55509244c18a463526e93d85e1251c"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 4669,
+              "sha256": "59eb4ca4ccc56ffb9a84213cc31bf39731e203a2ea6c9bdc5ceae5e8d03a62ca"
+            }
+          ]
+        },
+        {
+          "slug": "ecommerce-copy-humanizer-zh",
+          "name": "ecommerce-product-copywriting--ecommerce-copy-humanizer-zh",
+          "display_zh": "ecommerce-copy-humanizer-zh",
+          "display_en": "ecommerce-copy-humanizer-zh",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 8476,
+              "sha256": "0e6a95db0ebfbdf60794c0d8e61399106edf653b39915972126d12a4ea80fbbc"
+            },
+            {
+              "path": "assets/rewrite-checklist.md",
+              "size": 1393,
+              "sha256": "b6b2f280f0a848a57403de999f8c0733c0f1a50e9015d641851222033e9af856"
+            },
+            {
+              "path": "references/ai-patterns-zh.md",
+              "size": 2636,
+              "sha256": "af82ed3eadea1c9c27bf0132f9d9912eb3eb59648354034b86f8b32d3649c2c4"
+            },
+            {
+              "path": "references/output-template.md",
+              "size": 1024,
+              "sha256": "3f38d8677cee370ae4463b023fe648dfebc27de67be72e2b3d5f0f6a8436e5de"
+            },
+            {
+              "path": "references/platform-guide-zh.md",
+              "size": 3215,
+              "sha256": "c0b26abbf20c33221e02fd7ada02c5b72049514fd22700b0d071fc8947bfadbd"
+            },
+            {
+              "path": "references/risk-checklist-zh.md",
+              "size": 1791,
+              "sha256": "b6dda86de40b6fbcc5bee38536703f6bcc94843e39be9ba8fa2647ad1341cc45"
+            }
+          ]
+        },
+        {
+          "slug": "ecommerce-copywriter",
+          "name": "ecommerce-product-copywriting--ecommerce-copywriter",
+          "display_zh": "ecommerce-copywriter",
+          "display_en": "ecommerce-copywriter",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 4034,
+              "sha256": "750298a99e9d8876eff235065dea34797b7f55c41e6a9f2df277496bb0ff6040"
+            },
+            {
+              "path": "references/platform-rules.md",
+              "size": 3767,
+              "sha256": "c643664383ac5984d9a45ad037f34b9e76bb61c0967c22e915bcf40724e704c4"
+            },
+            {
+              "path": "references/selling-points.md",
+              "size": 2695,
+              "sha256": "8e89f08b0dc8b31c7ea278084e30637910adfd8e70bef13027e5245effe18c2d"
+            },
+            {
+              "path": "references/templates.md",
+              "size": 4337,
+              "sha256": "c2cfeb68c24f5234af1a1958f49005807686a464420ac3c7aa2102a559c5057a"
+            },
+            {
+              "path": "scripts/generate_title.py",
+              "size": 3870,
+              "sha256": "839df29f0bdaae7148f959bd8adce7d5c243529f6978a5567c8ef1bd2c9b360a"
+            }
+          ]
+        },
+        {
+          "slug": "ecommerce-product-description-generator",
+          "name": "ecommerce-product-copywriting--ecommerce-product-description-generator",
+          "display_zh": "ecommerce-product-description-generator",
+          "display_en": "ecommerce-product-description-generator",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 13656,
+              "sha256": "328c953af6caa3c3da32f813fae96a8578e660a8019c873930056d77ee3e4325"
+            }
+          ]
+        },
+        {
+          "slug": "taobao-listing",
+          "name": "ecommerce-product-copywriting--taobao-listing",
+          "display_zh": "taobao-listing",
+          "display_en": "taobao-listing",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1659,
+              "sha256": "59ce93166290cff0888372ec52c86e54bd0e4c5a2dd5d66d82ddb89a61c49ffe"
+            },
+            {
+              "path": "scripts/script.sh",
+              "size": 2627,
+              "sha256": "88093429e24528003090146d2bb383f72b07a6af873f72ce11709a3eb0e52d0f"
+            },
+            {
+              "path": "scripts/taobao.sh",
+              "size": 25309,
+              "sha256": "5a364e0522579124b0ab594bcd781b55a862dc4b9ebc86a0d19dffc03e7cce3e"
+            },
+            {
+              "path": "skill-card.md",
+              "size": 1934,
+              "sha256": "d29a302b6a6948dbd64e3d0e74394111dc0555f03b019898cd53dffb59575b06"
+            },
+            {
+              "path": "tips.md",
+              "size": 4495,
+              "sha256": "67923c3bae189d6bd3a687762b487ba66cfb4660f9c831eea68e9e9f01ca4be3"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ecommerce-product-selection",
+      "name_zh": "选品分析专家",
+      "name_en": "Ecommerce Product Selection Expert",
+      "scene": "ecommerce",
+      "description_zh": "从多平台爆款产品筛选（淘宝/京东/拼多多/抖音/亚马逊数据分析）与淘宝产品调研采集（主图/标题/价格/销量/评价/店铺信息），经亚马逊选品市场验证（竞品分析/ASIN评估/定价指导/产品机会挖掘）与跨境电商榜单分析（利润计算/侵权排查/竞品分析/选品决策报告），到OZON平台选品货源搜索（1688货源关键词/供应商筛选/产品定价参考）与1688选品铺货（商机趋势/多平台铺货/货源搜索）的完整选品分析工作流。覆盖多平台数据采集、市场验证、竞品分析、利润评估、货源对接、铺货分发全链路。",
+      "description_en": "Expert workflow for Ecommerce Product Selection Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "1688-trend-trader",
+          "name": "ecommerce-product-selection--1688-trend-trader",
+          "display_zh": "1688-trend-trader",
+          "display_en": "1688-trend-trader",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 8803,
+              "sha256": "369b65b45a8fc61c3fcb6213611c0f36d15cbc213ce34037cac311d2ae33e7be"
+            },
+            {
+              "path": "references/financial.md",
+              "size": 5837,
+              "sha256": "a04839f65c0c518e7a7e05541e1cd0931038e27bd277931d0715aa1240a442fd"
+            },
+            {
+              "path": "references/inquiry.md",
+              "size": 5818,
+              "sha256": "47b23e5151b70d0e57f7e3175225634a94b387b5ebc5a16785e43a68c3e3a701"
+            },
+            {
+              "path": "references/report-template.md",
+              "size": 9099,
+              "sha256": "d4c3c37cef659a87583ee5d6de3fba9ad89473dd0411cf324f99143536f39f17"
+            },
+            {
+              "path": "references/selection.md",
+              "size": 2708,
+              "sha256": "b9a8f822a7ff6f32a60a2e52e9174685ace867a225dab737f7058b3943375a70"
+            },
+            {
+              "path": "references/sourcing.md",
+              "size": 3889,
+              "sha256": "578ad5b24deee146963df1bcc1e43ca543e5c339972ff3c66d785e96580dd1b1"
+            },
+            {
+              "path": "scripts/1688_trader.py",
+              "size": 15757,
+              "sha256": "4d7cffafa6c094ed00a1c86eef2c97afe08c33122ccfefe7915f139821d3e2ee"
+            },
+            {
+              "path": "scripts/ali_api.py",
+              "size": 11369,
+              "sha256": "7a183e96d029a0836484e63e248a0b9ac1aaaed5871d5692e616ab365089dcec"
+            },
+            {
+              "path": "scripts/calc_profit.py",
+              "size": 6946,
+              "sha256": "da71209e88dfa4970133b3db396bec551587eb540a75181a9c1f39eeb7a3736e"
+            },
+            {
+              "path": "scripts/product_detail.py",
+              "size": 6127,
+              "sha256": "92c45830b1c52d252c669d454f1999da201d252f82f63a4d33064ad64eec6651"
+            },
+            {
+              "path": "scripts/scraper.py",
+              "size": 14922,
+              "sha256": "e3a6351e361d7256276ebe27599cfff9b2cec26ade6befe69c814e5d9b0dd6d1"
+            },
+            {
+              "path": "scripts/search_factories.py",
+              "size": 6329,
+              "sha256": "0be65f6ae0e21009eb800e3d0c17b742d5e36a985af3e55ca58271103289c08c"
+            },
+            {
+              "path": "scripts/search_products.py",
+              "size": 6452,
+              "sha256": "3c7ae3ac23b1bbad5315ebd99489fb1cd20e26158e5248e58d26e3c233608c1c"
+            }
+          ]
+        },
+        {
+          "slug": "apiclaw-analysis",
+          "name": "ecommerce-product-selection--apiclaw-analysis",
+          "display_zh": "apiclaw-analysis",
+          "display_en": "apiclaw-analysis",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 4108,
+              "sha256": "b18899030748fa5302f9ba0c2a16de8c4f42f5358584844c8d5ce127d0b15007"
+            },
+            {
+              "path": "SECURITY.md",
+              "size": 1239,
+              "sha256": "2bdf422cc38578cbfe282eb83e242b66797db1df124da86b21f41f8f879ada11"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 21317,
+              "sha256": "557c24e372fdfc423267191f20a67aa4e5ef202dd0ded123661fbf74f012ba0f"
+            },
+            {
+              "path": "references/reference.md",
+              "size": 12476,
+              "sha256": "a4c26dab7281228d7ae7290608454434056c23b495cfc3d070499c646b675937"
+            },
+            {
+              "path": "references/scenarios-composite.md",
+              "size": 4496,
+              "sha256": "2162075e773318b86516d772e5889792ba3b0cf88c47c92a80582bce1ed89f68"
+            },
+            {
+              "path": "references/scenarios-eval.md",
+              "size": 8873,
+              "sha256": "82ea470135d1f15d58d0d24c4b9bb6c6af3641e8c4a949394914fb93c2bc2cb5"
+            },
+            {
+              "path": "references/scenarios-expand.md",
+              "size": 3004,
+              "sha256": "42a5f515b59577fb5d53df5fcb0b52abef96c71b0db7e9967d845f702a9d2610"
+            },
+            {
+              "path": "references/scenarios-listing.md",
+              "size": 9420,
+              "sha256": "4168ed36128886354dd5f954e7dc8000073cf61d0264bf5979ec98d722ce0ae5"
+            },
+            {
+              "path": "references/scenarios-ops.md",
+              "size": 2618,
+              "sha256": "4b8195c9097995a9c969684648bebb9389e389c4a7331c3881023cdaaeac75dd"
+            },
+            {
+              "path": "references/scenarios-pricing.md",
+              "size": 1590,
+              "sha256": "7bc8f5f7f40a1fd9e503b85c16368078fa64712156abefd3db333a9222c26236"
+            },
+            {
+              "path": "scripts/apiclaw.py",
+              "size": 34897,
+              "sha256": "d9cb6fef14b1083828e4e991ada7f1c2c5b2e766d9770cc21301b0607326f58f"
+            }
+          ]
+        },
+        {
+          "slug": "cross-border-ecommerce-product-analysis",
+          "name": "ecommerce-product-selection--cross-border-ecommerce-product-analysis",
+          "display_zh": "cross-border-ecommerce-product-analysis",
+          "display_en": "cross-border-ecommerce-product-analysis",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1883,
+              "sha256": "5d61a74d9b8502c26ed131364b77a1135ea9757f0ac1a4eb3b8ed1dfcddd48f0"
+            }
+          ]
+        },
+        {
+          "slug": "ecommerce-product-selector",
+          "name": "ecommerce-product-selection--ecommerce-product-selector",
+          "display_zh": "ecommerce-product-selector",
+          "display_en": "ecommerce-product-selector",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 3642,
+              "sha256": "9cb4f319cdd9d094b0ab9e6e31b2cdbc05dcee910aa6ad7f8fb3d73e7765a901"
+            }
+          ]
+        },
+        {
+          "slug": "taobao-product-research",
+          "name": "ecommerce-product-selection--taobao-product-research",
+          "display_zh": "taobao-product-research",
+          "display_en": "taobao-product-research",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 4156,
+              "sha256": "2cc19652bdfe6977991ddda3f44a4310cf071598d65d57c48f4b9b3316d9bea6"
+            },
+            {
+              "path": "scripts/package-lock.json",
+              "size": 51036,
+              "sha256": "75128febeb86293824812eb577de524dffa69953375f010eb8970461ecec35eb"
+            },
+            {
+              "path": "scripts/package.json",
+              "size": 255,
+              "sha256": "fb378773099f354042aa2442becc7bcd0502f658f37245a5ab40843a0aa30075"
+            },
+            {
+              "path": "scripts/taobao_research.js",
+              "size": 16278,
+              "sha256": "d5e4d4079fc01a4c4b0e84c36b1bd643fa87ea1d844f248e9151a646769d55b0"
+            }
+          ]
+        },
+        {
+          "slug": "walter-product-research",
+          "name": "ecommerce-product-selection--walter-product-research",
+          "display_zh": "walter-product-research",
+          "display_en": "walter-product-research",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 2357,
+              "sha256": "7ef2f279b48bdb00be5dff17bd06fbc43bb77469bfb75cec76e4bed661b0479e"
+            },
+            {
+              "path": "scripts/product_research.py",
+              "size": 16930,
+              "sha256": "5a918dbce5caabecd0766a616ba081bb8d2f2adf3d97a01abfea59f3529786df"
+            },
+            {
+              "path": "scripts/test_logic.py",
+              "size": 4127,
+              "sha256": "5d6c28fc133eb6f03168eee0e027a3c57b37f84918168da9fa4e8b8349a8bf09"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ecommerce-promotion-planning",
+      "name_zh": "促销策划专家",
+      "name_en": "Ecommerce Promotion Planning Expert",
+      "scene": "ecommerce",
+      "description_zh": "电商大促与日常促销活动的全链路策划：跨平台活动节奏定档、机制设计（优惠券/折扣/秒杀/满减/BOGO）、节日 FOMO 文案与素材、活动销量与备货预测、广告预算联动，覆盖 Shopify / Amazon / TikTok Shop / 淘宝天猫 / 京东 / 唯品会 / 小红书等主流电商场景。",
+      "description_en": "Expert workflow for Ecommerce Promotion Planning Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "ad-budget-rebalancer",
+          "name": "ecommerce-promotion-planning--ad-budget-rebalancer",
+          "display_zh": "ad-budget-rebalancer",
+          "display_en": "ad-budget-rebalancer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 4106,
+              "sha256": "ec36bc13d60b1997ca217a468d0e88b9083b7c023a545a75fb5ff55124d7a21c"
+            },
+            {
+              "path": "handler.py",
+              "size": 9150,
+              "sha256": "e4f9332a299fcdf07b9e4a816939f62da423e5ed445b17466d526e84e2496d7e"
+            },
+            {
+              "path": "tests/test_handler.py",
+              "size": 1800,
+              "sha256": "d42b268269fa26c878c2b8515a91317761b0e10a7bb568ec62e779312952ac64"
+            }
+          ]
+        },
+        {
+          "slug": "campaign-planning",
+          "name": "ecommerce-promotion-planning--campaign-planning",
+          "display_zh": "campaign-planning",
+          "display_en": "campaign-planning",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 782,
+              "sha256": "c6cd33de5a5ddf2df228500fd33da7fbfed59af2e2489c6f12776cb7a4436da5"
+            }
+          ]
+        },
+        {
+          "slug": "discount-marketing-strategy",
+          "name": "ecommerce-promotion-planning--discount-marketing-strategy",
+          "display_zh": "discount-marketing-strategy",
+          "display_en": "discount-marketing-strategy",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 7860,
+              "sha256": "4ae7af5390c19e2b62aeace975c11abbf2a5ccd096642ad3af375e6d53c45c08"
+            }
+          ]
+        },
+        {
+          "slug": "forecast-analysis-claw",
+          "name": "ecommerce-promotion-planning--forecast-analysis-claw",
+          "display_zh": "forecast-analysis-claw",
+          "display_en": "forecast-analysis-claw",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 4299,
+              "sha256": "d5ca82482cc224aaed725f9d88b85e36eaea72339488b0354fc039db21bee541"
+            },
+            {
+              "path": "references/forecast-models.md",
+              "size": 1689,
+              "sha256": "5c668142c2585d07978e0cfa477cf6a7630fa248b0cafc3cae41302f19bb6f95"
+            },
+            {
+              "path": "references/promo-coefficients.md",
+              "size": 1668,
+              "sha256": "a9e18c2cbb7782bad19ed3970431568bd7222cfaa857a07a1784b3fc6eb9bad9"
+            },
+            {
+              "path": "references/replenishment-params.md",
+              "size": 1437,
+              "sha256": "48551e222374f8331015c3daf815e9fcc9da1012a7eb880a4ea703f5c5113b0e"
+            },
+            {
+              "path": "scripts/data-cleaner.py",
+              "size": 5271,
+              "sha256": "29fa513bc150fa9c6b0e604871d41af6fa23bc223726d2028aabff785ddc5a39"
+            },
+            {
+              "path": "scripts/forecast-runner.py",
+              "size": 13415,
+              "sha256": "a88b1ad562ab6e6dc77af1ab8599ce2c8c9bb77187c03547dcc98ba53af5b4da"
+            }
+          ]
+        },
+        {
+          "slug": "holiday-fomo-marketing",
+          "name": "ecommerce-promotion-planning--holiday-fomo-marketing",
+          "display_zh": "holiday-fomo-marketing",
+          "display_en": "holiday-fomo-marketing",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 12017,
+              "sha256": "f60cfc399fd2a44e857cf767c11cc42831ed5fd91e640819f977cbf99d0631e5"
+            },
+            {
+              "path": "assets/README.md",
+              "size": 93,
+              "sha256": "6a9f4d2ed1447eab4d818c3fb3c34899035418674e9f1ecff78d11d33a5d4a41"
+            },
+            {
+              "path": "evals/evals.json",
+              "size": 1517,
+              "sha256": "9f879dc7ffef8a74649a4bf94ddd0a1643b6d2d5849c5d2a0b096d03a3bd630d"
+            },
+            {
+              "path": "evals/files/README.md",
+              "size": 68,
+              "sha256": "7f76c3e82548ce444a4958b5ab79ce5d203e60773a9822e74b1aea8b4170f5f9"
+            },
+            {
+              "path": "references/README.md",
+              "size": 280,
+              "sha256": "b6eed262cd890240cb53faaaa369fd884f90515ebac12877b85074fba2282d9e"
+            },
+            {
+              "path": "references/campaign_architecture.md",
+              "size": 1600,
+              "sha256": "91ea25d55b80edbb0510d172ce6355b9493938d710ebb3eaa2afcc2a94310905"
+            },
+            {
+              "path": "references/fomo_conversion_playbook.md",
+              "size": 1332,
+              "sha256": "badd1911dd3092d2aa5cade79851726a928a74638b6e954f729868565b64fc21"
+            },
+            {
+              "path": "scripts/README.md",
+              "size": 157,
+              "sha256": "4a2ba6de9b003eaf69bbfe5312c36c942ad9810f45d799b36dd2c173f17c3704"
+            },
+            {
+              "path": "scripts/flow_copy_generator.py",
+              "size": 5802,
+              "sha256": "abf2e540c931db27c6cd9deaee8eefebf5b901b32433383fc19b2270ba326747"
+            }
+          ]
+        },
+        {
+          "slug": "promotion-enrollment-assistant",
+          "name": "ecommerce-promotion-planning--promotion-enrollment-assistant",
+          "display_zh": "promotion-enrollment-assistant",
+          "display_en": "promotion-enrollment-assistant",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 3994,
+              "sha256": "cf1a31b16d2c819a83fd9a31f4037297a29cecad6ff356df7136e8a79ecdd8fa"
+            },
+            {
+              "path": "handler.py",
+              "size": 10842,
+              "sha256": "baae529ff669f91406997ca90eb6d292ca50c8459ddba7245bf99441fd186346"
+            },
+            {
+              "path": "tests/test_handler.py",
+              "size": 1650,
+              "sha256": "d8326c83f96586bf28e6e1e8d30f8b79063b04e7ae893c1164a8f47a42808ad2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ecommerce-user-profiling",
+      "name_zh": "用户画像专家",
+      "name_en": "Ecommerce User Profiling Expert",
+      "scene": "ecommerce",
+      "description_zh": "电商零售用户画像工作流：从行为数据接入、客户分层与 RFM 分群、电商 LTV/复购/会员深度建模，到把画像激活为广告投放人群和店铺个性化运营。基于订单/CRM/行为数据，输出可直接落地到投放与精准营销的画像与人群。",
+      "description_en": "Expert workflow for Ecommerce User Profiling Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "ai-intelligent-customer-segmentation",
+          "name": "ecommerce-user-profiling--ai-intelligent-customer-segmentation",
+          "display_zh": "ai-intelligent-customer-segmentation",
+          "display_en": "ai-intelligent-customer-segmentation",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1010,
+              "sha256": "5692f8a62c1599d6682f642bd6c41eee7dc256fd438ca7bb12563b29ebd66710"
+            }
+          ]
+        },
+        {
+          "slug": "audience-segmentation-analyst",
+          "name": "ecommerce-user-profiling--audience-segmentation-analyst",
+          "display_zh": "audience-segmentation-analyst",
+          "display_en": "audience-segmentation-analyst",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 4663,
+              "sha256": "4d865c11a5df4aa612bb7d8b6f9e0876819baf75a94de0513f78726f31388221"
+            },
+            {
+              "path": "metadata.json",
+              "size": 90,
+              "sha256": "d870084e87d4ad439563191b349ccded94af664535df9fd5b1608444a8e42c7a"
+            }
+          ]
+        },
+        {
+          "slug": "customer-lifetime-value-optimizer",
+          "name": "ecommerce-user-profiling--customer-lifetime-value-optimizer",
+          "display_zh": "customer-lifetime-value-optimizer",
+          "display_en": "customer-lifetime-value-optimizer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 3896,
+              "sha256": "5bc92089e7f3aa022e60f39112b0ddacbdda952603a78e3e698a6d61f7d152d7"
+            },
+            {
+              "path": "handler.py",
+              "size": 12355,
+              "sha256": "0a503076291d7b28a4f3c0f24109e5ba330613b3f58c258740f35cdc15cee7e3"
+            },
+            {
+              "path": "tests/test_handler.py",
+              "size": 1483,
+              "sha256": "52ca26ad53b9fe23e7f7e1b7ca3f4d7d5637124785670388a318ba79175bd389"
+            }
+          ]
+        },
+        {
+          "slug": "customer-retention",
+          "name": "ecommerce-user-profiling--customer-retention",
+          "display_zh": "customer-retention",
+          "display_en": "customer-retention",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 10203,
+              "sha256": "a24f1af0754cae8c6ed2d9e59569b268d21a69fedf605068a8efe3db80aa17c8"
+            }
+          ]
+        },
+        {
+          "slug": "rfm-segmenter",
+          "name": "ecommerce-user-profiling--rfm-segmenter",
+          "display_zh": "rfm-segmenter",
+          "display_en": "rfm-segmenter",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 10864,
+              "sha256": "22ac698063e03b8bdab6d5b6f07edfadaa8a560fc39c9f2891ece5c6bda5c8e8"
+            },
+            {
+              "path": "checklist.md",
+              "size": 3383,
+              "sha256": "8aac1c892798b4369186adfc6ab59a87a507b079e743087f251077a9c690486e"
+            },
+            {
+              "path": "output-template.md",
+              "size": 4088,
+              "sha256": "43546c4636a12196504e8ff371e99ab57c3f13f3347e04e15fd127c8bf5390db"
+            },
+            {
+              "path": "scoring-methodology.md",
+              "size": 6437,
+              "sha256": "0ee039ebfb3eb2348a63fa7e602ae8dccbb93a4a6fa43846524e18f2d46579cf"
+            },
+            {
+              "path": "segment-action-playbook.md",
+              "size": 7876,
+              "sha256": "91ff67ae5859f45a188723b0666b7dfff09d6310ef39c921b2c3e4179045990c"
+            },
+            {
+              "path": "skill-card.md",
+              "size": 2585,
+              "sha256": "5f9f81b092c9f8917cb529610b55a7cf9ca2cbc88da1b8e8884c0f3c7ae4afa6"
+            }
+          ]
+        },
+        {
+          "slug": "user-behavior-analytics",
+          "name": "ecommerce-user-profiling--user-behavior-analytics",
+          "display_zh": "user-behavior-analytics",
+          "display_en": "user-behavior-analytics",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 2863,
+              "sha256": "6e5c2259669852198c798d72a00c1f38dd93d49586303b53827cfc17345ba9a9"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "legal-contract-drafting",
+      "name_zh": "合同起草专家",
+      "name_en": "Legal Contract Drafting Expert",
+      "scene": "legal",
+      "description_zh": "从多类型合同模板生成（劳动合同/服务协议/合作协议/租赁合同/协议书模板）与专业合同生成审查（销售合同/租赁合同/劳动合同/NDA/服务协议/法律咨询），法律文书模板与撰写指导（劳务纠纷/离婚协议/交通事故/租房协议/文书模板）与中国财税法律文书起草（税务筹划报告/法律意见书/合同税务条款/行政复议/行政诉讼），到保密协议NDA起草与DOCX生成（双向NDA/单向NDA/Common Paper/Bonterms标准）与法律文书模板专家（500+案例/自我进化/多类型文书模板）的完整合同起草工作流。覆盖合同模板、专业生成、文书指导、财税文书、NDA起草、模板库全链路。",
+      "description_en": "Expert workflow for Legal Contract Drafting Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "employment-contract",
+          "name": "legal-contract-drafting--employment-contract",
+          "display_zh": "employment-contract",
+          "display_en": "employment-contract",
+          "files": [
+            {
+              "path": "CONNECTORS.md",
+              "size": 1113,
+              "sha256": "525977709f4be2ca9991e57951eb880a633e30d20e52c6c9cb57d684b856e62b"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 4265,
+              "sha256": "33c418ec699bd7dcdb419cd7a6620824136d327b7c801bd516ffc346b7ec7abe"
+            },
+            {
+              "path": "skill-card.md",
+              "size": 2859,
+              "sha256": "e0ff9acf4d0d024981abce0f1931a70764e3ef165e42e6596739fd02aa8424ec"
+            },
+            {
+              "path": "template-filling-execution.md",
+              "size": 4675,
+              "sha256": "e6e279c450bcdf61992983d8423926b1f38f1d16ee59c5907ff0daba99bdb2d5"
+            }
+          ]
+        },
+        {
+          "slug": "hetongzhushou",
+          "name": "legal-contract-drafting--hetongzhushou",
+          "display_zh": "hetongzhushou",
+          "display_en": "hetongzhushou",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 29066,
+              "sha256": "978882727c15498fa5417d5670c2599a89ee00fe839a566bf46db29f460b4748"
+            },
+            {
+              "path": "data/legal_database.json",
+              "size": 9692,
+              "sha256": "48c951478af6eaab1e4e468fdbb20e017a6fbcf8fdb050d1bb3f5f3dfd7e8206"
+            },
+            {
+              "path": "data/risk_rules.json",
+              "size": 9129,
+              "sha256": "d1f44a7dc368a876d70f67939e3e7398d50a9abff5609f4a3601b68f28ac9f0c"
+            },
+            {
+              "path": "references/README.md",
+              "size": 9148,
+              "sha256": "70af854911d4f704fd8b08409f48dd3f3a6ef6a8dac0bbf67bd1ad4f136d6ee5"
+            },
+            {
+              "path": "references/USAGE.md",
+              "size": 9288,
+              "sha256": "76ef0e96c720e242ee15d40aaee9dc06a2287ab4604f3957e92f666de75800c2"
+            },
+            {
+              "path": "scripts/clause_extraction.py",
+              "size": 19795,
+              "sha256": "29809f9938137230cebda2dead2b4da7cdb627ff9c9834e57a60877321562a36"
+            },
+            {
+              "path": "scripts/comparison_analysis.py",
+              "size": 18402,
+              "sha256": "3b01502bfbdadc6b1eaa032c0b2c4962a514c1e080fba7e7347c316e8903a2d7"
+            },
+            {
+              "path": "scripts/compliance_check.py",
+              "size": 21632,
+              "sha256": "02589cd8a9c2cd4442cad93c753fbc8aeaf8f816ed429c5a3568dda2c266431e"
+            },
+            {
+              "path": "scripts/contract_generator.py",
+              "size": 25079,
+              "sha256": "51232730aafd74d0bf97edd94b9df76411ab746105c18110771aba346688fd5d"
+            },
+            {
+              "path": "scripts/contract_review.py",
+              "size": 8126,
+              "sha256": "c5a41c9923a232d2d03e64acd1371c1172f18f12f3aa8c2f46891d2bd4518da9"
+            },
+            {
+              "path": "scripts/report_generator.py",
+              "size": 14541,
+              "sha256": "7039c9864f8a29a69fd2a93e15057508e9063b7042ece80441e62c9cfdc71f40"
+            },
+            {
+              "path": "scripts/risk_detection.py",
+              "size": 24269,
+              "sha256": "f52823340642cb88114dae0ebab2b2f4cf665e507da0ef679e4fab7bd8da8f0a"
+            },
+            {
+              "path": "scripts/utils.py",
+              "size": 12777,
+              "sha256": "9e109afd54cead92bae1ddf3496460b65e51db38bc8c29a817197e369c6467df"
+            },
+            {
+              "path": "templates/labor_standard.json",
+              "size": 9025,
+              "sha256": "4b9b0cce0a2df98c671e8bc6dd52e13922902176388fed60127cd94a9c1e0bdf"
+            },
+            {
+              "path": "templates/labor_tech.json",
+              "size": 6046,
+              "sha256": "19c55b4b614e786a6cb8085ce05d44f550cd7524c2942c6df69ddec297c10798"
+            },
+            {
+              "path": "templates/rental_house.json",
+              "size": 9498,
+              "sha256": "066eb57b0a0e2f18f4c3a327d3d058d67c5b92f4a84313e6118af34869da2f96"
+            },
+            {
+              "path": "templates/sale_standard.json",
+              "size": 8033,
+              "sha256": "50f4f1d96a7e0f3ced76ec7ce7b91ffb0e9e93b32658bc905251dda99e5d6653"
+            },
+            {
+              "path": "templates/template_index.json",
+              "size": 4875,
+              "sha256": "e2691ca338f655906a8cc37f9ca21216e7249f8eed54628e6e494e50e03e1f43"
+            }
+          ]
+        },
+        {
+          "slug": "legal-advisor",
+          "name": "legal-contract-drafting--legal-advisor",
+          "display_zh": "legal-advisor",
+          "display_en": "legal-advisor",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1209,
+              "sha256": "319ddfe3574d1fb8bbff799adb317305e370078b531f0ba30805470e355c6987"
+            },
+            {
+              "path": "scripts/legal.sh",
+              "size": 17105,
+              "sha256": "9394d4f78351a483c2787499b009563337ea441ae07398a21e7c16c4501f71b4"
+            },
+            {
+              "path": "scripts/script.sh",
+              "size": 5153,
+              "sha256": "5a1bb90383ad971ad3cec65b487875e42583950cc41a36e54f33afc1323af030"
+            },
+            {
+              "path": "tips.md",
+              "size": 490,
+              "sha256": "3ccbaaa342a2943c397fe6de8560b95d158f7aab9dae1f1c76130d6467808389"
+            }
+          ]
+        },
+        {
+          "slug": "legal-doc-writer",
+          "name": "legal-contract-drafting--legal-doc-writer",
+          "display_zh": "legal-doc-writer",
+          "display_en": "legal-doc-writer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 2377,
+              "sha256": "971054bc025ede957468909a6dc57d48c5125ca65eac581b4eefc645e13972ff"
+            },
+            {
+              "path": "references/doc-templates.md",
+              "size": 3963,
+              "sha256": "82c82f463ce6596dba4088599eff2009483378527ec529df1c3c4c0accc736ee"
+            }
+          ]
+        },
+        {
+          "slug": "legal-document-assistant",
+          "name": "legal-contract-drafting--legal-document-assistant",
+          "display_zh": "legal-document-assistant",
+          "display_en": "legal-document-assistant",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 6096,
+              "sha256": "217c779ba26f71038a5fb6ef56d29f271aed1296da66d9850c859a3306bd5b60"
+            },
+            {
+              "path": "assets/divorce-agreement.md",
+              "size": 7709,
+              "sha256": "677351033963453b16c4e38ccfc86d24092b616c32d4c217d761f7ff990b39ad"
+            },
+            {
+              "path": "assets/employment-contract.md",
+              "size": 8894,
+              "sha256": "34e2e7ca50a5cbe87678b1de6943da9c7e1d1dd3fcba5b742484fbf91ab82e00"
+            },
+            {
+              "path": "assets/labor-dispute-complaint.md",
+              "size": 3941,
+              "sha256": "ec6a872fbe996b72c3ff5ff77e01e92d17c39aa1a9fab5d46662fa4f093ce686"
+            },
+            {
+              "path": "assets/rental-agreement.md",
+              "size": 9204,
+              "sha256": "5e9ef85032b3689efa179840c9e29d53eb8644aeffac8724f44e5a3a33940a9b"
+            },
+            {
+              "path": "assets/traffic-accident-claim.md",
+              "size": 8389,
+              "sha256": "0ae05b8cf0cd31fadc0120d5bfb970f4aa2e458f28620870211d7fd8edb36ff7"
+            },
+            {
+              "path": "references/dispute-resolution-guide.md",
+              "size": 13250,
+              "sha256": "2b8f71f2f06ca52467618856d1af9d7fda6fca7ff8a12f2713b00a29b6ce3b08"
+            },
+            {
+              "path": "references/legal-document-guide.md",
+              "size": 8285,
+              "sha256": "f8fa8ce017e8c9422403eded6f47b7bb22bbbd358d8027be976c3751740e9293"
+            }
+          ]
+        },
+        {
+          "slug": "nda",
+          "name": "legal-contract-drafting--nda",
+          "display_zh": "nda",
+          "display_en": "nda",
+          "files": [
+            {
+              "path": "CONNECTORS.md",
+              "size": 1113,
+              "sha256": "525977709f4be2ca9991e57951eb880a633e30d20e52c6c9cb57d684b856e62b"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 6542,
+              "sha256": "4e796fb4a6c09f8f121f677928749779d7eea2f9c8c3418795aa26ce38e3f018"
+            },
+            {
+              "path": "skill-card.md",
+              "size": 2710,
+              "sha256": "3be23ea9a6e94d6b92dcb4edaeb7d8d271adf7ecbccccad43178850e26a34694"
+            },
+            {
+              "path": "template-filling-execution.md",
+              "size": 4675,
+              "sha256": "e6e279c450bcdf61992983d8423926b1f38f1d16ee59c5907ff0daba99bdb2d5"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "legal-contract-generation",
+      "name_zh": "合同生成专家",
+      "name_en": "Legal Contract Generation Expert",
+      "scene": "legal",
+      "description_zh": "从模板参考到风险审查再到专业合同文书输出的一站式合同生成工作流，覆盖劳动合同、保密协议、租赁合同、服务协议等主流合同类型。",
+      "description_en": "Expert workflow for Legal Contract Generation Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "contract-review-pro",
+          "name": "legal-contract-generation--contract-review-pro",
+          "display_zh": "contract-review-pro",
+          "display_en": "contract-review-pro",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 5825,
+              "sha256": "aac2de0d049b48d8dc0b805c0f4b1581ce883c172facfcc75dc225d21999129d"
+            }
+          ]
+        },
+        {
+          "slug": "employment-contract",
+          "name": "legal-contract-generation--employment-contract",
+          "display_zh": "employment-contract",
+          "display_en": "employment-contract",
+          "files": [
+            {
+              "path": "CONNECTORS.md",
+              "size": 1113,
+              "sha256": "525977709f4be2ca9991e57951eb880a633e30d20e52c6c9cb57d684b856e62b"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 4267,
+              "sha256": "e420f8490a3840e6647f9d239e31c1d251ca7dfb8caba7e5ac9185387a572c6f"
+            },
+            {
+              "path": "skill-card.md",
+              "size": 2859,
+              "sha256": "e0ff9acf4d0d024981abce0f1931a70764e3ef165e42e6596739fd02aa8424ec"
+            },
+            {
+              "path": "template-filling-execution.md",
+              "size": 4675,
+              "sha256": "e6e279c450bcdf61992983d8423926b1f38f1d16ee59c5907ff0daba99bdb2d5"
+            }
+          ]
+        },
+        {
+          "slug": "hetongzhushou",
+          "name": "legal-contract-generation--hetongzhushou",
+          "display_zh": "hetongzhushou",
+          "display_en": "hetongzhushou",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 29068,
+              "sha256": "1c7a9b472b20b54cf7118cc112e60e64ca2fe8b640e98c8986f89251796456b3"
+            },
+            {
+              "path": "data/legal_database.json",
+              "size": 9692,
+              "sha256": "48c951478af6eaab1e4e468fdbb20e017a6fbcf8fdb050d1bb3f5f3dfd7e8206"
+            },
+            {
+              "path": "data/risk_rules.json",
+              "size": 9129,
+              "sha256": "d1f44a7dc368a876d70f67939e3e7398d50a9abff5609f4a3601b68f28ac9f0c"
+            },
+            {
+              "path": "references/README.md",
+              "size": 9148,
+              "sha256": "70af854911d4f704fd8b08409f48dd3f3a6ef6a8dac0bbf67bd1ad4f136d6ee5"
+            },
+            {
+              "path": "references/USAGE.md",
+              "size": 9288,
+              "sha256": "76ef0e96c720e242ee15d40aaee9dc06a2287ab4604f3957e92f666de75800c2"
+            },
+            {
+              "path": "scripts/clause_extraction.py",
+              "size": 19795,
+              "sha256": "29809f9938137230cebda2dead2b4da7cdb627ff9c9834e57a60877321562a36"
+            },
+            {
+              "path": "scripts/comparison_analysis.py",
+              "size": 18402,
+              "sha256": "3b01502bfbdadc6b1eaa032c0b2c4962a514c1e080fba7e7347c316e8903a2d7"
+            },
+            {
+              "path": "scripts/compliance_check.py",
+              "size": 21632,
+              "sha256": "02589cd8a9c2cd4442cad93c753fbc8aeaf8f816ed429c5a3568dda2c266431e"
+            },
+            {
+              "path": "scripts/contract_generator.py",
+              "size": 25079,
+              "sha256": "51232730aafd74d0bf97edd94b9df76411ab746105c18110771aba346688fd5d"
+            },
+            {
+              "path": "scripts/contract_review.py",
+              "size": 8126,
+              "sha256": "c5a41c9923a232d2d03e64acd1371c1172f18f12f3aa8c2f46891d2bd4518da9"
+            },
+            {
+              "path": "scripts/report_generator.py",
+              "size": 14541,
+              "sha256": "7039c9864f8a29a69fd2a93e15057508e9063b7042ece80441e62c9cfdc71f40"
+            },
+            {
+              "path": "scripts/risk_detection.py",
+              "size": 24269,
+              "sha256": "f52823340642cb88114dae0ebab2b2f4cf665e507da0ef679e4fab7bd8da8f0a"
+            },
+            {
+              "path": "scripts/utils.py",
+              "size": 12777,
+              "sha256": "9e109afd54cead92bae1ddf3496460b65e51db38bc8c29a817197e369c6467df"
+            },
+            {
+              "path": "templates/labor_standard.json",
+              "size": 9025,
+              "sha256": "4b9b0cce0a2df98c671e8bc6dd52e13922902176388fed60127cd94a9c1e0bdf"
+            },
+            {
+              "path": "templates/labor_tech.json",
+              "size": 6046,
+              "sha256": "19c55b4b614e786a6cb8085ce05d44f550cd7524c2942c6df69ddec297c10798"
+            },
+            {
+              "path": "templates/rental_house.json",
+              "size": 9498,
+              "sha256": "066eb57b0a0e2f18f4c3a327d3d058d67c5b92f4a84313e6118af34869da2f96"
+            },
+            {
+              "path": "templates/sale_standard.json",
+              "size": 8033,
+              "sha256": "50f4f1d96a7e0f3ced76ec7ce7b91ffb0e9e93b32658bc905251dda99e5d6653"
+            },
+            {
+              "path": "templates/template_index.json",
+              "size": 4875,
+              "sha256": "e2691ca338f655906a8cc37f9ca21216e7249f8eed54628e6e494e50e03e1f43"
+            }
+          ]
+        },
+        {
+          "slug": "legal-advisor",
+          "name": "legal-contract-generation--legal-advisor",
+          "display_zh": "legal-advisor",
+          "display_en": "legal-advisor",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1211,
+              "sha256": "59124143456362dd20984de922b1d73f846a2bec49e71421c7a808d7427e63f9"
+            },
+            {
+              "path": "scripts/legal.sh",
+              "size": 17105,
+              "sha256": "9394d4f78351a483c2787499b009563337ea441ae07398a21e7c16c4501f71b4"
+            },
+            {
+              "path": "scripts/script.sh",
+              "size": 5153,
+              "sha256": "5a1bb90383ad971ad3cec65b487875e42583950cc41a36e54f33afc1323af030"
+            },
+            {
+              "path": "tips.md",
+              "size": 490,
+              "sha256": "3ccbaaa342a2943c397fe6de8560b95d158f7aab9dae1f1c76130d6467808389"
+            }
+          ]
+        },
+        {
+          "slug": "legal-doc-writer",
+          "name": "legal-contract-generation--legal-doc-writer",
+          "display_zh": "legal-doc-writer",
+          "display_en": "legal-doc-writer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 2379,
+              "sha256": "5046d7e27270fcb1f2a9c556e0718c3725833b8d12579c23256c6a10bcb03100"
+            },
+            {
+              "path": "references/doc-templates.md",
+              "size": 3963,
+              "sha256": "82c82f463ce6596dba4088599eff2009483378527ec529df1c3c4c0accc736ee"
+            }
+          ]
+        },
+        {
+          "slug": "nathan-legal-os-pro",
+          "name": "legal-contract-generation--nathan-legal-os-pro",
+          "display_zh": "nathan-legal-os-pro",
+          "display_en": "nathan-legal-os-pro",
+          "files": [
+            {
+              "path": "CLAUDE.md",
+              "size": 9618,
+              "sha256": "dfca0428f56c551290440b43fef7e9b403dbd86d35c48e8218689f3cfd8f7b7b"
+            },
+            {
+              "path": "README.md",
+              "size": 8381,
+              "sha256": "d1bd21cdf4bea17aa064f7b7c78d0af680db65021a6ff4d8b7c3c4dd6f068d64"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 6765,
+              "sha256": "b7731c9af92e62931ed967d787a60f6d7d0911d06f268bb4d9406a40646173d2"
+            },
+            {
+              "path": "clawdhub.json",
+              "size": 3456,
+              "sha256": "79763818d00a59d9c755c4f27503666a6f49c970ed64ac73cde00e3dd6f4991f"
+            },
+            {
+              "path": "examples/sample_contract.txt",
+              "size": 8669,
+              "sha256": "343a0bc3459da31f6314af3dea2578c5d48b26ca5f740a876d8067816e1733fc"
+            },
+            {
+              "path": "examples/sample_output.md",
+              "size": 4629,
+              "sha256": "7a5756c0fc4c0f97dc7bfe55df4bee3c3ca10d5dfdd5422c4aded8d9ccbf66f8"
+            },
+            {
+              "path": "execution/clause_extractor.py",
+              "size": 21310,
+              "sha256": "7ae9179909bd2ea89c112664828d72097e4daaacd42fb937e95cf9fcc89295bc"
+            },
+            {
+              "path": "execution/deadline_tracker.py",
+              "size": 25771,
+              "sha256": "8a5aeb1384ebd75f980f127273852bc690ee2c98670a79df57f549cde9364059"
+            },
+            {
+              "path": "execution/document_summarizer.py",
+              "size": 20415,
+              "sha256": "7b4dd4f84f2e59d41b93fc89c9d93ae09cca93aada0c23a85b9cafa02d545520"
+            },
+            {
+              "path": "execution/legal_research.py",
+              "size": 22933,
+              "sha256": "6a499d5908efb852aad5d86aad13c8e6bcb1e340a830cec3aec91e66749c4b15"
+            },
+            {
+              "path": "execution/legaldoc.py",
+              "size": 5216,
+              "sha256": "f980b8a4ac127437942d3f2305f80613d87d908c540d8de5f80ad17260c98424"
+            },
+            {
+              "path": "package.json",
+              "size": 382,
+              "sha256": "aac7cee4df2a7ba9503e849a0747518c8154a3d07586e851dae72f0ffaee2142"
+            },
+            {
+              "path": "requirements.txt",
+              "size": 687,
+              "sha256": "0987170d00faaeff4ad601980da26a8132e30d54414db8216675e1b375f5ce8c"
+            },
+            {
+              "path": "templates/config.yaml",
+              "size": 2606,
+              "sha256": "5494fb2b19f88f7c7658e3ce201d3db52964c9eebf06c714a8ffe1e02e2ebe2a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "legal-legal-research",
+      "name_zh": "法规检索专家",
+      "name_en": "Legal Legal Research Expert",
+      "scene": "legal",
+      "description_zh": "从法律知识库检索（法律法规查询/合同条款检索/司法解释查找）与财税法律案例法规检索（税务判例/行政复议/税收法规/税务实践案例），官方API法条查询与多类纠纷检索（劳动纠纷/借贷纠纷/侵权纠纷/合同纠纷/工伤认定/婚姻家事/消费维权）与法条体系定位（上位规范/并列条款/下位细化/程序衔接/竞合分析），到类案检索验证（真实案例验证/裁判分歧/高频败诉原因/法官审查重点）与不确定法律概念深挖（合理期限/重大误解/明显不当/裁判标准/边界案例）的完整法规检索工作流。覆盖法规查询、案例检索、纠纷查找、体系定位、类案验证、概念分析全链路。",
+      "description_en": "Expert workflow for Legal Legal Research Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "case-research",
+          "name": "legal-legal-research--case-research",
+          "display_zh": "case-research",
+          "display_en": "case-research",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 3132,
+              "sha256": "d57062cb033f6a9b17d4df2163a4673dd9fcae7b6b7a82361a3354c8bf3bb0f5"
+            }
+          ]
+        },
+        {
+          "slug": "legal-case-validator-mctmilk",
+          "name": "legal-legal-research--legal-case-validator-mctmilk",
+          "display_zh": "legal-case-validator-mctmilk",
+          "display_en": "legal-case-validator-mctmilk",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1938,
+              "sha256": "ee6c075f70c720b27614e09be65f82fad421fd54a96e8b6e90eebbf584756a16"
+            }
+          ]
+        },
+        {
+          "slug": "legal-concept-deep-dive-mctmilk",
+          "name": "legal-legal-research--legal-concept-deep-dive-mctmilk",
+          "display_zh": "legal-concept-deep-dive-mctmilk",
+          "display_en": "legal-concept-deep-dive-mctmilk",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 2066,
+              "sha256": "dc22171c539692b151cad155d5c0828dc2f38588e0bdaea5ff5d30c60a782581"
+            }
+          ]
+        },
+        {
+          "slug": "legal-hybrid-skill",
+          "name": "legal-legal-research--legal-hybrid-skill",
+          "display_zh": "legal-hybrid-skill",
+          "display_en": "legal-hybrid-skill",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 6269,
+              "sha256": "70e5e266545690ac1967537b18d6f1475b81a830442cc65cbd8013da5d36cddc"
+            },
+            {
+              "path": "case_db.json",
+              "size": 28153,
+              "sha256": "95d86f1292d0be70b5f548cdb2c761bda8f7d2ecc0671705c572d94e71735947"
+            },
+            {
+              "path": "info.json",
+              "size": 184,
+              "sha256": "657ec06625ae04ed7a59070b07aa716a157f78c9e2d7aedf9ecddbbdfd9ae319"
+            },
+            {
+              "path": "install.sh",
+              "size": 2414,
+              "sha256": "d8ad0ac7bbae605564f25ec9d9c07fd35b080935e9889287358e84e51f0b532c"
+            },
+            {
+              "path": "law_db.json",
+              "size": 46442,
+              "sha256": "ed40084cbbfe99e97b409e56f3ada5a3babf42dcb54857cb81167de3a30adff9"
+            },
+            {
+              "path": "main.py",
+              "size": 4029,
+              "sha256": "d836d2dc3a6679659385c39a2e352d21cfa6d5d349be41cbfd6233b3c175efc1"
+            },
+            {
+              "path": "requirements.txt",
+              "size": 343,
+              "sha256": "4ffcc3ceb7c9c887f119ed2de77450cbcf6eb88de98bdaeda561368fda783b81"
+            }
+          ]
+        },
+        {
+          "slug": "legal-system-mapper-mctmilk",
+          "name": "legal-legal-research--legal-system-mapper-mctmilk",
+          "display_zh": "legal-system-mapper-mctmilk",
+          "display_en": "legal-system-mapper-mctmilk",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1951,
+              "sha256": "0788f9ebdc296ac693731834d3eb8a7004cc339242b754c0277eccb4585d72b6"
+            }
+          ]
+        },
+        {
+          "slug": "legalkb",
+          "name": "legal-legal-research--legalkb",
+          "display_zh": "legalkb",
+          "display_en": "legalkb",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 2915,
+              "sha256": "4c39600bb55febcc62924ad23df7ed6070c4e755c9ebfa4ed487a70639755fc5"
+            },
+            {
+              "path": "scripts/list_files.py",
+              "size": 1017,
+              "sha256": "f486d8581f58eaa4bf1cc43ed2ef9520a2ef57ccf3c14eafb9ba1790cdb51e17"
+            },
+            {
+              "path": "scripts/read_docx.py",
+              "size": 933,
+              "sha256": "a0c84b62836020ade246733ec26de099c2beedcc33b35c552c8294c7996fdf3b"
+            },
+            {
+              "path": "scripts/read_pdf.py",
+              "size": 1569,
+              "sha256": "9f61eeeae46903420dea0902085715a0e51a081842e5b4c234fac9236968322d"
+            },
+            {
+              "path": "scripts/search_kb.py",
+              "size": 5232,
+              "sha256": "2f0663d17fd1ccd0c9f1e716b04e351e3938066210f53e03247cf491cae1e80f"
+            },
+            {
+              "path": "scripts/search_law.py",
+              "size": 11584,
+              "sha256": "f84600e219f237eb8114bba57dbf47fc3e5a7549585f1ca51675b816d9bcfc76"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "legal-litigation-strategy",
+      "name_zh": "诉讼策略专家",
+      "name_en": "Legal Litigation Strategy Expert",
+      "scene": "legal",
+      "description_zh": "从诉讼准备指南（流程指引/文书准备/证据整理/时间线/费用估算）与法律辅助分析（合同风险初筛/诉讼成本估算/文书骨架生成），经应诉策略制定（起诉状解析/争议焦点提炼/法律关系分析/答辩方向制定）与证据矩阵建模（七步分析法/证据矩阵/案件全景分析），到民事起诉状生成（案情要素提取/证据材料整理/规范起诉状生成）与全流程法律服务（刑事辩护/民商事诉讼/合同审查/法律AI中台）的完整诉讼策略工作流。覆盖诉讼准备、风险评估、策略制定、证据建模、文书起草、全流程支持全链路。",
+      "description_en": "Expert workflow for Legal Litigation Strategy Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "ai-legal-assistant-pro",
+          "name": "legal-litigation-strategy--ai-legal-assistant-pro",
+          "display_zh": "ai-legal-assistant-pro",
+          "display_en": "ai-legal-assistant-pro",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 7208,
+              "sha256": "def537a5ae2f2ba0d9bc32d3d1650d9a3a16a6999ff9ccdd88722b791d94e73c"
+            },
+            {
+              "path": "assets/complaint-template.md",
+              "size": 245,
+              "sha256": "e69d4aaaa5b2f3d4699a50a417717af214e5048b948351c0d73bfd9eb691670b"
+            },
+            {
+              "path": "assets/defense-template.md",
+              "size": 257,
+              "sha256": "615f72a31a670dee11ccf0613d0157a46525dcb44fb82334da7a70b41cd4b116"
+            },
+            {
+              "path": "references/calculation-formulas.md",
+              "size": 2269,
+              "sha256": "9ea0955cac1916d08a7619652ce067bcc8fb5902fcc0677900a1ff96b2895bd8"
+            },
+            {
+              "path": "references/clawhub-listing-copy.md",
+              "size": 2802,
+              "sha256": "6312b8cd4500567324e541d38f7ccbd782067889771d8318babc7dcab3eada1b"
+            },
+            {
+              "path": "references/contract-type-guides.md",
+              "size": 3118,
+              "sha256": "f4179454f5f9189d7d0dd46ae6be6b755221394c1374ec69434f82b68a74a476"
+            },
+            {
+              "path": "references/demo-scenarios.md",
+              "size": 3494,
+              "sha256": "fee61b8cf18eadc5e9762fc144ea5c36dc4f6948f3d98bea8195bf01d389a116"
+            },
+            {
+              "path": "references/document-skeletons.md",
+              "size": 1949,
+              "sha256": "6ed4c97e697abfdbe0f884c95b8d5af888fa6f1b3d5da67fe4662a3a3b1336f5"
+            },
+            {
+              "path": "references/final-release-copy.md",
+              "size": 2823,
+              "sha256": "0e88443a77611166eb2b8c0a1a0857085019714d5509c142874ba32ec8600ba2"
+            },
+            {
+              "path": "references/labor-compensation-output-template.md",
+              "size": 1679,
+              "sha256": "37e1d7e285f78159c7083c354295f0bbb4c83aec34fa83e3a724299998711835"
+            },
+            {
+              "path": "references/labor-dispute-scenarios.md",
+              "size": 3741,
+              "sha256": "e90282fe973c288fa921572887b3b05ad94c5b2c15d739c681994950e7680e96"
+            },
+            {
+              "path": "references/litigation-worth-it-template.md",
+              "size": 1880,
+              "sha256": "44bc8fb7c7e2c3934e5d08218d27fdf2ede540e99cd6857671f50fa4cf5053cf"
+            },
+            {
+              "path": "references/output-acceptance-criteria.md",
+              "size": 4409,
+              "sha256": "6c4600e5538dab2ae2602a0b4be5f4697545b2f2a402ec6697e66c24ab972f3f"
+            },
+            {
+              "path": "references/risk-patterns.md",
+              "size": 2827,
+              "sha256": "706d6159f4cab218376b511fa6f172569cd658550b920296b4c9df8635d5431f"
+            },
+            {
+              "path": "references/risk-scan-examples.md",
+              "size": 2511,
+              "sha256": "747d52a9659d4c9e6f2677c7522410a3196a836ce7097ea3319ccf727f2c94c2"
+            },
+            {
+              "path": "references/test-cases.md",
+              "size": 1367,
+              "sha256": "d365b96c31e19ed53f1f6135c831ea9ffd409aa1c78ef80caa6731ef7ef6de18"
+            },
+            {
+              "path": "references/test-run-round1.md",
+              "size": 4834,
+              "sha256": "c1ad4c8af4094777331e485aa1facbed958b180af9780a094ad0723f67ef1f70"
+            },
+            {
+              "path": "references/test-run-round2.md",
+              "size": 3012,
+              "sha256": "32fbdf0a413239467fc28e985fb9df152503f081900db099d772e12f13598306"
+            },
+            {
+              "path": "scripts/calculate_lawsuit_fee.py",
+              "size": 1352,
+              "sha256": "54b18d97f302b585b54c438940178887b27ffa24fc50c210ad340f1c7699aac0"
+            }
+          ]
+        },
+        {
+          "slug": "complaint-drafting",
+          "name": "legal-litigation-strategy--complaint-drafting",
+          "display_zh": "complaint-drafting",
+          "display_en": "complaint-drafting",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 4288,
+              "sha256": "de4aee3a6c1025f44a86d492258b043e97dc34407fe15f97b91cd6998b56acfa"
+            },
+            {
+              "path": "assets/complaint-template.md",
+              "size": 3921,
+              "sha256": "91427481173a5f15d88f8acccea4ad5d36abc76c3d20581679437e13e0266ceb"
+            },
+            {
+              "path": "references/legal-complaint-guide.md",
+              "size": 9846,
+              "sha256": "8c795ee9b7cab3a7ab88b5c7a135e56658531070facbc56e0512993a3c3e642a"
+            }
+          ]
+        },
+        {
+          "slug": "court-prep",
+          "name": "legal-litigation-strategy--court-prep",
+          "display_zh": "court-prep",
+          "display_en": "court-prep",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1373,
+              "sha256": "68d19a1be5ae9ef61f72c188194821925ec45ee5af60c00907a99130cab0ae4a"
+            },
+            {
+              "path": "scripts/court.sh",
+              "size": 7830,
+              "sha256": "ab03b816de5655a571d099e101bcde9b89e2f4da34019ee5470d2f1610bde97e"
+            },
+            {
+              "path": "scripts/script.sh",
+              "size": 2229,
+              "sha256": "9a26319d449ed41c454dd089df1c7a480faa2a36d0c78abee14b2d0998efd7c9"
+            },
+            {
+              "path": "tips.md",
+              "size": 48,
+              "sha256": "7fa181122f03bf51e8b9832f18405e737a76a0779570de083637ba0a0eb81373"
+            }
+          ]
+        },
+        {
+          "slug": "legal-advisor",
+          "name": "legal-litigation-strategy--legal-advisor",
+          "display_zh": "legal-advisor",
+          "display_en": "legal-advisor",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1211,
+              "sha256": "43827ed8ac0b182c5c4230e220f4e10c8d3753035e8f5b0b8ed472f0ca6123b5"
+            },
+            {
+              "path": "scripts/legal.sh",
+              "size": 17105,
+              "sha256": "9394d4f78351a483c2787499b009563337ea441ae07398a21e7c16c4501f71b4"
+            },
+            {
+              "path": "scripts/script.sh",
+              "size": 5153,
+              "sha256": "5a1bb90383ad971ad3cec65b487875e42583950cc41a36e54f33afc1323af030"
+            },
+            {
+              "path": "tips.md",
+              "size": 490,
+              "sha256": "3ccbaaa342a2943c397fe6de8560b95d158f7aab9dae1f1c76130d6467808389"
+            }
+          ]
+        },
+        {
+          "slug": "litigation-response",
+          "name": "legal-litigation-strategy--litigation-response",
+          "display_zh": "litigation-response",
+          "display_en": "litigation-response",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 5158,
+              "sha256": "a1f33e39bf74c42d7d3cd402796e0d62cbb59ae2bc2f38ce965722db7fddbbe7"
+            },
+            {
+              "path": "assets/response-strategy-template.md",
+              "size": 8844,
+              "sha256": "f5432cdfb0da91dc3e30a858034d87f6daf46405a3f5d184ca8e4f94ae5fed01"
+            },
+            {
+              "path": "references/evidence-guide.md",
+              "size": 10256,
+              "sha256": "0e8526decdecba4e1044138a23ba784726cb30c35494b5326e56aa7aff690e65"
+            },
+            {
+              "path": "references/litigation-elements.md",
+              "size": 6608,
+              "sha256": "a0551ce9bc4091f04f3bacd374a431be91ec4dc79066a13948c351aed638201c"
+            }
+          ]
+        },
+        {
+          "slug": "pro-legal-strategist-v2",
+          "name": "legal-litigation-strategy--pro-legal-strategist-v2",
+          "display_zh": "pro-legal-strategist-v2",
+          "display_en": "pro-legal-strategist-v2",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 435,
+              "sha256": "34ba5e746fb9d8c9a4398adafe1aab1eaa3c013ad069650ffee9529e238f6983"
+            },
+            {
+              "path": "analyze_cyberspace_risks.py",
+              "size": 21510,
+              "sha256": "97c98f89f7581d0e9f52590c68bf7ea890353a7ce41c1b8185722377d7c3c757"
+            },
+            {
+              "path": "legal_analyst.py",
+              "size": 23646,
+              "sha256": "c5a0f9a741f7216b69a851076be861334fb3eae62928f615138a097f36549d36"
+            },
+            {
+              "path": "package.json",
+              "size": 327,
+              "sha256": "2563dcdccff08320e345c42c10fe342ec3cda3090d46839f194b7b231cfbb0d8"
+            },
+            {
+              "path": "requirements.txt",
+              "size": 64,
+              "sha256": "3951421a24a5d8bf6b96ee921b7bd2a8bb115dcd79ef8fa32aa0b1398a1d96df"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "marketing-ad-copywriting",
+      "name_zh": "广告文案专家",
+      "name_en": "Marketing Ad Copywriting Expert",
+      "scene": "marketing",
+      "description_zh": "从23模块营销策略体系（CRO/SEO/文案/分析/广告/发布）、AIDA/PAS/FAB等经典文案框架与说服力技巧、中文营销文案100个标题公式与痛点挖掘，到全平台广告文案生成（信息流/朋友圈/搜索/直通车/巨量引擎/Google Ads）含A/B测试、高转化落地页自动生成、电商爆款文案（淘宝/拼多多/抖音/京东）的完整广告文案工作流。",
+      "description_en": "Expert workflow for Marketing Ad Copywriting Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "ad-copywriter",
+          "name": "marketing-ad-copywriting--ad-copywriter",
+          "display_zh": "ad-copywriter",
+          "display_en": "ad-copywriter",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 2618,
+              "sha256": "6033d5274482fe2c6e5b87fc901fd9f5dcba21265e1c039e04fd09a17ef0e1bf"
+            },
+            {
+              "path": "scripts/ad.sh",
+              "size": 33336,
+              "sha256": "dcff72a8d5494e227f78c266df1f96aa8b75a77d2c42f79b685a24bc79be032e"
+            },
+            {
+              "path": "scripts/script.sh",
+              "size": 2621,
+              "sha256": "05af0066f4222521577b98ed8bf5fdf74f80e30b783f6dfe77e2134b756c0515"
+            },
+            {
+              "path": "tips.md",
+              "size": 5086,
+              "sha256": "84d057a92d0d9cf06b7206ab8cc94a83a27f6386bfe4ac132eb2a09d15dcbacc"
+            }
+          ]
+        },
+        {
+          "slug": "bytesagain-copywriter-cn",
+          "name": "marketing-ad-copywriting--bytesagain-copywriter-cn",
+          "display_zh": "bytesagain-copywriter-cn",
+          "display_en": "bytesagain-copywriter-cn",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1981,
+              "sha256": "5b695233f8b31a7834ec828b26cefe455fa615db362d04bbd7897929b27ffa9a"
+            },
+            {
+              "path": "scripts/script.sh",
+              "size": 9534,
+              "sha256": "8b1eac7c9bd39b8e9a8f33cf3818207cda2bbd70ef107599ed4b04d4f53c821f"
+            }
+          ]
+        },
+        {
+          "slug": "copywriting",
+          "name": "marketing-ad-copywriting--copywriting",
+          "display_zh": "copywriting",
+          "display_en": "copywriting",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 10030,
+              "sha256": "27349f65cf7edc8dfda13f332db6baf008b20e6159441d11d13bfd53826dcc00"
+            }
+          ]
+        },
+        {
+          "slug": "ecommerce-copywriter",
+          "name": "marketing-ad-copywriting--ecommerce-copywriter",
+          "display_zh": "ecommerce-copywriter",
+          "display_en": "ecommerce-copywriter",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 4029,
+              "sha256": "5609a29959ffa9b6d57c934f84e78d057157505fb8b8e71abe673c882306759b"
+            },
+            {
+              "path": "references/platform-rules.md",
+              "size": 3767,
+              "sha256": "c643664383ac5984d9a45ad037f34b9e76bb61c0967c22e915bcf40724e704c4"
+            },
+            {
+              "path": "references/selling-points.md",
+              "size": 2695,
+              "sha256": "8e89f08b0dc8b31c7ea278084e30637910adfd8e70bef13027e5245effe18c2d"
+            },
+            {
+              "path": "references/templates.md",
+              "size": 4337,
+              "sha256": "c2cfeb68c24f5234af1a1958f49005807686a464420ac3c7aa2102a559c5057a"
+            },
+            {
+              "path": "scripts/generate_title.py",
+              "size": 3870,
+              "sha256": "839df29f0bdaae7148f959bd8adce7d5c243529f6978a5567c8ef1bd2c9b360a"
+            }
+          ]
+        },
+        {
+          "slug": "landing-page-generator-openclaw",
+          "name": "marketing-ad-copywriting--landing-page-generator-openclaw",
+          "display_zh": "landing-page-generator-openclaw",
+          "display_en": "landing-page-generator-openclaw",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 6139,
+              "sha256": "9f94122facd6e45fb015061a8c8b9a49279848fad4c64bc2a7693883ac6e45a4"
+            }
+          ]
+        },
+        {
+          "slug": "marketing-skills",
+          "name": "marketing-ad-copywriting--marketing-skills",
+          "display_zh": "marketing-skills",
+          "display_en": "marketing-skills",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 3490,
+              "sha256": "00920a6a93baff049307d795f8c74a8dd5c8c6b4b153fefe5393fefeb1353d85"
+            },
+            {
+              "path": "references/ab-test-setup/SKILL.md",
+              "size": 11172,
+              "sha256": "51b1895d080bca288a6f1d8022a6a124e82338a7d88c7dd34f1f01b500286459"
+            },
+            {
+              "path": "references/analytics-tracking/SKILL.md",
+              "size": 10800,
+              "sha256": "d3619b093a80a814821d87f40e230e165918800820738af9d6087975d765ccff"
+            },
+            {
+              "path": "references/competitor-alternatives/SKILL.md",
+              "size": 19612,
+              "sha256": "50d9b99ac71d7b4bbdf168d5c28abef566a97da6f1decb2951e3d4d2574c41f4"
+            },
+            {
+              "path": "references/copy-editing/SKILL.md",
+              "size": 12981,
+              "sha256": "f0bf068d14ed3d5fcf13961e7e0de78374663e38255253cad13113e5e66c8bd2"
+            },
+            {
+              "path": "references/copywriting/SKILL.md",
+              "size": 13114,
+              "sha256": "5b3ea76961e8de82f00083569f4ef275058afb70bb301a9153dd80f73837b18e"
+            },
+            {
+              "path": "references/email-sequence/SKILL.md",
+              "size": 23016,
+              "sha256": "3db17b4bfcb1bbcf1487891b95391561db7f5a2ca6c397392d64c0aea7abd00e"
+            },
+            {
+              "path": "references/form-cro/SKILL.md",
+              "size": 10481,
+              "sha256": "0d41e83de9863a51e7fa420766798387556b427656a1c18bbb3505ff52b8e7bf"
+            },
+            {
+              "path": "references/free-tool-strategy/SKILL.md",
+              "size": 11297,
+              "sha256": "afd05058a2b0a4df3f32db31f01230e97008d0838d20efb7764effa8677db541"
+            },
+            {
+              "path": "references/launch-strategy/SKILL.md",
+              "size": 12221,
+              "sha256": "f4bb88f62b9217214a9362f7ab2787cf1f3c47065623c9ae43aab0f932c5e84d"
+            },
+            {
+              "path": "references/marketing-ideas/SKILL.md",
+              "size": 24473,
+              "sha256": "27528960d32a0dd30d556f360d47357abf6051ac4a563af1506af92aff231983"
+            },
+            {
+              "path": "references/marketing-psychology/SKILL.md",
+              "size": 21332,
+              "sha256": "793332c9374bc4c28f23590e01bff5e5730ff5900ef2c8ffbc9ba4337a1a9f5d"
+            },
+            {
+              "path": "references/onboarding-cro/SKILL.md",
+              "size": 11289,
+              "sha256": "c973ee1520d800fb68c39965d6c99526489c834440d7b2c254ab059cb54dab8d"
+            },
+            {
+              "path": "references/page-cro/SKILL.md",
+              "size": 10723,
+              "sha256": "ea4ac2ac8400f1853ae386785f63a0a9c445e1c08c981a9f6b734bc7c810cfc9"
+            },
+            {
+              "path": "references/paid-ads/SKILL.md",
+              "size": 15000,
+              "sha256": "0d00d270771f28b74f6243389f73f413fa539612215595757680fa5c95f25b53"
+            },
+            {
+              "path": "references/paywall-upgrade-cro/SKILL.md",
+              "size": 14192,
+              "sha256": "8104b18390db197707ad9b44ec4e68ee8f79326cc9ebb3a143e4c57b30857ef1"
+            },
+            {
+              "path": "references/popup-cro/SKILL.md",
+              "size": 11218,
+              "sha256": "7284678a518ff9dedb125ce39d04732fb532e32adea6fe0913e64928ab7e8282"
+            },
+            {
+              "path": "references/pricing-strategy/SKILL.md",
+              "size": 22239,
+              "sha256": "44cd0b6d3dfc1921d1a3eefdcbc43ef2fbb909bb913af44db1923c5f68e1ebb1"
+            },
+            {
+              "path": "references/programmatic-seo/SKILL.md",
+              "size": 16478,
+              "sha256": "f54fd1731b67cf7d3b0e2f418790c589a56c7076913df13c63c7bdd3a6bd72df"
+            },
+            {
+              "path": "references/referral-program/SKILL.md",
+              "size": 16793,
+              "sha256": "4ea4a7fd3bb9fd66b45e1643bc107d330038d44cc830676590117fae8a4fe710"
+            },
+            {
+              "path": "references/schema-markup/SKILL.md",
+              "size": 13192,
+              "sha256": "b43f80e20747a21f7b459d22d605858cf1d3586fd99388ec2941115e0e043fd8"
+            },
+            {
+              "path": "references/seo-audit/SKILL.md",
+              "size": 8453,
+              "sha256": "746cc57c51afc93da2d2f4f06e1270b3a4360ef8b3b49d1e416bf2c0c49bb454"
+            },
+            {
+              "path": "references/signup-flow-cro/SKILL.md",
+              "size": 9759,
+              "sha256": "d52fe97c2712260cbba0832e5747dcc6f189e131000be0df762abd7c85562812"
+            },
+            {
+              "path": "references/social-content/SKILL.md",
+              "size": 21040,
+              "sha256": "9c40b9ceda9094b3ce256d62ca8a33e8f82f323cff357da294e14262ed429b69"
+            },
+            {
+              "path": "skill-card.md",
+              "size": 4656,
+              "sha256": "26ca0e2d7da73d52af94b7c0db531bb69a37aaf22dfdfb08e1bba85a969f3d70"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "marketing-competitor-analysis",
+      "name_zh": "竞品分析专家",
+      "name_en": "Marketing Competitor Analysis Expert",
+      "scene": "marketing",
+      "description_zh": "从市场规模估算、行业细分与竞品图谱绘制，到企业市场趋势分析与用户行为洞察，再到B2B SaaS多场景竞争情报收集、SWOT分析与功能/价格对比、结构化HTML竞品分析报告输出，以及竞品网站/产品/定价自动化持续监控与预警的完整竞品分析工作流。覆盖市场调研、竞争情报、定位策略和动态追踪全链路。",
+      "description_en": "Expert workflow for Marketing Competitor Analysis Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "competitive-intelligence-market-research",
+          "name": "marketing-competitor-analysis--competitive-intelligence-market-research",
+          "display_zh": "competitive-intelligence-market-research",
+          "display_en": "competitive-intelligence-market-research",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 12530,
+              "sha256": "a479850b50fc04eba011e65becb8f0d6259c729da08df4276839e23068a89863"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 91428,
+              "sha256": "efedaac6322ebaf158dacbe745cc7ad132de031fb4e01b42a4359a1364364568"
+            }
+          ]
+        },
+        {
+          "slug": "competitive-product-research",
+          "name": "marketing-competitor-analysis--competitive-product-research",
+          "display_zh": "competitive-product-research",
+          "display_en": "competitive-product-research",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 7404,
+              "sha256": "11cb86a4de5b0689bc2a62c8a08bebf87966a8e0e0b033f3b75d3cfba9c65292"
+            },
+            {
+              "path": "assets/intake-form.html",
+              "size": 9410,
+              "sha256": "8d06aea77b1c2be0fdf18a194164c8fec5c92699bd4fc2865e5cd655fe9c900f"
+            },
+            {
+              "path": "claw.json",
+              "size": 1413,
+              "sha256": "e883ceacdcec473449a30a572d365148b433b8c17f809ec62f809fa1d1041a5e"
+            },
+            {
+              "path": "references/report-template-pro.html",
+              "size": 25895,
+              "sha256": "03d4b500764fe76d38c97f8f47c98ac0b749915c0460e6c3627adeb2910c92a0"
+            },
+            {
+              "path": "references/research-playbook.md",
+              "size": 11006,
+              "sha256": "93c556fc6d65f9d4209596300da1726f380c127897b80ba2188aa878a4904d9c"
+            },
+            {
+              "path": "scripts/test_intake_form.py",
+              "size": 8079,
+              "sha256": "5a002a688b7751594a3fd695811afd7fc043b652446975dccab3fba093eccb1e"
+            }
+          ]
+        },
+        {
+          "slug": "competitor-analysis-report",
+          "name": "marketing-competitor-analysis--competitor-analysis-report",
+          "display_zh": "competitor-analysis-report",
+          "display_en": "competitor-analysis-report",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 5935,
+              "sha256": "c821dd5b05cba9878af04d3b8457037709c5784cb13146e4d9c9bdd60e317282"
+            }
+          ]
+        },
+        {
+          "slug": "competitor-watch",
+          "name": "marketing-competitor-analysis--competitor-watch",
+          "display_zh": "competitor-watch",
+          "display_en": "competitor-watch",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 11459,
+              "sha256": "dd4ce0e53a2229593e8cf1021beb5786f9770243cc54ead3f60dd0eca184d8c8"
+            },
+            {
+              "path": "config.example.json",
+              "size": 4785,
+              "sha256": "93bee49f99e4527903e5d0f5ef4b25408d34dcf23a9ccbdbc02a614caf49d8eb"
+            },
+            {
+              "path": "scripts/add-competitor.sh",
+              "size": 5494,
+              "sha256": "52d029be571ab55ab69847bc4e8169a51bbcee718980c5ff873e7efb078f0d0f"
+            },
+            {
+              "path": "scripts/check.sh",
+              "size": 6555,
+              "sha256": "08b270d103b36e80c4c463ddd324923a408bfcdc36f69843b6c232b95bc5f9df"
+            },
+            {
+              "path": "scripts/diff.sh",
+              "size": 3893,
+              "sha256": "fcc9ca743fc1490a511dc656e5218879f0ee01ff014992aa978211ff291deb9d"
+            },
+            {
+              "path": "scripts/report.sh",
+              "size": 3584,
+              "sha256": "1bf85c7a43569c0e1179bdfa33629f5b6569420adea9c7fef0dd80fb5c906ce3"
+            },
+            {
+              "path": "scripts/setup.sh",
+              "size": 1708,
+              "sha256": "b03b3bb560a9acfb996580ce5e428644abba24af595771ded98b1465d3a715d5"
+            }
+          ]
+        },
+        {
+          "slug": "market-analysis-cn",
+          "name": "marketing-competitor-analysis--market-analysis-cn",
+          "display_zh": "market-analysis-cn",
+          "display_en": "market-analysis-cn",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1259,
+              "sha256": "1d9d33bc0603b6311a645cd3996120644f185ce2d03def20f15eb0b985bf7c46"
+            },
+            {
+              "path": "package.json",
+              "size": 125,
+              "sha256": "2178fd87851e3706b7b2a434e003cb6ab18adc213f6507d16f588b31af05e498"
+            }
+          ]
+        },
+        {
+          "slug": "market-research",
+          "name": "marketing-competitor-analysis--market-research",
+          "display_zh": "market-research",
+          "display_en": "market-research",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 7399,
+              "sha256": "e6dfbd4962423e93e7694d1ccb54acbb35c10d222f6308295f8ec6ba5a11f306"
+            },
+            {
+              "path": "competitor-analysis.md",
+              "size": 3087,
+              "sha256": "995fc92cb50f685e3369ef1e3e235ec7c0425f0d6ab6500b41c54e8bca62a686"
+            },
+            {
+              "path": "evidence-grading.md",
+              "size": 1322,
+              "sha256": "6ff41dd0e76cb58359d4c84c84be09e75875318ac6e59dc508c0a38af58d98e7"
+            },
+            {
+              "path": "validation.md",
+              "size": 3634,
+              "sha256": "dcbaa98fba9b8834a4aa09fc9116471fd9c121198b3e190d5c56eb8b6de03bcd"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "marketing-event-planning",
+      "name_zh": "活动策划专家",
+      "name_en": "Marketing Event Planning Expert",
+      "scene": "marketing",
+      "description_zh": "从商业活动全品类策划（会议/发布会/展览/企业聚会）与可落地SOP生成、定价供应商后勤预算时间表的运营规划，到活动全流程管理与ROI评估分析，再到H5/网页营销活动方案与页面结构生成、营销创意战略与活动概念开发的完整活动策划工作流。覆盖活动策划、执行管控、创意输出全链路。",
+      "description_en": "Expert workflow for Marketing Event Planning Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "activity-campaign-from-ui",
+          "name": "marketing-event-planning--activity-campaign-from-ui",
+          "display_zh": "activity-campaign-from-ui",
+          "display_en": "activity-campaign-from-ui",
+          "files": [
+            {
+              "path": "CHANGELOG.md",
+              "size": 11963,
+              "sha256": "1d104539934890ed140e8a1e4b1182c651eafc9a7238ce8fc0c3f515ff19c7b7"
+            },
+            {
+              "path": "CONTRIBUTING.md",
+              "size": 5722,
+              "sha256": "8dc9cc87f196153522ff43dc1599884d4ad8e313fd5781187011714e05b1a096"
+            },
+            {
+              "path": "README.md",
+              "size": 8605,
+              "sha256": "87d9e8f70a4e03c9dede78e780a9e1e9dc62618ea69ef00e3dd0b2cdcdbeada0"
+            },
+            {
+              "path": "README.zh-CN.md",
+              "size": 8311,
+              "sha256": "ccf5d5bb6be353c1a52b4ce6b957ed1cee4877b39995a61587f77b845d791be0"
+            },
+            {
+              "path": "RELEASE-CHECKLIST.md",
+              "size": 7808,
+              "sha256": "0539dfe16b86df94d42e39b80f501733676899f66728e33023ef5dd759eeb77a"
+            },
+            {
+              "path": "RELEASE.md",
+              "size": 2407,
+              "sha256": "9bc526dd7e9391e72dc1e404e099b84707c03ac54eeb9b83cff009490867bb21"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 31078,
+              "sha256": "bfda67d518b0685a8724a1eaeaef583a911006fb121639a594ee77f1c5303f0a"
+            },
+            {
+              "path": "agents/openai.yaml",
+              "size": 284,
+              "sha256": "fdf23c568524f7c2b3a19b350156d0a2a12d8541fdf575d0431d4e8a6d9122c2"
+            },
+            {
+              "path": "examples/campaign-schema-example.json",
+              "size": 3909,
+              "sha256": "a55da7f08c44f415b36426648ca9b8a6ec1784af3b48bafe10b4949537946562"
+            },
+            {
+              "path": "examples/full-delivery-example.md",
+              "size": 15738,
+              "sha256": "ab6c1e5ffcd34cfafec6b45b701ada63a832702eb44ffe260be7df9c90f1103c"
+            },
+            {
+              "path": "examples/input-example.md",
+              "size": 764,
+              "sha256": "8781df41edbcf00b8f2db072a8903d164aa56c40d3dd907d872a19692aa6b4f6"
+            },
+            {
+              "path": "examples/mode-analysis-example.md",
+              "size": 1533,
+              "sha256": "d3e21395709717ef3ac372f36c1a9ceba3a2c239e6625684cbee3bece6c5e3e9"
+            },
+            {
+              "path": "examples/mode-architecture-example.md",
+              "size": 2577,
+              "sha256": "65a70daed98de5e9203fb255670064faa8dce74447fba4be93339e99b9e29f77"
+            },
+            {
+              "path": "examples/mode-delivery-example.md",
+              "size": 14767,
+              "sha256": "e3c41307b673b05ec413467843b82126d1c313b098e2561cc58dba7fb596c419"
+            },
+            {
+              "path": "examples/mode-proposal-example.md",
+              "size": 3090,
+              "sha256": "33ba4c082aee9d0f8816ef09fb62d66184e3d37441ce252dd124394ce50dff50"
+            },
+            {
+              "path": "examples/output-example.md",
+              "size": 6462,
+              "sha256": "767d6257cac6761597e2270e97034a5d0fa9d2c7b88dc407cfb44e51c23753a3"
+            },
+            {
+              "path": "examples/spring-festival-case.md",
+              "size": 1216,
+              "sha256": "6a3c1a48cf4b4974e8b97a9324efc078423f597180e20834731425f6118a61dd"
+            },
+            {
+              "path": "references/scope.md",
+              "size": 2972,
+              "sha256": "6b0d6c75da57d14bfee8b5fc671375605b8e772c6256d91d6e7a16e0d85cd418"
+            }
+          ]
+        },
+        {
+          "slug": "afrexai-event-management",
+          "name": "marketing-event-planning--afrexai-event-management",
+          "display_zh": "afrexai-event-management",
+          "display_en": "afrexai-event-management",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 2277,
+              "sha256": "f90d563ae198cf6fa41a26070a1a442a79531405a242952195fc39973cccc64b"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 32691,
+              "sha256": "e6614bea2e272dd61759636651ec57f04e65b2d96ef25a361d92b19ba4058255"
+            }
+          ]
+        },
+        {
+          "slug": "afrexai-event-planner",
+          "name": "marketing-event-planning--afrexai-event-planner",
+          "display_zh": "afrexai-event-planner",
+          "display_en": "afrexai-event-planner",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 2523,
+              "sha256": "da36937b0aa7063392ead242396acc2e979e38f44f01295a9d24dd08c66e0012"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 28117,
+              "sha256": "7f3f74444734127ebc70eb89c4ced26d33330ee8420e4c4a4cb0cfeb318da10a"
+            }
+          ]
+        },
+        {
+          "slug": "afrexai-event-planning",
+          "name": "marketing-event-planning--afrexai-event-planning",
+          "display_zh": "afrexai-event-planning",
+          "display_en": "afrexai-event-planning",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 1555,
+              "sha256": "e728fcd7a266c96fb0d3ac0c441ef59f6c26e421a50f8a71c48fa607e84b717b"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 9590,
+              "sha256": "2c75b7e5a01a098de89561f95bebc84adac6004a15cfdec07097f058f64bd4e3"
+            }
+          ]
+        },
+        {
+          "slug": "campaign-planning",
+          "name": "marketing-event-planning--campaign-planning",
+          "display_zh": "campaign-planning",
+          "display_en": "campaign-planning",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 778,
+              "sha256": "73a94c0d223cf14bd9b352c5154c447c75895da41dbfdb7b338749a76c8566e0"
+            }
+          ]
+        },
+        {
+          "slug": "marketing-designer",
+          "name": "marketing-event-planning--marketing-designer",
+          "display_zh": "marketing-designer",
+          "display_en": "marketing-designer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 8478,
+              "sha256": "7d2407f9a79784a0c6ee1ff130b40169112af31b57be8fcf0365201a15a4b392"
+            },
+            {
+              "path": "references/examples.md",
+              "size": 7728,
+              "sha256": "1ed815c2bd9481190612e3261cf38ef0483764f8c0c5f5f093bf36ff755a3cdf"
+            },
+            {
+              "path": "references/frameworks.md",
+              "size": 10222,
+              "sha256": "1748f41f3e6a93f950b3ea9739e227bf6ae4f7df12b1484821d1f00c3f9ebd94"
+            },
+            {
+              "path": "references/frutero-context.md",
+              "size": 4860,
+              "sha256": "b0b2e7d830161441e5852d366a60c13145e1cea70e97de0ec1c1596e98f7cec4"
+            },
+            {
+              "path": "references/patterns.md",
+              "size": 7713,
+              "sha256": "6ee63651e67d10a12f3ffe561dcf27978f7340b069652fad4fbdd71f5ac45a59"
+            },
+            {
+              "path": "references/philosophy.md",
+              "size": 6709,
+              "sha256": "c1e1f3726e00b2a4f540638241205bd7ae55931eb49cfebc8b54f772e8aafb93"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "marketing-social-media-operation",
+      "name_zh": "社媒运营专家",
+      "name_en": "Marketing Social Media Operation Expert",
+      "scene": "marketing",
+      "description_zh": "从小红书/抖音/B站热门内容抓取与趋势分析、小红书/公众号/抖音/私域全平台运营策略与涨粉规划，到多平台发布级自媒体文案生成（小红书/知乎/公众号/抖音）、各平台内容优化与互动率提升、微信公众号爆文创作与SEO优化，再到全链路新媒体运营闭环（行业分析→竞品→养号→爆款→互动钩子）的完整社媒运营工作流。",
+      "description_en": "Expert workflow for Marketing Social Media Operation Expert.",
+      "missing_subskills": [
+        "content-writer"
+      ],
+      "subskills": [
+        {
+          "slug": "content-hunter",
+          "name": "marketing-social-media-operation--content-hunter",
+          "display_zh": "content-hunter",
+          "display_en": "content-hunter",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 1801,
+              "sha256": "20171326e02c3a35c582091c40fee60dfdd15542d46636190d6071c106906f61"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 11361,
+              "sha256": "60d9e77c4773b210bb2c5895544a7559b3a888f0caf941fca6355f9b8a2b50b3"
+            },
+            {
+              "path": "evals/evals.json",
+              "size": 639,
+              "sha256": "74fe72c0d57e53582cd100b2571d523b22f440e12dc8f9f798aa5c8fb8867c6e"
+            }
+          ]
+        },
+        {
+          "slug": "newmedia-operations",
+          "name": "marketing-social-media-operation--newmedia-operations",
+          "display_zh": "newmedia-operations",
+          "display_en": "newmedia-operations",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 12210,
+              "sha256": "f1547188a835c9235d363cb478d04b4c591d2e5a82bf5e3f8feb8c580ed39c4d"
+            },
+            {
+              "path": "references/ACCOUNT_NURTURING.md",
+              "size": 3685,
+              "sha256": "8aa9eaedda312c066e8c60b161466d9a4e9c4a5dd2f2178786cecfd789d2dd93"
+            },
+            {
+              "path": "references/COMPETITOR_ANALYSIS.md",
+              "size": 4886,
+              "sha256": "5dadbb4b26039867c55fc2150325d0d8c7915c69acff9da14acd7b6213a593f6"
+            },
+            {
+              "path": "references/ENGAGEMENT_HOOKS.md",
+              "size": 5915,
+              "sha256": "ec310fc2c463892a06a8fccca36733213ab500dda3a8728b2ed8659c3afb449c"
+            },
+            {
+              "path": "references/IMA_KNOWLEDGE.md",
+              "size": 3306,
+              "sha256": "2b38821bfa8ed4587707ca351b07c408276fa729cb87dc935d55218559077116"
+            },
+            {
+              "path": "references/INDUSTRY_ANALYSIS.md",
+              "size": 4503,
+              "sha256": "c6f2f0b68d4ba14a3ac2d09fd5a5df18c09b28f6945d44e1358371eb20ac9f15"
+            },
+            {
+              "path": "references/OPENCLI.md",
+              "size": 7243,
+              "sha256": "f39e9c33a8ebdfcf32baae840e790cd6b4e00eac495e9c35bd16315000d59506"
+            },
+            {
+              "path": "references/VIRAL_CONTENT.md",
+              "size": 5853,
+              "sha256": "2f28115bcdbaad0dc577b7de1bd914a30d7a18defe1b9e998fa080d4ffe73879"
+            },
+            {
+              "path": "scripts/analyze_industry.py",
+              "size": 7752,
+              "sha256": "6d0a28ae9036d497ff5af35352cd2007084e216c461a58fa4dbac973e8cee585"
+            },
+            {
+              "path": "scripts/clean_data.py",
+              "size": 6985,
+              "sha256": "1e4f43c86ab422d4aca18640dda29c39c9c1bea4570e539815f75fe342e1e510"
+            },
+            {
+              "path": "scripts/demand_type_classifier.py",
+              "size": 6143,
+              "sha256": "b42680d2cee3fdf3830d0cd35dce5f96eae9f3f8594d609d1236427f331b9d2d"
+            },
+            {
+              "path": "scripts/detect_forbidden_words.py",
+              "size": 6470,
+              "sha256": "883cdf653f2bc916ae27c64ab1694d5ba552de833e224917f608a64040faff7c"
+            },
+            {
+              "path": "scripts/extract_demands.py",
+              "size": 4466,
+              "sha256": "f821bb803e7f2b6cab71bc10e8a38b8289640fb21a3280228903435afba2653f"
+            },
+            {
+              "path": "scripts/fetch_douyin.py",
+              "size": 3554,
+              "sha256": "885c567cb0e24da3277dd23addfd6346dbd5901acaaaf1995292c5358b6921e3"
+            },
+            {
+              "path": "scripts/fetch_ecommerce_reviews.py",
+              "size": 4099,
+              "sha256": "62a9a056ce33fb7c1e1398bc9101f7c84d515c7b117d184765f830515fd461f4"
+            },
+            {
+              "path": "scripts/fetch_wechat_video.py",
+              "size": 3569,
+              "sha256": "8cdcb81323e4ea99beea939df7c7c3baafc2d614b5aedbfbdb31420392c9ea32"
+            },
+            {
+              "path": "scripts/fetch_weibo.py",
+              "size": 3853,
+              "sha256": "16c851a4b72d3bb16e45a11f9259de5a86311294f60828fc65aa0c2f1bb987b7"
+            },
+            {
+              "path": "scripts/fetch_xiaohongshu.py",
+              "size": 3723,
+              "sha256": "553e640f015a40a4dc358186e4b8b13082a32b76c12ffdf2f00b087d0a4c0db7"
+            },
+            {
+              "path": "scripts/generate_hook_templates.py",
+              "size": 7850,
+              "sha256": "ff7f4cf7540e2a9c3d25f1374d714b010c076c5e257274b8890299b3411feaf4"
+            },
+            {
+              "path": "scripts/generate_report.py",
+              "size": 10009,
+              "sha256": "45ff31d3cc29fc6e7be39f003fb71fb4813b933547a318a31d6e5f468a475132"
+            },
+            {
+              "path": "scripts/monitor_competitors.py",
+              "size": 9293,
+              "sha256": "1bdea83c4466507eb0f9fbbf0359192f0353ef065742d537318f19707fc20b56"
+            },
+            {
+              "path": "scripts/prioritize_demands.py",
+              "size": 5403,
+              "sha256": "137b15e8de6fc39243a418bc4310e9041daf5238224435b1d36e5eb0463aecfa"
+            },
+            {
+              "path": "scripts/validate_data.py",
+              "size": 7657,
+              "sha256": "e18d4405742ba3a64f87cc7070029bbe11b7d409632c4a6ef28a50bb4569e3c3"
+            },
+            {
+              "path": "templates/accounts_config.json",
+              "size": 1559,
+              "sha256": "496b09cc5bf6fa0a599571667aa87752f410bc63663d935ac76d567e25f630cf"
+            },
+            {
+              "path": "templates/industry_report.md",
+              "size": 2761,
+              "sha256": "8a06caa3893babf2aa4c2889ed18a12e65cd42dcc133e48f4b326c2528820c7f"
+            }
+          ]
+        },
+        {
+          "slug": "social-media-operator",
+          "name": "marketing-social-media-operation--social-media-operator",
+          "display_zh": "social-media-operator",
+          "display_en": "social-media-operator",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 6184,
+              "sha256": "97a51d0db11e0e0c1f8b94d255f2f90642105cb410e64f358bc4a47515629e36"
+            }
+          ]
+        },
+        {
+          "slug": "social-media-optimizer",
+          "name": "marketing-social-media-operation--social-media-optimizer",
+          "display_zh": "social-media-optimizer",
+          "display_en": "social-media-optimizer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 10505,
+              "sha256": "e3506710e2b98ecb994cc3ab6fe1584dc4ddc15bae35572f95e39d7c7c80cd42"
+            }
+          ]
+        },
+        {
+          "slug": "wechat-mp-writer-skill-mxx",
+          "name": "marketing-social-media-operation--wechat-mp-writer-skill-mxx",
+          "display_zh": "wechat-mp-writer-skill-mxx",
+          "display_en": "wechat-mp-writer-skill-mxx",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 3872,
+              "sha256": "810f7a08053120f6d2878d4ca9b900395dad7f5676caf16e47e7da34d768b0dc"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "marketing-user-growth",
+      "name_zh": "用户增长专家",
+      "name_en": "Marketing User Growth Expert",
+      "scene": "marketing",
+      "description_zh": "从AARRR+增长框架与北极星指标定义、获客闭环与实验框架设计、转化漏斗创建与流失环节诊断，到新用户入职流程与激活指标优化、客户留存策略与赢回活动设计、流失风险AI评估与定制化留存推荐的完整用户增长工作流。覆盖获客、激活、留存、转化、推荐全链路增长体系。",
+      "description_en": "Expert workflow for Marketing User Growth Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "afrexai-churn-analyzer",
+          "name": "marketing-user-growth--afrexai-churn-analyzer",
+          "display_zh": "afrexai-churn-analyzer",
+          "display_en": "afrexai-churn-analyzer",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 1103,
+              "sha256": "ed48b189d4909cae49cb5f9b1cf38cd83de32378c382e70e15e70be51518d4e4"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 2375,
+              "sha256": "45bd60249a07991879ca2201c87e58a157dcf0ad714350c3a55406626185e40c"
+            }
+          ]
+        },
+        {
+          "slug": "afrexai-growth-engine",
+          "name": "marketing-user-growth--afrexai-growth-engine",
+          "display_zh": "afrexai-growth-engine",
+          "display_en": "afrexai-growth-engine",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 2963,
+              "sha256": "ef8aa0f288242978b581e0fb17aa4ba958c8092981b2b0fea901a207b35bcd9d"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 36434,
+              "sha256": "602213a8adb311c2719b2c04209b0565cfe176f2fa5a8644773950d7faa53f5f"
+            }
+          ]
+        },
+        {
+          "slug": "cgo",
+          "name": "marketing-user-growth--cgo",
+          "display_zh": "cgo",
+          "display_en": "cgo",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 2874,
+              "sha256": "a59bc06748a08c750a5fdf1701b27403c93de91c058a79cc0927640547fe07dd"
+            },
+            {
+              "path": "acquisition.md",
+              "size": 2154,
+              "sha256": "b91a826ee6e47d73de682df17c9c56a5f8fbbc86732dd09969368ed6526badce"
+            },
+            {
+              "path": "experiments.md",
+              "size": 2055,
+              "sha256": "13b7a49a938f28ec0963703b51882b1b7de73146a50baa88397f984ef40c09c9"
+            },
+            {
+              "path": "metrics.md",
+              "size": 2126,
+              "sha256": "6e74e7db19ade745ffe917ad4507b39a3efc6c04c88348719630077d9c01b015"
+            },
+            {
+              "path": "retention.md",
+              "size": 1703,
+              "sha256": "f9da0bb17607e107368ad3cddc67ec25ea82eaa7596ebdc1a40a386b659c0dc6"
+            }
+          ]
+        },
+        {
+          "slug": "customer-onboarding-2",
+          "name": "marketing-user-growth--customer-onboarding-2",
+          "display_zh": "customer-onboarding-2",
+          "display_en": "customer-onboarding-2",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 9787,
+              "sha256": "f976bf64d7c51bdeface30f824a913bf37cb35401f188f1ac5bc179ee802ca48"
+            }
+          ]
+        },
+        {
+          "slug": "customer-retention",
+          "name": "marketing-user-growth--customer-retention",
+          "display_zh": "customer-retention",
+          "display_en": "customer-retention",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 10200,
+              "sha256": "40fec13994734c8f4e7fa612873914c1853a6adbee561057882c5fb1bdba4932"
+            }
+          ]
+        },
+        {
+          "slug": "funnel-analyzer",
+          "name": "marketing-user-growth--funnel-analyzer",
+          "display_zh": "funnel-analyzer",
+          "display_en": "funnel-analyzer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1582,
+              "sha256": "ba149313fbe6fd6918d377e45f7078da24d68c83d98f6369465115824b9b025a"
+            },
+            {
+              "path": "scripts/funnel.sh",
+              "size": 12025,
+              "sha256": "c70b6a0873303ee265d535f6820226aceffb542e1c428761059cf6a04bcb38a1"
+            },
+            {
+              "path": "scripts/script.sh",
+              "size": 2259,
+              "sha256": "6430d3bbce8031cbe881c0c149327a47d0e4bcf8cb708b9716b3c7fd9ab950d4"
+            },
+            {
+              "path": "tips.md",
+              "size": 1283,
+              "sha256": "45775bd529d9f509febd0b90a251b74e1c68a0a16c57067be8572c07aea50817"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "media-script-breakdown",
+      "name_zh": "脚本拆解专家",
+      "name_en": "Media Script Breakdown Expert",
+      "scene": "media",
+      "description_zh": "从专业四幕AI视频剧本与剧集拆分分镜脚本生成、电影视频剧本到分镜表格转换（镜号/景别/画面/人物/场景/音效）、短剧剧本角色塑造与剧情设计，到短视频分镜脚本撰写（黄金3秒/情绪钩子/镜头语言）、视频脚本分镜结构化输出与图谱管道式剧本生成管理的完整脚本拆解工作流。覆盖剧本创作、分镜转化、场景设计、制片规划全链路。",
+      "description_en": "Expert workflow for Media Script Breakdown Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "ai-viral-team-script-writing",
+          "name": "media-script-breakdown--ai-viral-team-script-writing",
+          "display_zh": "ai-viral-team-script-writing",
+          "display_en": "ai-viral-team-script-writing",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 17945,
+              "sha256": "3f8ab450a6dc733ed61ab0d88ef45a804cd61754d3ef94cce1b41f9c90f568c2"
+            }
+          ]
+        },
+        {
+          "slug": "movie",
+          "name": "media-script-breakdown--movie",
+          "display_zh": "movie",
+          "display_en": "movie",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 2221,
+              "sha256": "4ebf72244165023a9780273802e580f8107699d2829ba50399db103301b48bec"
+            },
+            {
+              "path": "commercial.md",
+              "size": 3378,
+              "sha256": "2d95bfb63544d39d16ad09a443c251299ec096c5d4b160b625dbb0e371748de6"
+            },
+            {
+              "path": "experimental.md",
+              "size": 4467,
+              "sha256": "a34b9581b860410db8458cc30b7404049aef9eb8bab298bcc7211d42d48d09a0"
+            },
+            {
+              "path": "generation.md",
+              "size": 3700,
+              "sha256": "b805dde741a2e43dd5757677485fa7b11f14df6a660ce72234fe4388b114c86e"
+            },
+            {
+              "path": "postproduction.md",
+              "size": 3400,
+              "sha256": "c6733938f4863bed0fe22682d3a0c3830d10fec2f474e145be8f83ac8a83c48b"
+            },
+            {
+              "path": "preproduction.md",
+              "size": 2514,
+              "sha256": "a9ffa6d3337e9afe21e0ad33fbc2ddc4dfd5ef63468f2e6badd0ee99283aca6d"
+            },
+            {
+              "path": "tools.md",
+              "size": 2186,
+              "sha256": "9bc4865905c21671c9fda19d28bb14438f75ed172f716494d033765308afaec5"
+            }
+          ]
+        },
+        {
+          "slug": "script-to-storyboard",
+          "name": "media-script-breakdown--script-to-storyboard",
+          "display_zh": "剧本转分镜",
+          "display_en": "script-to-storyboard",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 7174,
+              "sha256": "27ffccd5596b4b419438c38cab40cfc355c63bdd1b8d286ae28db34ef67d2160"
+            }
+          ]
+        },
+        {
+          "slug": "seedance2-storyboard-generator",
+          "name": "media-script-breakdown--seedance2-storyboard-generator",
+          "display_zh": "seedance2-storyboard-generator",
+          "display_en": "seedance2-storyboard-generator",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 6140,
+              "sha256": "9384a9f0b05844664fb9d17479f86140c57603d315ea1356178444625731cb8c"
+            },
+            {
+              "path": "references/seedance-manual.md",
+              "size": 16887,
+              "sha256": "d4437ad4558581e1aef606e653cb9760e3094c2cdbf314a2c0d777e65660bbb4"
+            },
+            {
+              "path": "references/故事转视频脚本-转换工具.md",
+              "size": 5208,
+              "sha256": "6962d053854a06bf8562a3babe4d62a4e883bc182f3aaeebc61a806d0acaaa39"
+            }
+          ]
+        },
+        {
+          "slug": "short-drama-writer",
+          "name": "media-script-breakdown--short-drama-writer",
+          "display_zh": "short-drama-writer",
+          "display_en": "short-drama-writer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 1805,
+              "sha256": "f1615f43cf7857989f61db52ae6f6f96a027746fba02ca433d74ab5758b64c58"
+            },
+            {
+              "path": "scripts/drama.sh",
+              "size": 7980,
+              "sha256": "c9f19e89d95474cf1796ffed500bb1221284374b8f513043111cc555fbe1fc4e"
+            },
+            {
+              "path": "scripts/drama_gen.py",
+              "size": 20611,
+              "sha256": "d7c2b98fd7b0cfc25ec2ee6b8cf91d6d55625e9d8335f3bcd297ba3074746356"
+            },
+            {
+              "path": "scripts/script.sh",
+              "size": 2651,
+              "sha256": "26122ca7fa509f0df0b14c94713a7f3e43fd2799e3db032adb4a91b42cb9e62e"
+            },
+            {
+              "path": "tips.md",
+              "size": 441,
+              "sha256": "3926040ca38f4ccfc83e9ab8f4480026d4c0d449140bfbdfd865d4d7467126c2"
+            }
+          ]
+        },
+        {
+          "slug": "video-script-generator",
+          "name": "media-script-breakdown--video-script-generator",
+          "display_zh": "video-script-generator",
+          "display_en": "video-script-generator",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 3378,
+              "sha256": "9c4bede2d3702b426bc2d05d8dbb82b8df3523d9a9f767d76cabdd68a6d64344"
+            },
+            {
+              "path": "templates/before-after.md",
+              "size": 1078,
+              "sha256": "42a0c43c8d2b2bcbdbabbca4d621bde940e3ae488ba7828d9f52726ef2e17bb5"
+            },
+            {
+              "path": "templates/pain-solution.md",
+              "size": 1085,
+              "sha256": "d13b792593c8ceedff9403d9f44baf876c52418544c6963f0f34b80a05132bcc"
+            },
+            {
+              "path": "templates/plot-twist.md",
+              "size": 1269,
+              "sha256": "d9f6db117c0739eca3cc6b28b2411b0a59a124ae54654f576421c8c403f7ddfd"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "media-short-video-copy",
+      "name_zh": "短视频文案专家",
+      "name_en": "Media Short Video Copy Expert",
+      "scene": "media",
+      "description_zh": "从抖音快手小红书视频号短视频文案一键提取（标题/简介/口播文案/违禁词提醒）与多平台视频脚本全类型创作、爆款短视频脚本生成（抖音/B站/YouTube/小红书/视频号）与黄金3秒口播脚本方法论，到短视频脚本标题封面一站式生成与自媒体多平台爆款标题创作的完整短视频文案工作流。覆盖文案提取、脚本创作、口播生成、标题优化全链路。",
+      "description_en": "Expert workflow for Media Short Video Copy Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "cn-video-script-writer",
+          "name": "media-short-video-copy--cn-video-script-writer",
+          "display_zh": "cn-video-script-writer",
+          "display_en": "cn-video-script-writer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 5524,
+              "sha256": "84a2820f769cdb86c4c7f0a78651cef8c699f55de94ef4197840ce99fdb0a5fc"
+            },
+            {
+              "path": "references/hook-formulas.md",
+              "size": 5042,
+              "sha256": "d08811a33d64f983c1e9345769da9bdd56abd25bf2525c0dacee2950a78ba657"
+            },
+            {
+              "path": "references/platform-styles.md",
+              "size": 5122,
+              "sha256": "6a4a16b7de47197d1eeaf22cdd74bf879757e0bf6bdd918ce8ac7f82d028938a"
+            },
+            {
+              "path": "references/script-templates.md",
+              "size": 5577,
+              "sha256": "fc6e23c05090aab7fbe0deb77b948943b04a5c4d12621109648077dca88d7e4f"
+            }
+          ]
+        },
+        {
+          "slug": "douyin-copy-extract",
+          "name": "media-short-video-copy--douyin-copy-extract",
+          "display_zh": "douyin-copy-extract",
+          "display_en": "douyin-copy-extract",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 3123,
+              "sha256": "58c3425a7dc27290f6aec0db77e19f93f634daf6f513beff5884ce9b150fa7bb"
+            }
+          ]
+        },
+        {
+          "slug": "short-video-script",
+          "name": "media-short-video-copy--short-video-script",
+          "display_zh": "short-video-script",
+          "display_en": "short-video-script",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 2851,
+              "sha256": "7974599d63281a4bb55b4e46ef27b06da15629ef26e8fe6094ddfcc1bfd77fbc"
+            }
+          ]
+        },
+        {
+          "slug": "short-video-script-creator",
+          "name": "media-short-video-copy--short-video-script-creator",
+          "display_zh": "short-video-script-creator",
+          "display_en": "short-video-script-creator",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 6348,
+              "sha256": "db502d0079f2c6ead9138d73b06119046e5c02a3d624fcfd7ae661b2b7a3fad0"
+            },
+            {
+              "path": "out_put/prompt_小麦_20260325_114238.md",
+              "size": 3671,
+              "sha256": "5259ea08e115386298aabe0cba712a2c9986542d61dae9dac3217a013d580b5d"
+            },
+            {
+              "path": "out_put/小麦_20260325_114238.md",
+              "size": 4217,
+              "sha256": "602551c0c59bdba83f363d3628126cbe051f7aa35dd4dadb801f1c0e4d978708"
+            },
+            {
+              "path": "package.json",
+              "size": 357,
+              "sha256": "6b63290d02a24df1b5653214ec37f4b81b6d9ef731854a62306f6cfd1249bd66"
+            },
+            {
+              "path": "scripts/main.py",
+              "size": 8903,
+              "sha256": "1c04ab846f320c9130a4efe2847eecce24ca798c8df665887edf7e0194333a50"
+            }
+          ]
+        },
+        {
+          "slug": "viral-script-writer",
+          "name": "media-short-video-copy--viral-script-writer",
+          "display_zh": "viral-script-writer",
+          "display_en": "viral-script-writer",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 7400,
+              "sha256": "ff55aa511b2770b0befc01a7c697e3e0ae10e5520137f4974d87eb25b2b00d54"
+            }
+          ]
+        },
+        {
+          "slug": "viral-title-generator",
+          "name": "media-short-video-copy--viral-title-generator",
+          "display_zh": "viral-title-generator",
+          "display_en": "viral-title-generator",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 6067,
+              "sha256": "320096ae4eba59769e826c86bdc6d0476329c19647c7d7fc5dd48c84fefa9123"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "media-storyboard-design",
+      "name_zh": "分镜设计专家",
+      "name_en": "Media Storyboard Design Expert",
+      "scene": "media",
+      "description_zh": "从剧本文本到标准分镜表格转换（镜号/景别/拍摄角度/画面内容/人物/音效）与电影感镜头运动设计（推拉摇移/景别/构图），到AI视频提示词与分镜脚本构思（文生视频/图生视频/多模态参考）与AI绘画视频提示词参数化构建，再到专业四幕分镜脚本生成与视频脚本分镜描述画面提示词输出的完整分镜设计工作流。覆盖分镜规划、镜头设计、画面提示词、视觉预览全链路。",
+      "description_en": "Expert workflow for Media Storyboard Design Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "ai-video-script",
+          "name": "media-storyboard-design--ai-video-script",
+          "display_zh": "ai-video-script",
+          "display_en": "ai-video-script",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 7104,
+              "sha256": "811e06f6889f31ae568c154c8f847bd117228800008d4178f0b47193578a5c23"
+            },
+            {
+              "path": "test.md",
+              "size": 2929,
+              "sha256": "62eb0bc25abb22e7a6dab03387345af1aa06b29d352ce7a17f3516b3f6971654"
+            }
+          ]
+        },
+        {
+          "slug": "prompt-bozo",
+          "name": "media-storyboard-design--prompt-bozo",
+          "display_zh": "prompt-bozo",
+          "display_en": "prompt-bozo",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 9624,
+              "sha256": "028991cd01bd7b89477c00148a2870ad842cab9fd0570e4456c56c55fabe6ebc"
+            },
+            {
+              "path": "evals/evals.json",
+              "size": 6671,
+              "sha256": "d1f29f7863b6a4297e308b26a9a946a8d67ddd4380eb1e384f16cfbabbdc0e9d"
+            },
+            {
+              "path": "references/camera.md",
+              "size": 3348,
+              "sha256": "01a58de636f89c1ef81a5a9487873cc4474f01ff438c3c53fc4f2d1e12eaa19c"
+            },
+            {
+              "path": "references/character-design.md",
+              "size": 4689,
+              "sha256": "cf954194a5008c282a134b51265c1f4e2f78ba508ec9ebf0f68ca4a221a3885a"
+            },
+            {
+              "path": "references/chinese-style.md",
+              "size": 8411,
+              "sha256": "bcc26c6c445ba256ba9a543e298cc959530ce8765ce126a07977eea48a6e5c6b"
+            },
+            {
+              "path": "references/framework.md",
+              "size": 4309,
+              "sha256": "504838d837e389d66a74e022d09fb337d009a13355af28fa14f623bdd66a2390"
+            },
+            {
+              "path": "references/hairstyles.md",
+              "size": 4798,
+              "sha256": "ae02aad22d365d5ee91ff9820a19bfdb0dd7ea1971b21217cd4c14bd83d92f45"
+            },
+            {
+              "path": "references/locations.md",
+              "size": 3643,
+              "sha256": "b46bbe028591c92d07bbbd24ed6ca9e22d1e954d659291b135901f2b22d2e937"
+            },
+            {
+              "path": "references/poses.md",
+              "size": 3785,
+              "sha256": "2e54fdea6696e85770c32f5d39a07bd4c0ce9277ca47bad3fab897cbe971a485"
+            }
+          ]
+        },
+        {
+          "slug": "script-to-storyboard",
+          "name": "media-storyboard-design--script-to-storyboard",
+          "display_zh": "剧本转分镜",
+          "display_en": "script-to-storyboard",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 7175,
+              "sha256": "531889b4799912618b4eac21f0e151ea35d98aa592e9dcd02519d848ffcb460b"
+            }
+          ]
+        },
+        {
+          "slug": "seedance2-storyboard-generator",
+          "name": "media-storyboard-design--seedance2-storyboard-generator",
+          "display_zh": "seedance2-storyboard-generator",
+          "display_en": "seedance2-storyboard-generator",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 6141,
+              "sha256": "70e186ca9adcdc687420ec315ae2aa116c1c06f5b4d37893354e61293291a7de"
+            },
+            {
+              "path": "references/seedance-manual.md",
+              "size": 16887,
+              "sha256": "d4437ad4558581e1aef606e653cb9760e3094c2cdbf314a2c0d777e65660bbb4"
+            },
+            {
+              "path": "references/故事转视频脚本-转换工具.md",
+              "size": 5208,
+              "sha256": "6962d053854a06bf8562a3babe4d62a4e883bc182f3aaeebc61a806d0acaaa39"
+            }
+          ]
+        },
+        {
+          "slug": "seedance2-video-prompter",
+          "name": "media-storyboard-design--seedance2-video-prompter",
+          "display_zh": "seedance2-video-prompter",
+          "display_en": "seedance2-video-prompter",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 8647,
+              "sha256": "ba01a38386a5f56c205d357eaed8648a492ae540ca47ba2000380d4a78914d18"
+            },
+            {
+              "path": "references/camera-and-styles.md",
+              "size": 5848,
+              "sha256": "535405e6658cb87b45698bfb0b0662cf91e5d4b17a0b490cf98de85bb54888e4"
+            },
+            {
+              "path": "references/recipes.md",
+              "size": 12941,
+              "sha256": "b1cebfcb52f64c4f436143e07f93a79e4218f13b12fef33ff8d8e005636d0e15"
+            }
+          ]
+        },
+        {
+          "slug": "video-cinematography",
+          "name": "media-storyboard-design--video-cinematography",
+          "display_zh": "video-cinematography",
+          "display_en": "video-cinematography",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 6078,
+              "sha256": "2f5bce2db1696a6cd85b56d93a7bd04184a3b84533c45cd3e512f1bd1ac422f5"
+            },
+            {
+              "path": "references/movements.md",
+              "size": 4260,
+              "sha256": "d366629d3ba5ad192e1f99d3530110af53dd8710498ee6422489c467c7acfe01"
+            },
+            {
+              "path": "references/storyboard.md",
+              "size": 4668,
+              "sha256": "bb9fa075d25283b70755753755cca1c11c2b7a6a359473823ae32e2de2e3e3b7"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "media-video-editing",
+      "name_zh": "视频剪辑专家",
+      "name_en": "Media Video Editing Expert",
+      "scene": "media",
+      "description_zh": "从AI对话式视频剪切合并与FFmpeg自动精彩片段提取字幕生成、自然语言驱动FFmpeg命令生成（剪辑/裁剪/转换/压缩）与多功能视频编辑（剪切/合并/格式转换/提取音频/添加字幕），到自动生成视频脚本字幕标题与Remotion+React程序化视频创作的完整视频剪辑工作流。覆盖素材处理、智能剪辑、格式转换、程序化创作全链路。",
+      "description_en": "Expert workflow for Media Video Editing Expert.",
+      "missing_subskills": [],
+      "subskills": [
+        {
+          "slug": "ai-agentic-video-editor",
+          "name": "media-video-editing--ai-agentic-video-editor",
+          "display_zh": "ai-agentic-video-editor",
+          "display_en": "ai-agentic-video-editor",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 25291,
+              "sha256": "579a449b8ed5800b8c636e09f8eea92561bdeadf6fde7be4deb349eab34628af"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 14696,
+              "sha256": "5afd5ae59e6e16f1ff531a53f0f41e5490064dc19cb0b31e0d5c17336ab233e2"
+            },
+            {
+              "path": "skill-card.md",
+              "size": 2529,
+              "sha256": "9fe0503baf219e9daf02ef926576ad23e3e6e7c67e2be696b043cb782dd8f9cf"
+            }
+          ]
+        },
+        {
+          "slug": "ai-video-clipper",
+          "name": "media-video-editing--ai-video-clipper",
+          "display_zh": "ai-video-clipper",
+          "display_en": "ai-video-clipper",
+          "files": [
+            {
+              "path": "INSTALL.md",
+              "size": 2072,
+              "sha256": "0a90e55a762f35530d457f9d9594b1f815bad80039501cb0a3e2620bbdafb46e"
+            },
+            {
+              "path": "README.md",
+              "size": 1577,
+              "sha256": "0d6e4bc47a2bf5559858d1c556e16ecbff4e0b87046d0745e271f56c40232b2a"
+            },
+            {
+              "path": "SKILL.md",
+              "size": 5721,
+              "sha256": "2953084606d4e6e47e0fb95325ace85d9c1d2e1f744e48b27a0f427b30da48df"
+            },
+            {
+              "path": "references/default_config.yaml",
+              "size": 2894,
+              "sha256": "5b3b207226ffd43e53bb6b7632752ce47e31bfe7913834f1d77bbe2e45d124e9"
+            },
+            {
+              "path": "references/ffmpeg_guide.md",
+              "size": 4572,
+              "sha256": "76912e5ca219f200b313d1acacdfc55a87cd085951647a3b09f4ce59ce7f5290"
+            },
+            {
+              "path": "references/quickstart.md",
+              "size": 4178,
+              "sha256": "3612387d762c8ffc3d24f6986a36f79d7da41a048997e5a8c140afdcedba95cb"
+            },
+            {
+              "path": "requirements.txt",
+              "size": 275,
+              "sha256": "c2cd63400f92a3d9dcfa15ab4f5d7e1a0e6dd00355cb918c5372bfff60397d17"
+            },
+            {
+              "path": "scripts/add_effects.py",
+              "size": 11105,
+              "sha256": "e98802ab5c3c3969c7032d36ea1320654134c5ac271648f1154c52382d8ef8cf"
+            },
+            {
+              "path": "scripts/add_subtitles.py",
+              "size": 10078,
+              "sha256": "841dbf5a86037b2797b5c81d5e76ae42c3fdacdf55591f74bb0f9bb6eed214bf"
+            },
+            {
+              "path": "scripts/analyze_media.py",
+              "size": 10365,
+              "sha256": "f351bd36b82837150e5cbbe6d95891cdb0f2c2c4cebeaed32906eb00cbedb56c"
+            },
+            {
+              "path": "scripts/audio_process.py",
+              "size": 10181,
+              "sha256": "c7f41766ba379abf5826e9343ccb21f07adcc8113c5e8f826c6585e08f684fd1"
+            },
+            {
+              "path": "scripts/auto_clip.py",
+              "size": 11130,
+              "sha256": "45cc066a03e4a1dced0783a26b16dafe35610810f26c61080d0d4e80b2e9e24b"
+            },
+            {
+              "path": "scripts/export_final.py",
+              "size": 10327,
+              "sha256": "1be3c31846ce22bd2908cb309b0928db1308225ee8fbfdbc5ae43de4f8094f86"
+            },
+            {
+              "path": "scripts/full_pipeline.py",
+              "size": 12132,
+              "sha256": "3eaea9aa27c0eb798bb4f8dffccdc99fcfcbedd9e2d53c8d53d5f5422c6c3170"
+            }
+          ]
+        },
+        {
+          "slug": "ffmpeg-video-editor",
+          "name": "media-video-editing--ffmpeg-video-editor",
+          "display_zh": "ffmpeg-video-editor",
+          "display_en": "ffmpeg-video-editor",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 10202,
+              "sha256": "2f89347244175166cdeb0c10410b72196c04dbbc3a4c524576b24ebe8264a11f"
+            }
+          ]
+        },
+        {
+          "slug": "remotion-video-toolkit",
+          "name": "media-video-editing--remotion-video-toolkit",
+          "display_zh": "remotion-video-toolkit",
+          "display_en": "remotion-video-toolkit",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 5616,
+              "sha256": "71cd12490491d42248a34163a81b5d9de13a68a3d5fa0eaf6a73f69860ba5842"
+            },
+            {
+              "path": "rules/3d.md",
+              "size": 2290,
+              "sha256": "2a5b1a72de35168bba08c7e78153fccd408ec7882fdd1778f2751162e1661378"
+            },
+            {
+              "path": "rules/animations.md",
+              "size": 790,
+              "sha256": "99a6377d64061af5f7fcd1a179c0c8f6d7bcd0a515060a46db117a757ac3387a"
+            },
+            {
+              "path": "rules/assets.md",
+              "size": 1590,
+              "sha256": "664160a48fe6ef76c9b25ea51b3796d39d371cb3632f380b014492412902ad42"
+            },
+            {
+              "path": "rules/assets/charts-bar-chart.tsx",
+              "size": 3429,
+              "sha256": "6e5e219c596c8515336570a5bc89c233e32e695d5816dec88eb929e798eeea61"
+            },
+            {
+              "path": "rules/assets/text-animations-typewriter.tsx",
+              "size": 2183,
+              "sha256": "92b5f47d6d18387a0aa008ce9dceefd30f673ae5879e16892bd4b4ea97f5dddb"
+            },
+            {
+              "path": "rules/assets/text-animations-word-highlight.tsx",
+              "size": 2387,
+              "sha256": "5dbba688b875baaa62555c7a243f54739e81edbf34148c87048594a210c3ec2c"
+            },
+            {
+              "path": "rules/audio.md",
+              "size": 3822,
+              "sha256": "06d859b2f463d0e0e823655548e314b59a1d6321377857fca52a09c629170b12"
+            },
+            {
+              "path": "rules/calculate-metadata.md",
+              "size": 2920,
+              "sha256": "b258c788fb3337187245c814f2fd4ddf10f7330ec97cb8117202a0145d4d27a6"
+            },
+            {
+              "path": "rules/can-decode.md",
+              "size": 1587,
+              "sha256": "fb3f9933e45103d72530915b72a844b3454c6acc03289db5efe8f4541b088fad"
+            },
+            {
+              "path": "rules/charts.md",
+              "size": 1751,
+              "sha256": "2430705a627c468e0922e2f78ca1a2379537d378b5fe76292b69f44659a5d66e"
+            },
+            {
+              "path": "rules/compositions.md",
+              "size": 3445,
+              "sha256": "58d92350fecc1cb57567615fd5e65f35df3e2893ea58e82768050d051e6e692d"
+            },
+            {
+              "path": "rules/display-captions.md",
+              "size": 3698,
+              "sha256": "96abde72e0bcb88cdc5871b80b5d6eb0c6aedf0ea9611e6c5157cb0ee980ba99"
+            },
+            {
+              "path": "rules/extract-frames.md",
+              "size": 5496,
+              "sha256": "b7a63f6509a1a33d624f36d3f6772abbc364b0c883520803f3701c26541e7cd7"
+            },
+            {
+              "path": "rules/fonts.md",
+              "size": 3484,
+              "sha256": "1749e4cf82e8b157d4b0a26f46721152d3ef9e5e9a1686753b8bb6a1be83ddbc"
+            },
+            {
+              "path": "rules/get-audio-duration.md",
+              "size": 1354,
+              "sha256": "d5098e8d20b227464e3519c761cba1e03396c77da636d1893c7be3061a0a8e40"
+            },
+            {
+              "path": "rules/get-video-dimensions.md",
+              "size": 1627,
+              "sha256": "839867aa115e09a719096a902a6ad5e304135f2053cce9928776fb4fcb5bf3e1"
+            },
+            {
+              "path": "rules/get-video-duration.md",
+              "size": 1341,
+              "sha256": "7b31fab3cbf9b0771bae41e2c41c9abed2b59d495ffac7160e562fdf86848726"
+            },
+            {
+              "path": "rules/gifs.md",
+              "size": 3868,
+              "sha256": "53d9d658e3093dba4a798945d5c1b7004688ed96a09521cfb22b4cec418a8ae7"
+            },
+            {
+              "path": "rules/images.md",
+              "size": 2783,
+              "sha256": "91d32f6e528b1f1cddc9a0cf70d0faa74491e3a2fe4a32933da0e21010e9aa74"
+            },
+            {
+              "path": "rules/import-srt-captions.md",
+              "size": 2113,
+              "sha256": "38d33be5439714a2ddb577d8c8a6b7bf09bd10f66c0540415fb70536d4374e87"
+            },
+            {
+              "path": "rules/lottie.md",
+              "size": 1779,
+              "sha256": "6c0cb4babcff94e35ecc22ac63a44d2131db26e7e30b53bbae0a1eb0828c74a0"
+            },
+            {
+              "path": "rules/measuring-dom-nodes.md",
+              "size": 974,
+              "sha256": "5270db465cb9eed1942b9970de101211f954b7802dfd92e957bdc7e3eebe6c5c"
+            },
+            {
+              "path": "rules/measuring-text.md",
+              "size": 3000,
+              "sha256": "88905cbd701e247306645c19f18e01aebe27c4eb0178a4e5d0377687f5ac1478"
+            },
+            {
+              "path": "rules/rendering.md",
+              "size": 5847,
+              "sha256": "4630b82b206e09760abf507d6942d7bc6a5af4cf0ac97dde2e3e2e5710147a0b"
+            },
+            {
+              "path": "rules/sequencing.md",
+              "size": 2389,
+              "sha256": "ecb74589c87da53d15230ffc669ca8de197c9748de2be7720acd54c1f777950c"
+            },
+            {
+              "path": "rules/tailwind.md",
+              "size": 422,
+              "sha256": "bdd5162400cd20c6faebdc9d6d2ff9380f4f213f791b38eeb536c5231be34586"
+            },
+            {
+              "path": "rules/text-animations.md",
+              "size": 700,
+              "sha256": "40ac6b1bccf1c57d9edd46c74e847ec6e86fe775d3ef4fd14e1338f4a2606171"
+            },
+            {
+              "path": "rules/timing.md",
+              "size": 3939,
+              "sha256": "f639ed8452767a7458a480c7d33b7126b57c70c3b5e061aeaaba382420fd8ad2"
+            },
+            {
+              "path": "rules/transcribe-captions.md",
+              "size": 850,
+              "sha256": "e7d3edf667e3b1f3c3ed93431cc7caf5e28786c7d1e547f33ee926480a01c0d0"
+            },
+            {
+              "path": "rules/transitions.md",
+              "size": 3730,
+              "sha256": "a42100803a1e5e679617ae7fb72e91431be2a0ca53e15437fa10bdd651921bfa"
+            },
+            {
+              "path": "rules/trimming.md",
+              "size": 1210,
+              "sha256": "40727aefd5939a42925f1ee1fcdfaf733f7fc098c26d7676f7fb69b418913375"
+            },
+            {
+              "path": "rules/videos.md",
+              "size": 3509,
+              "sha256": "d9d3032a57f92c759daf0bd60b3282f6810ecc9958e9093a6b828de623b05328"
+            }
+          ]
+        },
+        {
+          "slug": "video-clip-assistant",
+          "name": "media-video-editing--video-clip-assistant",
+          "display_zh": "video-clip-assistant",
+          "display_en": "video-clip-assistant",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 3950,
+              "sha256": "eafebee92d36ca0390699edafddf211c7ba66afd5189fe583dc5856752859d45"
+            },
+            {
+              "path": "scripts/burn_subtitles.py",
+              "size": 2665,
+              "sha256": "fcc2f452f6bb8c6060e8d593cf6609528054d2f23f6399955c4d63fe151d82c6"
+            },
+            {
+              "path": "scripts/cut_video.py",
+              "size": 3078,
+              "sha256": "f5277420b1a49785493d04d9ca381f79008086a31b9d7b44cec9062b7a2d1ff0"
+            },
+            {
+              "path": "scripts/export_social.py",
+              "size": 2924,
+              "sha256": "4c087289b9270ec6461484f796a91c88e9494be5515a68507e918324e37c3b0d"
+            },
+            {
+              "path": "scripts/extract_highlights.py",
+              "size": 4103,
+              "sha256": "2489f141988861bd95a37b13d978dfacbca745086cd558ea6776a9c021b8a179"
+            }
+          ]
+        },
+        {
+          "slug": "video-editor",
+          "name": "media-video-editing--video-editor",
+          "display_zh": "video-editor",
+          "display_en": "video-editor",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "size": 4605,
+              "sha256": "5b194f653674829f518fbd147446cc67523a909112f55d34d679f16f241b4c44"
+            },
+            {
+              "path": "scripts/add-subtitles.sh",
+              "size": 837,
+              "sha256": "8161cdec74f7224dea4a8a7af054cc291af0f910b4c835a71f82a94f8f3c1f99"
+            },
+            {
+              "path": "scripts/convert.sh",
+              "size": 806,
+              "sha256": "1f2817921b8ec2a322bc3479cd670ceb9a245f76ad0ef6c39ec0ff67ef154150"
+            },
+            {
+              "path": "scripts/crop.sh",
+              "size": 1048,
+              "sha256": "583e238bf2b5888c1d834e1f8b2494beaaeb5f1b4f78466f2d494c39ffabf7aa"
+            },
+            {
+              "path": "scripts/cut.sh",
+              "size": 1305,
+              "sha256": "5c83259c5c4703f3107452de934f28a397b5fd55d47e7e63bb78f539ecd6b312"
+            },
+            {
+              "path": "scripts/extract-audio.sh",
+              "size": 944,
+              "sha256": "0b5bedac213904c5ca3bf972d7683066b95a799b79f9833239ae2370db01f01b"
+            },
+            {
+              "path": "scripts/merge.sh",
+              "size": 772,
+              "sha256": "954b74df683e8f08c965b2352527670985ae36a8f5aff46679e89ee2320b59ec"
+            },
+            {
+              "path": "scripts/resize.sh",
+              "size": 1215,
+              "sha256": "3bcfc558bdf738bbf7490057993a0b43bcb841d98a9a54ea7176c845860308d4"
+            },
+            {
+              "path": "scripts/speed.sh",
+              "size": 1289,
+              "sha256": "793fb11dabae244e3a34727fbcf6984a9c370f0e5a8e793993ea45f213b78a58"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

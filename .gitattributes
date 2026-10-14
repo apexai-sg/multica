@@ -4,3 +4,9 @@ docker/entrypoint.sh text eol=lf
 
 # Default behavior
 * text=auto
+
+# The vendored octop expert library is upstream bytes: trailing whitespace and
+# blank lines at EOF are the snapshot's, not ours, so git does not flag them as
+# whitespace errors. scripts/aurora-import-experts.mjs --check keeps the tree
+# byte-identical to the snapshot.
+server/internal/aurora/experts/** -whitespace
