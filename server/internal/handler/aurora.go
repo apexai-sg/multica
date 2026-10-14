@@ -168,14 +168,16 @@ func (h *Handler) CreateAuroraGeneration(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Provision order matters: seed the workspace's Aurora system agents and
-	// managed runtime, then make the workspace sandbox accepted by the fleet,
-	// and only then run the entitlement check and insert the generation row.
+	// Provision order matters: seed the requested expert and the managed
+	// runtime, then make the workspace sandbox accepted by the fleet, and only
+	// then run the entitlement check and insert the generation row. Only the
+	// requested expert is seeded: the vendored library is ~7 MiB per workspace,
+	// and a workspace should pay for the expert it actually runs.
 	// The fleet call is deliberately outside every database transaction, and a
 	// node may be created for a request entitlement later rejects; the idle
 	// reaper removes it. That trade-off avoids reserving credits for
 	// infrastructure that could not start.
-	if err := h.ensureAuroraSystemAgents(r.Context(), workspaceID, userUUID); err != nil {
+	if err := h.ensureAuroraExpertSeed(r.Context(), workspaceID, userUUID, entry.ID); err != nil {
 		slog.Error("failed to prepare aurora workspace", "workspace_id", uuidToString(workspaceID), "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create generation")
 		return
@@ -467,12 +469,12 @@ func (h *Handler) ensureFreeMonthlyGrant(ctx context.Context, userID pgtype.UUID
 	return h.Credit.EnsureMonthlyAllowance(ctx, userID, wsID, h.Tiers.FreeMonthlyMicro(), time.Now())
 }
 
-// ensureAuroraSystemAgents serialises the idempotent system-agent seed behind a
+// ensureAuroraExpertSeed serialises the idempotent expert seed behind a
 // per-workspace advisory lock. The managed-runtime lookup-then-insert inside
-// aurora.EnsureSystemAgents has no ON CONFLICT arbiter (its NULL daemon_id sits
+// aurora.EnsureAuroraExpert has no ON CONFLICT arbiter (its NULL daemon_id sits
 // outside migration 121's partial unique index), so this lock — not the queries
 // — is what makes two concurrent first seeds produce one runtime row.
-func (h *Handler) ensureAuroraSystemAgents(ctx context.Context, workspaceID, ownerID pgtype.UUID) error {
+func (h *Handler) ensureAuroraExpertSeed(ctx context.Context, workspaceID, ownerID pgtype.UUID, skillID string) error {
 	tx, err := h.TxStarter.Begin(ctx)
 	if err != nil {
 		return err
@@ -481,7 +483,7 @@ func (h *Handler) ensureAuroraSystemAgents(ctx context.Context, workspaceID, own
 	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", "aurora:"+uuidToString(workspaceID)); err != nil {
 		return err
 	}
-	if err := aurora.EnsureSystemAgents(ctx, h.Queries.WithTx(tx), workspaceID, ownerID); err != nil {
+	if err := aurora.EnsureAuroraExpert(ctx, h.Queries.WithTx(tx), workspaceID, ownerID, skillID); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
