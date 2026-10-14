@@ -480,9 +480,9 @@ type DeleteUnboundAttachmentsForTaskParams struct {
 	TaskID      pgtype.UUID `json:"task_id"`
 }
 
-// A round that ended without a reply (task failed, or the completion callback
-// never arrived) leaves its projections unbound: invisible, and pointing at an
-// object the library kept. Remove them so a refunded run leaves nothing behind.
+// A round that ended without a reply leaves its projections unbound: invisible,
+// and pointing at an object the library kept. Remove them so a refunded run
+// leaves nothing behind. The caller runs this on the terminal failure path.
 func (q *Queries) DeleteUnboundAttachmentsForTask(ctx context.Context, arg DeleteUnboundAttachmentsForTaskParams) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteUnboundAttachmentsForTask, arg.WorkspaceID, arg.IssueID, arg.TaskID)
 	if err != nil {
@@ -628,6 +628,25 @@ func (q *Queries) GetCommentBoundToTaskAttachments(ctx context.Context, arg GetC
 	var comment_id pgtype.UUID
 	err := row.Scan(&comment_id)
 	return comment_id, err
+}
+
+const hasUnboundAttachmentsForTask = `-- name: HasUnboundAttachmentsForTask :one
+SELECT EXISTS (
+    SELECT 1 FROM attachment
+    WHERE task_id = $1
+      AND comment_id IS NULL
+      AND source_context_id IS NULL
+) AS has_unbound
+`
+
+// Whether a task produced files that were never linked to a reply. The probe
+// keys on task_id alone so an ordinary completion can skip resolving the
+// workspace for a round that owns nothing.
+func (q *Queries) HasUnboundAttachmentsForTask(ctx context.Context, taskID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, hasUnboundAttachmentsForTask, taskID)
+	var has_unbound bool
+	err := row.Scan(&has_unbound)
+	return has_unbound, err
 }
 
 const linkAttachmentsToChatMessage = `-- name: LinkAttachmentsToChatMessage :many

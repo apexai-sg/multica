@@ -4587,10 +4587,11 @@ func (h *Handler) CompleteTask(w http.ResponseWriter, r *http.Request) {
 	// The workspace comes from the daemon access check above, since the task
 	// row itself has no workspace column; it is the same value the service
 	// uses to resolve a task's workspace.
+	boundWorkspace := parseUUID(workspaceID)
 	if bound, err := h.Queries.GetCommentBoundToTaskAttachments(r.Context(), db.GetCommentBoundToTaskAttachmentsParams{
-		TaskID: task.ID, WorkspaceID: parseUUID(workspaceID),
+		TaskID: task.ID, WorkspaceID: boundWorkspace,
 	}); err == nil {
-		h.publishCommentWithAttachments(r.Context(), parseUUID(workspaceID), bound, "agent", uuidToString(task.AgentID))
+		h.publishCommentWithAttachments(r.Context(), boundWorkspace, bound, "agent", uuidToString(task.AgentID))
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		slog.Warn("completion: bound attachment lookup failed", "task_id", taskID, "error", err)
 	}

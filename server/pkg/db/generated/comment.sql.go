@@ -568,8 +568,10 @@ SELECT id, issue_id, author_type, author_id, content, type, created_at, updated_
 WHERE issue_id = $1
   AND workspace_id = $2
   AND author_type = 'agent'
-  AND author_id = $3
-  AND created_at >= $4
+  AND (
+    source_task_id = $3
+    OR (author_id = $4 AND created_at >= $5)
+  )
   AND deleted_at IS NULL
 ORDER BY created_at DESC, id DESC
 LIMIT 1
@@ -578,18 +580,21 @@ LIMIT 1
 type GetLatestAgentCommentSinceParams struct {
 	IssueID     pgtype.UUID        `json:"issue_id"`
 	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	TaskID      pgtype.UUID        `json:"task_id"`
 	AuthorID    pgtype.UUID        `json:"author_id"`
 	Since       pgtype.Timestamptz `json:"since"`
 }
 
-// The reply a run wrote on its issue when the agent posted it itself. Same
-// author and time window as HasAgentCommentedSince plus the workspace guard,
-// newest first: the completion path binds the run's files to exactly the
-// comment that invariant counts.
+// The reply a run wrote on its issue. The exact link (source_task_id) is the
+// primary identity, because a comment an agent posts during its run carries it;
+// the author-and-window branch keeps a reply posted through a credential that
+// did not stamp the task from being missed, and the workspace guard keeps the
+// lookup inside the caller's workspace.
 func (q *Queries) GetLatestAgentCommentSince(ctx context.Context, arg GetLatestAgentCommentSinceParams) (Comment, error) {
 	row := q.db.QueryRow(ctx, getLatestAgentCommentSince,
 		arg.IssueID,
 		arg.WorkspaceID,
+		arg.TaskID,
 		arg.AuthorID,
 		arg.Since,
 	)

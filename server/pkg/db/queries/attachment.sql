@@ -347,10 +347,21 @@ DELETE FROM attachment
 WHERE url = @url AND workspace_id = @workspace_id
 RETURNING comment_id;
 
+-- name: HasUnboundAttachmentsForTask :one
+-- Whether a task produced files that were never linked to a reply. The probe
+-- keys on task_id alone so an ordinary completion can skip resolving the
+-- workspace for a round that owns nothing.
+SELECT EXISTS (
+    SELECT 1 FROM attachment
+    WHERE task_id = @task_id
+      AND comment_id IS NULL
+      AND source_context_id IS NULL
+) AS has_unbound;
+
 -- name: DeleteUnboundAttachmentsForTask :execrows
--- A round that ended without a reply (task failed, or the completion callback
--- never arrived) leaves its projections unbound: invisible, and pointing at an
--- object the library kept. Remove them so a refunded run leaves nothing behind.
+-- A round that ended without a reply leaves its projections unbound: invisible,
+-- and pointing at an object the library kept. Remove them so a refunded run
+-- leaves nothing behind. The caller runs this on the terminal failure path.
 DELETE FROM attachment
 WHERE workspace_id = @workspace_id
   AND issue_id = @issue_id

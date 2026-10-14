@@ -8248,11 +8248,18 @@ func (s *TaskService) bindAuroraRoundArtifacts(ctx context.Context, task db.Agen
 	if !task.IssueID.Valid {
 		return
 	}
-	// The task row carries no workspace column, so resolve it through the
-	// issue the same way every other task-owned write does. An unresolved
-	// workspace means there is nothing to bind against.
-	workspaceID, _ := util.ParseUUID(s.ResolveTaskWorkspaceID(ctx, task))
-	if !workspaceID.Valid {
+	// Probe by task before resolving anything: an ordinary completion owns no
+	// round projection, and the workspace lookup costs a GetIssue.
+	hasUnbound, err := s.Queries.HasUnboundAttachmentsForTask(ctx, task.ID)
+	if err != nil {
+		slog.Warn("aurora round attachment probe failed", "task_id", util.UUIDToString(task.ID), "error", err)
+		return
+	}
+	if !hasUnbound {
+		return
+	}
+	workspaceID, ok := s.roundWorkspace(ctx, task)
+	if !ok {
 		slog.Warn("aurora round attachment workspace lookup failed", "task_id", util.UUIDToString(task.ID))
 		return
 	}
@@ -8277,11 +8284,12 @@ func (s *TaskService) bindAuroraRoundArtifacts(ctx context.Context, task db.Agen
 		for _, attachment := range pending {
 			names = append(names, attachment.Filename)
 		}
-		if _, ok := s.createAgentComment(ctx, task.IssueID, task.AgentID, strings.Join(names, "\n"), "comment", task.TriggerCommentID, task.ID); !ok {
+		created, ok := s.createAgentComment(ctx, task.IssueID, task.AgentID, strings.Join(names, "\n"), "comment", task.TriggerCommentID, task.ID)
+		if !ok {
 			slog.Warn("aurora round reply synthesis failed", "task_id", util.UUIDToString(task.ID))
 			return
 		}
-		comment, err = s.latestRoundReplyComment(ctx, task, workspaceID)
+		comment, err = created, nil
 	}
 	if err != nil {
 		slog.Warn("aurora round reply lookup failed", "task_id", util.UUIDToString(task.ID), "error", err)
@@ -8305,8 +8313,16 @@ func (s *TaskService) dropUnboundAuroraRoundArtifacts(ctx context.Context, task 
 	if !task.IssueID.Valid {
 		return
 	}
-	workspaceID, _ := util.ParseUUID(s.ResolveTaskWorkspaceID(ctx, task))
-	if !workspaceID.Valid {
+	hasUnbound, err := s.Queries.HasUnboundAttachmentsForTask(ctx, task.ID)
+	if err != nil {
+		slog.Warn("aurora round projection probe failed", "task_id", util.UUIDToString(task.ID), "error", err)
+		return
+	}
+	if !hasUnbound {
+		return
+	}
+	workspaceID, ok := s.roundWorkspace(ctx, task)
+	if !ok {
 		return
 	}
 	if _, err := s.Queries.DeleteUnboundAttachmentsForTask(ctx, db.DeleteUnboundAttachmentsForTaskParams{
@@ -8318,6 +8334,18 @@ func (s *TaskService) dropUnboundAuroraRoundArtifacts(ctx context.Context, task 
 	}
 }
 
+// roundWorkspace resolves the workspace a round's task belongs to. The task
+// row carries no workspace column, so it is read through the issue the same
+// way every other task-owned write does; a task with no issue has no round
+// surface to touch.
+func (s *TaskService) roundWorkspace(ctx context.Context, task db.AgentTaskQueue) (pgtype.UUID, bool) {
+	if !task.IssueID.Valid {
+		return pgtype.UUID{}, false
+	}
+	workspaceID, _ := util.ParseUUID(s.ResolveTaskWorkspaceID(ctx, task))
+	return workspaceID, workspaceID.Valid
+}
+
 // latestRoundReplyComment is the newest comment this run's agent wrote on
 // the issue since the run started.
 func (s *TaskService) latestRoundReplyComment(ctx context.Context, task db.AgentTaskQueue, workspaceID pgtype.UUID) (db.Comment, error) {
@@ -8325,6 +8353,7 @@ func (s *TaskService) latestRoundReplyComment(ctx context.Context, task db.Agent
 		IssueID:     task.IssueID,
 		WorkspaceID: workspaceID,
 		AuthorID:    task.AgentID,
+		TaskID:      task.ID,
 		Since:       task.StartedAt,
 	})
 }
