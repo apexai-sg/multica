@@ -2,6 +2,7 @@ package aurora_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"slices"
@@ -402,6 +403,19 @@ func assertSeeded(t *testing.T, ws pgtype.UUID) {
 		t.Errorf("system agent rows = %d, want %d", agentCount, len(aurora.Catalog()))
 	}
 
+	// Every carrier offers suggestions: the migration's CHECK allows at most
+	// three, and the seed maps the expert's quick-start cards.
+	var withoutStarters int
+	if err := agentsTestPool.QueryRow(ctx, `
+		SELECT count(*) FROM agent
+		WHERE workspace_id = $1 AND system_key LIKE 'aurora:%'
+		  AND jsonb_array_length(conversation_starters) = 0`, ws).Scan(&withoutStarters); err != nil {
+		t.Fatalf("count carriers without starters: %v", err)
+	}
+	if withoutStarters != 0 {
+		t.Errorf("carriers without conversation starters = %d, want 0", withoutStarters)
+	}
+
 	var skillCount int
 	if err := agentsTestPool.QueryRow(ctx,
 		`SELECT count(*) FROM skill WHERE workspace_id = $1`, ws).Scan(&skillCount); err != nil {
@@ -576,6 +590,24 @@ func TestEnsureAuroraExpertSeedsOneCarrier(t *testing.T) {
 	}
 	if !agent.RuntimeID.Valid {
 		t.Error("carrier is not bound to the managed runtime")
+	}
+
+	// The carrier's first-turn suggestions are the expert's upstream quick-start
+	// cards: the first three, label and prompt.
+	var starters []struct {
+		Label  string `json:"label"`
+		Prompt string `json:"prompt"`
+	}
+	if err := json.Unmarshal(agent.ConversationStarters, &starters); err != nil {
+		t.Fatalf("unmarshal conversation_starters: %v", err)
+	}
+	if len(starters) != 3 {
+		t.Fatalf("conversation starters = %d, want 3", len(starters))
+	}
+	for i, want := range expert.QuickPrompts[:3] {
+		if starters[i].Label != want.LabelZh || starters[i].Prompt != strings.TrimSpace(want.PromptZh) {
+			t.Errorf("starter %d = %+v, want label %q prompt %q", i, starters[i], want.LabelZh, want.PromptZh)
+		}
 	}
 
 	skills, err := q.ListAgentSkills(ctx, agent.ID)

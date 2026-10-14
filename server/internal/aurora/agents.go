@@ -2,6 +2,7 @@ package aurora
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -167,22 +168,25 @@ func ensureExpert(ctx context.Context, q *db.Queries, workspaceID, ownerID, runt
 	// unbound the first; agent_workspace_name_unique then fails the seed and
 	// generation creation breaks, while GetAgentBySystemKey keeps resolving
 	// the older, unbound row.
+	starters := expertConversationStarters(expert)
 	agent, err := q.AdoptAuroraSystemAgent(ctx, db.AdoptAuroraSystemAgentParams{
-		WorkspaceID:  workspaceID,
-		OwnerID:      ownerID,
-		RuntimeID:    runtimeID,
-		SystemKey:    pgtype.Text{String: def.SystemKey, Valid: true},
-		Name:         def.Name,
-		Instructions: def.Instructions,
+		WorkspaceID:          workspaceID,
+		OwnerID:              ownerID,
+		RuntimeID:            runtimeID,
+		SystemKey:            pgtype.Text{String: def.SystemKey, Valid: true},
+		Name:                 def.Name,
+		Instructions:         def.Instructions,
+		ConversationStarters: starters,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		agent, err = q.UpsertAuroraSystemAgent(ctx, db.UpsertAuroraSystemAgentParams{
-			WorkspaceID:  workspaceID,
-			OwnerID:      ownerID,
-			RuntimeID:    runtimeID,
-			SystemKey:    pgtype.Text{String: def.SystemKey, Valid: true},
-			Name:         def.Name,
-			Instructions: def.Instructions,
+			WorkspaceID:          workspaceID,
+			OwnerID:              ownerID,
+			RuntimeID:            runtimeID,
+			SystemKey:            pgtype.Text{String: def.SystemKey, Valid: true},
+			Name:                 def.Name,
+			Instructions:         def.Instructions,
+			ConversationStarters: starters,
 		})
 	}
 	if err != nil {
@@ -252,6 +256,59 @@ func ensureManagedRuntime(ctx context.Context, q *db.Queries, workspaceID, owner
 		return pgtype.UUID{}, err
 	}
 	return created.ID, nil
+}
+
+// The agent conversation-starter contract is owned by the handler and mirrored
+// in packages/core/agents/constants.ts; these are the same limits (see
+// normaliseAgentConversationStarters, and migration 404's CHECK for the count).
+const (
+	expertStarterMax       = 3
+	expertStarterLabelMax  = 80
+	expertStarterPromptMax = 4000
+)
+
+// agentConversationStarter is the JSON shape agent.conversation_starters holds.
+type agentConversationStarter struct {
+	Label  string `json:"label"`
+	Prompt string `json:"prompt"`
+}
+
+// expertConversationStarters maps an expert's upstream quick-start cards onto
+// the agent's first-turn suggestions: the first three cards with a non-empty
+// label and prompt, capped at the handler's limits. It always returns a JSON
+// array, never null, so the column's jsonb_typeof CHECK holds.
+func expertConversationStarters(expert Expert) []byte {
+	starters := make([]agentConversationStarter, 0, expertStarterMax)
+	for _, quick := range expert.QuickPrompts {
+		if len(starters) == expertStarterMax {
+			break
+		}
+		label := strings.TrimSpace(quick.LabelZh)
+		prompt := strings.TrimSpace(quick.PromptZh)
+		if label == "" || prompt == "" {
+			continue
+		}
+		starters = append(starters, agentConversationStarter{
+			Label:  truncateRunes(label, expertStarterLabelMax),
+			Prompt: truncateRunes(prompt, expertStarterPromptMax),
+		})
+	}
+	raw, err := json.Marshal(starters)
+	if err != nil {
+		// Marshalling a slice of strings cannot fail; keep the value an array.
+		return []byte("[]")
+	}
+	return raw
+}
+
+// truncateRunes caps a string at max runes: the starter limits count
+// characters, not bytes, and a Chinese label is three bytes per character.
+func truncateRunes(value string, max int) string {
+	runes := []rune(value)
+	if len(runes) <= max {
+		return value
+	}
+	return string(runes[:max])
 }
 
 // systemAgentInstructions is the minimal system prompt for a skill's system

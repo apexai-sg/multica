@@ -35,8 +35,19 @@ type Expert struct {
 	DescriptionEn string `json:"description_en"`
 	// MissingSubskills names sub-skill directories the upstream download left
 	// empty (marketing-social-media-operation ships an empty content-writer).
-	MissingSubskills []string         `json:"missing_subskills"`
-	Subskills        []ExpertSubskill `json:"subskills"`
+	MissingSubskills []string            `json:"missing_subskills"`
+	QuickPrompts     []ExpertQuickPrompt `json:"quick_prompts"`
+	Subskills        []ExpertSubskill    `json:"subskills"`
+}
+
+// ExpertQuickPrompt is one upstream quick-start card: a label and a
+// fill-in-the-blanks prompt, in both languages. The seeder maps the first ones
+// onto the agent's conversation starters.
+type ExpertQuickPrompt struct {
+	LabelZh  string `json:"label_zh"`
+	LabelEn  string `json:"label_en"`
+	PromptZh string `json:"prompt_zh"`
+	PromptEn string `json:"prompt_en"`
 }
 
 // ExpertSubskill is one sub-skill of an expert. Name is the workspace-unique
@@ -196,6 +207,7 @@ func validExpertFilePath(filePath string) bool {
 
 func cloneExpert(expert Expert) Expert {
 	expert.MissingSubskills = slices.Clone(expert.MissingSubskills)
+	expert.QuickPrompts = slices.Clone(expert.QuickPrompts)
 	subskills := make([]ExpertSubskill, len(expert.Subskills))
 	for i, sub := range expert.Subskills {
 		sub.Files = slices.Clone(sub.Files)

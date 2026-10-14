@@ -33,6 +33,7 @@ Aurora 现在的 16 个 skill 是手写的：每个 skill 一份单文件 brief�
 | catalog 条目（24） | `manifest.json` 的 label/description + `experts_catalog.go` 的人工表 | `server/internal/aurora/catalog.go` 构造 |
 | 主 brief（24） | 技能集 `skills/<slug>/SKILL.md` 正文 + `SOUL.md`，套 Aurora 五段契约 | `server/internal/aurora/experts/<slug>/workflow.md`（commit，`//go:embed`） |
 | 子技能（161 个不同 slug，含 13 个跨专家重名） | `skills/<sub>/` 原文 | `experts/<slug>/subskills/<sub>/**`（commit），种子时写 `skill` + `skill_file` |
+| 快速开始预设 | `manifest.json` 的 `quick_prompts` | `experts/index.json` 的 `quick_prompts`；种子时取前 3 条写入 `agent.conversation_starters`（label=title.zh，prompt=prompt.zh），即 agent 的 suggestion |
 
 数据流：
 

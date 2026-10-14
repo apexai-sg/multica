@@ -319,6 +319,12 @@ function renderIndex(experts) {
       description_zh: expert.descriptionZh,
       description_en: expert.descriptionEn,
       missing_subskills: expert.missingSubskills,
+      quick_prompts: expert.quickPrompts.map((prompt) => ({
+        label_zh: prompt.labelZh,
+        label_en: prompt.labelEn,
+        prompt_zh: prompt.promptZh,
+        prompt_en: prompt.promptEn,
+      })),
       subskills: expert.subskills.map((sub) => ({
         slug: sub.slug,
         name: sub.name,
@@ -363,6 +369,16 @@ export async function buildLibrary(sourceDir) {
       continue;
     }
     const persona = await readText(join(expertDir, "SOUL.md"));
+
+    // quick_prompts is the upstream "quick start" set: one card per workflow
+    // step, each carrying a title and a fill-in-the-blanks prompt. The seeder
+    // maps the first ones onto the agent's conversation starters.
+    const quickPrompts = (manifest.quick_prompts || []).map((item) => ({
+      labelZh: (item.title && item.title.zh) || "",
+      labelEn: (item.title && item.title.en) || "",
+      promptZh: (item.prompt && item.prompt.zh) || "",
+      promptEn: (item.prompt && item.prompt.en) || "",
+    }));
 
     const subskills = [];
     const missingSubskills = [];
@@ -416,6 +432,7 @@ export async function buildLibrary(sourceDir) {
       workflow: skillset.body,
       subskills,
       missingSubskills,
+      quickPrompts,
     };
     experts.push(expert);
     desired.set(EXPERTS_ROOT + "/" + slug + "/workflow.md", renderBrief(expert));
@@ -440,6 +457,15 @@ export function validateBriefs(experts) {
   const problems = [];
   for (const expert of experts) {
     const brief = renderBrief(expert);
+    if (expert.quickPrompts.length === 0) {
+      problems.push(expert.slug + " has no quick prompts to offer as agent starters");
+    }
+    if (
+      expert.quickPrompts.length > 0 &&
+      expert.quickPrompts.slice(0, 3).some((prompt) => !prompt.labelZh || !prompt.promptZh)
+    ) {
+      problems.push(expert.slug + " has an empty quick prompt label or prompt");
+    }
     for (const section of [
       "## Inputs",
       "## Steps",

@@ -27,6 +27,12 @@ function scaffold() {
     JSON.stringify({
       label: { zh: "演示专家", en: "Demo Expert" },
       description: { zh: "中文说明", en: "English description" },
+      quick_prompts: [
+        {
+          title: { zh: "第一步", en: "Step one" },
+          prompt: { zh: "请帮我做第一步。", en: "Help me with step one." },
+        },
+      ],
     }),
   );
   write("skillhub-skillset-ecommerce-demo-a/SOUL.md", "# 演示专家" + "\n" + "你是演示专家。" + "\n");
@@ -50,7 +56,16 @@ function scaffold() {
 
   write(
     "skillhub-skillset-legal-demo-b/manifest.json",
-    JSON.stringify({ label: { zh: "法律演示", en: "Legal Demo" }, description: { zh: "法律法规" } }),
+    JSON.stringify({
+      label: { zh: "法律演示", en: "Legal Demo" },
+      description: { zh: "法律法规" },
+      quick_prompts: [
+        {
+          title: { zh: "起草合同", en: "Draft a contract" },
+          prompt: { zh: "请帮我起草一份合同。", en: "Draft a contract for me." },
+        },
+      ],
+    }),
   );
   write("skillhub-skillset-legal-demo-b/SOUL.md", "# 法律演示" + "\n");
   write(
@@ -116,6 +131,14 @@ test("buildLibrary keeps the six scenes, folds the slug prefix and namespaces su
   assert.equal(index.schema, 1);
   assert.deepEqual(index.experts[1].missing_subskills, []);
   assert.equal(index.experts[0].subskills[0].files.length, 3);
+  assert.deepEqual(index.experts[0].quick_prompts, [
+    {
+      label_zh: "第一步",
+      label_en: "Step one",
+      prompt_zh: "请帮我做第一步。",
+      prompt_en: "Help me with step one.",
+    },
+  ]);
 });
 
 test("buildLibrary is deterministic", async (t) => {

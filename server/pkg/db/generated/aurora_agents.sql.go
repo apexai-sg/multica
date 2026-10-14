@@ -17,7 +17,8 @@ SET owner_id = $1,
     runtime_id = $2,
     kind = 'user',
     name = $3,
-    instructions = $4,
+    conversation_starters = $4,
+    instructions = $5,
     runtime_mode = 'cloud',
     visibility = 'workspace',
     permission_mode = 'private',
@@ -26,7 +27,7 @@ SET owner_id = $1,
     updated_at = now()
 WHERE id = (
     SELECT a.id FROM agent a
-    WHERE a.workspace_id = $5 AND a.system_key = $6
+    WHERE a.workspace_id = $6 AND a.system_key = $7
     ORDER BY a.created_at ASC, a.id ASC
     LIMIT 1
 )
@@ -34,12 +35,13 @@ RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visi
 `
 
 type AdoptAuroraSystemAgentParams struct {
-	OwnerID      pgtype.UUID `json:"owner_id"`
-	RuntimeID    pgtype.UUID `json:"runtime_id"`
-	Name         string      `json:"name"`
-	Instructions string      `json:"instructions"`
-	WorkspaceID  pgtype.UUID `json:"workspace_id"`
-	SystemKey    pgtype.Text `json:"system_key"`
+	OwnerID              pgtype.UUID `json:"owner_id"`
+	RuntimeID            pgtype.UUID `json:"runtime_id"`
+	Name                 string      `json:"name"`
+	ConversationStarters []byte      `json:"conversation_starters"`
+	Instructions         string      `json:"instructions"`
+	WorkspaceID          pgtype.UUID `json:"workspace_id"`
+	SystemKey            pgtype.Text `json:"system_key"`
 }
 
 // Adopts the workspace's existing Aurora carrier for one system_key and rebinds
@@ -58,6 +60,7 @@ func (q *Queries) AdoptAuroraSystemAgent(ctx context.Context, arg AdoptAuroraSys
 		arg.OwnerID,
 		arg.RuntimeID,
 		arg.Name,
+		arg.ConversationStarters,
 		arg.Instructions,
 		arg.WorkspaceID,
 		arg.SystemKey,
@@ -160,10 +163,11 @@ type GetAuroraManagedRuntimeParams struct {
 }
 
 // Aurora system-agent seeding (Plan 3 Task 1). These queries back
-// aurora.EnsureSystemAgents, which lazily materialises a workspace's 13 available
-// skill agents — one managed runtime row, and per available catalog skill one
-// kind='user' agent, one skill row, and the agent_skill junction — on first
-// generation creation.
+// aurora.EnsureAuroraExpert (generation creation: the requested expert only) and
+// aurora.EnsureSystemAgents (tests and backfill: every expert). Each expert gets
+// one managed runtime row, one kind='user' agent carrying its upstream
+// quick-start cards as conversation_starters, its primary skill row, its
+// sub-skill rows, and the agent_skill junctions.
 // The workspace's server-hosted (managed) runtime, the idempotency anchor for
 // seeding. It may be unbound (daemon_id still NULL) or already bound to the
 // sandbox daemon that enrolled it, so the lookup does not filter on daemon_id;
@@ -240,23 +244,25 @@ func (q *Queries) UpsertAuroraSkill(ctx context.Context, arg UpsertAuroraSkillPa
 const upsertAuroraSystemAgent = `-- name: UpsertAuroraSystemAgent :one
 INSERT INTO agent (
     workspace_id, owner_id, runtime_id, kind, system_key, name, instructions,
-    runtime_mode, visibility, permission_mode, runtime_config
+    conversation_starters, runtime_mode, visibility, permission_mode, runtime_config
 ) VALUES (
-    $1, $2, $3, 'user', $4, $5, $6, 'cloud', 'workspace', 'private', '{}'::jsonb
+    $1, $2, $3, 'user', $4, $5, $6, $7, 'cloud', 'workspace', 'private', '{}'::jsonb
 )
 ON CONFLICT (workspace_id, owner_id, runtime_id, system_key) WHERE system_key IS NOT NULL
 DO UPDATE SET name = EXCLUDED.name, instructions = EXCLUDED.instructions,
+    conversation_starters = EXCLUDED.conversation_starters,
     kind = EXCLUDED.kind, archived_at = NULL, archived_by = NULL
 RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, kind, system_key, disabled_runtime_skills, service_tier, conversation_starters
 `
 
 type UpsertAuroraSystemAgentParams struct {
-	WorkspaceID  pgtype.UUID `json:"workspace_id"`
-	OwnerID      pgtype.UUID `json:"owner_id"`
-	RuntimeID    pgtype.UUID `json:"runtime_id"`
-	SystemKey    pgtype.Text `json:"system_key"`
-	Name         string      `json:"name"`
-	Instructions string      `json:"instructions"`
+	WorkspaceID          pgtype.UUID `json:"workspace_id"`
+	OwnerID              pgtype.UUID `json:"owner_id"`
+	RuntimeID            pgtype.UUID `json:"runtime_id"`
+	SystemKey            pgtype.Text `json:"system_key"`
+	Name                 string      `json:"name"`
+	Instructions         string      `json:"instructions"`
+	ConversationStarters []byte      `json:"conversation_starters"`
 }
 
 // Like Mika's CreateSystemUserAgent, this product-defined agent is deliberately
@@ -278,6 +284,7 @@ func (q *Queries) UpsertAuroraSystemAgent(ctx context.Context, arg UpsertAuroraS
 		arg.SystemKey,
 		arg.Name,
 		arg.Instructions,
+		arg.ConversationStarters,
 	)
 	var i Agent
 	err := row.Scan(

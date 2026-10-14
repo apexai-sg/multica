@@ -1,8 +1,9 @@
 -- Aurora system-agent seeding (Plan 3 Task 1). These queries back
--- aurora.EnsureSystemAgents, which lazily materialises a workspace's 13 available
--- skill agents — one managed runtime row, and per available catalog skill one
--- kind='user' agent, one skill row, and the agent_skill junction — on first
--- generation creation.
+-- aurora.EnsureAuroraExpert (generation creation: the requested expert only) and
+-- aurora.EnsureSystemAgents (tests and backfill: every expert). Each expert gets
+-- one managed runtime row, one kind='user' agent carrying its upstream
+-- quick-start cards as conversation_starters, its primary skill row, its
+-- sub-skill rows, and the agent_skill junctions.
 
 -- name: GetAuroraManagedRuntime :one
 -- The workspace's server-hosted (managed) runtime, the idempotency anchor for
@@ -38,14 +39,15 @@ RETURNING *;
 -- second row.
 INSERT INTO agent (
     workspace_id, owner_id, runtime_id, kind, system_key, name, instructions,
-    runtime_mode, visibility, permission_mode, runtime_config
+    conversation_starters, runtime_mode, visibility, permission_mode, runtime_config
 ) VALUES (
-    $1, $2, $3, 'user', $4, $5, $6, 'cloud', 'workspace', 'private', '{}'::jsonb
+    $1, $2, $3, 'user', $4, $5, $6, $7, 'cloud', 'workspace', 'private', '{}'::jsonb
 )
 ON CONFLICT (workspace_id, owner_id, runtime_id, system_key) WHERE system_key IS NOT NULL
 -- Recover archived carriers in place on generation's pre-enqueue seed. Both
 -- archive fields are cleared; system_key/runtime identity is unchanged.
 DO UPDATE SET name = EXCLUDED.name, instructions = EXCLUDED.instructions,
+    conversation_starters = EXCLUDED.conversation_starters,
     kind = EXCLUDED.kind, archived_at = NULL, archived_by = NULL
 RETURNING *;
 
@@ -78,6 +80,7 @@ SET owner_id = @owner_id,
     runtime_id = @runtime_id,
     kind = 'user',
     name = @name,
+    conversation_starters = @conversation_starters,
     instructions = @instructions,
     runtime_mode = 'cloud',
     visibility = 'workspace',
