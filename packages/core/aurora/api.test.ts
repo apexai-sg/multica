@@ -111,7 +111,7 @@ describe("parseAuroraSkills", () => {
     // absent rule set as "this skill takes no attachments".
     const withoutRules = parseAuroraSkills({
       skills: [
-        { id: "text-image", name: "文字生成图片", category: "image", credits: 68 },
+        { id: "content-creation-lyrics-songwriting", name: "歌词创作专家", category: "content-creation", credits: 60 },
       ],
     });
 

@@ -51,14 +51,14 @@ const MICRO = 1_000_000;
 
 function skill(overrides: Partial<AuroraSkill> = {}): AuroraSkill {
   return {
-    id: "poster",
-    name: "海报制作",
-    nameEn: "Poster",
-    category: "image",
-    credits: 76,
-    input: ["text", "image"],
-    output: ["image"],
-    featured: true,
+    id: "content-creation-lyrics-songwriting",
+    name: "歌词创作专家",
+    nameEn: "Content Creation Lyrics Songwriting Expert",
+    category: "content-creation",
+    credits: 60,
+    input: ["text", "document"],
+    output: ["text"],
+    featured: false,
     available: true,
     attachments: [],
     ...overrides,
@@ -88,10 +88,10 @@ function detail(
 ): AuroraGenerationDetail {
   return {
     id: "gen-1",
-    skillId: "poster",
+    skillId: "content-creation-lyrics-songwriting",
     prompt: "a launch poster",
     status: "queued",
-    creditsReserved: 76 * MICRO,
+    creditsReserved: 60 * MICRO,
     creditsCharged: 0,
     error: null,
     createdAt: "2026-09-23T00:00:00Z",
@@ -170,9 +170,9 @@ describe("GenerationComposer", () => {
 
   it("groups the labelled prompt and submit action in the Aurora drawer", () => {
     renderComposer({});
-    const drawer = screen.getByRole("dialog", { name: "Poster" });
+    const drawer = screen.getByRole("dialog", { name: "Content Creation Lyrics Songwriting Expert" });
     expect(drawer).toHaveClass("aurora-drawer");
-    const heading = screen.getByRole("heading", { name: "Poster" });
+    const heading = screen.getByRole("heading", { name: "Content Creation Lyrics Songwriting Expert" });
     const header = heading.closest(".aurora-drawer-head");
     expect(header).not.toBeNull();
     expect(header).toHaveClass("flex-row");
@@ -180,7 +180,7 @@ describe("GenerationComposer", () => {
       "aria-hidden",
       "true",
     );
-    expect(screen.getByText("Image")).toHaveClass("aurora-drawer-head-category");
+    expect(screen.getByText("Content creation")).toHaveClass("aurora-drawer-head-category");
     const field = screen.getByLabelText("What should it make?");
     // The field carries its own surface and focus ring now; the panel is a flat
     // card rather than one large focusable box.
@@ -191,7 +191,7 @@ describe("GenerationComposer", () => {
     expect(
       within(form!).getByRole("button", { name: "Generate" }).parentElement,
     ).toHaveClass("aurora-composer-tools");
-    expect(drawer).toHaveAccessibleDescription("76 credits per generation");
+    expect(drawer).toHaveAccessibleDescription("60 credits per generation");
   });
 
   it("keeps the running status live while applying the shared working pill", async () => {
@@ -220,7 +220,7 @@ describe("GenerationComposer", () => {
     await submitPrompt();
 
     expect(mocks.create).toHaveBeenCalledWith({
-      skillId: "poster",
+      skillId: "content-creation-lyrics-songwriting",
       prompt: "a launch poster",
       attachmentIds: [],
     });
@@ -258,7 +258,7 @@ describe("GenerationComposer", () => {
 
     expect(await screen.findByText("Not enough credits")).toBeInTheDocument();
     expect(
-      screen.getByText("This skill costs 76 credits and you have 50."),
+      screen.getByText("This skill costs 60 credits and you have 50."),
     ).toBeInTheDocument();
   });
 
@@ -467,7 +467,7 @@ describe("GenerationComposer", () => {
 
     expect(await screen.findByText("Not enough credits")).toBeInTheDocument();
     expect(
-      screen.getByText("This skill costs 76 credits."),
+      screen.getByText("This skill costs 60 credits."),
     ).toBeInTheDocument();
   });
 
@@ -487,7 +487,7 @@ describe("GenerationComposer", () => {
 
     expect(await screen.findByText("Not enough credits")).toBeInTheDocument();
     expect(
-      screen.getByText("This skill costs 76 credits."),
+      screen.getByText("This skill costs 60 credits."),
     ).toBeInTheDocument();
   });
 
@@ -671,7 +671,7 @@ describe("GenerationComposer", () => {
     await user.click(screen.getByRole("button", { name: "Generate" }));
 
     expect(mocks.create).toHaveBeenCalledWith({
-      skillId: "poster",
+      skillId: "content-creation-lyrics-songwriting",
       prompt: "a poster",
       attachmentIds: ["att-1"],
     });

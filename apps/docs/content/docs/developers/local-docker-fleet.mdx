@@ -125,7 +125,7 @@ environment, never a mounted file.
 
 Aurora runs on the ordinary agent surface: shell, provider CLI and Multica CLI, driven by the skill document. The model writes `.multica/aurora-artifacts.v1.json`; the daemon independently validates paths, file type/link count, size, MIME and SHA-256. Provider-run records are bookkeeping only and cannot prevent duplicate billable calls.
 
-Only `text-image` has been rewritten as executable steps. The owner waived #199 (the remaining 12 rewrites); removing the old runtime does not make all 13 skills operational. Removed source remains recoverable at `2a2cef75fa16ec893960118dd70844c1251cb973`.
+Every catalog entry carries executable steps: the 24 vendored SkillHub experts under `server/internal/aurora/experts/`, each a brief plus six sub-skills the run can read from `.claude/skills/` (see `AGENTS.md`). The sixteen hand-written skills and their Seedream/Seedance/ASR routes are retired, so no expert opens a provider run. Removed source remains recoverable at `2a2cef75fa16ec893960118dd70844c1251cb973`.
 
 ### Aurora crash semantics and recovery
 

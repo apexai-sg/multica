@@ -12,10 +12,12 @@
     "unavailable": "Coming soon",
     "categories": {
       "all": "All",
-      "image": "Image",
-      "video": "Video",
-      "content": "Content",
-      "office": "Office",
+      "ecommerce": "E-commerce",
+      "content-creation": "Content creation",
+      "marketing": "Marketing",
+      "legal": "Legal",
+      "media": "Media",
+      "design": "Design",
       "other": "Other"
     },
     "eyebrow": "AI TOOLS",

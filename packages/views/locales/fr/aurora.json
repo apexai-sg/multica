@@ -12,10 +12,12 @@
     "unavailable": "Bientôt disponible",
     "categories": {
       "all": "Tous",
-      "image": "Image",
-      "video": "Vidéo",
-      "content": "Contenu",
-      "office": "Bureautique",
+      "ecommerce": "E-commerce",
+      "content-creation": "Création de contenu",
+      "marketing": "Marketing",
+      "legal": "Juridique",
+      "media": "Médias",
+      "design": "Design",
       "other": "Autre"
     },
     "eyebrow": "OUTILS IA",

@@ -19,10 +19,14 @@ function skill(overrides: Partial<AuroraSkill> = {}): AuroraSkill {
   };
 }
 
+// A synthetic three-entry catalog: the filter is pure, so these ids and
+// categories exist to exercise it rather than to mirror the shipped experts.
+// The unavailable row stays synthetic too — the schema still admits one, and
+// the filter must keep listing it in its category.
 const CATALOG: AuroraSkill[] = [
   skill(),
-  skill({ id: "xhs-copy", name: "小红书文案", nameEn: "Xiaohongshu Copy", category: "content" }),
-  skill({ id: "ppt", name: "PPT 制作", nameEn: "PPT", category: "office", available: false }),
+  skill({ id: "media-short-video-copy", name: "短视频文案专家", nameEn: "Media Short Video Copy Expert", category: "media" }),
+  skill({ id: "excel", name: "Excel 数据分析", nameEn: "Excel Analysis", category: "office", available: false }),
 ];
 
 describe("filterAuroraSkills", () => {

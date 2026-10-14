@@ -12,10 +12,12 @@
     "unavailable": "출시 예정",
     "categories": {
       "all": "전체",
-      "image": "이미지",
-      "video": "동영상",
-      "content": "카피",
-      "office": "오피스",
+      "ecommerce": "이커머스",
+      "content-creation": "콘텐츠 제작",
+      "marketing": "마케팅",
+      "legal": "법률",
+      "media": "미디어",
+      "design": "디자인",
       "other": "기타"
     },
     "eyebrow": "AI 도구",

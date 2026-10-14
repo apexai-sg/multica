@@ -108,11 +108,13 @@ describe("skillDisplayNamesById", () => {
 });
 
 describe("auroraCategoryLabel", () => {
-  it("maps the four categories the catalog ships", () => {
-    expect(auroraCategoryLabel("image")).toBe("image");
-    expect(auroraCategoryLabel("video")).toBe("video");
-    expect(auroraCategoryLabel("content")).toBe("content");
-    expect(auroraCategoryLabel("office")).toBe("office");
+  it("maps the six scenes the catalog ships", () => {
+    expect(auroraCategoryLabel("ecommerce")).toBe("ecommerce");
+    expect(auroraCategoryLabel("content-creation")).toBe("content-creation");
+    expect(auroraCategoryLabel("marketing")).toBe("marketing");
+    expect(auroraCategoryLabel("legal")).toBe("legal");
+    expect(auroraCategoryLabel("media")).toBe("media");
+    expect(auroraCategoryLabel("design")).toBe("design");
   });
 
   it("files a category this build has no label for under other", () => {
