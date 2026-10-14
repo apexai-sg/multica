@@ -10,7 +10,7 @@ node provides. Do the work yourself.
 - `prompt`: the user's request (required). It is the generation prompt in your
   task message; use it verbatim.
 - This skill takes no attachments. Use text only.
-- `ANTHROPIC_API_KEY` is the Ark Agent Plan key and `ANTHROPIC_BASE_URL`
+- `ARK_PLATFORM_API_KEY` is the Ark platform key and `ARK_PLATFORM_BASE_URL`
   names the Ark endpoint; the image endpoint is built from that base.
 
 ## Steps
@@ -20,7 +20,7 @@ node provides. Do the work yourself.
    ```bash
    curl -fsS -X POST "$MULTICA_SERVER_URL/api/agent/tasks/$MULTICA_TASK_ID/aurora-provider-runs/begin" \
      -H "Authorization: Bearer $MULTICA_TOKEN" -H 'content-type: application/json' \
-     -d '{"provider":"volcengine-agentplan","operation":"seedream.generate","model":"doubao-seedream-5.0-lite","arguments":{}}'
+     -d '{"provider":"volcengine-ark","operation":"seedream.generate","model":"doubao-seedream-5-0-pro-260628","arguments":{}}'
    ```
 
    Stop and report a failure when the response has `create_allowed` false and no
@@ -33,9 +33,9 @@ node provides. Do the work yourself.
    appears in your task message, then run:
 
    ```bash
-   curl -fsS -X POST "${ANTHROPIC_BASE_URL:-https://ark.cn-beijing.volces.com/api/plan}/v3/images/generations" \
-     -H "Authorization: Bearer $ANTHROPIC_API_KEY" -H 'content-type: application/json' \
-     -d "$(jq -n --arg p "$PROMPT" '{model:"doubao-seedream-5.0-lite",prompt:$p,size:"2K",response_format:"url",output_format:"png",watermark:false}')" \
+   curl -fsS -X POST "${ARK_PLATFORM_BASE_URL:-https://ark.cn-beijing.volces.com/api}/v3/images/generations" \
+     -H "Authorization: Bearer $ARK_PLATFORM_API_KEY" -H 'content-type: application/json' \
+     -d "$(jq -n --arg p "$PROMPT" '{model:"doubao-seedream-5-0-pro-260628",prompt:$p,size:"2K",response_format:"url",output_format:"png",watermark:false}')" \
      -o /tmp/seedream.json
    ```
 
@@ -83,7 +83,7 @@ from a previous step; copy it, do not invent it.
   "task_id": "<the task id from your task context>",
   "skill_id": "text-image",
   "producer": { "id": "byted-ark-seedream-skill", "version": "4.0.0", "tree_sha256": null },
-  "provider_run": { "provider": "volcengine-agentplan", "model": "doubao-seedream-5.0-lite", "external_id": null },
+  "provider_run": { "provider": "volcengine-ark", "model": "doubao-seedream-5-0-pro-260628", "external_id": null },
   "artifacts": [
     {
       "id": "image-1",

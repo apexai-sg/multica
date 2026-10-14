@@ -13,7 +13,7 @@ node provides. Do the work yourself.
 - Exactly one attached image. Fetch it with `multica attachment download <id>`,
   which writes it locally and prints the path. It must be PNG or JPEG and at most
   25 MB.
-- `ANTHROPIC_API_KEY` is the Ark Agent Plan key and `ANTHROPIC_BASE_URL` names
+- `ARK_PLATFORM_API_KEY` is the Ark platform key and `ARK_PLATFORM_BASE_URL` names
   the Ark endpoint; the video endpoints are built from that base.
 
 ## Steps
@@ -23,7 +23,7 @@ node provides. Do the work yourself.
    ```bash
    curl -fsS -X POST "$MULTICA_SERVER_URL/api/agent/tasks/$MULTICA_TASK_ID/aurora-provider-runs/begin" \
      -H "Authorization: Bearer $MULTICA_TOKEN" -H 'content-type: application/json' \
-     -d '{"provider":"volcengine-agentplan","operation":"seedance.create","model":"doubao-seedance-2.0","arguments":{}}'
+     -d '{"provider":"volcengine-ark","operation":"seedance.create","model":"doubao-seedance-2-5-260628","arguments":{}}'
    ```
 
    Stop and report a failure when the response has `create_allowed` false and no
@@ -44,12 +44,12 @@ node provides. Do the work yourself.
    # rather than through jq's argv.
    { printf 'data:%s;base64,' "$mime"; base64 -w0 "$IMAGE" | tr -d '\n'; } > /tmp/image-data-uri.txt
    jq -n --arg p "$PROMPT" --rawfile url /tmp/image-data-uri.txt '{
-     model: "doubao-seedance-2.0",
+     model: "doubao-seedance-2-5-260628",
      content: [ { type: "text", text: $p }, { type: "image_url", image_url: { url: $url } } ]
    }' > /tmp/seedance-create-request.json
 
-   curl -fsS -X POST "${ANTHROPIC_BASE_URL:-https://ark.cn-beijing.volces.com/api/plan}/v3/contents/generations/tasks" \
-     -H "Authorization: Bearer $ANTHROPIC_API_KEY" -H 'content-type: application/json' \
+   curl -fsS -X POST "${ARK_PLATFORM_BASE_URL:-https://ark.cn-beijing.volces.com/api}/v3/contents/generations/tasks" \
+     -H "Authorization: Bearer $ARK_PLATFORM_API_KEY" -H 'content-type: application/json' \
      --data-binary @/tmp/seedance-create-request.json -o /tmp/seedance-create.json
    ```
 
@@ -63,8 +63,8 @@ node provides. Do the work yourself.
    task_id=$(jq -r '.id' /tmp/seedance-create.json)
    deadline=$(( $(date +%s) + 1800 ))   # 30 minutes, the supported ceiling
    while :; do
-     curl -fsS "${ANTHROPIC_BASE_URL:-https://ark.cn-beijing.volces.com/api/plan}/v3/contents/generations/tasks/$task_id" \
-       -H "Authorization: Bearer $ANTHROPIC_API_KEY" -o /tmp/seedance-poll.json
+     curl -fsS "${ARK_PLATFORM_BASE_URL:-https://ark.cn-beijing.volces.com/api}/v3/contents/generations/tasks/$task_id" \
+       -H "Authorization: Bearer $ARK_PLATFORM_API_KEY" -o /tmp/seedance-poll.json
      status=$(jq -r '.status // empty' /tmp/seedance-poll.json)
      case "$status" in
        succeeded) break ;;
@@ -122,7 +122,7 @@ from a previous step; copy it, do not invent it.
   "task_id": "<the task id from your task context>",
   "skill_id": "image-video",
   "producer": { "id": "byted-ark-seedance-skill", "version": "5.0.0", "tree_sha256": null },
-  "provider_run": { "provider": "volcengine-agentplan", "model": "doubao-seedance-2.0", "external_id": "cgt-..." },
+  "provider_run": { "provider": "volcengine-ark", "model": "doubao-seedance-2-5-260628", "external_id": "cgt-..." },
   "artifacts": [
     {
       "id": "video-1",

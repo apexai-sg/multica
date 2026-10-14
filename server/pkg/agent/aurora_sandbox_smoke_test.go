@@ -154,7 +154,7 @@ func auroraSmokeProviders() []auroraSmokeProvider {
 			optIn:     "AURORA_RUN_SEEDREAM_SMOKE",
 			secretEnv: "AURORA_SMOKE_ARK_KEY_FILE",
 			provider:  "volcengine-ark",
-			model:     "doubao-seedream-5.0-pro",
+			model:     "doubao-seedream-5-0-pro-260628",
 			operations: []auroraSmokeOperation{
 				{
 					skillID: "xhs-image",
@@ -182,7 +182,7 @@ func auroraSmokeProviders() []auroraSmokeProvider {
 			optIn:     "AURORA_RUN_SEEDANCE_SMOKE",
 			secretEnv: "AURORA_SMOKE_ARK_KEY_FILE",
 			provider:  "volcengine-ark",
-			model:     "doubao-seedance-2.0",
+			model:     "doubao-seedance-2-5-260628",
 			// The Seedance tree is vendored and merged, so this route is live
 			// rather than fail-closed. The broker's fixed policy selects the
 			// shortest supported low-resolution output; the test cannot and

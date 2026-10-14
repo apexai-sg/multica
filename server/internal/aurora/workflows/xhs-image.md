@@ -13,7 +13,7 @@ node provides. Do the work yourself.
 - Zero to four attached reference images. Fetch each
   with `multica attachment download <id>`, which writes it locally and prints
   the path.
-- `ANTHROPIC_API_KEY` is the Ark Agent Plan key and `ANTHROPIC_BASE_URL` names
+- `ARK_PLATFORM_API_KEY` is the Ark platform key and `ARK_PLATFORM_BASE_URL` names
   the Ark endpoint; the image endpoint is built from that base.
 
 ## Steps
@@ -23,7 +23,7 @@ node provides. Do the work yourself.
    ```bash
    curl -fsS -X POST "$MULTICA_SERVER_URL/api/agent/tasks/$MULTICA_TASK_ID/aurora-provider-runs/begin" \
      -H "Authorization: Bearer $MULTICA_TOKEN" -H 'content-type: application/json' \
-     -d '{"provider":"volcengine-agentplan","operation":"seedream.generate","model":"doubao-seedream-5.0-lite","arguments":{}}'
+     -d '{"provider":"volcengine-ark","operation":"seedream.generate","model":"doubao-seedream-5-0-pro-260628","arguments":{}}'
    ```
 
    Stop and report a failure when the response has `create_allowed` false and no
@@ -39,7 +39,7 @@ node provides. Do the work yourself.
    ```bash
    REFS=()   # e.g. REFS=(/path/one.png /path/two.jpg)
    jq -n --arg p "$PROMPT" '{
-     model: "doubao-seedream-5.0-lite", prompt: $p,
+     model: "doubao-seedream-5-0-pro-260628", prompt: $p,
      size: "2K", response_format: "url", output_format: "png", watermark: false
    }' > /tmp/seedream-request.json
 
@@ -64,8 +64,8 @@ node provides. Do the work yourself.
        mv /tmp/seedream-request.tmp /tmp/seedream-request.json
    fi
 
-   curl -fsS -X POST "${ANTHROPIC_BASE_URL:-https://ark.cn-beijing.volces.com/api/plan}/v3/images/generations" \
-     -H "Authorization: Bearer $ANTHROPIC_API_KEY" -H 'content-type: application/json' \
+   curl -fsS -X POST "${ARK_PLATFORM_BASE_URL:-https://ark.cn-beijing.volces.com/api}/v3/images/generations" \
+     -H "Authorization: Bearer $ARK_PLATFORM_API_KEY" -H 'content-type: application/json' \
      --data-binary @/tmp/seedream-request.json -o /tmp/seedream.json
    ```
 
@@ -120,7 +120,7 @@ from a previous step; copy it, do not invent it. One entry per imported object.
   "task_id": "<the task id from your task context>",
   "skill_id": "xhs-image",
   "producer": { "id": "byted-ark-seedream-skill", "version": "4.0.0", "tree_sha256": null },
-  "provider_run": { "provider": "volcengine-agentplan", "model": "doubao-seedream-5.0-lite", "external_id": null },
+  "provider_run": { "provider": "volcengine-ark", "model": "doubao-seedream-5-0-pro-260628", "external_id": null },
   "artifacts": [
     {
       "id": "image-1",

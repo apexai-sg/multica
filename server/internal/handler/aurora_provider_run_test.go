@@ -11,9 +11,9 @@ import (
 // The fixed provider/operation/model triple the policy allows for text-video
 // (route volcengine-seedance). Task 5's broker will send the same values.
 const (
-	providerRunTestProvider  = "volcengine-agentplan"
+	providerRunTestProvider  = "volcengine-ark"
 	providerRunTestOperation = "seedance.create"
-	providerRunTestModel     = "doubao-seedance-2.0"
+	providerRunTestModel     = "doubao-seedance-2-5-260628"
 	providerRunTestSkill     = "text-video"
 )
 
