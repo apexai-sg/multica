@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/multica-ai/multica/server/internal/testutil"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/dbid"
@@ -195,5 +196,48 @@ func TestAuroraRoundInputsExcludeProducedFiles(t *testing.T) {
 	}
 	if len(ids) != 1 || ids[0] != util.UUIDToString(human.ID) {
 		t.Fatalf("round inputs = %v, want only the human-supplied %s", ids, util.UUIDToString(human.ID))
+	}
+}
+
+// TestFailedRoundDropsItsUnboundProjections pins the terminal failure path: a
+// round that failed before linking its files leaves no attachment behind, so a
+// refunded run cannot point at an object the library kept. A row already bound
+// to a reply belongs to a delivered run and stays.
+func TestFailedRoundDropsItsUnboundProjections(t *testing.T) {
+	svc, pool, workspaceID, userID, agentID := newAuroraCompletionService(t)
+	dbfx := testutil.New(pool, workspaceID, userID)
+	issueID, taskID := seedIssueWithRound(t, svc, pool, workspaceID, userID, agentID)
+
+	task, err := svc.Queries.GetAgentTask(context.Background(), taskID)
+	if err != nil {
+		t.Fatalf("load task: %v", err)
+	}
+	svc.dropUnboundAuroraRoundArtifacts(context.Background(), task)
+	if n := dbfx.Count(t, "SELECT count(*) FROM attachment WHERE task_id = $1", taskID); n != 0 {
+		t.Fatalf("unbound projections left = %d, want 0", n)
+	}
+
+	// A row already bound to a reply belongs to a run that was delivered.
+	reply, err := svc.Queries.CreateComment(context.Background(), db.CreateCommentParams{
+		ID: dbid.NewV7(), IssueID: issueID, WorkspaceID: util.MustParseUUID(workspaceID),
+		AuthorType: "agent", AuthorID: util.MustParseUUID(agentID), Content: "kept", Type: "comment",
+	})
+	if err != nil {
+		t.Fatalf("seed reply: %v", err)
+	}
+	bound, err := svc.Queries.CreateAttachment(context.Background(), db.CreateAttachmentParams{
+		ID: dbid.NewV7(), WorkspaceID: util.MustParseUUID(workspaceID), IssueID: issueID,
+		CommentID: reply.Comment().ID, TaskID: taskID,
+		UploaderType: "agent", UploaderID: util.MustParseUUID(agentID),
+		Filename: "kept.png", Url: "https://cdn.example.test/kept.png",
+		ContentType: "image/png", SizeBytes: 1,
+	})
+	if err != nil {
+		t.Fatalf("seed bound attachment: %v", err)
+	}
+
+	svc.dropUnboundAuroraRoundArtifacts(context.Background(), task)
+	if n := dbfx.Count(t, "SELECT count(*) FROM attachment WHERE id = $1", bound.ID); n != 1 {
+		t.Fatalf("bound attachment was removed, want kept")
 	}
 }

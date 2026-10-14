@@ -5586,6 +5586,14 @@ func (s *TaskService) FailTaskWithTransition(ctx context.Context, taskID pgtype.
 		s.createAgentComment(ctx, task.IssueID, task.AgentID, redact.Text(errMsg), "system", task.TriggerCommentID, task.ID)
 	}
 
+	// A terminal failure leaves the round's projections unbound: the run is
+	// refunded, so a file that was never delivered must not remain (invisible
+	// in the UI, but still pointing at an object the library kept). A retried
+	// round keeps them for the retry's own completion.
+	if retried == nil {
+		s.dropUnboundAuroraRoundArtifacts(ctx, task)
+	}
+
 	// Quick-create tasks: push a failure inbox notification to the
 	// requester so they can either retry or fall back to the advanced form
 	// without losing their original prompt. Skipped when an auto-retry is
@@ -8286,6 +8294,27 @@ func (s *TaskService) bindAuroraRoundArtifacts(ctx context.Context, task db.Agen
 		TaskID:      task.ID,
 	}); err != nil {
 		slog.Warn("aurora round attachment bind failed", "task_id", util.UUIDToString(task.ID), "error", err)
+	}
+}
+
+// dropUnboundAuroraRoundArtifacts clears the projections a round wrote but
+// never got to link: the task failed, so the person is not charged for the
+// run and the file must not appear as if it had been delivered. Rows bound
+// to a reply that was actually written are left alone.
+func (s *TaskService) dropUnboundAuroraRoundArtifacts(ctx context.Context, task db.AgentTaskQueue) {
+	if !task.IssueID.Valid {
+		return
+	}
+	workspaceID, _ := util.ParseUUID(s.ResolveTaskWorkspaceID(ctx, task))
+	if !workspaceID.Valid {
+		return
+	}
+	if _, err := s.Queries.DeleteUnboundAttachmentsForTask(ctx, db.DeleteUnboundAttachmentsForTaskParams{
+		WorkspaceID: workspaceID,
+		IssueID:     task.IssueID,
+		TaskID:      task.ID,
+	}); err != nil {
+		slog.Warn("aurora round projection cleanup failed", "task_id", util.UUIDToString(task.ID), "error", err)
 	}
 }
 

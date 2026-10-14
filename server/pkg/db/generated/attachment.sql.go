@@ -466,6 +466,31 @@ func (q *Queries) DeleteSourceContextAttachmentsByWorkspace(ctx context.Context,
 	return err
 }
 
+const deleteUnboundAttachmentsForTask = `-- name: DeleteUnboundAttachmentsForTask :execrows
+DELETE FROM attachment
+WHERE workspace_id = $1
+  AND issue_id = $2
+  AND task_id = $3
+  AND comment_id IS NULL
+`
+
+type DeleteUnboundAttachmentsForTaskParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	IssueID     pgtype.UUID `json:"issue_id"`
+	TaskID      pgtype.UUID `json:"task_id"`
+}
+
+// A round that ended without a reply (task failed, or the completion callback
+// never arrived) leaves its projections unbound: invisible, and pointing at an
+// object the library kept. Remove them so a refunded run leaves nothing behind.
+func (q *Queries) DeleteUnboundAttachmentsForTask(ctx context.Context, arg DeleteUnboundAttachmentsForTaskParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteUnboundAttachmentsForTask, arg.WorkspaceID, arg.IssueID, arg.TaskID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const detachAttachmentsFromUserChatMessageByTask = `-- name: DetachAttachmentsFromUserChatMessageByTask :many
 UPDATE attachment
 SET chat_message_id = NULL

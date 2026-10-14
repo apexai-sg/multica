@@ -346,3 +346,13 @@ LIMIT 1;
 DELETE FROM attachment
 WHERE url = @url AND workspace_id = @workspace_id
 RETURNING comment_id;
+
+-- name: DeleteUnboundAttachmentsForTask :execrows
+-- A round that ended without a reply (task failed, or the completion callback
+-- never arrived) leaves its projections unbound: invisible, and pointing at an
+-- object the library kept. Remove them so a refunded run leaves nothing behind.
+DELETE FROM attachment
+WHERE workspace_id = @workspace_id
+  AND issue_id = @issue_id
+  AND task_id = @task_id
+  AND comment_id IS NULL;
