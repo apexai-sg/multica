@@ -101,8 +101,11 @@ func TestVerifyCodeRechecksSignupInvitation(t *testing.T) {
 			if count != 1 {
 				t.Fatalf("expected one new account, got %d", count)
 			}
-			if n := dbfx.Count(t, `SELECT count(*) FROM member WHERE user_id = (SELECT id FROM "user" WHERE email = $1)`, email); n != 0 {
-				t.Fatal("signup must not accept the invitation or grant workspace membership")
+			// Every new account receives its own personal workspace in this fork, so a
+			// membership row is expected. What must not happen is membership in the
+			// workspace that invited them: signing up is not invitation acceptance.
+			if n := dbfx.Count(t, `SELECT count(*) FROM member WHERE user_id = (SELECT id FROM "user" WHERE email = $1) AND workspace_id = $2`, email, parseUUID(testWorkspaceID)); n != 0 {
+				t.Fatal("signup must not accept the invitation or grant membership in the inviting workspace")
 			}
 			changeSignupInvitation(t, id, "revoked")
 			_, isNew, err := h.findOrCreateUser(context.Background(), email, "")
