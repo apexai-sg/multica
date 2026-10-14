@@ -258,7 +258,7 @@ func TestAuroraModerationBlocksUnsafeArtifact(t *testing.T) {
 
 	const reservedMicro = 62_000_000
 	generationID, taskID := runningAuroraGeneration(t, reservedMicro)
-	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "out.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
+	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "out.md", "primary", []byte(artifactTestText), "{}")
 
 	got := reportAuroraArtifacts(t, taskID, staged.payload("primary"))
 	if got.Code != http.StatusUnprocessableEntity {
@@ -267,8 +267,8 @@ func TestAuroraModerationBlocksUnsafeArtifact(t *testing.T) {
 
 	// The kind the catalog derived is what the moderator was asked about: a
 	// screen that inspects the wrong surface would pass every other assertion.
-	if moderator.assetCalls != 1 || moderator.lastKind != "image" {
-		t.Fatalf("ScreenAsset calls/kind = %d/%q, want 1/%q", moderator.assetCalls, moderator.lastKind, "image")
+	if moderator.assetCalls != 1 || moderator.lastKind != "text" {
+		t.Fatalf("ScreenAsset calls/kind = %d/%q, want 1/%q", moderator.assetCalls, moderator.lastKind, "text")
 	}
 
 	assertAuroraGenerationFailedForModeration(t, generationID, reservedMicro)
@@ -314,7 +314,7 @@ func TestAuroraModerationFailsClosedWhenAssetScreenErrors(t *testing.T) {
 
 	const reservedMicro = 62_000_000
 	generationID, taskID := runningAuroraGeneration(t, reservedMicro)
-	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "out.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
+	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "out.md", "primary", []byte(artifactTestText), "{}")
 
 	got := reportAuroraArtifacts(t, taskID, staged.payload("primary"))
 	if got.Code != http.StatusInternalServerError {
@@ -346,13 +346,13 @@ func TestAuroraModerationRejectsBeforeStoringAnyArtifact(t *testing.T) {
 
 	store := &artifactTestStorage{}
 	withArtifactStorage(t, store)
-	moderator := &stubModerator{blockAssetURL: "second.png"}
+	moderator := &stubModerator{blockAssetURL: "second.md"}
 	withAuroraModeration(t, moderator)
 
 	const reservedMicro = 62_000_000
 	generationID, taskID := runningAuroraGeneration(t, reservedMicro)
-	first := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "first.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
-	second := seedAuroraStaging(t, store, taskID, generationID, "secondary-1", "second.png", "supporting", []byte("\x89PNG\r\n\x1a\n\x00\x01"), "{}")
+	first := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "first.md", "primary", []byte(artifactTestText), "{}")
+	second := seedAuroraStaging(t, store, taskID, generationID, "secondary-1", "second.md", "supporting", []byte(artifactTestText+"second"), "{}")
 
 	got := reportAuroraArtifacts(t, taskID, first.payload("primary"), second.payload("supporting"))
 	if got.Code != http.StatusUnprocessableEntity {
