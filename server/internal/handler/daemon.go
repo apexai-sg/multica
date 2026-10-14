@@ -26,6 +26,7 @@ import (
 	"github.com/multica-ai/multica/server/internal/fleetguard"
 	"github.com/multica-ai/multica/server/internal/integrations/slack"
 	"github.com/multica-ai/multica/server/internal/issuestatus"
+	"github.com/multica-ai/multica/server/internal/logger"
 	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
 	"github.com/multica-ai/multica/server/internal/middleware"
 	"github.com/multica-ai/multica/server/internal/runtimeapps"
@@ -595,7 +596,8 @@ func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 					"db_error",
 					true,
 				))
-				writeError(w, http.StatusInternalServerError, "failed to register runtime: "+err.Error())
+				slog.Warn("register runtime failed", append(logger.RequestAttrs(r), "error", err)...)
+				writeError(w, http.StatusInternalServerError, "failed to register runtime")
 				return
 			}
 			provider = agent.ProfileRuntimeType(profile.RuntimeType, profile.ProtocolFamily)
@@ -645,7 +647,8 @@ func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 					"db_error",
 					true,
 				))
-				writeError(w, http.StatusInternalServerError, "failed to register runtime: "+err.Error())
+				slog.Warn("register runtime failed", append(logger.RequestAttrs(r), "error", err)...)
+				writeError(w, http.StatusInternalServerError, "failed to register runtime")
 				return
 			}
 			inserted = row.Inserted
@@ -1986,7 +1989,8 @@ func (h *Handler) ClaimTasksByRuntime(w http.ResponseWriter, r *http.Request) {
 
 	claimed, err := h.TaskService.ClaimTasksForRuntimes(r.Context(), authorized, maxTasks)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to claim tasks: "+err.Error())
+		slog.Warn("claim tasks failed", append(logger.RequestAttrs(r), "error", err)...)
+		writeError(w, http.StatusInternalServerError, "failed to claim tasks")
 		return
 	}
 
@@ -2648,6 +2652,13 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 		)
 	}
 	useSkillRefs := requestHasClientCapability(r, protocol.DaemonCapabilitySkillBundlesV1)
+	// A daemon older than the multica-platform merge assembles a brief that
+	// still names the built-ins this server stopped shipping. It cannot be
+	// fixed from here — the brief lives in the daemon binary — so the missing
+	// capability buys that daemon a redirect stub under the old name instead of
+	// a dangling pointer. Capability, not version: the version string is only
+	// ever shown to humans.
+	legacySkillRedirects := !requestHasClientCapability(r, protocol.DaemonCapabilityPlatformSkillV1)
 	var customEnv map[string]string
 	if agent.CustomEnv != nil {
 		if err := json.Unmarshal(agent.CustomEnv, &customEnv); err != nil {
@@ -2734,7 +2745,7 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 		resp.Agent.Instructions = service.ComposeMikaInstructions(agent.Name, agent.Instructions)
 	}
 	if useSkillRefs {
-		_, skillRefs, err := h.TaskService.LoadAgentSkillBundles(r.Context(), task.AgentID, agent.SystemKey.String)
+		_, skillRefs, err := h.TaskService.LoadAgentSkillBundles(r.Context(), task.AgentID, agent.SystemKey.String, legacySkillRedirects)
 		if err != nil {
 			return resp, deliveredCommentIDs, issueSnapshot, agentSkillCount, builtinSkillCount, h.rejectClaimSkillLoad(task, err)
 		}
@@ -2746,7 +2757,7 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 			return resp, deliveredCommentIDs, issueSnapshot, agentSkillCount, builtinSkillCount, h.rejectClaimSkillLoad(task, err)
 		}
 		agentSkillCount = len(skills)
-		builtinSkills := h.TaskService.BuiltinSkills(agent.SystemKey.String)
+		builtinSkills := h.TaskService.BuiltinSkills(agent.SystemKey.String, legacySkillRedirects)
 		builtinSkillCount = len(builtinSkills)
 		skills = append(skills, builtinSkills...)
 		resp.Agent.Skills = skills
@@ -3983,7 +3994,8 @@ func (h *Handler) ClaimTaskByRuntime(w http.ResponseWriter, r *http.Request) {
 	claimMs = time.Since(claimStart).Milliseconds()
 	if err != nil {
 		outcome = "error_claim"
-		writeError(w, http.StatusInternalServerError, "failed to claim task: "+err.Error())
+		slog.Warn("claim task failed", append(logger.RequestAttrs(r), "error", err)...)
+		writeError(w, http.StatusInternalServerError, "failed to claim task")
 		return
 	}
 
@@ -4572,7 +4584,7 @@ func (h *Handler) CompleteTask(w http.ResponseWriter, r *http.Request) {
 		// 5xx so the daemon retries the terminal callback and the completion —
 		// including the single chat outcome row — lands exactly once (MUL-4351).
 		slog.Warn("complete task failed", "task_id", taskID, "error", err)
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to complete task")
 		return
 	}
 	if !transitioned {
@@ -5294,7 +5306,7 @@ func (h *Handler) failTask(w http.ResponseWriter, r *http.Request, taskID, works
 		// isTransientError) — retries and the fail, gap flag, and retry land
 		// exactly once (MUL-5305). An invalid request body still returns 400 above.
 		slog.Warn("fail task failed", "task_id", taskID, "error", err)
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to fail task")
 		return
 	}
 	if !transitioned {

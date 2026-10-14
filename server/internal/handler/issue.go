@@ -1156,6 +1156,9 @@ func (h *Handler) SearchIssues(w http.ResponseWriter, r *http.Request) {
 	if !includeClosed {
 		resolvedKeys, err := h.terminalIssueStatusKeys(ctx, wsUUID)
 		if err != nil {
+			if writeSearchCancellation(w, r, err) {
+				return
+			}
 			slog.Warn("expand terminal status categories failed", append(logger.RequestAttrs(r), "error", err)...)
 			writeError(w, http.StatusInternalServerError, "failed to resolve status categories")
 			return
@@ -1207,6 +1210,9 @@ func (h *Handler) SearchIssues(w http.ResponseWriter, r *http.Request) {
 		return rows.Err()
 	})
 	if err != nil {
+		if writeSearchCancellation(w, r, err) {
+			return
+		}
 		// Statement-timeout surfaces as SQLSTATE 57014. Return a 503
 		// so the frontend can distinguish a timeout ("try a more
 		// specific query") from a generic 500. This is the fail-fast
@@ -1222,6 +1228,9 @@ func (h *Handler) SearchIssues(w http.ResponseWriter, r *http.Request) {
 		}
 		slog.Warn("search issues failed", "error", err, "workspace_id", workspaceID, "query", q)
 		writeError(w, http.StatusInternalServerError, "failed to search issues")
+		return
+	}
+	if writeSearchCancellation(w, r, ctx.Err()) {
 		return
 	}
 
@@ -1257,6 +1266,9 @@ func (h *Handler) SearchIssues(w http.ResponseWriter, r *http.Request) {
 		resp[i] = sir
 	}
 
+	if writeSearchCancellation(w, r, ctx.Err()) {
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"issues": resp,
 	})
@@ -3478,7 +3490,7 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		slog.Warn("create issue failed", append(logger.RequestAttrs(r), "error", err, "workspace_id", workspaceID)...)
-		writeError(w, http.StatusInternalServerError, "failed to create issue: "+err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to create issue")
 		return
 	}
 
@@ -3994,7 +4006,7 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		slog.Warn("update issue failed", append(logger.RequestAttrs(r), "error", err, "issue_id", id, "workspace_id", workspaceID)...)
-		writeError(w, http.StatusInternalServerError, "failed to update issue: "+err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to update issue")
 		return
 	}
 

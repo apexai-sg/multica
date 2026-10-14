@@ -58,6 +58,9 @@
       "hono": "4.12.25",
       "ip-address": "10.3.1",
       "router>path-to-regexp": "8.4.0"
+    },
+    "patchedDependencies": {
+      "expo-modules-core@57.0.21": "apps/mobile/patches/expo-modules-core@57.0.21.patch"
     }
   },
   "devDependencies": {

@@ -33,6 +33,7 @@ import (
 	"github.com/multica-ai/multica/server/internal/selfexec"
 	"github.com/multica-ai/multica/server/internal/util"
 	"github.com/multica-ai/multica/server/pkg/agent"
+	"github.com/multica-ai/multica/server/pkg/awakeclock"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 	"github.com/multica-ai/multica/server/pkg/redact"
 	"github.com/multica-ai/multica/server/pkg/skillbundle"
@@ -175,8 +176,8 @@ func taskScopedAuthToken(task Task) (string, error) {
 	return token, nil
 }
 
-func taskMulticaEnvironment(task Task, agentName, token, configRoot, workspacesRoot, serverURL string, healthPort, slot int, tempDir string) map[string]string {
-	return map[string]string{
+func taskMulticaEnvironment(task Task, provider, agentName, token, configRoot, workspacesRoot, serverURL string, healthPort, slot int, tempDir string) map[string]string {
+	env := map[string]string{
 		"MULTICA_TOKEN":        token,
 		cli.TaskConfigRootEnv:  configRoot,
 		TaskWorkspacesRootEnv:  workspacesRoot,
@@ -191,6 +192,33 @@ func taskMulticaEnvironment(task Task, agentName, token, configRoot, workspacesR
 		"TMP":                  tempDir,
 		"TEMP":                 tempDir,
 	}
+	if runtime.GOOS != "windows" {
+		return env
+	}
+	// MSYS (Git Bash) resolves its `/tmp usertemp` mount from TMP/TEMP once,
+	// in the first process, and every live MSYS process of this user shares
+	// that mount table — whichever provider started it. A task-private TMP/TEMP
+	// would pin /tmp to a directory this daemon deletes when that task ends,
+	// breaking /tmp for every later task (#8824). So on Windows no task
+	// overrides TMP/TEMP; they inherit the daemon user's host temp, and only
+	// TMPDIR stays task-private.
+	delete(env, "TMP")
+	delete(env, "TEMP")
+	if provider == "claude" {
+		// Claude Code reads CLAUDE_CODE_TMPDIR for its own temp files; default
+		// it to the task dir so they stay private, unless the user set it.
+		if os.Getenv("CLAUDE_CODE_TMPDIR") == "" {
+			env["CLAUDE_CODE_TMPDIR"] = tempDir
+			if task.Agent != nil {
+				for key := range task.Agent.CustomEnv {
+					if strings.EqualFold(key, "CLAUDE_CODE_TMPDIR") {
+						delete(env, "CLAUDE_CODE_TMPDIR")
+					}
+				}
+			}
+		}
+	}
+	return env
 }
 
 // taskRunner executes a single agent task and returns the result.
@@ -602,7 +630,7 @@ type Daemon struct {
 	// the cache that is up to two uncached `brew --prefix` forks per tick.
 	brewTargetOnce sync.Once
 	brewInstall    bool        // resolved once: was this binary installed via brew?
-	brewTarget     string      // "<prefix>/bin/multica" when brewInstall and the prefix resolved
+	brewPrefix     string      // Homebrew prefix when brewInstall and it resolved; the stable path is derived per call by cli.StableExecutablePath
 	updating       atomic.Bool // prevents concurrent update attempts
 	// activeTasks is the ownership-safe count of tasks currently in handleTask.
 	// It deliberately includes preparation and local-directory waiters because
@@ -2081,6 +2109,17 @@ func (d *Daemon) clearWSHeartbeatAcks() {
 
 // Run starts the daemon: resolves auth, registers runtimes, then polls for tasks.
 func (d *Daemon) Run(ctx context.Context) error {
+	return d.run(ctx, nil)
+}
+
+// RunWithHealthListener uses an already-bound loopback listener. The CLI keeps
+// that listener open while publishing its actual port for other processes.
+func (d *Daemon) RunWithHealthListener(ctx context.Context, healthLn net.Listener) error {
+	return d.run(ctx, healthLn)
+}
+
+func (d *Daemon) run(ctx context.Context, healthLn net.Listener) error {
+	var err error
 	// Wrap context so handleUpdate can cancel the daemon for restart.
 	ctx, cancel := context.WithCancel(ctx)
 	d.cancelFunc = cancel
@@ -2088,10 +2127,13 @@ func (d *Daemon) Run(ctx context.Context) error {
 	d.rootCtx = ctx
 
 	// Bind health port early to detect another running daemon.
-	healthLn, err := d.listenHealth()
-	if err != nil {
-		return err
+	if healthLn == nil {
+		healthLn, err = d.listenHealth()
+		if err != nil {
+			return err
+		}
 	}
+	defer healthLn.Close()
 
 	agentNames := make([]string, 0, len(d.agents()))
 	for name := range d.agents() {
@@ -5375,6 +5417,11 @@ func (d *Daemon) triggerRestart() bool {
 // after an upgrade. For non-brew installs it resolves to the absolute path of
 // the replaced binary.
 //
+// The mapping itself is cli.StableExecutablePath, shared with boot-autostart
+// registration: a restart target and a recorded ExecStart must never disagree
+// about which path survives brew cleanup, or the systemd handoff would
+// restart a binary `brew upgrade` already deleted.
+//
 // Shared with trySelfReload, which must version-probe the same binary the
 // restart would run — probing os.Executable() directly would read the old
 // Cellar path under brew and miss the upgrade entirely.
@@ -5385,30 +5432,26 @@ func (d *Daemon) restartTargetBinary() (string, error) {
 	}
 	// The install method and brew prefix are fixed for the process lifetime;
 	// resolve them once so the per-tick reload probe doesn't fork
-	// `brew --prefix` every 5 minutes.
+	// `brew --prefix` every 5 minutes. Detection order matches
+	// cli.StableSelfExecutable — the path's own Cellar shape first, then
+	// `brew --prefix` — so the restart target and a recorded autostart
+	// ExecStart always agree.
 	d.brewTargetOnce.Do(func() {
 		d.brewInstall = isBrewInstall()
 		if !d.brewInstall {
 			return
 		}
-		if brewPrefix := getBrewPrefix(); brewPrefix != "" {
-			d.brewTarget = filepath.Join(brewPrefix, "bin", "multica")
-		} else if prefix := matchKnownBrewPrefix(newBin); prefix != "" {
-			d.brewTarget = filepath.Join(prefix, "bin", "multica")
+		if prefix := matchKnownBrewPrefix(newBin); prefix != "" {
+			d.brewPrefix = prefix
+		} else {
+			d.brewPrefix = getBrewPrefix()
 		}
 	})
-	if d.brewInstall {
-		if d.brewTarget != "" {
-			return d.brewTarget, nil
-		}
+	if d.brewInstall && d.brewPrefix == "" {
 		d.logger.Warn("brew install detected but prefix could not be resolved; restart may fail",
 			"executable", newBin)
-		return newBin, nil
 	}
-	if resolved, err := filepath.EvalSymlinks(newBin); err == nil {
-		newBin = resolved
-	}
-	return newBin, nil
+	return cli.StableExecutablePath(newBin, d.brewPrefix, d.brewInstall), nil
 }
 
 // pollLoop runs the machine-level batch claim poller (MUL-4257): a single
@@ -6699,6 +6742,9 @@ func providerNeedsInlineSystemPrompt(provider string) bool {
 // Requiring the prior cwd as well would discard reachable history whenever a
 // local_directory task gets a new worktree (#9062). An empty or unavailable
 // store must still drop the resume, even when the cwd matches (#6806).
+// Codex also has a conversation-scoped store for local_directory tasks. A
+// continued worktree may use a new cwd while retaining its branch and rollout.
+// Managed Codex tasks still require the same existing directory.
 // sameExistingDir reports whether two paths name the same existing directory.
 // False when either cannot be stat'd, which is the safe answer for cwd-keyed
 // providers: an absent prior workdir means there is nothing to resume from.
@@ -6717,11 +6763,21 @@ func sameExistingDir(a, b string) bool {
 	return os.SameFile(ai, bi)
 }
 
-func gateResumeToReachableSession(task *Task, taskCtx *execenv.TaskContextForEnv, provider, envWorkDir string, sessionHomeReachable, refusesMissingSessionCwd bool, taskLog *slog.Logger) bool {
+// codexWorktreeResumeEligible permits a changed cwd only when the prepared
+// local_directory worktree continues this conversation's branch and Codex has
+// a stable conversation-scoped session store. In-place and managed tasks keep
+// the existing same-directory rule.
+func codexWorktreeResumeEligible(env *execenv.Environment, store string) bool {
+	return env != nil && env.LocalWorktree != nil && env.LocalWorktree.Continued && env.CodexHome != "" && store != ""
+}
+
+func gateResumeToReachableSession(task *Task, taskCtx *execenv.TaskContextForEnv, provider, envWorkDir string, sessionHomeReachable, refusesMissingSessionCwd, codexWorktreeResumeEligible bool, taskLog *slog.Logger) bool {
 	var reachable bool
 	if providerUsesPiSessionFile(provider) {
 		reachable = piSessionResumable(task.PriorSessionID, refusesMissingSessionCwd)
 	} else if provider == "hermes" {
+		reachable = sessionHomeReachable
+	} else if provider == "codex" && codexWorktreeResumeEligible {
 		reachable = sessionHomeReachable
 	} else {
 		// Compare the directories, not the spelling. Reuse runs in the canonical
@@ -7971,6 +8027,45 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 		ConnectedApps:                    task.ConnectedApps,
 	}
 
+	// A local_directory task gets a fresh CODEX_HOME but mounts the same
+	// per-conversation sessions store as the task it replaces. Codex scopes its
+	// own thread writer lock to CODEX_HOME, so those two processes otherwise use
+	// different locks while appending to the same rollout. Hold a store-scoped,
+	// cross-process lock for the complete task lifetime. Take it before the env
+	// root claim so shutdown releases that claim first; the next task can then
+	// safely reuse the prior environment after it acquires this lock.
+	if provider == "codex" {
+		if store := execenv.CodexSessionStorePath(d.cfg.Profile, taskCtx); store != "" {
+			// Mark before waiting so the session-store GC cannot remove the store
+			// between this task being queued behind its predecessor and mounting it.
+			d.markActiveStore(store)
+			defer d.unmarkActiveStore(store)
+
+			waitCtx, waitCancel := context.WithCancel(prepareCtx)
+			var cancelledByPoll <-chan struct{}
+			writerLock, lockErr := execenv.AcquireCodexSessionWriterLock(waitCtx, store, func() {
+				taskLog.Info("codex: waiting for prior task to release conversation session writer")
+				pollInterval := d.cancelPollInterval
+				if pollInterval == 0 {
+					pollInterval = 5 * time.Second
+				}
+				cancelledByPoll = d.watchTaskCancellation(waitCtx, task.ID, pollInterval, taskLog)
+				go func() {
+					select {
+					case <-cancelledByPoll:
+						waitCancel()
+					case <-waitCtx.Done():
+					}
+				}()
+			})
+			waitCancel()
+			if lockErr != nil {
+				return TaskResult{}, fmt.Errorf("acquire Codex conversation session writer: %w", lockErr)
+			}
+			defer writerLock.Release()
+		}
+	}
+
 	// Mark candidate env roots as active before any env work so the GC loop
 	// can't reclaim artifacts inside them mid-execution. We mark both the
 	// stable root for a fresh Prepare and the prior root for Reuse — they
@@ -8212,16 +8307,6 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 	var reasonixEnv map[string]string
 	if provider == "reasonix" {
 		reasonixEnv = sanitizeAgentEnv(agentEnvOverrides)
-	}
-	// Guard this task's per-issue Codex session store from the GC for the whole
-	// task, starting before Prepare/Reuse mounts it — so a prune that samples the
-	// store's stale (pre-remount) mtime cannot reclaim it out from under a resume
-	// of a long-idle issue (MUL-4424). No-op for non-Codex tasks / no stable key.
-	if provider == "codex" {
-		if store := execenv.CodexSessionStorePath(d.cfg.Profile, taskCtx); store != "" {
-			d.markActiveStore(store)
-			defer d.unmarkActiveStore(store)
-		}
 	}
 	envReused := false
 	priorClaim, priorWorkDir, lockedPriorInfo, reusable, reuseErr := d.lockReusablePriorEnvRoot(ctx, task, localAssignment, envClaim.RootDir())
@@ -8579,10 +8664,11 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 		&task, &taskCtx, provider, env.WorkDir,
 		sessionHomeReachable(provider, env, envReused),
 		providerRefusesMissingSessionCwd(provider, !usesCustomProfileCommand),
+		provider == "codex" && codexWorktreeResumeEligible(env, execenv.CodexSessionStorePath(d.cfg.Profile, taskCtx)),
 		taskLog,
 	)
-	// A reused workdir is necessary but not sufficient for a Codex resume: the
-	// prior thread's rollout must actually be present in this task's CODEX_HOME
+	// A reachable workdir or continued local worktree is not sufficient for a
+	// Codex resume: the prior thread's rollout must be in this task's CODEX_HOME
 	// sessions (MUL-4424 isolates them). Drop the resume before the brief is
 	// generated below if it isn't, so we never tell the agent it is continuing a
 	// conversation Codex will silently restart from scratch.
@@ -8625,7 +8711,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 		taskLog.Error("task auth token invalid; refusing to start agent", "error", err)
 		return TaskResult{}, err
 	}
-	agentEnv := taskMulticaEnvironment(task, agentName, agentToken, env.MulticaConfigRoot, d.cfg.WorkspacesRoot, d.cfg.ServerBaseURL, d.cfg.HealthPort, slot, taskTempDir)
+	agentEnv := taskMulticaEnvironment(task, provider, agentName, agentToken, env.MulticaConfigRoot, d.cfg.WorkspacesRoot, d.cfg.ServerBaseURL, d.cfg.HealthPort, slot, taskTempDir)
 	if checkoutMode := repoCheckoutModeFor(provider, runtime.GOOS); checkoutMode != "" {
 		agentEnv[repoCheckoutModeEnv] = checkoutMode
 	}
@@ -9515,13 +9601,15 @@ func (d *Daemon) executeAndDrain(ctx context.Context, backend agent.Backend, pro
 	defer drainCancel()
 
 	var toolCount atomic.Int32
-	// lastActivityAt records (as unix nanos) when the drain loop most
+	// lastActivityAt records (as awakeclock nanos) when the drain loop most
 	// recently received a message from the backend. The idle watchdog
 	// reads this to decide whether the agent has gone silent for too long.
+	// It is an awake-time reading, not wall time, so a host suspend is never
+	// charged to the agent as silence (GitHub #9024).
 	// Initialise to the start so a backend that never emits a single
 	// message also trips the watchdog.
 	var lastActivityAt atomic.Int64
-	lastActivityAt.Store(time.Now().UnixNano())
+	lastActivityAt.Store(int64(awakeclock.Now()))
 	// inFlightTools counts tool_use messages that haven't yet been paired
 	// with a matching tool_result. A non-zero count means the agent is
 	// legitimately waiting on a tool (e.g. `npm install`, `docker build`)
@@ -9548,7 +9636,7 @@ func (d *Daemon) executeAndDrain(ctx context.Context, backend agent.Backend, pro
 			count, at := session.ToolActivity()
 			for {
 				previous := lastActivityAt.Load()
-				if at.UnixNano() <= previous || lastActivityAt.CompareAndSwap(previous, at.UnixNano()) {
+				if int64(at) <= previous || lastActivityAt.CompareAndSwap(previous, int64(at)) {
 					break
 				}
 			}
@@ -9705,7 +9793,7 @@ func (d *Daemon) executeAndDrain(ctx context.Context, backend agent.Backend, pro
 				// slow downstream call (mu.Lock contention, batch resize)
 				// can't be misattributed to backend silence.
 				observedAt := time.Now().UTC()
-				lastActivityAt.Store(observedAt.UnixNano())
+				lastActivityAt.Store(int64(awakeclock.Now()))
 				switch msg.Type {
 				case agent.MessageStatus:
 					// Persist the session/work_dir as soon as the backend
@@ -10067,7 +10155,19 @@ func idleWatchdogTickInterval(window time.Duration) time.Duration {
 //
 // Polling rate comes from idleWatchdogTickInterval, so a run is force-stopped
 // somewhere between its budget and budget + tick, never earlier.
+//
+// Budgets are measured on awakeclock, so they count only time the host was
+// awake. lastActivityAt and every native tool timestamp are awakeclock
+// readings. A laptop that sleeps through a run resumes with its silence
+// exactly where it was before the lid closed (GitHub #9024).
 func (d *Daemon) runIdleWatchdog(agentCtx context.Context, window, toolWindow time.Duration, lastActivityAt *atomic.Int64, inFlightTools func() int32, fired *atomic.Bool, firedThreshold *atomic.Int64, cancel context.CancelFunc, messages <-chan agent.Message, interruptBackground func() bool, terminalObserved func() bool, taskLog *slog.Logger) {
+	d.runIdleWatchdogWithClock(agentCtx, window, toolWindow, lastActivityAt, inFlightTools, fired, firedThreshold, cancel, messages, interruptBackground, terminalObserved, taskLog, awakeclock.Now)
+}
+
+// runIdleWatchdogWithClock is runIdleWatchdog with the awake clock injected,
+// so tests can simulate a host suspend: wall time that passes while the
+// awake reading stands still.
+func (d *Daemon) runIdleWatchdogWithClock(agentCtx context.Context, window, toolWindow time.Duration, lastActivityAt *atomic.Int64, inFlightTools func() int32, fired *atomic.Bool, firedThreshold *atomic.Int64, cancel context.CancelFunc, messages <-chan agent.Message, interruptBackground func() bool, terminalObserved func() bool, taskLog *slog.Logger, awakeNow func() time.Duration) {
 	tickWindow := window
 	if toolWindow > 0 && toolWindow < tickWindow {
 		tickWindow = toolWindow
@@ -10091,8 +10191,8 @@ func (d *Daemon) runIdleWatchdog(agentCtx context.Context, window, toolWindow ti
 				}
 				threshold = toolWindow
 			}
-			last := time.Unix(0, lastActivityAt.Load())
-			idleFor := time.Since(last)
+			last := lastActivityAt.Load()
+			idleFor := awakeNow() - time.Duration(last)
 			if idleFor < threshold {
 				continue
 			}
@@ -10112,7 +10212,7 @@ func (d *Daemon) runIdleWatchdog(agentCtx context.Context, window, toolWindow ti
 				return
 			}
 			if toolInFlight && interruptBackground != nil && interruptBackground() {
-				lastActivityAt.Store(time.Now().UnixNano())
+				lastActivityAt.Store(int64(awakeNow()))
 				taskLog.Info("tool watchdog stopped background tools; waiting for agent result")
 				continue
 			}
@@ -10124,7 +10224,7 @@ func (d *Daemon) runIdleWatchdog(agentCtx context.Context, window, toolWindow ti
 			// callback may publish newer activity without changing the count.
 			currentToolInFlight := inFlightTools() > 0
 			currentActivity := lastActivityAt.Load()
-			if currentActivity != last.UnixNano() ||
+			if currentActivity != last ||
 				currentToolInFlight != toolInFlight || len(messages) > 0 {
 				continue
 			}

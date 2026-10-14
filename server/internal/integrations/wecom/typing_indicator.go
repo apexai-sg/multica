@@ -185,7 +185,7 @@ func NewTypingIndicator(cfg TypingIndicatorConfig) *TypingIndicatorManager {
 // nothing here needs to be quick for the ACK's sake — but everything here is
 // best-effort: a bubble that fails to open costs the user a few seconds of
 // uncertainty, and the answer still arrives as a plain message.
-func (m *TypingIndicatorManager) OnIngested(ctx context.Context, inst engine.ResolvedInstallation, msg channel.InboundMessage, sessionID pgtype.UUID) {
+func (m *TypingIndicatorManager) OnIngested(ctx context.Context, inst engine.ResolvedInstallation, msg channel.InboundMessage, sessionID pgtype.UUID, chatMessageID pgtype.UUID) {
 	if m.senders == nil || m.streams == nil || !sessionID.Valid {
 		return
 	}
@@ -294,7 +294,7 @@ func (m *TypingIndicatorManager) OnIngested(ctx context.Context, inst engine.Res
 //
 // No bubble, nothing to say: the replier's notice is the whole of what the
 // user is told, and there is no round left to address a second line to.
-func (m *TypingIndicatorManager) OnSettled(ctx context.Context, sessionID pgtype.UUID) {
+func (m *TypingIndicatorManager) OnSettled(ctx context.Context, sessionID pgtype.UUID, scope engine.TypingSettlement) {
 	if m.senders == nil || m.streams == nil || !sessionID.Valid {
 		return
 	}
@@ -733,7 +733,12 @@ func retryPending(e events.Event) bool {
 // router: hand a frame to whichever replica holds the socket. *RelayOutbound
 // satisfies it; nil leaves the single-replica behaviour unchanged.
 type noticeRouter interface {
-	publish(f relayFrame, eventID string) bool
+	publish(f relayFrame, eventID string) relayPublish
+	// publishAwaitingHolder is publish plus the acceptance wait: it answers
+	// relayNoHolder when no replica took the frame, which only a caller with a
+	// second route to try can act on. The wait is bounded by ctx. See
+	// RelayOutbound.publishAwaitingHolder for why the two are separate.
+	publishAwaitingHolder(ctx context.Context, f relayFrame, eventID string) relayPublish
 }
 
 // WithRelay lets a run's ending reach the asker from a replica that does not
@@ -762,7 +767,7 @@ func (m *TypingIndicatorManager) relaySeal(sessionID pgtype.UUID, taskID, reason
 		SealReason: reason,
 		TaskID:     taskID,
 		SessionID:  util.UUIDToString(sessionID),
-	}, taskID)
+	}, taskID).routed()
 }
 
 func (m *TypingIndicatorManager) sayAsPlainMessage(ctx context.Context, sessionID pgtype.UUID, addr roundAddress, taskID, text string) error {
@@ -781,7 +786,7 @@ func (m *TypingIndicatorManager) sayAsPlainMessage(ctx context.Context, sessionI
 			Content:        text,
 			TaskID:         taskID,
 			SessionID:      util.UUIDToString(sessionID),
-		}, taskID) {
+		}, taskID).routed() {
 			m.log.DebugContext(ctx, "wecom typing: routed a run's ending to the replica holding the socket",
 				"chat_session_id", util.UUIDToString(sessionID),
 				"installation_id", util.UUIDToString(addr.InstallationID))

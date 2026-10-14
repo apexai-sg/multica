@@ -1922,7 +1922,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		tx, beginErr := h.beginWakeupWrite(r.Context())
 		if beginErr != nil {
 			slog.Warn("create comment failed", append(logger.RequestAttrs(r), "error", beginErr, "issue_id", issueID)...)
-			writeError(w, http.StatusInternalServerError, "failed to create comment: "+beginErr.Error())
+			writeError(w, http.StatusInternalServerError, "failed to create comment")
 			return
 		}
 		defer tx.Rollback(r.Context())
@@ -1958,7 +1958,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		slog.Warn("create comment failed", append(logger.RequestAttrs(r), "error", err, "issue_id", issueID)...)
-		writeError(w, http.StatusInternalServerError, "failed to create comment: "+err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to create comment")
 		return
 	}
 	comment := created.Comment()
