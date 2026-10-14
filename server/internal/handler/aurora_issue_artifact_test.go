@@ -1,11 +1,15 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/multica-ai/multica/server/internal/aurora"
+	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/testutil"
+	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 // attachmentSelectByIssue reads the issue-scoped projection rows a report
@@ -115,5 +119,52 @@ func TestReportTaskArtifactsProjectionIsIdempotentAndIssueScoped(t *testing.T) {
 	reportAuroraArtifacts(t, plainTask, plain.payload("primary")).Want(http.StatusOK)
 	if n := dbfx.Count(t, "SELECT count(*) FROM attachment WHERE task_id = $1", plainTask); n != 0 {
 		t.Fatalf("issue-less generation wrote %d attachments, want 0", n)
+	}
+}
+
+// TestPublishCommentWithAttachmentsCarriesTheFiles pins the completion-path
+// rebroadcast: a comment that gained files after it was first broadcast must be
+// re-sent with those files, because clients replace a cached comment with the
+// snapshot they receive.
+func TestPublishCommentWithAttachmentsCarriesTheFiles(t *testing.T) {
+	updates := make(chan CommentResponse, 4)
+	testHandler.Bus.Subscribe(protocol.EventCommentUpdated, func(e events.Event) {
+		payload, ok := e.Payload.(map[string]any)
+		if !ok {
+			return
+		}
+		if comment, ok := payload["comment"].(CommentResponse); ok {
+			updates <- comment
+		}
+	})
+
+	taskID, generationID, issueID := auroraIssueReportFixture(t, "xhs-image")
+	assetURL := "https://cdn.example.test/aurora/xhs-image.png"
+	insertAsset(t, generationID, testutil.Cols{"media_url": assetURL})
+	commentID := dbfx.Insert(t, "comment", testutil.Cols{
+		"issue_id":     issueID,
+		"workspace_id": testWorkspaceID,
+		"author_type":  "agent",
+		"author_id":    roundTaskAgent(t, taskID),
+		"content":      "Produced it",
+		"type":         "comment",
+	})
+	dbfx.Insert(t, "attachment", testutil.Cols{
+		"workspace_id": testWorkspaceID, "issue_id": issueID, "comment_id": commentID,
+		"uploader_type": "agent", "uploader_id": roundTaskAgent(t, taskID),
+		"filename": "xhs-image.png", "url": assetURL,
+		"content_type": "image/png", "size_bytes": int64(9),
+	})
+
+	testHandler.publishCommentWithAttachments(context.Background(),
+		parseUUID(testWorkspaceID), parseUUID(commentID), "system", "")
+
+	select {
+	case comment := <-updates:
+		if len(comment.Attachments) != 1 || comment.Attachments[0].Filename != "xhs-image.png" {
+			t.Fatalf("attachments = %+v", comment.Attachments)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no comment:updated broadcast carrying the round's files")
 	}
 }

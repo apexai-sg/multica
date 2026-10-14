@@ -4580,6 +4580,21 @@ func (h *Handler) CompleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A completed Aurora round may have just linked its produced files to
+	// the reply comment. Rebroadcast that comment so clients that already
+	// rendered it pick the files up without waiting for a refetch.
+	//
+	// The workspace comes from the daemon access check above, since the task
+	// row itself has no workspace column; it is the same value the service
+	// uses to resolve a task's workspace.
+	if bound, err := h.Queries.GetCommentBoundToTaskAttachments(r.Context(), db.GetCommentBoundToTaskAttachmentsParams{
+		TaskID: task.ID, WorkspaceID: parseUUID(workspaceID),
+	}); err == nil {
+		h.publishCommentWithAttachments(r.Context(), parseUUID(workspaceID), bound, "agent", uuidToString(task.AgentID))
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		slog.Warn("completion: bound attachment lookup failed", "task_id", taskID, "error", err)
+	}
+
 	h.emitIssueExecutedOnFirstCompletion(r, task)
 
 	// MUL-4195: guarantee at-least-once processing. If a member posted a

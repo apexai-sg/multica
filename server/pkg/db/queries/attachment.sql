@@ -323,3 +323,12 @@ WHERE workspace_id = @workspace_id
   AND comment_id IS NULL
   AND source_context_id IS NULL
 ORDER BY created_at ASC;
+
+-- name: GetCommentBoundToTaskAttachments :one
+-- The comment a task's produced files were linked to, when there is one. Used
+-- by the completion handler to rebroadcast that comment with its files.
+SELECT comment_id FROM attachment
+WHERE task_id = @task_id
+  AND comment_id IS NOT NULL
+  AND workspace_id = @workspace_id
+LIMIT 1;

@@ -348,6 +348,37 @@ func (h *Handler) groupAttachments(r *http.Request, commentIDs []pgtype.UUID) ma
 	return grouped
 }
 
+// publishCommentWithAttachments rebroadcasts one comment with its current
+// attachments. A file can be linked to a comment after that comment was
+// broadcast — the artifact report writes the row, the completion binds it —
+// and clients replace a cached comment with the snapshot they receive, so
+// the comment has to be re-sent carrying the files it now has.
+//
+// Unlike groupAttachments this takes the workspace explicitly: the
+// completion path has no member request of its own to resolve one from.
+func (h *Handler) publishCommentWithAttachments(ctx context.Context, workspaceID, commentID pgtype.UUID, actorType, actorID string) {
+	comment, err := h.Queries.GetCommentInWorkspace(ctx, db.GetCommentInWorkspaceParams{
+		ID: commentID, WorkspaceID: workspaceID,
+	})
+	if err != nil {
+		return
+	}
+	attachments, err := h.Queries.ListAttachmentsByComment(ctx, db.ListAttachmentsByCommentParams{
+		CommentID: commentID, WorkspaceID: workspaceID,
+	})
+	if err != nil {
+		slog.Warn("publish comment attachments: load failed", "comment_id", uuidToString(commentID), "error", err)
+		return
+	}
+	responses := make([]AttachmentResponse, 0, len(attachments))
+	for _, attachment := range attachments {
+		responses = append(responses, h.attachmentToResponse(attachment, attachmentURLModeSigned))
+	}
+	h.publish(protocol.EventCommentUpdated, uuidToString(workspaceID), actorType, actorID, map[string]any{
+		"comment": commentToResponse(comment, nil, responses),
+	})
+}
+
 // groupChatMessageAttachments loads attachments for multiple chat messages
 // and groups them by chat_message_id. Mirrors groupAttachments — used so the
 // chat message list can surface attachment metadata to the UI bubble (file

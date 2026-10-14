@@ -549,6 +549,28 @@ func (q *Queries) GetAttachmentByIDOnly(ctx context.Context, id pgtype.UUID) (At
 	return i, err
 }
 
+const getCommentBoundToTaskAttachments = `-- name: GetCommentBoundToTaskAttachments :one
+SELECT comment_id FROM attachment
+WHERE task_id = $1
+  AND comment_id IS NOT NULL
+  AND workspace_id = $2
+LIMIT 1
+`
+
+type GetCommentBoundToTaskAttachmentsParams struct {
+	TaskID      pgtype.UUID `json:"task_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// The comment a task's produced files were linked to, when there is one. Used
+// by the completion handler to rebroadcast that comment with its files.
+func (q *Queries) GetCommentBoundToTaskAttachments(ctx context.Context, arg GetCommentBoundToTaskAttachmentsParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, getCommentBoundToTaskAttachments, arg.TaskID, arg.WorkspaceID)
+	var comment_id pgtype.UUID
+	err := row.Scan(&comment_id)
+	return comment_id, err
+}
+
 const linkAttachmentsToChatMessage = `-- name: LinkAttachmentsToChatMessage :many
 UPDATE attachment
 SET chat_message_id = $1,
