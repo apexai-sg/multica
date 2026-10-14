@@ -23,6 +23,7 @@ import (
 	fleetdocker "github.com/multica-ai/multica/server/internal/fleet/docker"
 	"github.com/multica-ai/multica/server/internal/fleet/model"
 	"github.com/multica-ai/multica/server/internal/fleet/store"
+	"github.com/multica-ai/multica/server/internal/util"
 )
 
 type runner interface{ Run(context.Context) error }
@@ -76,7 +77,7 @@ func privateServiceKey(path string) ([]byte, error) {
 	if !filepath.IsAbs(path) {
 		return fail()
 	}
-	f, e := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	f, e := util.OpenPrivateFile(path)
 	if e != nil {
 		return fail()
 	}

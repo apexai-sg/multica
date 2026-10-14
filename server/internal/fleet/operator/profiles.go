@@ -2,9 +2,7 @@ package operator
 
 import (
 	"io"
-	"os"
 	"path/filepath"
-	"syscall"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/fleet"
@@ -17,7 +15,7 @@ func readPrivate(path string) ([]byte, error) {
 	if !filepath.IsAbs(path) {
 		return nil, model.ErrInvalidRequest
 	}
-	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	f, err := util.OpenPrivateFile(path)
 	if err != nil {
 		return nil, model.ErrInvalidRequest
 	}

@@ -3,13 +3,12 @@ package fleet
 import (
 	"io"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"unicode"
 
 	"github.com/multica-ai/multica/server/internal/fleet/model"
+	"github.com/multica-ai/multica/server/internal/util"
 )
 
 // LoadProfile reads an explicit private file, never HOME, OAuth or environment credentials.
@@ -20,9 +19,9 @@ func LoadProfile(path string) (model.Bootstrap, error) {
 	if !filepath.IsAbs(path) {
 		return fail()
 	}
-	// NOFOLLOW enforces the final-component boundary at open, not just in a racy Lstat.
-	// NONBLOCK prevents a substituted FIFO from hanging before regular-file validation.
-	file, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	// The final-component boundary is enforced at open, not merely in a racy
+	// Lstat; util.OpenPrivateFile owns the per-platform spelling.
+	file, err := util.OpenPrivateFile(path)
 	if err != nil {
 		return fail()
 	}

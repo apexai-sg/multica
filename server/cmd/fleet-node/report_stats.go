@@ -5,11 +5,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"syscall"
 
 	"github.com/google/uuid"
 	"github.com/multica-ai/multica/server/internal/daemon"
 	"github.com/multica-ai/multica/server/internal/fleet/model"
+	"github.com/multica-ai/multica/server/internal/util"
 )
 
 // The trusted installer writes identity. Local validation is structural and
@@ -45,8 +45,7 @@ func validUUID(value string) bool {
 	return err == nil && id != uuid.Nil && id.String() == value
 }
 func owned(info os.FileInfo) bool {
-	s, ok := info.Sys().(*syscall.Stat_t)
-	return ok && int(s.Uid) == os.Geteuid() && int(s.Gid) == os.Getegid()
+	return util.OwnedByCurrentUser(info)
 }
 func privateDirectory(path string, mode os.FileMode) error {
 	info, err := os.Lstat(path)
@@ -56,7 +55,7 @@ func privateDirectory(path string, mode os.FileMode) error {
 	return nil
 }
 func readPrivateFile(path string) ([]byte, error) {
-	file, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	file, err := util.OpenPrivateFile(path)
 	if err != nil {
 		return nil, model.ErrInvalidRequest
 	}
