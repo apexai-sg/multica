@@ -37,10 +37,14 @@ coverage
 
 # Only apps/web (Dockerfile.web) and apps/aurora (Dockerfile.aurora) are built
 # into images. Default-exclude the other app workspaces so they do not silently
-# enter the build context.
+# enter the build context. Dockerfile.web also needs the mobile patch inputs.
 /apps/*
 !/apps/web/
 !/apps/aurora/
+!/apps/mobile
+/apps/mobile/*
+!/apps/mobile/patches
+!/apps/mobile/patches/**
 
 # Repository-only tooling
 /.github/
