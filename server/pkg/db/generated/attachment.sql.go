@@ -982,6 +982,7 @@ func (q *Queries) ListAttachmentsByIDs(ctx context.Context, arg ListAttachmentsB
 const listAttachmentsByIssue = `-- name: ListAttachmentsByIssue :many
 SELECT id, workspace_id, issue_id, comment_id, uploader_type, uploader_id, filename, url, content_type, size_bytes, created_at, chat_session_id, chat_message_id, task_id, source_context_id FROM attachment
 WHERE issue_id = $1 AND workspace_id = $2
+  AND task_id IS NULL
 ORDER BY created_at ASC
 `
 
@@ -990,6 +991,11 @@ type ListAttachmentsByIssueParams struct {
 	WorkspaceID pgtype.UUID `json:"workspace_id"`
 }
 
+// The issue's own attachments: the files a person gave it. A run-produced
+// projection carries a task_id and is deliberately excluded — it belongs to
+// the comment that delivered it, so it must not be read back as an issue
+// input (the next Aurora round) nor adopted by surfaces that render the
+// issue's description attachments.
 func (q *Queries) ListAttachmentsByIssue(ctx context.Context, arg ListAttachmentsByIssueParams) ([]Attachment, error) {
 	rows, err := q.db.Query(ctx, listAttachmentsByIssue, arg.IssueID, arg.WorkspaceID)
 	if err != nil {

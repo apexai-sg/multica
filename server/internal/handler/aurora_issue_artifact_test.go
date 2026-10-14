@@ -168,3 +168,50 @@ func TestPublishCommentWithAttachmentsCarriesTheFiles(t *testing.T) {
 		t.Fatal("no comment:updated broadcast carrying the round's files")
 	}
 }
+
+// TestIssueAttachmentListExcludesRunProjections pins the read-side effect of the
+// ListAttachmentsByIssue boundary: a run-produced projection must not appear in
+// the issue's own attachment list (the mobile timeline builds its description
+// image sequence from it), while a file a person gave the issue still does.
+func TestIssueAttachmentListExcludesRunProjections(t *testing.T) {
+	taskID, _, issueID := auroraIssueReportFixture(t, "xhs-image")
+
+	// The projection the round produced: task-tagged and still comment-less.
+	dbfx.Insert(t, "attachment", testutil.Cols{
+		"workspace_id":  testWorkspaceID,
+		"issue_id":      issueID,
+		"task_id":       taskID,
+		"uploader_type": "agent",
+		"uploader_id":   roundTaskAgent(t, taskID),
+		"filename":      "xhs-image.png",
+		"url":           "https://cdn.example.test/xhs-image.png",
+		"content_type":  "image/png",
+		"size_bytes":    int64(9),
+	})
+
+	list := func() []AttachmentResponse {
+		req := newRequest(http.MethodGet, "/api/issues/"+issueID+"/attachments", nil)
+		req = withURLParam(req, "id", issueID)
+		return testutil.Decode[[]AttachmentResponse](t, testHandler.ListAttachments, req, http.StatusOK)
+	}
+
+	if got := list(); len(got) != 0 {
+		t.Fatalf("issue attachments = %+v, want none while the only row is a run projection", got)
+	}
+
+	// A file a person gave the issue has no task_id and must still be listed.
+	dbfx.Insert(t, "attachment", testutil.Cols{
+		"workspace_id":  testWorkspaceID,
+		"issue_id":      issueID,
+		"uploader_type": "member",
+		"uploader_id":   testUserID,
+		"filename":      "brief.png",
+		"url":           "https://cdn.example.test/brief.png",
+		"content_type":  "image/png",
+		"size_bytes":    int64(5),
+	})
+	got := list()
+	if len(got) != 1 || got[0].Filename != "brief.png" {
+		t.Fatalf("issue attachments = %+v, want only the human-supplied brief.png", got)
+	}
+}

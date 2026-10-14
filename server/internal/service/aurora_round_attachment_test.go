@@ -166,3 +166,34 @@ func TestBindAuroraRoundArtifactsLeavesOtherRoundsAlone(t *testing.T) {
 		t.Fatalf("first round bound attachments = %d, want 1", firstBound)
 	}
 }
+
+// TestAuroraRoundInputsExcludeProducedFiles pins the shared query's boundary: a
+// run-produced projection (task_id set) is not one of the issue's own input
+// attachments, so a continuing round must not read its own deliverable back in.
+func TestAuroraRoundInputsExcludeProducedFiles(t *testing.T) {
+	svc, pool, workspaceID, userID, agentID := newAuroraCompletionService(t)
+	issueID, _ := seedIssueWithRound(t, svc, pool, workspaceID, userID, agentID)
+
+	// A file a person gave the issue: no task_id.
+	human, err := svc.Queries.CreateAttachment(context.Background(), db.CreateAttachmentParams{
+		ID: dbid.NewV7(), WorkspaceID: util.MustParseUUID(workspaceID), IssueID: issueID,
+		UploaderType: "member", UploaderID: util.MustParseUUID(userID),
+		Filename: "brief.png", Url: "https://cdn.example.test/brief.png",
+		ContentType: "image/png", SizeBytes: 5,
+	})
+	if err != nil {
+		t.Fatalf("seed human attachment: %v", err)
+	}
+	issue, err := svc.Queries.GetIssue(context.Background(), issueID)
+	if err != nil {
+		t.Fatalf("load issue: %v", err)
+	}
+
+	ids, err := svc.auroraRoundAttachmentIDs(context.Background(), issue)
+	if err != nil {
+		t.Fatalf("auroraRoundAttachmentIDs: %v", err)
+	}
+	if len(ids) != 1 || ids[0] != util.UUIDToString(human.ID) {
+		t.Fatalf("round inputs = %v, want only the human-supplied %s", ids, util.UUIDToString(human.ID))
+	}
+}

@@ -26,8 +26,14 @@ SELECT inserted.*,
 FROM inserted;
 
 -- name: ListAttachmentsByIssue :many
+-- The issue's own attachments: the files a person gave it. A run-produced
+-- projection carries a task_id and is deliberately excluded — it belongs to
+-- the comment that delivered it, so it must not be read back as an issue
+-- input (the next Aurora round) nor adopted by surfaces that render the
+-- issue's description attachments.
 SELECT * FROM attachment
 WHERE issue_id = $1 AND workspace_id = $2
+  AND task_id IS NULL
 ORDER BY created_at ASC;
 
 -- name: ListAttachmentsByComment :many
