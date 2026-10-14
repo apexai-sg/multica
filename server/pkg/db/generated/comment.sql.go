@@ -563,6 +563,67 @@ func (q *Queries) GetDelegatedFailureRecoveryExhaustionComment(ctx context.Conte
 	return i, err
 }
 
+const getLatestAgentCommentSince = `-- name: GetLatestAgentCommentSince :one
+SELECT id, issue_id, author_type, author_id, content, type, created_at, updated_at, parent_id, workspace_id, resolved_at, resolved_by_type, resolved_by_id, source_task_id, quick_action_id, via_plugin_id, revision, recovery_settled_at, deleted_at, suppressed_agent_ids FROM comment
+WHERE issue_id = $1
+  AND workspace_id = $2
+  AND author_type = 'agent'
+  AND (
+    source_task_id = $3
+    OR (author_id = $4 AND created_at >= $5)
+  )
+  AND deleted_at IS NULL
+ORDER BY created_at DESC, id DESC
+LIMIT 1
+`
+
+type GetLatestAgentCommentSinceParams struct {
+	IssueID     pgtype.UUID        `json:"issue_id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	TaskID      pgtype.UUID        `json:"task_id"`
+	AuthorID    pgtype.UUID        `json:"author_id"`
+	Since       pgtype.Timestamptz `json:"since"`
+}
+
+// The reply a run wrote on its issue. The exact link (source_task_id) is the
+// primary identity, because a comment an agent posts during its run carries it;
+// the author-and-window branch keeps a reply posted through a credential that
+// did not stamp the task from being missed, and the workspace guard keeps the
+// lookup inside the caller's workspace.
+func (q *Queries) GetLatestAgentCommentSince(ctx context.Context, arg GetLatestAgentCommentSinceParams) (Comment, error) {
+	row := q.db.QueryRow(ctx, getLatestAgentCommentSince,
+		arg.IssueID,
+		arg.WorkspaceID,
+		arg.TaskID,
+		arg.AuthorID,
+		arg.Since,
+	)
+	var i Comment
+	err := row.Scan(
+		&i.ID,
+		&i.IssueID,
+		&i.AuthorType,
+		&i.AuthorID,
+		&i.Content,
+		&i.Type,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ParentID,
+		&i.WorkspaceID,
+		&i.ResolvedAt,
+		&i.ResolvedByType,
+		&i.ResolvedByID,
+		&i.SourceTaskID,
+		&i.QuickActionID,
+		&i.ViaPluginID,
+		&i.Revision,
+		&i.RecoverySettledAt,
+		&i.DeletedAt,
+		&i.SuppressedAgentIds,
+	)
+	return i, err
+}
+
 const getLatestMemberCommentForIssueSince = `-- name: GetLatestMemberCommentForIssueSince :one
 SELECT id, issue_id, author_type, author_id, content, type, created_at, updated_at, parent_id, workspace_id, resolved_at, resolved_by_type, resolved_by_id, source_task_id, quick_action_id, via_plugin_id, revision, recovery_settled_at, deleted_at, suppressed_agent_ids FROM comment
 WHERE issue_id = $1

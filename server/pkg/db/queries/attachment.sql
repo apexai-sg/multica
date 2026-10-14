@@ -26,8 +26,14 @@ SELECT inserted.*,
 FROM inserted;
 
 -- name: ListAttachmentsByIssue :many
+-- The issue's own attachments: the files a person gave it. A run-produced
+-- projection carries a task_id and is deliberately excluded — it belongs to
+-- the comment that delivered it, so it must not be read back as an issue
+-- input (the next Aurora round) nor adopted by surfaces that render the
+-- issue's description attachments.
 SELECT * FROM attachment
 WHERE issue_id = $1 AND workspace_id = $2
+  AND task_id IS NULL
 ORDER BY created_at ASC;
 
 -- name: ListAttachmentsByComment :many
@@ -301,3 +307,63 @@ ORDER BY id;
 DELETE FROM attachment
 WHERE workspace_id = sqlc.arg(workspace_id)
   AND source_context_id IS NOT NULL;
+
+-- name: BindIssueAttachmentsToComment :many
+-- Bind a run's task-tagged issue attachments to the reply comment it produced.
+-- Only rows still unclaimed are eligible, so a replayed completion is a no-op
+-- and another run's projections are never stolen.
+UPDATE attachment
+SET comment_id = @comment_id
+WHERE workspace_id = @workspace_id
+  AND issue_id = @issue_id
+  AND task_id = @task_id
+  AND comment_id IS NULL
+  AND source_context_id IS NULL
+RETURNING *;
+
+-- name: ListUnboundAttachmentsForTask :many
+SELECT * FROM attachment
+WHERE workspace_id = @workspace_id
+  AND issue_id = @issue_id
+  AND task_id = @task_id
+  AND comment_id IS NULL
+  AND source_context_id IS NULL
+ORDER BY created_at ASC;
+
+-- name: GetCommentBoundToTaskAttachments :one
+-- The comment a task's produced files were linked to, when there is one. Used
+-- by the completion handler to rebroadcast that comment with its files.
+SELECT comment_id FROM attachment
+WHERE task_id = @task_id
+  AND comment_id IS NOT NULL
+  AND workspace_id = @workspace_id
+LIMIT 1;
+
+-- name: DeleteAttachmentsByURL :many
+-- Drop every attachment row pointing at one stored object. The library calls
+-- this when it deletes an asset: the bytes are going away, so a reply that
+-- showed them must stop claiming to have a file.
+DELETE FROM attachment
+WHERE url = @url AND workspace_id = @workspace_id
+RETURNING comment_id;
+
+-- name: HasUnboundAttachmentsForTask :one
+-- Whether a task produced files that were never linked to a reply. The probe
+-- keys on task_id alone so an ordinary completion can skip resolving the
+-- workspace for a round that owns nothing.
+SELECT EXISTS (
+    SELECT 1 FROM attachment
+    WHERE task_id = @task_id
+      AND comment_id IS NULL
+      AND source_context_id IS NULL
+) AS has_unbound;
+
+-- name: DeleteUnboundAttachmentsForTask :execrows
+-- A round that ended without a reply leaves its projections unbound: invisible,
+-- and pointing at an object the library kept. Remove them so a refunded run
+-- leaves nothing behind. The caller runs this on the terminal failure path.
+DELETE FROM attachment
+WHERE workspace_id = @workspace_id
+  AND issue_id = @issue_id
+  AND task_id = @task_id
+  AND comment_id IS NULL;

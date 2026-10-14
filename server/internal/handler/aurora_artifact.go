@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/aurora"
@@ -182,7 +183,7 @@ func (h *Handler) ReportTaskArtifacts(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := h.commitAuroraArtifacts(r.Context(), gen, bound); err != nil {
+	if err := h.commitAuroraArtifacts(r.Context(), gen, task.ID, task.AgentID, bound); err != nil {
 		h.deleteUncommittedAuroraStaging(r.Context(), stagingRows)
 		if errors.Is(err, errAuroraAssetConflict) {
 			h.failGenerationAndRefund(r.Context(), gen.UserID, gen.WorkspaceID, gen.ID, gen.CreditsReserved, "artifact conflict")
@@ -374,11 +375,30 @@ func auroraMetadataEqual(stored []byte, reported map[string]any) bool {
 	return bytes.Equal(storedJSON, reportedJSON)
 }
 
+// insertAuroraProjectionAttachment projects one committed artifact onto its
+// issue as a task-tagged, comment-less attachment. The round's reply comment
+// binds the row later, so comment_id is deliberately NULL here. The NOT EXISTS
+// guard keys on the producing task and object URL, which makes a replayed report
+// idempotent without looking at comment_id.
+const insertAuroraProjectionAttachment = `
+	INSERT INTO attachment (
+		id, workspace_id, issue_id, comment_id, task_id,
+		uploader_type, uploader_id, filename, url, content_type, size_bytes
+	)
+	SELECT $1, $2, $3, NULL, $4, 'agent', $5, $6, $7, $8, $9
+	WHERE NOT EXISTS (
+		SELECT 1 FROM attachment
+		WHERE workspace_id = $2 AND task_id = $4 AND url = $7
+	)`
+
 // commitAuroraArtifacts writes every asset and marks the reported staging rows
-// committed in one transaction. An upsert that finds an existing row with a
-// different hash or metadata returns errAuroraAssetConflict and rolls the whole
-// batch back.
-func (h *Handler) commitAuroraArtifacts(ctx context.Context, gen db.AuroraGeneration, artifacts []normalizedAuroraReportArtifact) error {
+// committed in one transaction. It also projects each artifact onto the issue as
+// a task-tagged, comment-less attachment, which the round's reply comment binds
+// later. The stored object is shared: the content library (aurora_asset) owns
+// the bytes, and the attachment row is only a reference to them. An upsert that
+// finds an existing row with a different hash or metadata returns
+// errAuroraAssetConflict and rolls the whole batch back.
+func (h *Handler) commitAuroraArtifacts(ctx context.Context, gen db.AuroraGeneration, taskID, agentID pgtype.UUID, artifacts []normalizedAuroraReportArtifact) error {
 	tx, err := h.TxStarter.Begin(ctx)
 	if err != nil {
 		return err
@@ -434,6 +454,23 @@ func (h *Handler) commitAuroraArtifacts(ctx context.Context, gen db.AuroraGenera
 		}
 		if tag.RowsAffected() == 0 {
 			return errors.New("aurora: staging row disappeared before commit")
+		}
+
+		// Project the committed artifact onto its issue. The generation owns
+		// the issue binding: a generation without an issue_id has no thread to
+		// project onto, even when its task carries one.
+		if gen.IssueID.Valid {
+			attachmentID, err := uuid.NewV7()
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, insertAuroraProjectionAttachment,
+				attachmentID, gen.WorkspaceID, gen.IssueID, taskID, agentID,
+				artifact.payload.Name, artifact.objectURL,
+				artifact.payload.MIMEType, artifact.payload.SizeBytes,
+			); err != nil {
+				return err
+			}
 		}
 	}
 	return tx.Commit(ctx)

@@ -4927,6 +4927,9 @@ func (s *TaskService) CompleteTaskWithTransition(ctx context.Context, taskID pgt
 				}
 			}
 		}
+
+		// A round's produced files belong on the reply that announced them.
+		s.bindAuroraRoundArtifacts(ctx, task)
 	}
 
 	// Quick-create tasks: locate the issue the agent just created and push
@@ -5581,6 +5584,14 @@ func (s *TaskService) FailTaskWithTransition(ctx context.Context, taskID pgtype.
 	// both sides of a cross-issue handoff.
 	if errMsg != "" && task.IssueID.Valid && retried == nil {
 		s.createAgentComment(ctx, task.IssueID, task.AgentID, redact.Text(errMsg), "system", task.TriggerCommentID, task.ID)
+	}
+
+	// A terminal failure leaves the round's projections unbound: the run is
+	// refunded, so a file that was never delivered must not remain (invisible
+	// in the UI, but still pointing at an object the library kept). A retried
+	// round keeps them for the retry's own completion.
+	if retried == nil {
+		s.dropUnboundAuroraRoundArtifacts(ctx, task)
 	}
 
 	// Quick-create tasks: push a failure inbox notification to the
@@ -8165,14 +8176,17 @@ func commentEventFields(c db.Comment) map[string]any {
 	}
 }
 
-func (s *TaskService) createAgentComment(ctx context.Context, issueID, agentID pgtype.UUID, content, commentType string, parentID, sourceTaskID pgtype.UUID) {
+// createAgentComment writes one agent comment and returns it (false when
+// there is nothing to write). Callers that link files to the reply need the
+// row.
+func (s *TaskService) createAgentComment(ctx context.Context, issueID, agentID pgtype.UUID, content, commentType string, parentID, sourceTaskID pgtype.UUID) (db.Comment, bool) {
 	if content == "" {
-		return
+		return db.Comment{}, false
 	}
 	// Look up issue to get workspace ID for mention expansion and broadcasting.
 	issue, err := s.Queries.GetIssue(ctx, issueID)
 	if err != nil {
-		return
+		return db.Comment{}, false
 	}
 	// Resolve the thread root for thread-level side effects without overwriting
 	// parentID. The stored parent_id must remain the exact comment being replied
@@ -8198,7 +8212,7 @@ func (s *TaskService) createAgentComment(ctx context.Context, issueID, agentID p
 		SourceTaskID: sourceTaskID,
 	})
 	if err != nil {
-		return
+		return db.Comment{}, false
 	}
 	comment := created.Comment()
 	commentFields := commentEventFields(comment)
@@ -8216,6 +8230,132 @@ func (s *TaskService) createAgentComment(ctx context.Context, issueID, agentID p
 		},
 	})
 	s.AutoUnresolveThreadOnReply(ctx, rootComment, util.UUIDToString(issue.WorkspaceID), "agent", util.UUIDToString(agentID), sourceTaskID)
+	return comment, true
+}
+
+// bindAuroraRoundArtifacts attaches the files this round produced to the
+// reply it wrote them in. The artifact report already wrote one
+// issue-scoped, task-tagged attachment per file; the reply comment is what
+// the person reads, and the sidebar's deliverables list is built from
+// comment attachments, so this is what makes the files visible in both
+// places.
+//
+// Best-effort and post-commit, like settleAuroraOnCompleted: the files are
+// committed and the generation settled, so a failed bind is logged rather
+// than failing the completion. The bind is idempotent: only unclaimed rows
+// move.
+func (s *TaskService) bindAuroraRoundArtifacts(ctx context.Context, task db.AgentTaskQueue) {
+	if !task.IssueID.Valid {
+		return
+	}
+	// Probe by task before resolving anything: an ordinary completion owns no
+	// round projection, and the workspace lookup costs a GetIssue.
+	hasUnbound, err := s.Queries.HasUnboundAttachmentsForTask(ctx, task.ID)
+	if err != nil {
+		slog.Warn("aurora round attachment probe failed", "task_id", util.UUIDToString(task.ID), "error", err)
+		return
+	}
+	if !hasUnbound {
+		return
+	}
+	workspaceID, ok := s.roundWorkspace(ctx, task)
+	if !ok {
+		slog.Warn("aurora round attachment workspace lookup failed", "task_id", util.UUIDToString(task.ID))
+		return
+	}
+	pending, err := s.Queries.ListUnboundAttachmentsForTask(ctx, db.ListUnboundAttachmentsForTaskParams{
+		WorkspaceID: workspaceID,
+		IssueID:     task.IssueID,
+		TaskID:      task.ID,
+	})
+	if err != nil {
+		slog.Warn("aurora round attachment lookup failed", "task_id", util.UUIDToString(task.ID), "error", err)
+		return
+	}
+	if len(pending) == 0 {
+		return
+	}
+	comment, err := s.latestRoundReplyComment(ctx, task, workspaceID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// The run produced files but wrote no reply. Name them in a comment
+		// so the output stays reachable: the file names are the same facts
+		// the manifest carries, with no invented prose.
+		names := make([]string, 0, len(pending))
+		for _, attachment := range pending {
+			names = append(names, attachment.Filename)
+		}
+		created, ok := s.createAgentComment(ctx, task.IssueID, task.AgentID, strings.Join(names, "\n"), "comment", task.TriggerCommentID, task.ID)
+		if !ok {
+			slog.Warn("aurora round reply synthesis failed", "task_id", util.UUIDToString(task.ID))
+			return
+		}
+		comment, err = created, nil
+	}
+	if err != nil {
+		slog.Warn("aurora round reply lookup failed", "task_id", util.UUIDToString(task.ID), "error", err)
+		return
+	}
+	if _, err := s.Queries.BindIssueAttachmentsToComment(ctx, db.BindIssueAttachmentsToCommentParams{
+		CommentID:   comment.ID,
+		WorkspaceID: workspaceID,
+		IssueID:     task.IssueID,
+		TaskID:      task.ID,
+	}); err != nil {
+		slog.Warn("aurora round attachment bind failed", "task_id", util.UUIDToString(task.ID), "error", err)
+	}
+}
+
+// dropUnboundAuroraRoundArtifacts clears the projections a round wrote but
+// never got to link: the task failed, so the person is not charged for the
+// run and the file must not appear as if it had been delivered. Rows bound
+// to a reply that was actually written are left alone.
+func (s *TaskService) dropUnboundAuroraRoundArtifacts(ctx context.Context, task db.AgentTaskQueue) {
+	if !task.IssueID.Valid {
+		return
+	}
+	hasUnbound, err := s.Queries.HasUnboundAttachmentsForTask(ctx, task.ID)
+	if err != nil {
+		slog.Warn("aurora round projection probe failed", "task_id", util.UUIDToString(task.ID), "error", err)
+		return
+	}
+	if !hasUnbound {
+		return
+	}
+	workspaceID, ok := s.roundWorkspace(ctx, task)
+	if !ok {
+		return
+	}
+	if _, err := s.Queries.DeleteUnboundAttachmentsForTask(ctx, db.DeleteUnboundAttachmentsForTaskParams{
+		WorkspaceID: workspaceID,
+		IssueID:     task.IssueID,
+		TaskID:      task.ID,
+	}); err != nil {
+		slog.Warn("aurora round projection cleanup failed", "task_id", util.UUIDToString(task.ID), "error", err)
+	}
+}
+
+// roundWorkspace resolves the workspace a round's task belongs to. The task
+// row carries no workspace column, so it is read through the issue the same
+// way every other task-owned write does; a task with no issue has no round
+// surface to touch.
+func (s *TaskService) roundWorkspace(ctx context.Context, task db.AgentTaskQueue) (pgtype.UUID, bool) {
+	if !task.IssueID.Valid {
+		return pgtype.UUID{}, false
+	}
+	workspaceID, _ := util.ParseUUID(s.ResolveTaskWorkspaceID(ctx, task))
+	return workspaceID, workspaceID.Valid
+}
+
+// latestRoundReplyComment is the newest comment this run's agent wrote on
+// the issue since the run started.
+func (s *TaskService) latestRoundReplyComment(ctx context.Context, task db.AgentTaskQueue, workspaceID pgtype.UUID) (db.Comment, error) {
+	return s.Queries.GetLatestAgentCommentSince(ctx, db.GetLatestAgentCommentSinceParams{
+		IssueID:     task.IssueID,
+		WorkspaceID: workspaceID,
+		AuthorID:    task.AgentID,
+		TaskID:      task.ID,
+		Since:       task.StartedAt,
+	})
 }
 
 // AutoUnresolveThreadOnReply clears resolved_at on the thread root when a

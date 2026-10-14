@@ -586,6 +586,24 @@ SELECT EXISTS (
       AND deleted_at IS NULL
 ) AS commented;
 
+-- name: GetLatestAgentCommentSince :one
+-- The reply a run wrote on its issue. The exact link (source_task_id) is the
+-- primary identity, because a comment an agent posts during its run carries it;
+-- the author-and-window branch keeps a reply posted through a credential that
+-- did not stamp the task from being missed, and the workspace guard keeps the
+-- lookup inside the caller's workspace.
+SELECT * FROM comment
+WHERE issue_id = @issue_id
+  AND workspace_id = @workspace_id
+  AND author_type = 'agent'
+  AND (
+    source_task_id = @task_id
+    OR (author_id = @author_id AND created_at >= @since)
+  )
+  AND deleted_at IS NULL
+ORDER BY created_at DESC, id DESC
+LIMIT 1;
+
 -- name: HasAgentRepliedInThread :one
 -- Returns true if the given agent has posted a reply in the thread rooted at
 -- the specified parent comment. Used to detect agent participation in a

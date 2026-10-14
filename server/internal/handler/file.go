@@ -348,6 +348,37 @@ func (h *Handler) groupAttachments(r *http.Request, commentIDs []pgtype.UUID) ma
 	return grouped
 }
 
+// publishCommentWithAttachments rebroadcasts one comment with its current
+// attachments. A file can be linked to a comment after that comment was
+// broadcast — the artifact report writes the row, the completion binds it —
+// and clients replace a cached comment with the snapshot they receive, so
+// the comment has to be re-sent carrying the files it now has.
+//
+// Unlike groupAttachments this takes the workspace explicitly: the
+// completion path has no member request of its own to resolve one from.
+func (h *Handler) publishCommentWithAttachments(ctx context.Context, workspaceID, commentID pgtype.UUID, actorType, actorID string) {
+	comment, err := h.Queries.GetCommentInWorkspace(ctx, db.GetCommentInWorkspaceParams{
+		ID: commentID, WorkspaceID: workspaceID,
+	})
+	if err != nil {
+		return
+	}
+	attachments, err := h.Queries.ListAttachmentsByComment(ctx, db.ListAttachmentsByCommentParams{
+		CommentID: commentID, WorkspaceID: workspaceID,
+	})
+	if err != nil {
+		slog.Warn("publish comment attachments: load failed", "comment_id", uuidToString(commentID), "error", err)
+		return
+	}
+	responses := make([]AttachmentResponse, 0, len(attachments))
+	for _, attachment := range attachments {
+		responses = append(responses, h.attachmentToResponse(attachment, attachmentURLModeSigned))
+	}
+	h.publish(protocol.EventCommentUpdated, uuidToString(workspaceID), actorType, actorID, map[string]any{
+		"comment": commentToResponse(comment, nil, responses),
+	})
+}
+
 // groupChatMessageAttachments loads attachments for multiple chat messages
 // and groups them by chat_message_id. Mirrors groupAttachments — used so the
 // chat message list can surface attachment metadata to the UI bubble (file
@@ -1617,4 +1648,41 @@ func (h *Handler) deleteS3Objects(ctx context.Context, urls []string) {
 		keys[i] = h.Storage.KeyFromURL(u)
 	}
 	h.Storage.DeleteKeys(ctx, keys)
+}
+
+// reclaimAttachmentObjects deletes the stored objects a deleted comment or
+// issue released, minus the ones the Aurora library still points at.
+//
+// Ownership: a completed Aurora run stores its deliverable once, and the
+// library (aurora_asset) owns those bytes; the reply comment is a view of the
+// same object. Deleting the reply therefore unlinks the file without
+// destroying the library entry, which is what keeps the asset row from
+// dangling. A failed ownership read skips the reclaim entirely: leaking an
+// object is recoverable, silently deleting a library deliverable is not.
+func (h *Handler) reclaimAttachmentObjects(ctx context.Context, urls []string) {
+	if h.Storage == nil || len(urls) == 0 {
+		return
+	}
+	libraryOwned, err := h.Queries.ListAuroraAssetMediaURLs(ctx, urls)
+	if err != nil {
+		slog.Error("reclaim attachments: ownership lookup failed", "error", err)
+		return
+	}
+	owned := make(map[string]struct{}, len(libraryOwned))
+	for _, url := range libraryOwned {
+		// media_url is nullable, so sqlc hands back pgtype.Text; the query's
+		// IS NOT NULL filter means a valid row is all this can see.
+		if !url.Valid {
+			continue
+		}
+		owned[url.String] = struct{}{}
+	}
+	pending := make([]string, 0, len(urls))
+	for _, url := range urls {
+		if _, ok := owned[url]; ok {
+			continue
+		}
+		pending = append(pending, url)
+	}
+	h.deleteS3Objects(ctx, pending)
 }

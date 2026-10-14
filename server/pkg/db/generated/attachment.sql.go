@@ -53,6 +53,68 @@ func (q *Queries) BindChatAttachmentsToMessage(ctx context.Context, arg BindChat
 	return items, nil
 }
 
+const bindIssueAttachmentsToComment = `-- name: BindIssueAttachmentsToComment :many
+UPDATE attachment
+SET comment_id = $1
+WHERE workspace_id = $2
+  AND issue_id = $3
+  AND task_id = $4
+  AND comment_id IS NULL
+  AND source_context_id IS NULL
+RETURNING id, workspace_id, issue_id, comment_id, uploader_type, uploader_id, filename, url, content_type, size_bytes, created_at, chat_session_id, chat_message_id, task_id, source_context_id
+`
+
+type BindIssueAttachmentsToCommentParams struct {
+	CommentID   pgtype.UUID `json:"comment_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	IssueID     pgtype.UUID `json:"issue_id"`
+	TaskID      pgtype.UUID `json:"task_id"`
+}
+
+// Bind a run's task-tagged issue attachments to the reply comment it produced.
+// Only rows still unclaimed are eligible, so a replayed completion is a no-op
+// and another run's projections are never stolen.
+func (q *Queries) BindIssueAttachmentsToComment(ctx context.Context, arg BindIssueAttachmentsToCommentParams) ([]Attachment, error) {
+	rows, err := q.db.Query(ctx, bindIssueAttachmentsToComment,
+		arg.CommentID,
+		arg.WorkspaceID,
+		arg.IssueID,
+		arg.TaskID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Attachment{}
+	for rows.Next() {
+		var i Attachment
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.IssueID,
+			&i.CommentID,
+			&i.UploaderType,
+			&i.UploaderID,
+			&i.Filename,
+			&i.Url,
+			&i.ContentType,
+			&i.SizeBytes,
+			&i.CreatedAt,
+			&i.ChatSessionID,
+			&i.ChatMessageID,
+			&i.TaskID,
+			&i.SourceContextID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countUnboundChatAttachmentsForTask = `-- name: CountUnboundChatAttachmentsForTask :one
 SELECT COUNT(*) FROM attachment
 WHERE workspace_id = $1
@@ -326,6 +388,40 @@ func (q *Queries) DeleteAttachmentsBySourceContext(ctx context.Context, arg Dele
 	return items, nil
 }
 
+const deleteAttachmentsByURL = `-- name: DeleteAttachmentsByURL :many
+DELETE FROM attachment
+WHERE url = $1 AND workspace_id = $2
+RETURNING comment_id
+`
+
+type DeleteAttachmentsByURLParams struct {
+	Url         string      `json:"url"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// Drop every attachment row pointing at one stored object. The library calls
+// this when it deletes an asset: the bytes are going away, so a reply that
+// showed them must stop claiming to have a file.
+func (q *Queries) DeleteAttachmentsByURL(ctx context.Context, arg DeleteAttachmentsByURLParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, deleteAttachmentsByURL, arg.Url, arg.WorkspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var comment_id pgtype.UUID
+		if err := rows.Scan(&comment_id); err != nil {
+			return nil, err
+		}
+		items = append(items, comment_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteCommentAttachments = `-- name: DeleteCommentAttachments :many
 DELETE FROM attachment
 WHERE comment_id = $1 AND workspace_id = $2
@@ -368,6 +464,31 @@ WHERE workspace_id = $1
 func (q *Queries) DeleteSourceContextAttachmentsByWorkspace(ctx context.Context, workspaceID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deleteSourceContextAttachmentsByWorkspace, workspaceID)
 	return err
+}
+
+const deleteUnboundAttachmentsForTask = `-- name: DeleteUnboundAttachmentsForTask :execrows
+DELETE FROM attachment
+WHERE workspace_id = $1
+  AND issue_id = $2
+  AND task_id = $3
+  AND comment_id IS NULL
+`
+
+type DeleteUnboundAttachmentsForTaskParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	IssueID     pgtype.UUID `json:"issue_id"`
+	TaskID      pgtype.UUID `json:"task_id"`
+}
+
+// A round that ended without a reply leaves its projections unbound: invisible,
+// and pointing at an object the library kept. Remove them so a refunded run
+// leaves nothing behind. The caller runs this on the terminal failure path.
+func (q *Queries) DeleteUnboundAttachmentsForTask(ctx context.Context, arg DeleteUnboundAttachmentsForTaskParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteUnboundAttachmentsForTask, arg.WorkspaceID, arg.IssueID, arg.TaskID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const detachAttachmentsFromUserChatMessageByTask = `-- name: DetachAttachmentsFromUserChatMessageByTask :many
@@ -485,6 +606,47 @@ func (q *Queries) GetAttachmentByIDOnly(ctx context.Context, id pgtype.UUID) (At
 		&i.SourceContextID,
 	)
 	return i, err
+}
+
+const getCommentBoundToTaskAttachments = `-- name: GetCommentBoundToTaskAttachments :one
+SELECT comment_id FROM attachment
+WHERE task_id = $1
+  AND comment_id IS NOT NULL
+  AND workspace_id = $2
+LIMIT 1
+`
+
+type GetCommentBoundToTaskAttachmentsParams struct {
+	TaskID      pgtype.UUID `json:"task_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// The comment a task's produced files were linked to, when there is one. Used
+// by the completion handler to rebroadcast that comment with its files.
+func (q *Queries) GetCommentBoundToTaskAttachments(ctx context.Context, arg GetCommentBoundToTaskAttachmentsParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, getCommentBoundToTaskAttachments, arg.TaskID, arg.WorkspaceID)
+	var comment_id pgtype.UUID
+	err := row.Scan(&comment_id)
+	return comment_id, err
+}
+
+const hasUnboundAttachmentsForTask = `-- name: HasUnboundAttachmentsForTask :one
+SELECT EXISTS (
+    SELECT 1 FROM attachment
+    WHERE task_id = $1
+      AND comment_id IS NULL
+      AND source_context_id IS NULL
+) AS has_unbound
+`
+
+// Whether a task produced files that were never linked to a reply. The probe
+// keys on task_id alone so an ordinary completion can skip resolving the
+// workspace for a round that owns nothing.
+func (q *Queries) HasUnboundAttachmentsForTask(ctx context.Context, taskID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, hasUnboundAttachmentsForTask, taskID)
+	var has_unbound bool
+	err := row.Scan(&has_unbound)
+	return has_unbound, err
 }
 
 const linkAttachmentsToChatMessage = `-- name: LinkAttachmentsToChatMessage :many
@@ -898,6 +1060,7 @@ func (q *Queries) ListAttachmentsByIDs(ctx context.Context, arg ListAttachmentsB
 const listAttachmentsByIssue = `-- name: ListAttachmentsByIssue :many
 SELECT id, workspace_id, issue_id, comment_id, uploader_type, uploader_id, filename, url, content_type, size_bytes, created_at, chat_session_id, chat_message_id, task_id, source_context_id FROM attachment
 WHERE issue_id = $1 AND workspace_id = $2
+  AND task_id IS NULL
 ORDER BY created_at ASC
 `
 
@@ -906,6 +1069,11 @@ type ListAttachmentsByIssueParams struct {
 	WorkspaceID pgtype.UUID `json:"workspace_id"`
 }
 
+// The issue's own attachments: the files a person gave it. A run-produced
+// projection carries a task_id and is deliberately excluded — it belongs to
+// the comment that delivered it, so it must not be read back as an issue
+// input (the next Aurora round) nor adopted by surfaces that render the
+// issue's description attachments.
 func (q *Queries) ListAttachmentsByIssue(ctx context.Context, arg ListAttachmentsByIssueParams) ([]Attachment, error) {
 	rows, err := q.db.Query(ctx, listAttachmentsByIssue, arg.IssueID, arg.WorkspaceID)
 	if err != nil {
@@ -1089,6 +1257,58 @@ type ListSourceContextIssueAttachmentsParams struct {
 // generic ListAttachmentsByIssue query is intentionally too broad here.
 func (q *Queries) ListSourceContextIssueAttachments(ctx context.Context, arg ListSourceContextIssueAttachmentsParams) ([]Attachment, error) {
 	rows, err := q.db.Query(ctx, listSourceContextIssueAttachments, arg.WorkspaceID, arg.IssueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Attachment{}
+	for rows.Next() {
+		var i Attachment
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.IssueID,
+			&i.CommentID,
+			&i.UploaderType,
+			&i.UploaderID,
+			&i.Filename,
+			&i.Url,
+			&i.ContentType,
+			&i.SizeBytes,
+			&i.CreatedAt,
+			&i.ChatSessionID,
+			&i.ChatMessageID,
+			&i.TaskID,
+			&i.SourceContextID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnboundAttachmentsForTask = `-- name: ListUnboundAttachmentsForTask :many
+SELECT id, workspace_id, issue_id, comment_id, uploader_type, uploader_id, filename, url, content_type, size_bytes, created_at, chat_session_id, chat_message_id, task_id, source_context_id FROM attachment
+WHERE workspace_id = $1
+  AND issue_id = $2
+  AND task_id = $3
+  AND comment_id IS NULL
+  AND source_context_id IS NULL
+ORDER BY created_at ASC
+`
+
+type ListUnboundAttachmentsForTaskParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	IssueID     pgtype.UUID `json:"issue_id"`
+	TaskID      pgtype.UUID `json:"task_id"`
+}
+
+func (q *Queries) ListUnboundAttachmentsForTask(ctx context.Context, arg ListUnboundAttachmentsForTaskParams) ([]Attachment, error) {
+	rows, err := q.db.Query(ctx, listUnboundAttachmentsForTask, arg.WorkspaceID, arg.IssueID, arg.TaskID)
 	if err != nil {
 		return nil, err
 	}

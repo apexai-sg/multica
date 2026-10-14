@@ -4321,7 +4321,7 @@ func (h *Handler) DeleteIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.deleteS3Objects(r.Context(), deleteResult.AttachmentURLs)
+	h.reclaimAttachmentObjects(r.Context(), deleteResult.AttachmentURLs)
 	userID := requestUserID(r)
 	actorType, actorID := h.resolveActor(r, userID, uuidToString(issue.WorkspaceID))
 	// Always emit the resolved UUID — frontend caches key by UUID, so an
@@ -4895,7 +4895,7 @@ func (h *Handler) BatchDeleteIssues(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to delete issues")
 		return
 	}
-	h.deleteS3Objects(r.Context(), deleteResult.AttachmentURLs)
+	h.reclaimAttachmentObjects(r.Context(), deleteResult.AttachmentURLs)
 	actorType, actorID := h.resolveActor(r, userID, workspaceID)
 	for _, issue := range issues {
 		h.publish(protocol.EventIssueDeleted, workspaceID, actorType, actorID, map[string]any{"issue_id": uuidToString(issue.ID)})
