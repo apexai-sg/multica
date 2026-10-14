@@ -127,7 +127,7 @@ func TestCreateAuroraGenerationReservesAndEnqueues(t *testing.T) {
 	ws := parseUUID(testWorkspaceID)
 
 	// Fund the caller so the reservation can succeed. The grant needs no
-	// particular size — 1000 credits covers xhs-image's 62 with room to spare
+	// particular size — 1000 credits covers the fixture expert's price with room
 	// and leaves the post-reservation balance easy to assert.
 	if err := testHandler.Credit.Grant(ctx, user, ws, 1_000_000_000, aurora.LedgerKindAdjustment, creditRef("seed")); err != nil {
 		t.Fatalf("Grant: %v", err)
@@ -149,7 +149,11 @@ func TestCreateAuroraGenerationReservesAndEnqueues(t *testing.T) {
 	}](t, testHandler.CreateAuroraGeneration, req, http.StatusCreated)
 
 	gen := out.Generation
-	const wantReserved = 62_000_000 // xhs-image: 62 credits × 1e6 micro
+	entry, ok := aurora.Lookup("ecommerce-bidding-strategy")
+	if !ok {
+		t.Fatal("fixture skill is not in the catalog")
+	}
+	wantReserved := int64(entry.Credits) * 1_000_000
 	if gen.ID == "" {
 		t.Fatalf("expected non-empty id, got %q", gen.ID)
 	}
@@ -157,7 +161,7 @@ func TestCreateAuroraGenerationReservesAndEnqueues(t *testing.T) {
 		t.Fatalf("expected queued, got %q", gen.Status)
 	}
 	if gen.SkillID != "ecommerce-bidding-strategy" {
-		t.Fatalf("expected skillId xhs-image, got %q", gen.SkillID)
+		t.Fatalf("expected skillId ecommerce-bidding-strategy, got %q", gen.SkillID)
 	}
 	if gen.Prompt != prompt {
 		t.Fatalf("expected prompt %q, got %q", prompt, gen.Prompt)
@@ -213,7 +217,7 @@ func TestCreateAuroraGenerationRejectsInsufficientCredits(t *testing.T) {
 	ctx := context.Background()
 
 	// Every skill now costs less than the free monthly grant, so an empty wallet
-	// would afford xhs-image (62 credits) once the lazy grant tops it up to 200.
+	// would afford the fixture expert once the lazy grant tops it up to 200.
 	// Open the wallet with a debt instead: 200 - 150 = 50 is still short of 62,
 	// so this request remains the insufficient-credit case it pins. The debt is
 	// fixture-only; the service API can never drive a balance negative.
@@ -235,7 +239,7 @@ func TestCreateAuroraGenerationRejectsInsufficientCredits(t *testing.T) {
 	var genErr pgtype.Text
 	dbfx.QueryRow(t, `
 		SELECT status, error FROM aurora_generation
-		WHERE workspace_id = $1 AND skill_id = 'xhs-image'
+		WHERE workspace_id = $1 AND skill_id = 'ecommerce-bidding-strategy'
 		ORDER BY created_at DESC LIMIT 1`,
 		testWorkspaceID).Scan(&status, &genErr)
 	if status != "failed" {
@@ -2457,7 +2461,7 @@ func TestCreateAuroraGenerationGrantsFreeMonthlyCreditsOnce(t *testing.T) {
 	// The free grant is 200 credits, and after this pricing change every skill
 	// costs less than that, so an empty wallet can afford any single
 	// generation. The fixture opens the wallet with a debt instead: read after
-	// the grant, the balance is 50 credits, still short of xhs-image's 62, so
+	// the grant, the balance is 50 credits, still short of the expert's price, so
 	// the first request remains the insufficient-credit call this test has
 	// always inspected. The debt is fixture-only — the service API can never
 	// drive a balance below zero — and what the assertions pin is the grant: it
@@ -3404,7 +3408,11 @@ func TestCreateAuroraGenerationBindsIssueBeforeEnqueue(t *testing.T) {
 	if gen.ID == "" {
 		t.Fatal("expected non-empty generation id")
 	}
-	const wantReserved = 62_000_000 // xhs-image: 62 credits x 1e6 micro
+	entry, ok := aurora.Lookup("ecommerce-bidding-strategy")
+	if !ok {
+		t.Fatal("fixture skill is not in the catalog")
+	}
+	wantReserved := int64(entry.Credits) * 1_000_000
 	if gen.CreditsReserved != wantReserved {
 		t.Fatalf("creditsReserved = %d, want %d", gen.CreditsReserved, wantReserved)
 	}

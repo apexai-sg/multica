@@ -439,8 +439,9 @@ func TestAuroraArtifactUploadRejectsOversizeStream(t *testing.T) {
 	// Declare the cap itself so the declared-size check passes, then stream one
 	// byte more than the cap.
 	const cap = 25 << 20
-	content := make([]byte, cap+1)
-	copy(content, artifactTestText)
+	// Text bytes so the content still sniffs as the declared kind: the subject is
+	// the stream cap, not the sniff check.
+	content := bytes.Repeat([]byte("a"), cap+1)
 	fields := artifactUploadFields("primary-1", artifactTextName, artifactTextKind, artifactTextRole, artifactTextFormat, artifactTextMIME, cap, artifactSHA256Field(content))
 	testutil.Call(t, testHandler.UploadAuroraArtifact,
 		artifactUploadRequest(t, taskID, agentID, taskID, fields, content)).Want(http.StatusRequestEntityTooLarge)
@@ -691,8 +692,7 @@ func TestAuroraArtifactImportRejectsExcessiveResponseBytes(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/oversize", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		chunk := make([]byte, 1<<20)
-		copy(chunk, artifactTestText)
+		chunk := bytes.Repeat([]byte("a"), 1<<20)
 		written := 0
 		for written <= cap {
 			n, err := w.Write(chunk)
