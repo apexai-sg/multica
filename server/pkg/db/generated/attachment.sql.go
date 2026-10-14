@@ -53,6 +53,68 @@ func (q *Queries) BindChatAttachmentsToMessage(ctx context.Context, arg BindChat
 	return items, nil
 }
 
+const bindIssueAttachmentsToComment = `-- name: BindIssueAttachmentsToComment :many
+UPDATE attachment
+SET comment_id = $1
+WHERE workspace_id = $2
+  AND issue_id = $3
+  AND task_id = $4
+  AND comment_id IS NULL
+  AND source_context_id IS NULL
+RETURNING id, workspace_id, issue_id, comment_id, uploader_type, uploader_id, filename, url, content_type, size_bytes, created_at, chat_session_id, chat_message_id, task_id, source_context_id
+`
+
+type BindIssueAttachmentsToCommentParams struct {
+	CommentID   pgtype.UUID `json:"comment_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	IssueID     pgtype.UUID `json:"issue_id"`
+	TaskID      pgtype.UUID `json:"task_id"`
+}
+
+// Bind a run's task-tagged issue attachments to the reply comment it produced.
+// Only rows still unclaimed are eligible, so a replayed completion is a no-op
+// and another run's projections are never stolen.
+func (q *Queries) BindIssueAttachmentsToComment(ctx context.Context, arg BindIssueAttachmentsToCommentParams) ([]Attachment, error) {
+	rows, err := q.db.Query(ctx, bindIssueAttachmentsToComment,
+		arg.CommentID,
+		arg.WorkspaceID,
+		arg.IssueID,
+		arg.TaskID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Attachment{}
+	for rows.Next() {
+		var i Attachment
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.IssueID,
+			&i.CommentID,
+			&i.UploaderType,
+			&i.UploaderID,
+			&i.Filename,
+			&i.Url,
+			&i.ContentType,
+			&i.SizeBytes,
+			&i.CreatedAt,
+			&i.ChatSessionID,
+			&i.ChatMessageID,
+			&i.TaskID,
+			&i.SourceContextID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countUnboundChatAttachmentsForTask = `-- name: CountUnboundChatAttachmentsForTask :one
 SELECT COUNT(*) FROM attachment
 WHERE workspace_id = $1
@@ -1089,6 +1151,58 @@ type ListSourceContextIssueAttachmentsParams struct {
 // generic ListAttachmentsByIssue query is intentionally too broad here.
 func (q *Queries) ListSourceContextIssueAttachments(ctx context.Context, arg ListSourceContextIssueAttachmentsParams) ([]Attachment, error) {
 	rows, err := q.db.Query(ctx, listSourceContextIssueAttachments, arg.WorkspaceID, arg.IssueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Attachment{}
+	for rows.Next() {
+		var i Attachment
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.IssueID,
+			&i.CommentID,
+			&i.UploaderType,
+			&i.UploaderID,
+			&i.Filename,
+			&i.Url,
+			&i.ContentType,
+			&i.SizeBytes,
+			&i.CreatedAt,
+			&i.ChatSessionID,
+			&i.ChatMessageID,
+			&i.TaskID,
+			&i.SourceContextID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnboundAttachmentsForTask = `-- name: ListUnboundAttachmentsForTask :many
+SELECT id, workspace_id, issue_id, comment_id, uploader_type, uploader_id, filename, url, content_type, size_bytes, created_at, chat_session_id, chat_message_id, task_id, source_context_id FROM attachment
+WHERE workspace_id = $1
+  AND issue_id = $2
+  AND task_id = $3
+  AND comment_id IS NULL
+  AND source_context_id IS NULL
+ORDER BY created_at ASC
+`
+
+type ListUnboundAttachmentsForTaskParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	IssueID     pgtype.UUID `json:"issue_id"`
+	TaskID      pgtype.UUID `json:"task_id"`
+}
+
+func (q *Queries) ListUnboundAttachmentsForTask(ctx context.Context, arg ListUnboundAttachmentsForTaskParams) ([]Attachment, error) {
+	rows, err := q.db.Query(ctx, listUnboundAttachmentsForTask, arg.WorkspaceID, arg.IssueID, arg.TaskID)
 	if err != nil {
 		return nil, err
 	}

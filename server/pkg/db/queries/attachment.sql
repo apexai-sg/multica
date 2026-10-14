@@ -301,3 +301,25 @@ ORDER BY id;
 DELETE FROM attachment
 WHERE workspace_id = sqlc.arg(workspace_id)
   AND source_context_id IS NOT NULL;
+
+-- name: BindIssueAttachmentsToComment :many
+-- Bind a run's task-tagged issue attachments to the reply comment it produced.
+-- Only rows still unclaimed are eligible, so a replayed completion is a no-op
+-- and another run's projections are never stolen.
+UPDATE attachment
+SET comment_id = @comment_id
+WHERE workspace_id = @workspace_id
+  AND issue_id = @issue_id
+  AND task_id = @task_id
+  AND comment_id IS NULL
+  AND source_context_id IS NULL
+RETURNING *;
+
+-- name: ListUnboundAttachmentsForTask :many
+SELECT * FROM attachment
+WHERE workspace_id = @workspace_id
+  AND issue_id = @issue_id
+  AND task_id = @task_id
+  AND comment_id IS NULL
+  AND source_context_id IS NULL
+ORDER BY created_at ASC;

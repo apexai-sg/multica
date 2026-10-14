@@ -586,6 +586,20 @@ SELECT EXISTS (
       AND deleted_at IS NULL
 ) AS commented;
 
+-- name: GetLatestAgentCommentSince :one
+-- The reply a run wrote on its issue when the agent posted it itself. Same
+-- predicate as HasAgentCommentedSince, newest first: the completion path binds
+-- the run's files to exactly the comment that invariant counts.
+SELECT * FROM comment
+WHERE issue_id = @issue_id
+  AND workspace_id = @workspace_id
+  AND author_type = 'agent'
+  AND author_id = @author_id
+  AND created_at >= @since
+  AND deleted_at IS NULL
+ORDER BY created_at DESC, id DESC
+LIMIT 1;
+
 -- name: HasAgentRepliedInThread :one
 -- Returns true if the given agent has posted a reply in the thread rooted at
 -- the specified parent comment. Used to detect agent participation in a
