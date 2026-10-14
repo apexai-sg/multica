@@ -3,8 +3,8 @@ package handler
 import (
 	"context"
 	"net/http"
+	"sync"
 	"testing"
-	"time"
 
 	"github.com/multica-ai/multica/server/internal/aurora"
 	"github.com/multica-ai/multica/server/internal/events"
@@ -127,14 +127,22 @@ func TestReportTaskArtifactsProjectionIsIdempotentAndIssueScoped(t *testing.T) {
 // re-sent with those files, because clients replace a cached comment with the
 // snapshot they receive.
 func TestPublishCommentWithAttachmentsCarriesTheFiles(t *testing.T) {
-	updates := make(chan CommentResponse, 4)
+	// A subscriber on this bus stays registered for the life of the test
+	// binary and Publish is synchronous, so a bounded channel turns every later
+	// publish in this package into a permanent block once it fills. Record into
+	// a slice instead, and assert after the call: Publish has already delivered
+	// by the time it returns.
+	var mu sync.Mutex
+	var updates []CommentResponse
 	testHandler.Bus.Subscribe(protocol.EventCommentUpdated, func(e events.Event) {
 		payload, ok := e.Payload.(map[string]any)
 		if !ok {
 			return
 		}
 		if comment, ok := payload["comment"].(CommentResponse); ok {
-			updates <- comment
+			mu.Lock()
+			updates = append(updates, comment)
+			mu.Unlock()
 		}
 	})
 
@@ -159,13 +167,14 @@ func TestPublishCommentWithAttachmentsCarriesTheFiles(t *testing.T) {
 	testHandler.publishCommentWithAttachments(context.Background(),
 		parseUUID(testWorkspaceID), parseUUID(commentID), "system", "")
 
-	select {
-	case comment := <-updates:
-		if len(comment.Attachments) != 1 || comment.Attachments[0].Filename != "xhs-image.png" {
-			t.Fatalf("attachments = %+v", comment.Attachments)
-		}
-	case <-time.After(2 * time.Second):
+	mu.Lock()
+	defer mu.Unlock()
+	if len(updates) == 0 {
 		t.Fatal("no comment:updated broadcast carrying the round's files")
+	}
+	comment := updates[len(updates)-1]
+	if len(comment.Attachments) != 1 || comment.Attachments[0].Filename != "xhs-image.png" {
+		t.Fatalf("attachments = %+v", comment.Attachments)
 	}
 }
 
@@ -287,8 +296,15 @@ func TestDeleteAuroraAssetUnlinksTheReplyAndRebroadcastsIt(t *testing.T) {
 		"content_type": "image/png", "size_bytes": int64(9),
 	})
 
-	updates := make(chan struct{}, 4)
-	testHandler.Bus.Subscribe(protocol.EventCommentUpdated, func(events.Event) { updates <- struct{}{} })
+	// See the note above: record broadcasts instead of pushing them through a
+	// bounded channel that nothing drains.
+	var mu sync.Mutex
+	broadcasts := 0
+	testHandler.Bus.Subscribe(protocol.EventCommentUpdated, func(events.Event) {
+		mu.Lock()
+		broadcasts++
+		mu.Unlock()
+	})
 
 	req := withURLParam(newRequest(http.MethodDelete, "/api/aurora/assets/"+assetID, nil), "id", assetID)
 	testutil.Call(t, testHandler.DeleteAuroraAsset, req).Want(http.StatusNoContent)
@@ -301,9 +317,9 @@ func TestDeleteAuroraAssetUnlinksTheReplyAndRebroadcastsIt(t *testing.T) {
 	if revision <= 3 {
 		t.Fatalf("comment revision = %d, want bumped past 3", revision)
 	}
-	select {
-	case <-updates:
-	case <-time.After(2 * time.Second):
+	mu.Lock()
+	defer mu.Unlock()
+	if broadcasts == 0 {
 		t.Fatal("deleting a library asset did not rebroadcast the reply")
 	}
 }
