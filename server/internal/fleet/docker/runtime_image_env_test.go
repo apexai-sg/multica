@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode"
 )
 
 // TestRuntimeImageEnvironmentStaysAdoptable guards the contract between the node
@@ -78,8 +79,15 @@ func runtimeImageEnv(t *testing.T) []string {
 	var env []string
 	for i := final; i < len(lines); i++ {
 		line := strings.TrimSpace(lines[i])
-		if !strings.HasPrefix(line, "ENV ") {
+		upper := strings.ToUpper(line)
+		// Dockerfile keywords are case-insensitive, so an "env" spelling must not
+		// slip past this guard: anything introduced by ENV -- however cased or
+		// spaced -- is either parsed below or fails.
+		if !strings.HasPrefix(upper, "ENV") || (len(line) > 3 && !unicode.IsSpace(rune(line[3]))) {
 			continue
+		}
+		if !strings.HasPrefix(line, "ENV ") {
+			t.Fatalf("%s:%d: ENV spelling %q is not parsed; extend runtimeImageEnv", path, i+1, line)
 		}
 		decl := strings.TrimSpace(strings.TrimPrefix(line, "ENV "))
 		if strings.HasSuffix(decl, "\\") {
