@@ -290,7 +290,11 @@ func TestNamespaceSQLFinalizedManifestRejectsDrift(t *testing.T) {
 			s, f, ns := namespaceFixture(t)
 			ctx := context.Background()
 			owner := ownerUUID(t, f.UserID)
-			now := time.Now().UTC()
+			// PostgreSQL stores timestamptz at microsecond precision while Go keeps
+			// nanoseconds on Linux; the observation JSON and the health_at column must
+			// round-trip to the same instant, or the completion check reads the node as
+			// unknown health.
+			now := time.Now().UTC().Truncate(time.Microsecond)
 			raw, err := encodeObservation(1, model.Observation{Status: "stopped", ContainerID: "owned", ObservedAt: now}, nil)
 			if err != nil {
 				t.Fatal(err)
@@ -357,7 +361,11 @@ func TestNamespaceSQLCompletionRequiresOriginalReceipt(t *testing.T) {
 			s, f, ns := namespaceFixture(t)
 			ctx := context.Background()
 			owner := ownerUUID(t, f.UserID)
-			now := time.Now().UTC()
+			// PostgreSQL stores timestamptz at microsecond precision while Go keeps
+			// nanoseconds on Linux; the observation JSON and the health_at column must
+			// round-trip to the same instant, or the completion check reads the node as
+			// unknown health.
+			now := time.Now().UTC().Truncate(time.Microsecond)
 			o := model.Observation{Status: "stopped", ContainerID: "owned", ObservedAt: now}
 			raw, e := encodeObservation(1, o, nil)
 			if e != nil {
