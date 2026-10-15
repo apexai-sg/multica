@@ -5,21 +5,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/multica-ai/multica/server/internal/fleet/model"
 )
 
 // TestRuntimeImageEnvironmentStaysAdoptable guards the contract between the node
-// image and the Fleet's environment allowlist. Every container the Fleet builds
-// from that image inherits its ENV -- including the bootstrap helper, which runs
-// with no Aurora profile and no extra environment -- and inspectEnvironment
-// rejects any key it does not know.
-//
-// This is not hypothetical: #258 added AURORA_EXPERTS_DIR to the image without an
-// allowlist entry, so validateHelper answered ErrForbidden for every helper and
-// no node could ever be created, while the Fleet's operation rows only carried
-// error_code=forbidden. #264 accepted the key; this test is what would have
-// caught it in review.
+// image and the Fleet's environment allowlist: every container the Fleet builds
+// from that image inherits the image's ENV -- including the bootstrap helper,
+// which runs with no Aurora profile and nothing added -- and inspectEnvironment
+// rejects any key it does not know. A variable the image gains without an
+// allowlist entry therefore fails every node create with ErrForbidden.
 func TestRuntimeImageEnvironmentStaysAdoptable(t *testing.T) {
 	imageEnv := runtimeImageEnv(t)
 
@@ -28,29 +21,46 @@ func TestRuntimeImageEnvironmentStaysAdoptable(t *testing.T) {
 		t.Fatalf("docker/runtime/Dockerfile bakes an environment the Fleet rejects for a bootstrap helper: %v", imageEnv)
 	}
 
-	// The node container: the same image plus exactly what the Fleet adds.
+	// The node container: the image plus what the provider adds, merged the way
+	// the container actually starts (the container's own value wins per key, and
+	// no key appears twice). The container side comes from nodeEnv, so a key the
+	// provider learns to set is covered here without editing this test.
 	cfg := auroraConfig()
-	nodeEnv := append([]string{}, imageEnv...)
-	nodeEnv = append(nodeEnv,
-		"FLEET_NODE_MAX_RUNS=1",
-		model.AuroraManagedEnv+"=1",
-		model.AuroraServerURLEnv+"="+cfg.Aurora.ServerURL,
-		model.AuroraEnrollmentFileEnv+"="+model.AuroraEnrollmentFile,
-		model.AuroraClaudePathEnv+"="+model.AuroraClaudePath,
-		model.AuroraAnthropicBaseURLEnv+"="+cfg.Aurora.AnthropicBaseURL,
-		model.AuroraAnthropicModelEnv+"="+cfg.Aurora.AnthropicModel,
-	)
-	if !inspectEnvironment(nodeEnv, 1, cfg.Aurora) {
+	n := auroraNode()
+	if !inspectEnvironment(mergeEnv(imageEnv, (&Provider{cfg: cfg}).nodeEnv(n)), n.Resources.MaxRuns, cfg.Aurora) {
 		t.Fatalf("docker/runtime/Dockerfile bakes an environment the Fleet rejects for an Aurora node: %v", imageEnv)
 	}
 }
 
-// runtimeImageEnv reads the ENV pairs the node image declares.
+// mergeEnv models the environment a container starts with: the image's
+// declarations overridden by the container's own, one entry per key.
+func mergeEnv(imageEnv, containerEnv []string) []string {
+	merged := map[string]string{}
+	var order []string
+	for _, entry := range append(append([]string{}, imageEnv...), containerEnv...) {
+		key, value, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
+		}
+		if _, seen := merged[key]; !seen {
+			order = append(order, key)
+		}
+		merged[key] = value
+	}
+	out := make([]string, 0, len(order))
+	for _, key := range order {
+		out = append(out, key+"="+merged[key])
+	}
+	return out
+}
+
+// runtimeImageEnv reads the ENV pairs the final stage of the node image declares.
 //
 // Only the forms the file actually uses are parsed: "ENV K=V" with one or more
 // pairs on the line. Anything else -- a continued line, or the legacy "ENV K V"
 // spelling -- fails the test rather than being skipped, so this guard cannot go
-// quiet while the file changes shape.
+// quiet while the file changes shape. Stages before the last FROM are build
+// stages and never reach a container, so they are ignored.
 func runtimeImageEnv(t *testing.T) []string {
 	t.Helper()
 	path := filepath.Join("..", "..", "..", "..", "docker", "runtime", "Dockerfile")
@@ -58,9 +68,16 @@ func runtimeImageEnv(t *testing.T) []string {
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}
+	lines := strings.Split(string(raw), "\n")
+	final := 0
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "FROM ") {
+			final = i
+		}
+	}
 	var env []string
-	for i, line := range strings.Split(string(raw), "\n") {
-		line = strings.TrimSpace(line)
+	for i := final; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
 		if !strings.HasPrefix(line, "ENV ") {
 			continue
 		}
@@ -76,7 +93,7 @@ func runtimeImageEnv(t *testing.T) []string {
 		}
 	}
 	if len(env) == 0 {
-		t.Fatalf("%s declares no ENV; this guard would be vacuous", path)
+		t.Fatalf("%s declares no ENV in its final stage; this guard would be vacuous", path)
 	}
 	return env
 }
