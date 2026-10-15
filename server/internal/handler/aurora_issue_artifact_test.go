@@ -42,9 +42,9 @@ func TestReportTaskArtifactsProjectsIssueAttachment(t *testing.T) {
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 
-	taskID, generationID, issueID := auroraIssueReportFixture(t, "xhs-image")
-	fixture := seedAuroraStaging(t, store, taskID, generationID, "art-1", "xhs-image.png",
-		"primary", []byte("png-bytes"), "{}")
+	taskID, generationID, issueID := auroraIssueReportFixture(t, "ecommerce-bidding-strategy")
+	fixture := seedAuroraStaging(t, store, taskID, generationID, "art-1", "xhs-image.md",
+		"primary", []byte(artifactTestText), "{}")
 
 	reportAuroraArtifacts(t, taskID, fixture.payload("primary")).Want(http.StatusOK)
 
@@ -58,8 +58,8 @@ func TestReportTaskArtifactsProjectsIssueAttachment(t *testing.T) {
 	dbfx.QueryRow(t, attachmentSelectByIssue, issueID).
 		Scan(&filename, &contentType, &size, &commentID, &taskCol, &issueCol, &uploaderType, &url, &uploaderID)
 
-	if filename != "xhs-image.png" || contentType != "image/png" || size != 9 {
-		t.Fatalf("attachment = %s/%s/%d, want xhs-image.png/image/png/9", filename, contentType, size)
+	if filename != "xhs-image.md" || contentType != "text/markdown" || size != int64(len(artifactTestText)) {
+		t.Fatalf("attachment = %s/%s/%d, want xhs-image.md/text/markdown/%d", filename, contentType, size, len(artifactTestText))
 	}
 	if commentID != nil {
 		t.Fatalf("comment_id = %v, want NULL before the round ends", *commentID)
@@ -88,9 +88,9 @@ func TestReportTaskArtifactsProjectionIsIdempotentAndIssueScoped(t *testing.T) {
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 
-	taskID, generationID, issueID := auroraIssueReportFixture(t, "xhs-image")
-	fixture := seedAuroraStaging(t, store, taskID, generationID, "art-1", "xhs-image.png",
-		"primary", []byte("png-bytes"), "{}")
+	taskID, generationID, issueID := auroraIssueReportFixture(t, "ecommerce-bidding-strategy")
+	fixture := seedAuroraStaging(t, store, taskID, generationID, "art-1", "xhs-image.md",
+		"primary", []byte(artifactTestText), "{}")
 	reportAuroraArtifacts(t, taskID, fixture.payload("primary")).Want(http.StatusOK)
 
 	// A bound row is the production replay shape: the round has already linked
@@ -101,7 +101,7 @@ func TestReportTaskArtifactsProjectionIsIdempotentAndIssueScoped(t *testing.T) {
 		"workspace_id": testWorkspaceID,
 		"author_type":  "agent",
 		"author_id":    roundTaskAgent(t, taskID),
-		"content":      "Produced xhs-image.png",
+		"content":      "Produced xhs-image.md",
 		"type":         "comment",
 	})
 	dbfx.Exec(t, "UPDATE attachment SET comment_id = $1 WHERE issue_id = $2 AND task_id = $3",
@@ -113,9 +113,9 @@ func TestReportTaskArtifactsProjectionIsIdempotentAndIssueScoped(t *testing.T) {
 		t.Fatalf("attachment rows = %d, want 1 after a replayed report", n)
 	}
 
-	plainTask, plainGeneration := auroraReportFixture(t, "xhs-image")
-	plain := seedAuroraStaging(t, store, plainTask, plainGeneration, "art-2", "plain.png",
-		"primary", []byte("png-bytes"), "{}")
+	plainTask, plainGeneration := auroraReportFixture(t, "ecommerce-bidding-strategy")
+	plain := seedAuroraStaging(t, store, plainTask, plainGeneration, "art-2", "plain.md",
+		"primary", []byte(artifactTestText), "{}")
 	reportAuroraArtifacts(t, plainTask, plain.payload("primary")).Want(http.StatusOK)
 	if n := dbfx.Count(t, "SELECT count(*) FROM attachment WHERE task_id = $1", plainTask); n != 0 {
 		t.Fatalf("issue-less generation wrote %d attachments, want 0", n)
@@ -146,7 +146,7 @@ func TestPublishCommentWithAttachmentsCarriesTheFiles(t *testing.T) {
 		}
 	})
 
-	taskID, generationID, issueID := auroraIssueReportFixture(t, "xhs-image")
+	taskID, generationID, issueID := auroraIssueReportFixture(t, "ecommerce-bidding-strategy")
 	assetURL := "https://cdn.example.test/aurora/xhs-image.png"
 	insertAsset(t, generationID, testutil.Cols{"media_url": assetURL})
 	commentID := dbfx.Insert(t, "comment", testutil.Cols{
@@ -160,7 +160,7 @@ func TestPublishCommentWithAttachmentsCarriesTheFiles(t *testing.T) {
 	dbfx.Insert(t, "attachment", testutil.Cols{
 		"workspace_id": testWorkspaceID, "issue_id": issueID, "comment_id": commentID,
 		"uploader_type": "agent", "uploader_id": roundTaskAgent(t, taskID),
-		"filename": "xhs-image.png", "url": assetURL,
+		"filename": "xhs-image.md", "url": assetURL,
 		"content_type": "image/png", "size_bytes": int64(9),
 	})
 
@@ -173,7 +173,7 @@ func TestPublishCommentWithAttachmentsCarriesTheFiles(t *testing.T) {
 		t.Fatal("no comment:updated broadcast carrying the round's files")
 	}
 	comment := updates[len(updates)-1]
-	if len(comment.Attachments) != 1 || comment.Attachments[0].Filename != "xhs-image.png" {
+	if len(comment.Attachments) != 1 || comment.Attachments[0].Filename != "xhs-image.md" {
 		t.Fatalf("attachments = %+v", comment.Attachments)
 	}
 }
@@ -183,7 +183,7 @@ func TestPublishCommentWithAttachmentsCarriesTheFiles(t *testing.T) {
 // the issue's own attachment list (the mobile timeline builds its description
 // image sequence from it), while a file a person gave the issue still does.
 func TestIssueAttachmentListExcludesRunProjections(t *testing.T) {
-	taskID, _, issueID := auroraIssueReportFixture(t, "xhs-image")
+	taskID, _, issueID := auroraIssueReportFixture(t, "ecommerce-bidding-strategy")
 
 	// The projection the round produced: task-tagged and still comment-less.
 	dbfx.Insert(t, "attachment", testutil.Cols{
@@ -192,7 +192,7 @@ func TestIssueAttachmentListExcludesRunProjections(t *testing.T) {
 		"task_id":       taskID,
 		"uploader_type": "agent",
 		"uploader_id":   roundTaskAgent(t, taskID),
-		"filename":      "xhs-image.png",
+		"filename":      "xhs-image.md",
 		"url":           "https://cdn.example.test/xhs-image.png",
 		"content_type":  "image/png",
 		"size_bytes":    int64(9),
@@ -254,7 +254,7 @@ func withReclaimStorage(t *testing.T, s *reclaimTestStorage) {
 func TestReclaimAttachmentObjectsKeepsLibraryOwnedBytes(t *testing.T) {
 	store := &reclaimTestStorage{}
 	withReclaimStorage(t, store)
-	_, generationID, _ := auroraIssueReportFixture(t, "xhs-image")
+	_, generationID, _ := auroraIssueReportFixture(t, "ecommerce-bidding-strategy")
 	assetURL := "https://cdn.example.test/aurora/xhs-image.png"
 	insertAsset(t, generationID, testutil.Cols{"media_url": assetURL})
 
@@ -277,7 +277,7 @@ func TestReclaimAttachmentObjectsKeepsLibraryOwnedBytes(t *testing.T) {
 func TestDeleteAuroraAssetUnlinksTheReplyAndRebroadcastsIt(t *testing.T) {
 	store := &reclaimTestStorage{}
 	withReclaimStorage(t, store)
-	taskID, generationID, issueID := auroraIssueReportFixture(t, "xhs-image")
+	taskID, generationID, issueID := auroraIssueReportFixture(t, "ecommerce-bidding-strategy")
 	assetURL := "https://cdn.example.test/aurora/xhs-image.png"
 	assetID := insertAsset(t, generationID, testutil.Cols{"media_url": assetURL})
 	commentID := dbfx.Insert(t, "comment", testutil.Cols{
@@ -292,7 +292,7 @@ func TestDeleteAuroraAssetUnlinksTheReplyAndRebroadcastsIt(t *testing.T) {
 	dbfx.Insert(t, "attachment", testutil.Cols{
 		"workspace_id": testWorkspaceID, "issue_id": issueID, "comment_id": commentID,
 		"uploader_type": "agent", "uploader_id": roundTaskAgent(t, taskID),
-		"filename": "xhs-image.png", "url": assetURL,
+		"filename": "xhs-image.md", "url": assetURL,
 		"content_type": "image/png", "size_bytes": int64(9),
 	})
 

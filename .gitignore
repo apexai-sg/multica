@@ -79,6 +79,11 @@ _features/
 *.app
 server/server
 data/
+# The expert skill tree is snapshot content, not build output. Two sub-skills
+# ship a data/ tree that the rule above would otherwise drop from a fresh
+# checkout, and the runtime import would then lose those files.
+!aurora-experts/**/data/
+!aurora-experts/**/data/**
 .kilo
 .idea
 .gstack/

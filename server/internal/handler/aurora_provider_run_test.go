@@ -8,14 +8,39 @@ import (
 	"github.com/multica-ai/multica/server/internal/testutil"
 )
 
-// The fixed provider/operation/model triple the policy allows for text-video
-// (route volcengine-seedance). Task 5's broker will send the same values.
+// The provider/operation/model triple these tests exercise, and the expert they
+// attach it to. Every vendored expert runs the claude-text route, which makes no
+// create-once provider call, so that route has no contract of its own:
+// installProviderRunContract bolts one on for the duration of a test, which is
+// what keeps the lease logic below covered.
 const (
 	providerRunTestProvider  = "volcengine-ark"
 	providerRunTestOperation = "seedance.create"
 	providerRunTestModel     = "doubao-seedance-2-5-260628"
-	providerRunTestSkill     = "text-video"
+	providerRunTestSkill     = "ecommerce-bidding-strategy"
 )
+
+// providerRunTestRoute is the route the synthetic contract is installed on.
+const providerRunTestRoute = "claude-text"
+
+// installProviderRunContract temporarily gives claude-text the provider triple
+// above, then restores the table.
+func installProviderRunContract(t *testing.T) {
+	t.Helper()
+	previous, had := auroraProviderRunPolicies[providerRunTestRoute]
+	auroraProviderRunPolicies[providerRunTestRoute] = auroraProviderRunPolicy{
+		Provider:   providerRunTestProvider,
+		Operations: []string{providerRunTestOperation},
+		Models:     []string{providerRunTestModel},
+	}
+	t.Cleanup(func() {
+		if had {
+			auroraProviderRunPolicies[providerRunTestRoute] = previous
+			return
+		}
+		delete(auroraProviderRunPolicies, providerRunTestRoute)
+	})
+}
 
 // providerRunTestResponse mirrors the wire contract the broker consumes.
 type providerRunTestResponse struct {
@@ -36,6 +61,7 @@ type providerRunTestResponse struct {
 // removed on cleanup because they have no foreign key to the task.
 func seedProviderRunTask(t *testing.T, skillID string) (agentID, taskID, generationID string) {
 	t.Helper()
+	installProviderRunContract(t)
 	agentID = dbfx.Agent(t, "Provider Run Agent "+uuid.NewString(), "")
 	// An active task requires a runtime (agent_task_queue_active_requires_runtime).
 	taskID = dbfx.Task(t, agentID, testutil.Cols{"status": "running", "runtime_id": testRuntimeID})

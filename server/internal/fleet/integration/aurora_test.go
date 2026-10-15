@@ -97,7 +97,7 @@ func RoundTripAuroraGeneration(ctx context.Context, t *testing.T) error {
 
 	api := &fleetAPI{base: env.apiURL, token: env.token, workspaceID: env.workspaceID, http: &http.Client{Timeout: 30 * time.Second}}
 
-	skillID := "xhs-image"
+	skillID := "ecommerce-bidding-strategy"
 	prompt := "docker round trip poster"
 	var created struct {
 		Generation struct {

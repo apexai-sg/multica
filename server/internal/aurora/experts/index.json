@@ -1,0 +1,2042 @@
+{
+  "schema": 2,
+  "source": "octop expert_market snapshot (SkillHub skillsets)",
+  "experts": [
+    {
+      "slug": "content-creation-lyrics-songwriting",
+      "name_zh": "歌词创作专家",
+      "name_en": "Content Creation Lyrics Songwriting Expert",
+      "scene": "content-creation",
+      "description_zh": "覆盖歌词创作从「主驱动 Suno 浏览器自动化」到「作词方法论 + 元标签专家 + 风格仿写 + 情感弧线」再到「输出层 MV 流水线」的完整工具集，全部免 API Key",
+      "description_en": "Expert workflow for Content Creation Lyrics Songwriting Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "作词专业方法论与歌曲规划",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「歌词创作专家」，帮我完成「作词专业方法论与歌曲规划」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Lyrics Songwriting Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "情感弧线作词",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「歌词创作专家」，帮我完成「情感弧线作词」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Lyrics Songwriting Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "参考歌曲风格仿写",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「歌词创作专家」，帮我完成「参考歌曲风格仿写」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Lyrics Songwriting Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "Suno 元标签深度调优",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「歌词创作专家」，帮我完成「Suno 元标签深度调优」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Lyrics Songwriting Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "Suno 浏览器自动化生成歌曲",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「歌词创作专家」，帮我完成「Suno 浏览器自动化生成歌曲」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Lyrics Songwriting Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "完整 MV 视听输出",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「歌词创作专家」，帮我完成「完整 MV 视听输出」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Lyrics Songwriting Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "acestep-songwriting",
+          "name": "content-creation-lyrics-songwriting-acestep-songwriting",
+          "display_zh": "acestep-songwriting",
+          "display_en": "acestep-songwriting"
+        },
+        {
+          "slug": "insight-song",
+          "name": "content-creation-lyrics-songwriting-insight-song",
+          "display_zh": "insight-song",
+          "display_en": "insight-song"
+        },
+        {
+          "slug": "songwriting-and-ai-music",
+          "name": "content-creation-lyrics-songwriting-songwriting-and-ai-music",
+          "display_zh": "songwriting-and-ai-music",
+          "display_en": "songwriting-and-ai-music"
+        },
+        {
+          "slug": "suno-browser-songmaking",
+          "name": "content-creation-lyrics-songwriting-suno-browser-songmaking",
+          "display_zh": "suno-browser-songmaking",
+          "display_en": "suno-browser-songmaking"
+        },
+        {
+          "slug": "suno-music-composer",
+          "name": "content-creation-lyrics-songwriting-suno-music-composer",
+          "display_zh": "suno-music-composer",
+          "display_en": "suno-music-composer"
+        },
+        {
+          "slug": "suno-poetry-music-creator",
+          "name": "content-creation-lyrics-songwriting-suno-poetry-music-creator",
+          "display_zh": "suno-poetry-music-creator",
+          "display_en": "suno-poetry-music-creator"
+        }
+      ]
+    },
+    {
+      "slug": "content-creation-novel-writing",
+      "name_zh": "网文/小说创作专家",
+      "name_en": "Content Creation Novel Writing Expert",
+      "scene": "content-creation",
+      "description_zh": "覆盖网文创作从「章节连贯爽文主驱动」到「番茄平台垂直特化 + 严谨结构化引擎」再到「平台变现方法论 + 风格续写」的完整工具集，全部免 API Key",
+      "description_en": "Expert workflow for Content Creation Novel Writing Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "题材选定与连贯爽文骨架",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「网文/小说创作专家」，帮我完成「题材选定与连贯爽文骨架」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Novel Writing Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "长篇分章与去 AI 痕迹深度润色",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「网文/小说创作专家」，帮我完成「长篇分章与去 AI 痕迹深度润色」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Novel Writing Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "番茄平台垂直特化改写",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「网文/小说创作专家」，帮我完成「番茄平台垂直特化改写」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Novel Writing Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "严谨结构化引擎与伏笔/时间线管理",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「网文/小说创作专家」，帮我完成「严谨结构化引擎与伏笔/时间线管理」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Novel Writing Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "番茄爆款方法论与多平台变现",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「网文/小说创作专家」，帮我完成「番茄爆款方法论与多平台变现」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Novel Writing Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "风格续写已有作品（处理层 /…",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「网文/小说创作专家」，帮我完成「风格续写已有作品（处理层 / 可选）」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Novel Writing Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "chinese-novelist-skill",
+          "name": "content-creation-novel-writing-chinese-novelist-skill",
+          "display_zh": "chinese-novelist-skill",
+          "display_en": "chinese-novelist-skill"
+        },
+        {
+          "slug": "fanqie-masterclass",
+          "name": "content-creation-novel-writing-fanqie-masterclass",
+          "display_zh": "fanqie-masterclass",
+          "display_en": "fanqie-masterclass"
+        },
+        {
+          "slug": "g113593",
+          "name": "content-creation-novel-writing-g113593",
+          "display_zh": "g113593",
+          "display_en": "g113593"
+        },
+        {
+          "slug": "novel-generator",
+          "name": "content-creation-novel-writing-novel-generator",
+          "display_zh": "novel-generator",
+          "display_en": "novel-generator"
+        },
+        {
+          "slug": "novel-writer-structure",
+          "name": "content-creation-novel-writing-novel-writer-structure",
+          "display_zh": "novel-writer-structure",
+          "display_en": "novel-writer-structure"
+        },
+        {
+          "slug": "novel-writer-v2",
+          "name": "content-creation-novel-writing-novel-writer-v2",
+          "display_zh": "novel-writer-v2",
+          "display_en": "novel-writer-v2"
+        }
+      ]
+    },
+    {
+      "slug": "content-creation-screenwriting",
+      "name_zh": "剧本创作专家",
+      "name_en": "Content Creation Screenwriting Expert",
+      "scene": "content-creation",
+      "description_zh": "覆盖剧本创作从「短剧主驱动 + 专业流水线」到「电影编剧经典方法论 + 广播剧/有声剧专项」再到「多代理工程化 + 去 AI 味多轮审查」的完整工具集，全部免 API Key",
+      "description_en": "Expert workflow for Content Creation Screenwriting Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "项目立项与剧本类型确认",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「剧本创作专家」，帮我完成「项目立项与剧本类型确认」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Screenwriting Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "短剧专业流水线（处理层 / 短…",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「剧本创作专家」，帮我完成「短剧专业流水线（处理层 / 短剧类项目）」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Screenwriting Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "电影/长剧经典编剧方法论（处理…",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「剧本创作专家」，帮我完成「电影/长剧经典编剧方法论（处理层 / 电影类项…」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Screenwriting Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "广播剧/有声剧脚本声场化（处理…",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「剧本创作专家」，帮我完成「广播剧/有声剧脚本声场化（处理层 / 广播剧类…」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Screenwriting Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "多代理工程化流水线（处理层 /…",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「剧本创作专家」，帮我完成「多代理工程化流水线（处理层 / 系列/长项目）」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Screenwriting Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "3 轮 AI 审查与去 AI 味",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「剧本创作专家」，帮我完成「3 轮 AI 审查与去 AI 味」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Content Creation Screenwriting Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "drama-script",
+          "name": "content-creation-screenwriting-drama-script",
+          "display_zh": "drama-script",
+          "display_en": "drama-script"
+        },
+        {
+          "slug": "short-drama-pro",
+          "name": "content-creation-screenwriting-short-drama-pro",
+          "display_zh": "short-drama-pro",
+          "display_en": "short-drama-pro"
+        },
+        {
+          "slug": "short-drama-writer",
+          "name": "content-creation-screenwriting-short-drama-writer",
+          "display_zh": "short-drama-writer",
+          "display_en": "short-drama-writer"
+        },
+        {
+          "slug": "text-echo-chamber",
+          "name": "content-creation-screenwriting-text-echo-chamber",
+          "display_zh": "text-echo-chamber",
+          "display_en": "text-echo-chamber"
+        },
+        {
+          "slug": "wahoo",
+          "name": "content-creation-screenwriting-wahoo",
+          "display_zh": "wahoo",
+          "display_en": "wahoo"
+        },
+        {
+          "slug": "walrus03",
+          "name": "content-creation-screenwriting-walrus03",
+          "display_zh": "walrus03",
+          "display_en": "walrus03"
+        }
+      ]
+    },
+    {
+      "slug": "design-prd-writing",
+      "name_zh": "PRD 撰写专家",
+      "name_en": "Design Prd Writing Expert",
+      "scene": "design",
+      "description_zh": "从多轮对话式需求探索与EPIC分解、RICE优先级排序与客户访谈分析框架，到结构化PRD创建（含用户故事与验收标准）、专业PRD撰写润色、PRD转设计需求文档（信息架构/交互流程/页面布局），再到PRD量化评审打分的完整PRD撰写工作流。支持需求分析、优先级排序、文档生成、设计交付和质量评审全链路。",
+      "description_en": "Expert workflow for Design Prd Writing Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "需求探索与结构化",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「PRD 撰写专家」，帮我完成「需求探索与结构化」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Design Prd Writing Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "优先级排序与框架选型",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「PRD 撰写专家」，帮我完成「优先级排序与框架选型」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Design Prd Writing Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "PRD 结构化创建",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「PRD 撰写专家」，帮我完成「PRD 结构化创建」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Design Prd Writing Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "PRD 专业撰写与润色",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「PRD 撰写专家」，帮我完成「PRD 专业撰写与润色」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Design Prd Writing Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "PRD 转设计需求文档",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「PRD 撰写专家」，帮我完成「PRD 转设计需求文档」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Design Prd Writing Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "PRD 量化评审",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「PRD 撰写专家」，帮我完成「PRD 量化评审」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Design Prd Writing Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "prd",
+          "name": "design-prd-writing-prd",
+          "display_zh": "prd",
+          "display_en": "prd"
+        },
+        {
+          "slug": "prd-reviewer",
+          "name": "design-prd-writing-prd-reviewer",
+          "display_zh": "prd-reviewer",
+          "display_en": "prd-reviewer"
+        },
+        {
+          "slug": "prd-to-design-doc",
+          "name": "design-prd-writing-prd-to-design-doc",
+          "display_zh": "prd-to-design-doc",
+          "display_en": "prd-to-design-doc"
+        },
+        {
+          "slug": "prd-writer-pro",
+          "name": "design-prd-writing-prd-writer-pro",
+          "display_zh": "prd-writer-pro",
+          "display_en": "prd-writer-pro"
+        },
+        {
+          "slug": "requirements-analysis",
+          "name": "design-prd-writing-requirements-analysis",
+          "display_zh": "requirements-analysis",
+          "display_en": "requirements-analysis"
+        },
+        {
+          "slug": "software-manager-skill",
+          "name": "design-prd-writing-software-manager-skill",
+          "display_zh": "software-manager-skill",
+          "display_en": "software-manager-skill"
+        }
+      ]
+    },
+    {
+      "slug": "design-ui-prototype",
+      "name_zh": "UI 原型设计专家",
+      "name_en": "Design Ui Prototype Expert",
+      "scene": "design",
+      "description_zh": "从产品需求零提问直出PRD到设计方向、设计稿像素级还原，到设计令牌体系与组件规范制定、UI设计质量审查与反模式识别，再到低保真线框图绘制和高保真生产级HTML/Tailwind原型输出的完整UI原型设计工作流。支持Figma/Sketch设计稿解析、响应式布局、移动优先设计、设计系统构建和交互原型生成。",
+      "description_en": "Expert workflow for Design Ui Prototype Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "需求分析与 PRD 输出",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「UI 原型设计专家」，帮我完成「需求分析与 PRD 输出」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Design Ui Prototype Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "设计稿解析与像素还原",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「UI 原型设计专家」，帮我完成「设计稿解析与像素还原」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Design Ui Prototype Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "设计系统与规范制定",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「UI 原型设计专家」，帮我完成「设计系统与规范制定」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Design Ui Prototype Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "UI 设计质量审查",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「UI 原型设计专家」，帮我完成「UI 设计质量审查」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Design Ui Prototype Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "低保真线框图绘制",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「UI 原型设计专家」，帮我完成「低保真线框图绘制」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Design Ui Prototype Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "高保真原型生成",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「UI 原型设计专家」，帮我完成「高保真原型生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Design Ui Prototype Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "afrexai-ui-design-system",
+          "name": "design-ui-prototype-afrexai-ui-design-system",
+          "display_zh": "afrexai-ui-design-system",
+          "display_en": "afrexai-ui-design-system"
+        },
+        {
+          "slug": "design-to-code",
+          "name": "design-ui-prototype-design-to-code",
+          "display_zh": "design-to-code",
+          "display_en": "design-to-code"
+        },
+        {
+          "slug": "frontend-design-pro",
+          "name": "design-ui-prototype-frontend-design-pro",
+          "display_zh": "frontend-design-pro",
+          "display_en": "frontend-design-pro"
+        },
+        {
+          "slug": "prd-to-prototype",
+          "name": "design-ui-prototype-prd-to-prototype",
+          "display_zh": "prd-to-prototype",
+          "display_en": "prd-to-prototype"
+        },
+        {
+          "slug": "ui-design",
+          "name": "design-ui-prototype-ui-design",
+          "display_zh": "ui-design",
+          "display_en": "ui-design"
+        },
+        {
+          "slug": "wireframe",
+          "name": "design-ui-prototype-wireframe",
+          "display_zh": "wireframe",
+          "display_en": "wireframe"
+        }
+      ]
+    },
+    {
+      "slug": "ecommerce-bidding-strategy",
+      "name_zh": "竞价策略专家",
+      "name_en": "Ecommerce Bidding Strategy Expert",
+      "scene": "ecommerce",
+      "description_zh": "从亚马逊Listing优化与PPC广告管理（标题优化/五点描述/后台关键词/PPC广告/评价管理/排名提升）与跨平台PPC策略规划（Google Ads/Meta等平台推荐/利润分析/广告投放方案），经亚马逊PPC广告构建与优化（关键词分组/出价策略/广告活动结构/效果优化）与多平台预算分配出价优化（Meta/Google/TikTok/YouTube/Amazon出价策略），到多平台广告创建优化（A/B测试/成本分析/ROI分析/精准定向/素材推荐）与Google Shopping广告优化（商品信息流/竞价策略/广告系列结构/绩效分析/ROAS优化）的完整竞价策略工作流。覆盖Listing优化、策略规划、广告构建、出价优化、效果监控、ROAS提升全链路。",
+      "description_en": "Expert workflow for Ecommerce Bidding Strategy Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "亚马逊 Listing 优化与…",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「竞价策略专家」，帮我完成「亚马逊 Listing 优化与 PPC 基础」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Bidding Strategy Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "跨平台 PPC 策略规划",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「竞价策略专家」，帮我完成「跨平台 PPC 策略规划」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Bidding Strategy Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "亚马逊 PPC 广告构建与优化",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「竞价策略专家」，帮我完成「亚马逊 PPC 广告构建与优化」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Bidding Strategy Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "多平台预算分配与出价优化",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「竞价策略专家」，帮我完成「多平台预算分配与出价优化」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Bidding Strategy Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "广告创建与 A/B 测试优化",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「竞价策略专家」，帮我完成「广告创建与 A/B 测试优化」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Bidding Strategy Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "Google Shopping…",
+          "label_en": "Google Shopping…",
+          "prompt_zh": "请作为「竞价策略专家」，帮我完成「Google Shopping 广告与 ROA…」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Bidding Strategy Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "ad-campaign-optimizer",
+          "name": "ecommerce-bidding-strategy-ad-campaign-optimizer",
+          "display_zh": "ad-campaign-optimizer",
+          "display_en": "ad-campaign-optimizer"
+        },
+        {
+          "slug": "amazon-listing-optimizer",
+          "name": "ecommerce-bidding-strategy-amazon-listing-optimizer",
+          "display_zh": "亚马逊Listing优化",
+          "display_en": "Amazon Listing Optimizer"
+        },
+        {
+          "slug": "amazon-ppc-campaign",
+          "name": "ecommerce-bidding-strategy-amazon-ppc-campaign",
+          "display_zh": "amazon-ppc-campaign",
+          "display_en": "amazon-ppc-campaign"
+        },
+        {
+          "slug": "budget-bidding-optimizer",
+          "name": "ecommerce-bidding-strategy-budget-bidding-optimizer",
+          "display_zh": "budget-bidding-optimizer",
+          "display_en": "budget-bidding-optimizer"
+        },
+        {
+          "slug": "ecommerce-ppc-strategy-planner",
+          "name": "ecommerce-bidding-strategy-ecommerce-ppc-strategy-planner",
+          "display_zh": "ecommerce-ppc-strategy-planner",
+          "display_en": "ecommerce-ppc-strategy-planner"
+        },
+        {
+          "slug": "google-ads",
+          "name": "ecommerce-bidding-strategy-google-ads",
+          "display_zh": "google-ads",
+          "display_en": "google-ads"
+        }
+      ]
+    },
+    {
+      "slug": "ecommerce-pricing-analysis",
+      "name_zh": "定价分析专家",
+      "name_en": "Ecommerce Pricing Analysis Expert",
+      "scene": "ecommerce",
+      "description_zh": "电商商品的长期定价策略与日常调价管理：跨境与国内全球比价、竞品价格长期追踪、Amazon Buy Box 调价规则、通用动态定价方法论（心理定价/利润率/数据驱动）、跨境多币种定价、价值定价与溢价论证。区别于「促销策划」（活动机制），本包关注的是日常价格结构与定价决策。",
+      "description_en": "Expert workflow for Ecommerce Pricing Analysis Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "全球比价",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「定价分析专家」，帮我完成「全球比价」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Pricing Analysis Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "竞品价格长期追踪",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「定价分析专家」，帮我完成「竞品价格长期追踪」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Pricing Analysis Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "通用定价方法论",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「定价分析专家」，帮我完成「通用定价方法论」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Pricing Analysis Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "跨境多币种定价（按需）",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「定价分析专家」，帮我完成「跨境多币种定价（按需）」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Pricing Analysis Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "Amazon 调价精化（按需）",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「定价分析专家」，帮我完成「Amazon 调价精化（按需）」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Pricing Analysis Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "溢价论证与价值定价",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「定价分析专家」，帮我完成「溢价论证与价值定价」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Pricing Analysis Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "competitor-analysis-report",
+          "name": "ecommerce-pricing-analysis-competitor-analysis-report",
+          "display_zh": "competitor-analysis-report",
+          "display_en": "competitor-analysis-report"
+        },
+        {
+          "slug": "competitor-watch",
+          "name": "ecommerce-pricing-analysis-competitor-watch",
+          "display_zh": "competitor-watch",
+          "display_en": "competitor-watch"
+        },
+        {
+          "slug": "market-research",
+          "name": "ecommerce-pricing-analysis-market-research",
+          "display_zh": "market-research",
+          "display_en": "market-research"
+        },
+        {
+          "slug": "price-hunter",
+          "name": "ecommerce-pricing-analysis-price-hunter",
+          "display_zh": "price-hunter",
+          "display_en": "price-hunter"
+        },
+        {
+          "slug": "pricing-strategy",
+          "name": "ecommerce-pricing-analysis-pricing-strategy",
+          "display_zh": "pricing-strategy",
+          "display_en": "pricing-strategy"
+        },
+        {
+          "slug": "reverse-costing",
+          "name": "ecommerce-pricing-analysis-reverse-costing",
+          "display_zh": "reverse-costing",
+          "display_en": "reverse-costing"
+        }
+      ]
+    },
+    {
+      "slug": "ecommerce-product-copywriting",
+      "name_zh": "商品文案专家",
+      "name_en": "Ecommerce Product Copywriting Expert",
+      "scene": "ecommerce",
+      "description_zh": "从淘宝商品文案生成（宝贝标题/详情页文案/主图文案/促销活动/关键词挖掘/大促文案）与全平台上架文案生成（跨境电商多平台listing/短视频脚本/FAQ生成/组合套装文案/标题优化诊断/用户痛点挖掘），经电商爆款文案生成（淘宝/拼多多/抖音/京东高转化商品标题/详情页文案/卖点提炼/促销文案）与跨境电商多语种文案生成（Amazon/Shopee/Temu/TikTok商品标题/短描述/详细描述/SEO关键词优化），到SEO优化产品描述生成（关键词/功能/优势/行动号召/多平台适配）与中文电商文案人性化优化（去AI痕迹/保留销售意图/自然转化/本土化表达）的完整商品文案工作流。覆盖淘宝文案、全平台listing、爆款文案、跨境多语种、SEO优化、去AI化全链路。",
+      "description_en": "Expert workflow for Ecommerce Product Copywriting Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "淘宝商品文案生成",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「商品文案专家」，帮我完成「淘宝商品文案生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Product Copywriting Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "全平台上架文案生成",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「商品文案专家」，帮我完成「全平台上架文案生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Product Copywriting Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "电商爆款文案优化",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「商品文案专家」，帮我完成「电商爆款文案优化」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Product Copywriting Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "跨境电商多语种文案",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「商品文案专家」，帮我完成「跨境电商多语种文案」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Product Copywriting Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "SEO 优化产品描述",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「商品文案专家」，帮我完成「SEO 优化产品描述」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Product Copywriting Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "中文文案去 AI 味优化",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「商品文案专家」，帮我完成「中文文案去 AI 味优化」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Product Copywriting Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "cross-border-copywriter",
+          "name": "ecommerce-product-copywriting-cross-border-copywriter",
+          "display_zh": "cross-border-copywriter",
+          "display_en": "cross-border-copywriter"
+        },
+        {
+          "slug": "crossborder-listing",
+          "name": "ecommerce-product-copywriting-crossborder-listing",
+          "display_zh": "crossborder-listing",
+          "display_en": "crossborder-listing"
+        },
+        {
+          "slug": "ecommerce-copy-humanizer-zh",
+          "name": "ecommerce-product-copywriting-ecommerce-copy-humanizer-zh",
+          "display_zh": "ecommerce-copy-humanizer-zh",
+          "display_en": "ecommerce-copy-humanizer-zh"
+        },
+        {
+          "slug": "ecommerce-copywriter",
+          "name": "ecommerce-product-copywriting-ecommerce-copywriter",
+          "display_zh": "ecommerce-copywriter",
+          "display_en": "ecommerce-copywriter"
+        },
+        {
+          "slug": "ecommerce-product-description-generator",
+          "name": "ecommerce-product-copywriting-ecommerce-product-description-generator",
+          "display_zh": "ecommerce-product-description-generator",
+          "display_en": "ecommerce-product-description-generator"
+        },
+        {
+          "slug": "taobao-listing",
+          "name": "ecommerce-product-copywriting-taobao-listing",
+          "display_zh": "taobao-listing",
+          "display_en": "taobao-listing"
+        }
+      ]
+    },
+    {
+      "slug": "ecommerce-product-selection",
+      "name_zh": "选品分析专家",
+      "name_en": "Ecommerce Product Selection Expert",
+      "scene": "ecommerce",
+      "description_zh": "从多平台爆款产品筛选（淘宝/京东/拼多多/抖音/亚马逊数据分析）与淘宝产品调研采集（主图/标题/价格/销量/评价/店铺信息），经亚马逊选品市场验证（竞品分析/ASIN评估/定价指导/产品机会挖掘）与跨境电商榜单分析（利润计算/侵权排查/竞品分析/选品决策报告），到OZON平台选品货源搜索（1688货源关键词/供应商筛选/产品定价参考）与1688选品铺货（商机趋势/多平台铺货/货源搜索）的完整选品分析工作流。覆盖多平台数据采集、市场验证、竞品分析、利润评估、货源对接、铺货分发全链路。",
+      "description_en": "Expert workflow for Ecommerce Product Selection Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "多平台爆款产品筛选",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「选品分析专家」，帮我完成「多平台爆款产品筛选」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Product Selection Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "淘宝产品数据采集",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「选品分析专家」，帮我完成「淘宝产品数据采集」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Product Selection Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "亚马逊市场验证与竞品分析",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「选品分析专家」，帮我完成「亚马逊市场验证与竞品分析」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Product Selection Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "跨境电商榜单与利润分析",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「选品分析专家」，帮我完成「跨境电商榜单与利润分析」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Product Selection Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "海外平台选品与货源搜索",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「选品分析专家」，帮我完成「海外平台选品与货源搜索」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Product Selection Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "1688 货源筛选与商机趋势",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「选品分析专家」，帮我完成「1688 货源筛选与商机趋势」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Product Selection Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "1688-trend-trader",
+          "name": "ecommerce-product-selection-1688-trend-trader",
+          "display_zh": "1688-trend-trader",
+          "display_en": "1688-trend-trader"
+        },
+        {
+          "slug": "apiclaw-analysis",
+          "name": "ecommerce-product-selection-apiclaw-analysis",
+          "display_zh": "apiclaw-analysis",
+          "display_en": "apiclaw-analysis"
+        },
+        {
+          "slug": "cross-border-ecommerce-product-analysis",
+          "name": "ecommerce-product-selection-cross-border-ecommerce-product-analysis",
+          "display_zh": "cross-border-ecommerce-product-analysis",
+          "display_en": "cross-border-ecommerce-product-analysis"
+        },
+        {
+          "slug": "ecommerce-product-selector",
+          "name": "ecommerce-product-selection-ecommerce-product-selector",
+          "display_zh": "ecommerce-product-selector",
+          "display_en": "ecommerce-product-selector"
+        },
+        {
+          "slug": "taobao-product-research",
+          "name": "ecommerce-product-selection-taobao-product-research",
+          "display_zh": "taobao-product-research",
+          "display_en": "taobao-product-research"
+        },
+        {
+          "slug": "walter-product-research",
+          "name": "ecommerce-product-selection-walter-product-research",
+          "display_zh": "walter-product-research",
+          "display_en": "walter-product-research"
+        }
+      ]
+    },
+    {
+      "slug": "ecommerce-promotion-planning",
+      "name_zh": "促销策划专家",
+      "name_en": "Ecommerce Promotion Planning Expert",
+      "scene": "ecommerce",
+      "description_zh": "电商大促与日常促销活动的全链路策划：跨平台活动节奏定档、机制设计（优惠券/折扣/秒杀/满减/BOGO）、节日 FOMO 文案与素材、活动销量与备货预测、广告预算联动，覆盖 Shopify / Amazon / TikTok Shop / 淘宝天猫 / 京东 / 唯品会 / 小红书等主流电商场景。",
+      "description_en": "Expert workflow for Ecommerce Promotion Planning Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "跨平台促销日历定档",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「促销策划专家」，帮我完成「跨平台促销日历定档」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Promotion Planning Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "折扣机制方法论设计",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「促销策划专家」，帮我完成「折扣机制方法论设计」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Promotion Planning Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "多平台机制注册与配置",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「促销策划专家」，帮我完成「多平台机制注册与配置」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Promotion Planning Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "节日 FOMO 创意素材",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「促销策划专家」，帮我完成「节日 FOMO 创意素材」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Promotion Planning Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "销量预测与备货预警",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「促销策划专家」，帮我完成「销量预测与备货预警」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Promotion Planning Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "广告预算再分配",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「促销策划专家」，帮我完成「广告预算再分配」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce Promotion Planning Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "ad-budget-rebalancer",
+          "name": "ecommerce-promotion-planning-ad-budget-rebalancer",
+          "display_zh": "ad-budget-rebalancer",
+          "display_en": "ad-budget-rebalancer"
+        },
+        {
+          "slug": "campaign-planning",
+          "name": "ecommerce-promotion-planning-campaign-planning",
+          "display_zh": "campaign-planning",
+          "display_en": "campaign-planning"
+        },
+        {
+          "slug": "discount-marketing-strategy",
+          "name": "ecommerce-promotion-planning-discount-marketing-strategy",
+          "display_zh": "discount-marketing-strategy",
+          "display_en": "discount-marketing-strategy"
+        },
+        {
+          "slug": "forecast-analysis-claw",
+          "name": "ecommerce-promotion-planning-forecast-analysis-claw",
+          "display_zh": "forecast-analysis-claw",
+          "display_en": "forecast-analysis-claw"
+        },
+        {
+          "slug": "holiday-fomo-marketing",
+          "name": "ecommerce-promotion-planning-holiday-fomo-marketing",
+          "display_zh": "holiday-fomo-marketing",
+          "display_en": "holiday-fomo-marketing"
+        },
+        {
+          "slug": "promotion-enrollment-assistant",
+          "name": "ecommerce-promotion-planning-promotion-enrollment-assistant",
+          "display_zh": "promotion-enrollment-assistant",
+          "display_en": "promotion-enrollment-assistant"
+        }
+      ]
+    },
+    {
+      "slug": "ecommerce-user-profiling",
+      "name_zh": "用户画像专家",
+      "name_en": "Ecommerce User Profiling Expert",
+      "scene": "ecommerce",
+      "description_zh": "电商零售用户画像工作流：从行为数据接入、客户分层与 RFM 分群、电商 LTV/复购/会员深度建模，到把画像激活为广告投放人群和店铺个性化运营。基于订单/CRM/行为数据，输出可直接落地到投放与精准营销的画像与人群。",
+      "description_en": "Expert workflow for Ecommerce User Profiling Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "行为数据接入与口径核对",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「用户画像专家」，帮我完成「行为数据接入与口径核对」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce User Profiling Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "通用客户分层与精准营销分群（分…",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「用户画像专家」，帮我完成「通用客户分层与精准营销分群（分析层 - 主分群）」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce User Profiling Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "RFM 专项细分 + 重点人群…",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「用户画像专家」，帮我完成「RFM 专项细分 + 重点人群识别（分析层 -…」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce User Profiling Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "电商 LTV / 复购 / 会…",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「用户画像专家」，帮我完成「电商 LTV / 复购 / 会员深度建模（分析…」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce User Profiling Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "把画像激活为广告投放人群（输出…",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「用户画像专家」，帮我完成「把画像激活为广告投放人群（输出层 - 拉新侧）」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce User Profiling Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "把画像激活为客户留存与召回（输…",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「用户画像专家」，帮我完成「把画像激活为客户留存与召回（输出层 - 店铺侧）」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Ecommerce User Profiling Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "ai-intelligent-customer-segmentation",
+          "name": "ecommerce-user-profiling-ai-intelligent-customer-segmentation",
+          "display_zh": "ai-intelligent-customer-segmentation",
+          "display_en": "ai-intelligent-customer-segmentation"
+        },
+        {
+          "slug": "audience-segmentation-analyst",
+          "name": "ecommerce-user-profiling-audience-segmentation-analyst",
+          "display_zh": "audience-segmentation-analyst",
+          "display_en": "audience-segmentation-analyst"
+        },
+        {
+          "slug": "customer-lifetime-value-optimizer",
+          "name": "ecommerce-user-profiling-customer-lifetime-value-optimizer",
+          "display_zh": "customer-lifetime-value-optimizer",
+          "display_en": "customer-lifetime-value-optimizer"
+        },
+        {
+          "slug": "customer-retention",
+          "name": "ecommerce-user-profiling-customer-retention",
+          "display_zh": "customer-retention",
+          "display_en": "customer-retention"
+        },
+        {
+          "slug": "rfm-segmenter",
+          "name": "ecommerce-user-profiling-rfm-segmenter",
+          "display_zh": "rfm-segmenter",
+          "display_en": "rfm-segmenter"
+        },
+        {
+          "slug": "user-behavior-analytics",
+          "name": "ecommerce-user-profiling-user-behavior-analytics",
+          "display_zh": "user-behavior-analytics",
+          "display_en": "user-behavior-analytics"
+        }
+      ]
+    },
+    {
+      "slug": "legal-contract-drafting",
+      "name_zh": "合同起草专家",
+      "name_en": "Legal Contract Drafting Expert",
+      "scene": "legal",
+      "description_zh": "从多类型合同模板生成（劳动合同/服务协议/合作协议/租赁合同/协议书模板）与专业合同生成审查（销售合同/租赁合同/劳动合同/NDA/服务协议/法律咨询），法律文书模板与撰写指导（劳务纠纷/离婚协议/交通事故/租房协议/文书模板）与中国财税法律文书起草（税务筹划报告/法律意见书/合同税务条款/行政复议/行政诉讼），到保密协议NDA起草与DOCX生成（双向NDA/单向NDA/Common Paper/Bonterms标准）与法律文书模板专家（500+案例/自我进化/多类型文书模板）的完整合同起草工作流。覆盖合同模板、专业生成、文书指导、财税文书、NDA起草、模板库全链路。",
+      "description_en": "Expert workflow for Legal Contract Drafting Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "合同模板选择与生成",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「合同起草专家」，帮我完成「合同模板选择与生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Contract Drafting Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "专业合同内容生成",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「合同起草专家」，帮我完成「专业合同内容生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Contract Drafting Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "法律文书撰写指导",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「合同起草专家」，帮我完成「法律文书撰写指导」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Contract Drafting Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "财税法律文书起草",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「合同起草专家」，帮我完成「财税法律文书起草」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Contract Drafting Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "保密协议专项起草",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「合同起草专家」，帮我完成「保密协议专项起草」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Contract Drafting Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "法律文书模板库输出",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「合同起草专家」，帮我完成「法律文书模板库输出」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Contract Drafting Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "employment-contract",
+          "name": "legal-contract-drafting-employment-contract",
+          "display_zh": "employment-contract",
+          "display_en": "employment-contract"
+        },
+        {
+          "slug": "hetongzhushou",
+          "name": "legal-contract-drafting-hetongzhushou",
+          "display_zh": "hetongzhushou",
+          "display_en": "hetongzhushou"
+        },
+        {
+          "slug": "legal-advisor",
+          "name": "legal-contract-drafting-legal-advisor",
+          "display_zh": "legal-advisor",
+          "display_en": "legal-advisor"
+        },
+        {
+          "slug": "legal-doc-writer",
+          "name": "legal-contract-drafting-legal-doc-writer",
+          "display_zh": "legal-doc-writer",
+          "display_en": "legal-doc-writer"
+        },
+        {
+          "slug": "legal-document-assistant",
+          "name": "legal-contract-drafting-legal-document-assistant",
+          "display_zh": "legal-document-assistant",
+          "display_en": "legal-document-assistant"
+        },
+        {
+          "slug": "nda",
+          "name": "legal-contract-drafting-nda",
+          "display_zh": "nda",
+          "display_en": "nda"
+        }
+      ]
+    },
+    {
+      "slug": "legal-contract-generation",
+      "name_zh": "合同生成专家",
+      "name_en": "Legal Contract Generation Expert",
+      "scene": "legal",
+      "description_zh": "从模板参考到风险审查再到专业合同文书输出的一站式合同生成工作流，覆盖劳动合同、保密协议、租赁合同、服务协议等主流合同类型。",
+      "description_en": "Expert workflow for Legal Contract Generation Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "需求确认与法律咨询",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「合同生成专家」，帮我完成「需求确认与法律咨询」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Contract Generation Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "模板获取与条款参考",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「合同生成专家」，帮我完成「模板获取与条款参考」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Contract Generation Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "合同起草",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「合同生成专家」，帮我完成「合同起草」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Contract Generation Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "合规性审查",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「合同生成专家」，帮我完成「合规性审查」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Contract Generation Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "风险识别与条款优化",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「合同生成专家」，帮我完成「风险识别与条款优化」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Contract Generation Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "附属文书生成",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「合同生成专家」，帮我完成「附属文书生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Contract Generation Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "contract-review-pro",
+          "name": "legal-contract-generation-contract-review-pro",
+          "display_zh": "contract-review-pro",
+          "display_en": "contract-review-pro"
+        },
+        {
+          "slug": "employment-contract",
+          "name": "legal-contract-generation-employment-contract",
+          "display_zh": "employment-contract",
+          "display_en": "employment-contract"
+        },
+        {
+          "slug": "hetongzhushou",
+          "name": "legal-contract-generation-hetongzhushou",
+          "display_zh": "hetongzhushou",
+          "display_en": "hetongzhushou"
+        },
+        {
+          "slug": "legal-advisor",
+          "name": "legal-contract-generation-legal-advisor",
+          "display_zh": "legal-advisor",
+          "display_en": "legal-advisor"
+        },
+        {
+          "slug": "legal-doc-writer",
+          "name": "legal-contract-generation-legal-doc-writer",
+          "display_zh": "legal-doc-writer",
+          "display_en": "legal-doc-writer"
+        },
+        {
+          "slug": "nathan-legal-os-pro",
+          "name": "legal-contract-generation-nathan-legal-os-pro",
+          "display_zh": "nathan-legal-os-pro",
+          "display_en": "nathan-legal-os-pro"
+        }
+      ]
+    },
+    {
+      "slug": "legal-legal-research",
+      "name_zh": "法规检索专家",
+      "name_en": "Legal Legal Research Expert",
+      "scene": "legal",
+      "description_zh": "从法律知识库检索（法律法规查询/合同条款检索/司法解释查找）与财税法律案例法规检索（税务判例/行政复议/税收法规/税务实践案例），官方API法条查询与多类纠纷检索（劳动纠纷/借贷纠纷/侵权纠纷/合同纠纷/工伤认定/婚姻家事/消费维权）与法条体系定位（上位规范/并列条款/下位细化/程序衔接/竞合分析），到类案检索验证（真实案例验证/裁判分歧/高频败诉原因/法官审查重点）与不确定法律概念深挖（合理期限/重大误解/明显不当/裁判标准/边界案例）的完整法规检索工作流。覆盖法规查询、案例检索、纠纷查找、体系定位、类案验证、概念分析全链路。",
+      "description_en": "Expert workflow for Legal Legal Research Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "法律知识库检索",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「法规检索专家」，帮我完成「法律知识库检索」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Legal Research Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "案例与法规专项检索",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「法规检索专家」，帮我完成「案例与法规专项检索」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Legal Research Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "多类纠纷法条查询",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「法规检索专家」，帮我完成「多类纠纷法条查询」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Legal Research Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "法条体系关联定位",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「法规检索专家」，帮我完成「法条体系关联定位」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Legal Research Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "类案检索与裁判验证",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「法规检索专家」，帮我完成「类案检索与裁判验证」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Legal Research Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "不确定法律概念分析",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「法规检索专家」，帮我完成「不确定法律概念分析」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Legal Research Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "case-research",
+          "name": "legal-legal-research-case-research",
+          "display_zh": "case-research",
+          "display_en": "case-research"
+        },
+        {
+          "slug": "legal-case-validator-mctmilk",
+          "name": "legal-legal-research-legal-case-validator-mctmilk",
+          "display_zh": "legal-case-validator-mctmilk",
+          "display_en": "legal-case-validator-mctmilk"
+        },
+        {
+          "slug": "legal-concept-deep-dive-mctmilk",
+          "name": "legal-legal-research-legal-concept-deep-dive-mctmilk",
+          "display_zh": "legal-concept-deep-dive-mctmilk",
+          "display_en": "legal-concept-deep-dive-mctmilk"
+        },
+        {
+          "slug": "legal-hybrid-skill",
+          "name": "legal-legal-research-legal-hybrid-skill",
+          "display_zh": "legal-hybrid-skill",
+          "display_en": "legal-hybrid-skill"
+        },
+        {
+          "slug": "legal-system-mapper-mctmilk",
+          "name": "legal-legal-research-legal-system-mapper-mctmilk",
+          "display_zh": "legal-system-mapper-mctmilk",
+          "display_en": "legal-system-mapper-mctmilk"
+        },
+        {
+          "slug": "legalkb",
+          "name": "legal-legal-research-legalkb",
+          "display_zh": "legalkb",
+          "display_en": "legalkb"
+        }
+      ]
+    },
+    {
+      "slug": "legal-litigation-strategy",
+      "name_zh": "诉讼策略专家",
+      "name_en": "Legal Litigation Strategy Expert",
+      "scene": "legal",
+      "description_zh": "从诉讼准备指南（流程指引/文书准备/证据整理/时间线/费用估算）与法律辅助分析（合同风险初筛/诉讼成本估算/文书骨架生成），经应诉策略制定（起诉状解析/争议焦点提炼/法律关系分析/答辩方向制定）与证据矩阵建模（七步分析法/证据矩阵/案件全景分析），到民事起诉状生成（案情要素提取/证据材料整理/规范起诉状生成）与全流程法律服务（刑事辩护/民商事诉讼/合同审查/法律AI中台）的完整诉讼策略工作流。覆盖诉讼准备、风险评估、策略制定、证据建模、文书起草、全流程支持全链路。",
+      "description_en": "Expert workflow for Legal Litigation Strategy Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "诉讼准备与流程指引",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「诉讼策略专家」，帮我完成「诉讼准备与流程指引」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Litigation Strategy Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "风险评估与成本分析",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「诉讼策略专家」，帮我完成「风险评估与成本分析」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Litigation Strategy Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "争议焦点与应诉策略",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「诉讼策略专家」，帮我完成「争议焦点与应诉策略」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Litigation Strategy Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "证据矩阵与案件建模",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「诉讼策略专家」，帮我完成「证据矩阵与案件建模」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Litigation Strategy Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "诉讼文书起草",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「诉讼策略专家」，帮我完成「诉讼文书起草」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Litigation Strategy Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "全流程法律支持",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「诉讼策略专家」，帮我完成「全流程法律支持」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Legal Litigation Strategy Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "ai-legal-assistant-pro",
+          "name": "legal-litigation-strategy-ai-legal-assistant-pro",
+          "display_zh": "ai-legal-assistant-pro",
+          "display_en": "ai-legal-assistant-pro"
+        },
+        {
+          "slug": "complaint-drafting",
+          "name": "legal-litigation-strategy-complaint-drafting",
+          "display_zh": "complaint-drafting",
+          "display_en": "complaint-drafting"
+        },
+        {
+          "slug": "court-prep",
+          "name": "legal-litigation-strategy-court-prep",
+          "display_zh": "court-prep",
+          "display_en": "court-prep"
+        },
+        {
+          "slug": "legal-advisor",
+          "name": "legal-litigation-strategy-legal-advisor",
+          "display_zh": "legal-advisor",
+          "display_en": "legal-advisor"
+        },
+        {
+          "slug": "litigation-response",
+          "name": "legal-litigation-strategy-litigation-response",
+          "display_zh": "litigation-response",
+          "display_en": "litigation-response"
+        },
+        {
+          "slug": "pro-legal-strategist-v2",
+          "name": "legal-litigation-strategy-pro-legal-strategist-v2",
+          "display_zh": "pro-legal-strategist-v2",
+          "display_en": "pro-legal-strategist-v2"
+        }
+      ]
+    },
+    {
+      "slug": "marketing-ad-copywriting",
+      "name_zh": "广告文案专家",
+      "name_en": "Marketing Ad Copywriting Expert",
+      "scene": "marketing",
+      "description_zh": "从23模块营销策略体系（CRO/SEO/文案/分析/广告/发布）、AIDA/PAS/FAB等经典文案框架与说服力技巧、中文营销文案100个标题公式与痛点挖掘，到全平台广告文案生成（信息流/朋友圈/搜索/直通车/巨量引擎/Google Ads）含A/B测试、高转化落地页自动生成、电商爆款文案（淘宝/拼多多/抖音/京东）的完整广告文案工作流。",
+      "description_en": "Expert workflow for Marketing Ad Copywriting Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "营销策略与受众分析",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「广告文案专家」，帮我完成「营销策略与受众分析」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Ad Copywriting Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "文案框架与说服力构建",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「广告文案专家」，帮我完成「文案框架与说服力构建」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Ad Copywriting Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "中文营销文案撰写",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「广告文案专家」，帮我完成「中文营销文案撰写」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Ad Copywriting Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "全平台广告文案生成",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「广告文案专家」，帮我完成「全平台广告文案生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Ad Copywriting Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "高转化落地页生成",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「广告文案专家」，帮我完成「高转化落地页生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Ad Copywriting Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "电商爆款文案",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「广告文案专家」，帮我完成「电商爆款文案」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Ad Copywriting Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "ad-copywriter",
+          "name": "marketing-ad-copywriting-ad-copywriter",
+          "display_zh": "ad-copywriter",
+          "display_en": "ad-copywriter"
+        },
+        {
+          "slug": "bytesagain-copywriter-cn",
+          "name": "marketing-ad-copywriting-bytesagain-copywriter-cn",
+          "display_zh": "bytesagain-copywriter-cn",
+          "display_en": "bytesagain-copywriter-cn"
+        },
+        {
+          "slug": "copywriting",
+          "name": "marketing-ad-copywriting-copywriting",
+          "display_zh": "copywriting",
+          "display_en": "copywriting"
+        },
+        {
+          "slug": "ecommerce-copywriter",
+          "name": "marketing-ad-copywriting-ecommerce-copywriter",
+          "display_zh": "ecommerce-copywriter",
+          "display_en": "ecommerce-copywriter"
+        },
+        {
+          "slug": "landing-page-generator-openclaw",
+          "name": "marketing-ad-copywriting-landing-page-generator-openclaw",
+          "display_zh": "landing-page-generator-openclaw",
+          "display_en": "landing-page-generator-openclaw"
+        },
+        {
+          "slug": "marketing-skills",
+          "name": "marketing-ad-copywriting-marketing-skills",
+          "display_zh": "marketing-skills",
+          "display_en": "marketing-skills"
+        }
+      ]
+    },
+    {
+      "slug": "marketing-competitor-analysis",
+      "name_zh": "竞品分析专家",
+      "name_en": "Marketing Competitor Analysis Expert",
+      "scene": "marketing",
+      "description_zh": "从市场规模估算、行业细分与竞品图谱绘制，到企业市场趋势分析与用户行为洞察，再到B2B SaaS多场景竞争情报收集、SWOT分析与功能/价格对比、结构化HTML竞品分析报告输出，以及竞品网站/产品/定价自动化持续监控与预警的完整竞品分析工作流。覆盖市场调研、竞争情报、定位策略和动态追踪全链路。",
+      "description_en": "Expert workflow for Marketing Competitor Analysis Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "市场基础调研",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「竞品分析专家」，帮我完成「市场基础调研」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Competitor Analysis Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "企业市场趋势与用户洞察",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「竞品分析专家」，帮我完成「企业市场趋势与用户洞察」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Competitor Analysis Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "B2B 竞争情报收集",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「竞品分析专家」，帮我完成「B2B 竞争情报收集」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Competitor Analysis Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "SWOT 分析与结构化对比",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「竞品分析专家」，帮我完成「SWOT 分析与结构化对比」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Competitor Analysis Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "竞品分析报告输出",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「竞品分析专家」，帮我完成「竞品分析报告输出」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Competitor Analysis Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "竞品持续监控",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「竞品分析专家」，帮我完成「竞品持续监控」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Competitor Analysis Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "competitive-intelligence-market-research",
+          "name": "marketing-competitor-analysis-competitive-intelligence-market-research",
+          "display_zh": "competitive-intelligence-market-research",
+          "display_en": "competitive-intelligence-market-research"
+        },
+        {
+          "slug": "competitive-product-research",
+          "name": "marketing-competitor-analysis-competitive-product-research",
+          "display_zh": "competitive-product-research",
+          "display_en": "competitive-product-research"
+        },
+        {
+          "slug": "competitor-analysis-report",
+          "name": "marketing-competitor-analysis-competitor-analysis-report",
+          "display_zh": "competitor-analysis-report",
+          "display_en": "competitor-analysis-report"
+        },
+        {
+          "slug": "competitor-watch",
+          "name": "marketing-competitor-analysis-competitor-watch",
+          "display_zh": "competitor-watch",
+          "display_en": "competitor-watch"
+        },
+        {
+          "slug": "market-analysis-cn",
+          "name": "marketing-competitor-analysis-market-analysis-cn",
+          "display_zh": "market-analysis-cn",
+          "display_en": "market-analysis-cn"
+        },
+        {
+          "slug": "market-research",
+          "name": "marketing-competitor-analysis-market-research",
+          "display_zh": "market-research",
+          "display_en": "market-research"
+        }
+      ]
+    },
+    {
+      "slug": "marketing-event-planning",
+      "name_zh": "活动策划专家",
+      "name_en": "Marketing Event Planning Expert",
+      "scene": "marketing",
+      "description_zh": "从商业活动全品类策划（会议/发布会/展览/企业聚会）与可落地SOP生成、定价供应商后勤预算时间表的运营规划，到活动全流程管理与ROI评估分析，再到H5/网页营销活动方案与页面结构生成、营销创意战略与活动概念开发的完整活动策划工作流。覆盖活动策划、执行管控、创意输出全链路。",
+      "description_en": "Expert workflow for Marketing Event Planning Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "商业活动整体策划",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「活动策划专家」，帮我完成「商业活动整体策划」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Event Planning Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "落地执行 SOP 生成",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「活动策划专家」，帮我完成「落地执行 SOP 生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Event Planning Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "运营规划与供应商管理",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「活动策划专家」，帮我完成「运营规划与供应商管理」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Event Planning Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "活动全流程管理与效果评估",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「活动策划专家」，帮我完成「活动全流程管理与效果评估」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Event Planning Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "营销活动页面与方案生成",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「活动策划专家」，帮我完成「营销活动页面与方案生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Event Planning Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "创意策略与概念开发",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「活动策划专家」，帮我完成「创意策略与概念开发」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Event Planning Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "activity-campaign-from-ui",
+          "name": "marketing-event-planning-activity-campaign-from-ui",
+          "display_zh": "activity-campaign-from-ui",
+          "display_en": "activity-campaign-from-ui"
+        },
+        {
+          "slug": "afrexai-event-management",
+          "name": "marketing-event-planning-afrexai-event-management",
+          "display_zh": "afrexai-event-management",
+          "display_en": "afrexai-event-management"
+        },
+        {
+          "slug": "afrexai-event-planner",
+          "name": "marketing-event-planning-afrexai-event-planner",
+          "display_zh": "afrexai-event-planner",
+          "display_en": "afrexai-event-planner"
+        },
+        {
+          "slug": "afrexai-event-planning",
+          "name": "marketing-event-planning-afrexai-event-planning",
+          "display_zh": "afrexai-event-planning",
+          "display_en": "afrexai-event-planning"
+        },
+        {
+          "slug": "campaign-planning",
+          "name": "marketing-event-planning-campaign-planning",
+          "display_zh": "campaign-planning",
+          "display_en": "campaign-planning"
+        },
+        {
+          "slug": "marketing-designer",
+          "name": "marketing-event-planning-marketing-designer",
+          "display_zh": "marketing-designer",
+          "display_en": "marketing-designer"
+        }
+      ]
+    },
+    {
+      "slug": "marketing-social-media-operation",
+      "name_zh": "社媒运营专家",
+      "name_en": "Marketing Social Media Operation Expert",
+      "scene": "marketing",
+      "description_zh": "从小红书/抖音/B站热门内容抓取与趋势分析、小红书/公众号/抖音/私域全平台运营策略与涨粉规划，到多平台发布级自媒体文案生成（小红书/知乎/公众号/抖音）、各平台内容优化与互动率提升、微信公众号爆文创作与SEO优化，再到全链路新媒体运营闭环（行业分析→竞品→养号→爆款→互动钩子）的完整社媒运营工作流。",
+      "description_en": "Expert workflow for Marketing Social Media Operation Expert.",
+      "missing_subskills": [
+        "content-writer"
+      ],
+      "quick_prompts": [
+        {
+          "label_zh": "热门内容抓取与趋势分析",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「社媒运营专家」，帮我完成「热门内容抓取与趋势分析」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Social Media Operation Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "运营策略与涨粉规划",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「社媒运营专家」，帮我完成「运营策略与涨粉规划」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Social Media Operation Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "多平台自媒体文案生成",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「社媒运营专家」，帮我完成「多平台自媒体文案生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Social Media Operation Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "内容优化与互动率提升",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「社媒运营专家」，帮我完成「内容优化与互动率提升」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Social Media Operation Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "微信公众号爆文创作",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「社媒运营专家」，帮我完成「微信公众号爆文创作」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Social Media Operation Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "全链路运营闭环",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「社媒运营专家」，帮我完成「全链路运营闭环」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing Social Media Operation Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "content-hunter",
+          "name": "marketing-social-media-operation-content-hunter",
+          "display_zh": "content-hunter",
+          "display_en": "content-hunter"
+        },
+        {
+          "slug": "newmedia-operations",
+          "name": "marketing-social-media-operation-newmedia-operations",
+          "display_zh": "newmedia-operations",
+          "display_en": "newmedia-operations"
+        },
+        {
+          "slug": "social-media-operator",
+          "name": "marketing-social-media-operation-social-media-operator",
+          "display_zh": "social-media-operator",
+          "display_en": "social-media-operator"
+        },
+        {
+          "slug": "social-media-optimizer",
+          "name": "marketing-social-media-operation-social-media-optimizer",
+          "display_zh": "social-media-optimizer",
+          "display_en": "social-media-optimizer"
+        },
+        {
+          "slug": "wechat-mp-writer-skill-mxx",
+          "name": "marketing-social-media-operation-wechat-mp-writer-skill-mxx",
+          "display_zh": "wechat-mp-writer-skill-mxx",
+          "display_en": "wechat-mp-writer-skill-mxx"
+        }
+      ]
+    },
+    {
+      "slug": "marketing-user-growth",
+      "name_zh": "用户增长专家",
+      "name_en": "Marketing User Growth Expert",
+      "scene": "marketing",
+      "description_zh": "从AARRR+增长框架与北极星指标定义、获客闭环与实验框架设计、转化漏斗创建与流失环节诊断，到新用户入职流程与激活指标优化、客户留存策略与赢回活动设计、流失风险AI评估与定制化留存推荐的完整用户增长工作流。覆盖获客、激活、留存、转化、推荐全链路增长体系。",
+      "description_en": "Expert workflow for Marketing User Growth Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "增长体系设计与北极星指标",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「用户增长专家」，帮我完成「增长体系设计与北极星指标」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing User Growth Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "获客闭环与实验框架",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「用户增长专家」，帮我完成「获客闭环与实验框架」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing User Growth Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "转化漏斗分析",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「用户增长专家」，帮我完成「转化漏斗分析」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing User Growth Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "新用户入职与激活优化",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「用户增长专家」，帮我完成「新用户入职与激活优化」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing User Growth Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "客户留存与赢回策略",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「用户增长专家」，帮我完成「客户留存与赢回策略」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing User Growth Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "流失风险预警",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「用户增长专家」，帮我完成「流失风险预警」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Marketing User Growth Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "afrexai-churn-analyzer",
+          "name": "marketing-user-growth-afrexai-churn-analyzer",
+          "display_zh": "afrexai-churn-analyzer",
+          "display_en": "afrexai-churn-analyzer"
+        },
+        {
+          "slug": "afrexai-growth-engine",
+          "name": "marketing-user-growth-afrexai-growth-engine",
+          "display_zh": "afrexai-growth-engine",
+          "display_en": "afrexai-growth-engine"
+        },
+        {
+          "slug": "cgo",
+          "name": "marketing-user-growth-cgo",
+          "display_zh": "cgo",
+          "display_en": "cgo"
+        },
+        {
+          "slug": "customer-onboarding-2",
+          "name": "marketing-user-growth-customer-onboarding-2",
+          "display_zh": "customer-onboarding-2",
+          "display_en": "customer-onboarding-2"
+        },
+        {
+          "slug": "customer-retention",
+          "name": "marketing-user-growth-customer-retention",
+          "display_zh": "customer-retention",
+          "display_en": "customer-retention"
+        },
+        {
+          "slug": "funnel-analyzer",
+          "name": "marketing-user-growth-funnel-analyzer",
+          "display_zh": "funnel-analyzer",
+          "display_en": "funnel-analyzer"
+        }
+      ]
+    },
+    {
+      "slug": "media-script-breakdown",
+      "name_zh": "脚本拆解专家",
+      "name_en": "Media Script Breakdown Expert",
+      "scene": "media",
+      "description_zh": "从专业四幕AI视频剧本与剧集拆分分镜脚本生成、电影视频剧本到分镜表格转换（镜号/景别/画面/人物/场景/音效）、短剧剧本角色塑造与剧情设计，到短视频分镜脚本撰写（黄金3秒/情绪钩子/镜头语言）、视频脚本分镜结构化输出与图谱管道式剧本生成管理的完整脚本拆解工作流。覆盖剧本创作、分镜转化、场景设计、制片规划全链路。",
+      "description_en": "Expert workflow for Media Script Breakdown Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "四幕剧本与分镜脚本生成",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「脚本拆解专家」，帮我完成「四幕剧本与分镜脚本生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Script Breakdown Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "剧本到分镜表格转换",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「脚本拆解专家」，帮我完成「剧本到分镜表格转换」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Script Breakdown Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "短剧剧本创作",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「脚本拆解专家」，帮我完成「短剧剧本创作」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Script Breakdown Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "短视频分镜与情绪设计",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「脚本拆解专家」，帮我完成「短视频分镜与情绪设计」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Script Breakdown Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "视频脚本结构化输出",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「脚本拆解专家」，帮我完成「视频脚本结构化输出」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Script Breakdown Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "影视项目与制作流程管理",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「脚本拆解专家」，帮我完成「影视项目与制作流程管理」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Script Breakdown Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "ai-viral-team-script-writing",
+          "name": "media-script-breakdown-ai-viral-team-script-writing",
+          "display_zh": "ai-viral-team-script-writing",
+          "display_en": "ai-viral-team-script-writing"
+        },
+        {
+          "slug": "movie",
+          "name": "media-script-breakdown-movie",
+          "display_zh": "movie",
+          "display_en": "movie"
+        },
+        {
+          "slug": "script-to-storyboard",
+          "name": "media-script-breakdown-script-to-storyboard",
+          "display_zh": "剧本转分镜",
+          "display_en": "script-to-storyboard"
+        },
+        {
+          "slug": "seedance2-storyboard-generator",
+          "name": "media-script-breakdown-seedance2-storyboard-generator",
+          "display_zh": "seedance2-storyboard-generator",
+          "display_en": "seedance2-storyboard-generator"
+        },
+        {
+          "slug": "short-drama-writer",
+          "name": "media-script-breakdown-short-drama-writer",
+          "display_zh": "short-drama-writer",
+          "display_en": "short-drama-writer"
+        },
+        {
+          "slug": "video-script-generator",
+          "name": "media-script-breakdown-video-script-generator",
+          "display_zh": "video-script-generator",
+          "display_en": "video-script-generator"
+        }
+      ]
+    },
+    {
+      "slug": "media-short-video-copy",
+      "name_zh": "短视频文案专家",
+      "name_en": "Media Short Video Copy Expert",
+      "scene": "media",
+      "description_zh": "从抖音快手小红书视频号短视频文案一键提取（标题/简介/口播文案/违禁词提醒）与多平台视频脚本全类型创作、爆款短视频脚本生成（抖音/B站/YouTube/小红书/视频号）与黄金3秒口播脚本方法论，到短视频脚本标题封面一站式生成与自媒体多平台爆款标题创作的完整短视频文案工作流。覆盖文案提取、脚本创作、口播生成、标题优化全链路。",
+      "description_en": "Expert workflow for Media Short Video Copy Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "竞品文案提取与分析",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「短视频文案专家」，帮我完成「竞品文案提取与分析」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Short Video Copy Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "多平台视频脚本创作",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「短视频文案专家」，帮我完成「多平台视频脚本创作」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Short Video Copy Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "爆款脚本与文案生成",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「短视频文案专家」，帮我完成「爆款脚本与文案生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Short Video Copy Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "黄金3秒口播脚本",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「短视频文案专家」，帮我完成「黄金3秒口播脚本」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Short Video Copy Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "短视频脚本一站式生成",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「短视频文案专家」，帮我完成「短视频脚本一站式生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Short Video Copy Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "爆款标题生成与优化",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「短视频文案专家」，帮我完成「爆款标题生成与优化」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Short Video Copy Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "cn-video-script-writer",
+          "name": "media-short-video-copy-cn-video-script-writer",
+          "display_zh": "cn-video-script-writer",
+          "display_en": "cn-video-script-writer"
+        },
+        {
+          "slug": "douyin-copy-extract",
+          "name": "media-short-video-copy-douyin-copy-extract",
+          "display_zh": "douyin-copy-extract",
+          "display_en": "douyin-copy-extract"
+        },
+        {
+          "slug": "short-video-script",
+          "name": "media-short-video-copy-short-video-script",
+          "display_zh": "short-video-script",
+          "display_en": "short-video-script"
+        },
+        {
+          "slug": "short-video-script-creator",
+          "name": "media-short-video-copy-short-video-script-creator",
+          "display_zh": "short-video-script-creator",
+          "display_en": "short-video-script-creator"
+        },
+        {
+          "slug": "viral-script-writer",
+          "name": "media-short-video-copy-viral-script-writer",
+          "display_zh": "viral-script-writer",
+          "display_en": "viral-script-writer"
+        },
+        {
+          "slug": "viral-title-generator",
+          "name": "media-short-video-copy-viral-title-generator",
+          "display_zh": "viral-title-generator",
+          "display_en": "viral-title-generator"
+        }
+      ]
+    },
+    {
+      "slug": "media-storyboard-design",
+      "name_zh": "分镜设计专家",
+      "name_en": "Media Storyboard Design Expert",
+      "scene": "media",
+      "description_zh": "从剧本文本到标准分镜表格转换（镜号/景别/拍摄角度/画面内容/人物/音效）与电影感镜头运动设计（推拉摇移/景别/构图），到AI视频提示词与分镜脚本构思（文生视频/图生视频/多模态参考）与AI绘画视频提示词参数化构建，再到专业四幕分镜脚本生成与视频脚本分镜描述画面提示词输出的完整分镜设计工作流。覆盖分镜规划、镜头设计、画面提示词、视觉预览全链路。",
+      "description_en": "Expert workflow for Media Storyboard Design Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "剧本到分镜表格转换",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「分镜设计专家」，帮我完成「剧本到分镜表格转换」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Storyboard Design Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "电影感镜头运动设计",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「分镜设计专家」，帮我完成「电影感镜头运动设计」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Storyboard Design Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "Seedance 视频提示词设计",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「分镜设计专家」，帮我完成「Seedance 视频提示词设计」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Storyboard Design Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "画面提示词参数化构建",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「分镜设计专家」，帮我完成「画面提示词参数化构建」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Storyboard Design Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "专业四幕分镜脚本生成",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「分镜设计专家」，帮我完成「专业四幕分镜脚本生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Storyboard Design Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "视频脚本与画面提示词输出",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「分镜设计专家」，帮我完成「视频脚本与画面提示词输出」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Storyboard Design Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "ai-video-script",
+          "name": "media-storyboard-design-ai-video-script",
+          "display_zh": "ai-video-script",
+          "display_en": "ai-video-script"
+        },
+        {
+          "slug": "prompt-bozo",
+          "name": "media-storyboard-design-prompt-bozo",
+          "display_zh": "prompt-bozo",
+          "display_en": "prompt-bozo"
+        },
+        {
+          "slug": "script-to-storyboard",
+          "name": "media-storyboard-design-script-to-storyboard",
+          "display_zh": "剧本转分镜",
+          "display_en": "script-to-storyboard"
+        },
+        {
+          "slug": "seedance2-storyboard-generator",
+          "name": "media-storyboard-design-seedance2-storyboard-generator",
+          "display_zh": "seedance2-storyboard-generator",
+          "display_en": "seedance2-storyboard-generator"
+        },
+        {
+          "slug": "seedance2-video-prompter",
+          "name": "media-storyboard-design-seedance2-video-prompter",
+          "display_zh": "seedance2-video-prompter",
+          "display_en": "seedance2-video-prompter"
+        },
+        {
+          "slug": "video-cinematography",
+          "name": "media-storyboard-design-video-cinematography",
+          "display_zh": "video-cinematography",
+          "display_en": "video-cinematography"
+        }
+      ]
+    },
+    {
+      "slug": "media-video-editing",
+      "name_zh": "视频剪辑专家",
+      "name_en": "Media Video Editing Expert",
+      "scene": "media",
+      "description_zh": "从AI对话式视频剪切合并与FFmpeg自动精彩片段提取字幕生成、自然语言驱动FFmpeg命令生成（剪辑/裁剪/转换/压缩）与多功能视频编辑（剪切/合并/格式转换/提取音频/添加字幕），到自动生成视频脚本字幕标题与Remotion+React程序化视频创作的完整视频剪辑工作流。覆盖素材处理、智能剪辑、格式转换、程序化创作全链路。",
+      "description_en": "Expert workflow for Media Video Editing Expert.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "AI 对话式视频剪辑",
+          "label_en": "Workflow step 1",
+          "prompt_zh": "请作为「视频剪辑专家」，帮我完成「AI 对话式视频剪辑」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Video Editing Expert, help me with: Workflow step 1.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "自动精彩片段提取",
+          "label_en": "Workflow step 2",
+          "prompt_zh": "请作为「视频剪辑专家」，帮我完成「自动精彩片段提取」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Video Editing Expert, help me with: Workflow step 2.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "自然语言驱动 FFmpeg",
+          "label_en": "Workflow step 3",
+          "prompt_zh": "请作为「视频剪辑专家」，帮我完成「自然语言驱动 FFmpeg」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Video Editing Expert, help me with: Workflow step 3.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "多功能视频编辑",
+          "label_en": "Workflow step 4",
+          "prompt_zh": "请作为「视频剪辑专家」，帮我完成「多功能视频编辑」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Video Editing Expert, help me with: Workflow step 4.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "脚本字幕标题自动生成",
+          "label_en": "Workflow step 5",
+          "prompt_zh": "请作为「视频剪辑专家」，帮我完成「脚本字幕标题自动生成」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Video Editing Expert, help me with: Workflow step 5.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "程序化视频创作",
+          "label_en": "Workflow step 6",
+          "prompt_zh": "请作为「视频剪辑专家」，帮我完成「程序化视频创作」。\n我的情况/目标/材料是：\n",
+          "prompt_en": "As the Media Video Editing Expert, help me with: Workflow step 6.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": [
+        {
+          "slug": "ai-agentic-video-editor",
+          "name": "media-video-editing-ai-agentic-video-editor",
+          "display_zh": "ai-agentic-video-editor",
+          "display_en": "ai-agentic-video-editor"
+        },
+        {
+          "slug": "ai-video-clipper",
+          "name": "media-video-editing-ai-video-clipper",
+          "display_zh": "ai-video-clipper",
+          "display_en": "ai-video-clipper"
+        },
+        {
+          "slug": "ffmpeg-video-editor",
+          "name": "media-video-editing-ffmpeg-video-editor",
+          "display_zh": "ffmpeg-video-editor",
+          "display_en": "ffmpeg-video-editor"
+        },
+        {
+          "slug": "remotion-video-toolkit",
+          "name": "media-video-editing-remotion-video-toolkit",
+          "display_zh": "remotion-video-toolkit",
+          "display_en": "remotion-video-toolkit"
+        },
+        {
+          "slug": "video-clip-assistant",
+          "name": "media-video-editing-video-clip-assistant",
+          "display_zh": "video-clip-assistant",
+          "display_en": "video-clip-assistant"
+        },
+        {
+          "slug": "video-editor",
+          "name": "media-video-editing-video-editor",
+          "display_zh": "video-editor",
+          "display_en": "video-editor"
+        }
+      ]
+    }
+  ]
+}

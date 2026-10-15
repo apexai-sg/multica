@@ -28,11 +28,11 @@ const (
 	auroraTestTaskID    = "11111111-1111-4111-8111-111111111111"
 	auroraTestStagingID = "22222222-2222-4222-8222-222222222222"
 	auroraTestSinkID    = "33333333-3333-4333-8333-333333333333"
-	auroraTestSkill     = "xhs-image"
+	auroraTestSkill     = "ecommerce-bidding-strategy"
 )
 
-// auroraTestPNG is the shortest prefix http.DetectContentType reports as PNG.
-const auroraTestPNG = "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+// auroraTestText is the delivered content every local artifact writes.
+const auroraTestText = "# Aurora artifact" + "\n\n" + "body" + "\n"
 
 func auroraTestDigest(content string) string {
 	sum := sha256.Sum256([]byte(content))
@@ -40,7 +40,7 @@ func auroraTestDigest(content string) string {
 }
 
 func auroraTestProducer() auroraManifestProducer {
-	return auroraManifestProducer{ID: "byted-ark-seedream-skill", Version: "4.0.0"}
+	return auroraManifestProducer{ID: "multica-aurora-runtime", Version: "1.0.0"}
 }
 
 func auroraTestManifest(artifacts ...auroraManifestArtifact) auroraManifest {
@@ -69,10 +69,10 @@ func auroraTestLocalArtifact(t *testing.T, root, id, relPath, name, content stri
 		ID:        id,
 		Source:    auroraManifestSource{Type: "file", RelativePath: relPath},
 		Name:      name,
-		Kind:      "image",
+		Kind:      "text",
 		Role:      "primary",
-		Format:    "png",
-		MIMEType:  "image/png",
+		Format:    "md",
+		MIMEType:  "text/markdown",
 		SizeBytes: int64(len(content)),
 		SHA256:    auroraTestDigest(content),
 		Metadata:  map[string]any{},
@@ -84,10 +84,10 @@ func auroraTestStagedArtifact(id, name string) auroraManifestArtifact {
 		ID:        id,
 		Source:    auroraManifestSource{Type: "staged_object", StagingID: auroraTestStagingID},
 		Name:      name,
-		Kind:      "image",
+		Kind:      "text",
 		Role:      "supporting",
-		Format:    "png",
-		MIMEType:  "image/png",
+		Format:    "md",
+		MIMEType:  "text/markdown",
 		SizeBytes: 4096,
 		SHA256:    "sha256:" + strings.Repeat("a", 64),
 		Metadata:  map[string]any{"origin": "provider"},
@@ -157,8 +157,8 @@ func collectAuroraTestManifest(t *testing.T, root string, m auroraManifest) erro
 
 func TestAuroraManifestCollectsMixedLocalAndStagedArtifacts(t *testing.T) {
 	root := t.TempDir()
-	local := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.png", "primary-1.png", auroraTestPNG)
-	staged := auroraTestStagedArtifact("secondary-1", "support.png")
+	local := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.md", "primary-1.md", auroraTestText)
+	staged := auroraTestStagedArtifact("secondary-1", "support.md")
 	writeAuroraTestManifest(t, root, auroraTestManifest(local, staged))
 
 	sink := newAuroraTestSink()
@@ -172,16 +172,16 @@ func TestAuroraManifestCollectsMixedLocalAndStagedArtifacts(t *testing.T) {
 	if len(sink.uploads) != 1 {
 		t.Fatalf("uploads = %d, want 1 (only the local file is uploaded)", len(sink.uploads))
 	}
-	if sink.contents[0] != auroraTestPNG {
+	if sink.contents[0] != auroraTestText {
 		t.Errorf("uploaded bytes = %q, want the local file's bytes", sink.contents[0])
 	}
 	if got[0].StagingID != auroraTestSinkID {
 		t.Errorf("local staging id = %q, want the upload result %q", got[0].StagingID, auroraTestSinkID)
 	}
-	if got[0].ManifestArtifactID != "primary-1" || got[0].Role != "primary" || got[0].Kind != "image" {
+	if got[0].ManifestArtifactID != "primary-1" || got[0].Role != "primary" || got[0].Kind != "text" {
 		t.Errorf("local artifact = %+v", got[0])
 	}
-	if got[0].SizeBytes != int64(len(auroraTestPNG)) || got[0].SHA256 != auroraTestDigest(auroraTestPNG) {
+	if got[0].SizeBytes != int64(len(auroraTestText)) || got[0].SHA256 != auroraTestDigest(auroraTestText) {
 		t.Errorf("local artifact recomputed size/sha = %d/%s", got[0].SizeBytes, got[0].SHA256)
 	}
 	if got[1].StagingID != auroraTestStagingID {
@@ -233,14 +233,14 @@ func TestAuroraManifestRejectsIdentityMismatches(t *testing.T) {
 		{"schema", func(m *auroraManifest) { m.Schema = "com.example.other" }},
 		{"version", func(m *auroraManifest) { m.Version = 2 }},
 		{"task", func(m *auroraManifest) { m.TaskID = "99999999-9999-4999-8999-999999999999" }},
-		{"skill", func(m *auroraManifest) { m.SkillID = "text-image" }},
+		{"skill", func(m *auroraManifest) { m.SkillID = "legal-contract-drafting" }},
 		{"producer id", func(m *auroraManifest) { m.Producer.ID = "some-other-producer" }},
 		{"producer version empty", func(m *auroraManifest) { m.Producer.Version = "" }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
-			local := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.png", "primary-1.png", auroraTestPNG)
+			local := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.md", "primary-1.md", auroraTestText)
 			m := auroraTestManifest(local)
 			tc.mutate(&m)
 			if err := collectAuroraTestManifest(t, root, m); err == nil {
@@ -252,7 +252,7 @@ func TestAuroraManifestRejectsIdentityMismatches(t *testing.T) {
 
 func TestAuroraManifestRejectsMissingPrimary(t *testing.T) {
 	root := t.TempDir()
-	secondary := auroraTestLocalArtifact(t, root, "secondary-1", "artifacts/secondary-1.png", "secondary-1.png", auroraTestPNG)
+	secondary := auroraTestLocalArtifact(t, root, "secondary-1", "artifacts/secondary-1.md", "secondary-1.md", auroraTestText)
 	secondary.Role = "supporting"
 	if err := collectAuroraTestManifest(t, root, auroraTestManifest(secondary)); !errors.Is(err, errAuroraManifestNoPrimary) {
 		t.Fatalf("no-primary error = %v, want errAuroraManifestNoPrimary", err)
@@ -261,7 +261,7 @@ func TestAuroraManifestRejectsMissingPrimary(t *testing.T) {
 
 func TestAuroraManifestRejectsPrimaryKindOutsideCatalogOutput(t *testing.T) {
 	root := t.TempDir()
-	primary := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.png", "primary-1.png", auroraTestPNG)
+	primary := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.md", "primary-1.md", auroraTestText)
 	primary.Kind = "video"
 	primary.Format = "mp4"
 	primary.MIMEType = "video/mp4"
@@ -277,18 +277,18 @@ func TestAuroraManifestRejectsDuplicateIdentity(t *testing.T) {
 		build func(t *testing.T, root string) []auroraManifestArtifact
 	}{
 		{"ids", func(t *testing.T, root string) []auroraManifestArtifact {
-			a := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/a.png", "a.png", auroraTestPNG)
-			b := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/b.png", "b.png", auroraTestPNG)
+			a := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/a.md", "a.md", auroraTestText)
+			b := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/b.md", "b.md", auroraTestText)
 			return []auroraManifestArtifact{a, b}
 		}},
 		{"paths", func(t *testing.T, root string) []auroraManifestArtifact {
-			a := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/a.png", "a.png", auroraTestPNG)
-			b := auroraTestLocalArtifact(t, root, "primary-2", "artifacts/a.png", "b.png", auroraTestPNG)
+			a := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/a.md", "a.md", auroraTestText)
+			b := auroraTestLocalArtifact(t, root, "primary-2", "artifacts/a.md", "b.md", auroraTestText)
 			return []auroraManifestArtifact{a, b}
 		}},
 		{"names", func(t *testing.T, root string) []auroraManifestArtifact {
-			a := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/a.png", "same.png", auroraTestPNG)
-			b := auroraTestLocalArtifact(t, root, "primary-2", "artifacts/b.png", "same.png", auroraTestPNG)
+			a := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/a.md", "same.md", auroraTestText)
+			b := auroraTestLocalArtifact(t, root, "primary-2", "artifacts/b.md", "same.md", auroraTestText)
 			return []auroraManifestArtifact{a, b}
 		}},
 	}
@@ -305,16 +305,16 @@ func TestAuroraManifestRejectsDuplicateIdentity(t *testing.T) {
 func TestAuroraManifestRejectsUnsafePaths(t *testing.T) {
 	cases := []struct{ name, path string }{
 		{"absolute", "/etc/passwd"},
-		{"traversal", "../outside.png"},
-		{"nested traversal", "artifacts/../../outside.png"},
-		{"volume", "C:/windows/out.png"},
-		{"backslash", "artifacts\\out.png"},
-		{"nul", "artifacts/out\x00.png"},
+		{"traversal", "../outside.md"},
+		{"nested traversal", "artifacts/../../outside.md"},
+		{"volume", "C:/windows/out.md"},
+		{"backslash", "artifacts\\out.md"},
+		{"nul", "artifacts/out\x00.md"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
-			artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/ok.png", "ok.png", auroraTestPNG)
+			artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/ok.md", "ok.md", auroraTestText)
 			artifact.Source.RelativePath = tc.path
 			if err := collectAuroraTestManifest(t, root, auroraTestManifest(artifact)); !errors.Is(err, errAuroraManifestUnsafePath) {
 				t.Fatalf("unsafe path error = %v, want errAuroraManifestUnsafePath", err)
@@ -325,12 +325,12 @@ func TestAuroraManifestRejectsUnsafePaths(t *testing.T) {
 
 func TestAuroraManifestRejectsSymlink(t *testing.T) {
 	root := t.TempDir()
-	target := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/real.png", "real.png", auroraTestPNG)
-	link := filepath.Join(root, "artifacts", "link.png")
-	if err := os.Symlink(filepath.Join(root, "artifacts", "real.png"), link); err != nil {
+	target := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/real.md", "real.md", auroraTestText)
+	link := filepath.Join(root, "artifacts", "link.md")
+	if err := os.Symlink(filepath.Join(root, "artifacts", "real.md"), link); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
-	target.Source.RelativePath = "artifacts/link.png"
+	target.Source.RelativePath = "artifacts/link.md"
 	if err := collectAuroraTestManifest(t, root, auroraTestManifest(target)); !errors.Is(err, errAuroraManifestUnsafeFile) {
 		t.Fatalf("symlink error = %v, want errAuroraManifestUnsafeFile", err)
 	}
@@ -338,12 +338,12 @@ func TestAuroraManifestRejectsSymlink(t *testing.T) {
 
 func TestAuroraManifestRejectsHardLink(t *testing.T) {
 	root := t.TempDir()
-	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/real.png", "real.png", auroraTestPNG)
-	hard := filepath.Join(root, "artifacts", "hard.png")
-	if err := os.Link(filepath.Join(root, "artifacts", "real.png"), hard); err != nil {
+	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/real.md", "real.md", auroraTestText)
+	hard := filepath.Join(root, "artifacts", "hard.md")
+	if err := os.Link(filepath.Join(root, "artifacts", "real.md"), hard); err != nil {
 		t.Skipf("hard links unavailable: %v", err)
 	}
-	artifact.Source.RelativePath = "artifacts/hard.png"
+	artifact.Source.RelativePath = "artifacts/hard.md"
 	if err := collectAuroraTestManifest(t, root, auroraTestManifest(artifact)); !errors.Is(err, errAuroraManifestUnsafeFile) {
 		t.Fatalf("hard link error = %v, want errAuroraManifestUnsafeFile", err)
 	}
@@ -373,7 +373,7 @@ func TestAuroraManifestRejectsNonRegularFiles(t *testing.T) {
 				}
 				t.Cleanup(func() { _ = listener.Close() })
 			}
-			artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/ok.png", "ok.png", auroraTestPNG)
+			artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/ok.md", "ok.md", auroraTestText)
 			artifact.Source.RelativePath = tc.path
 			if err := collectAuroraTestManifest(t, root, auroraTestManifest(artifact)); !errors.Is(err, errAuroraManifestUnsafeFile) {
 				t.Fatalf("non-regular error = %v, want errAuroraManifestUnsafeFile", err)
@@ -384,11 +384,11 @@ func TestAuroraManifestRejectsNonRegularFiles(t *testing.T) {
 
 func TestAuroraManifestRejectsChangedAfterPublication(t *testing.T) {
 	root := t.TempDir()
-	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.png", "primary-1.png", auroraTestPNG)
+	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.md", "primary-1.md", auroraTestText)
 	// Same byte length, different content: only the recomputed hash can catch
 	// a file that was replaced after the manifest recorded it.
-	replacement := strings.Repeat("Z", len(auroraTestPNG))
-	if err := os.WriteFile(filepath.Join(root, "artifacts", "primary-1.png"), []byte(replacement), 0o600); err != nil {
+	replacement := strings.Repeat("Z", len(auroraTestText))
+	if err := os.WriteFile(filepath.Join(root, "artifacts", "primary-1.md"), []byte(replacement), 0o600); err != nil {
 		t.Fatalf("replace artifact: %v", err)
 	}
 	if err := collectAuroraTestManifest(t, root, auroraTestManifest(artifact)); !errors.Is(err, errAuroraManifestMismatch) {
@@ -398,8 +398,8 @@ func TestAuroraManifestRejectsChangedAfterPublication(t *testing.T) {
 
 func TestAuroraManifestRejectsSizeMismatch(t *testing.T) {
 	root := t.TempDir()
-	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.png", "primary-1.png", auroraTestPNG)
-	artifact.SizeBytes = int64(len(auroraTestPNG) + 1)
+	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.md", "primary-1.md", auroraTestText)
+	artifact.SizeBytes = int64(len(auroraTestText) + 1)
 	if err := collectAuroraTestManifest(t, root, auroraTestManifest(artifact)); !errors.Is(err, errAuroraManifestMismatch) {
 		t.Fatalf("size mismatch error = %v, want errAuroraManifestMismatch", err)
 	}
@@ -407,7 +407,7 @@ func TestAuroraManifestRejectsSizeMismatch(t *testing.T) {
 
 func TestAuroraManifestRejectsHashMismatch(t *testing.T) {
 	root := t.TempDir()
-	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.png", "primary-1.png", auroraTestPNG)
+	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.md", "primary-1.md", auroraTestText)
 	artifact.SHA256 = "sha256:" + strings.Repeat("b", 64)
 	if err := collectAuroraTestManifest(t, root, auroraTestManifest(artifact)); !errors.Is(err, errAuroraManifestMismatch) {
 		t.Fatalf("hash mismatch error = %v, want errAuroraManifestMismatch", err)
@@ -427,7 +427,7 @@ func TestAuroraManifestRejectsFormatMismatch(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
-			artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.png", "primary-1.png", auroraTestPNG)
+			artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.md", "primary-1.md", auroraTestText)
 			tc.mutate(&artifact)
 			if err := collectAuroraTestManifest(t, root, auroraTestManifest(artifact)); err == nil {
 				t.Fatalf("format mismatch %q was accepted", tc.name)
@@ -438,21 +438,22 @@ func TestAuroraManifestRejectsFormatMismatch(t *testing.T) {
 
 func TestAuroraManifestRejectsContentKindMismatch(t *testing.T) {
 	root := t.TempDir()
-	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.png", "primary-1.png", auroraTestPNG)
-	// Declared image, real bytes are text.
-	artifact.SizeBytes = int64(len("hello"))
-	artifact.SHA256 = auroraTestDigest("hello")
-	if err := os.WriteFile(filepath.Join(root, "artifacts", "primary-1.png"), []byte("hello"), 0o600); err != nil {
+	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.md", "primary-1.md", auroraTestText)
+	// Declared text, real bytes are an image.
+	png := "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+	artifact.SizeBytes = int64(len(png))
+	artifact.SHA256 = auroraTestDigest(png)
+	if err := os.WriteFile(filepath.Join(root, "artifacts", "primary-1.md"), []byte(png), 0o600); err != nil {
 		t.Fatalf("rewrite artifact: %v", err)
 	}
 	if err := collectAuroraTestManifest(t, root, auroraTestManifest(artifact)); err == nil {
-		t.Fatal("declared image whose content is text was accepted")
+		t.Fatal("declared text whose content is an image was accepted")
 	}
 }
 
 func TestAuroraManifestRejectsExtensionMismatch(t *testing.T) {
 	root := t.TempDir()
-	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.png", "primary-1.mp4", auroraTestPNG)
+	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.md", "primary-1.mp4", auroraTestText)
 	if err := collectAuroraTestManifest(t, root, auroraTestManifest(artifact)); err == nil {
 		t.Fatal("artifact name extension that disagrees with its kind was accepted")
 	}
@@ -463,35 +464,22 @@ func TestAuroraManifestRejectsTooManyArtifacts(t *testing.T) {
 	artifacts := make([]auroraManifestArtifact, 0, auroraManifestMaxArtifacts+1)
 	for i := 0; i <= auroraManifestMaxArtifacts; i++ {
 		id := "primary-" + string(rune('a'+i))
-		name := id + ".png"
-		artifacts = append(artifacts, auroraTestLocalArtifact(t, root, id, "artifacts/"+name, name, auroraTestPNG))
+		name := id + ".md"
+		artifacts = append(artifacts, auroraTestLocalArtifact(t, root, id, "artifacts/"+name, name, auroraTestText))
 	}
 	if err := collectAuroraTestManifest(t, root, auroraTestManifest(artifacts...)); !errors.Is(err, errAuroraManifestTooMany) {
 		t.Fatalf("too-many error = %v, want errAuroraManifestTooMany", err)
 	}
 }
 
-func TestAuroraManifestRejectsTotalSize(t *testing.T) {
-	root := t.TempDir()
-	// Each artifact is at its own kind cap (500 MiB video) but together they
-	// exceed the 600 MiB manifest total.
-	a := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/a.png", "a.mp4", auroraTestPNG)
-	a.Kind, a.Format, a.MIMEType = "video", "mp4", "video/mp4"
-	a.SizeBytes = auroraArtifactMaxVideoBytes
-	a.SHA256 = "sha256:" + strings.Repeat("a", 64)
-	b := auroraTestLocalArtifact(t, root, "primary-2", "artifacts/b.png", "b.mp4", auroraTestPNG)
-	b.Kind, b.Format, b.MIMEType = "video", "mp4", "video/mp4"
-	b.Role = "supporting"
-	b.SizeBytes = auroraArtifactMaxVideoBytes
-	b.SHA256 = "sha256:" + strings.Repeat("b", 64)
-	if err := collectAuroraTestManifest(t, root, auroraTestManifest(a, b)); !errors.Is(err, errAuroraManifestTotalTooLarge) {
-		t.Fatalf("total-size error = %v, want errAuroraManifestTotalTooLarge", err)
-	}
-}
+// The 600 MiB manifest total guard is not reachable through the current
+// catalog: every expert declares text only, the text kind caps at 25 MiB and a
+// manifest carries at most 20 artifacts, which is 500 MiB. The guard stays as
+// defence in depth for a future route with a larger kind.
 
 func TestAuroraManifestRejectsMetadataDepth(t *testing.T) {
 	root := t.TempDir()
-	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.png", "primary-1.png", auroraTestPNG)
+	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.md", "primary-1.md", auroraTestText)
 	artifact.Metadata = auroraTestNestedMetadata(auroraManifestMaxMetadataDepth + 4)
 	if err := collectAuroraTestManifest(t, root, auroraTestManifest(artifact)); err == nil {
 		t.Fatal("over-deep metadata was accepted")
@@ -500,7 +488,7 @@ func TestAuroraManifestRejectsMetadataDepth(t *testing.T) {
 
 func TestAuroraManifestRejectsMetadataSize(t *testing.T) {
 	root := t.TempDir()
-	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.png", "primary-1.png", auroraTestPNG)
+	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.md", "primary-1.md", auroraTestText)
 	artifact.Metadata = map[string]any{"blob": strings.Repeat("x", auroraManifestMaxMetadataBytes+1)}
 	if err := collectAuroraTestManifest(t, root, auroraTestManifest(artifact)); err == nil {
 		t.Fatal("oversized metadata was accepted")
@@ -509,7 +497,7 @@ func TestAuroraManifestRejectsMetadataSize(t *testing.T) {
 
 func TestAuroraManifestRejectsForeignStagingID(t *testing.T) {
 	root := t.TempDir()
-	staged := auroraTestStagedArtifact("primary-1", "primary-1.png")
+	staged := auroraTestStagedArtifact("primary-1", "primary-1.md")
 	staged.Role = "primary"
 	staged.Source.StagingID = "not-a-uuid"
 	if err := collectAuroraTestManifest(t, root, auroraTestManifest(staged)); err == nil {
@@ -519,9 +507,9 @@ func TestAuroraManifestRejectsForeignStagingID(t *testing.T) {
 
 func TestAuroraManifestRejectsUnsafeStagedSize(t *testing.T) {
 	root := t.TempDir()
-	staged := auroraTestStagedArtifact("primary-1", "primary-1.png")
+	staged := auroraTestStagedArtifact("primary-1", "primary-1.md")
 	staged.Role = "primary"
-	staged.SizeBytes = (500 << 20) + 1
+	staged.SizeBytes = auroraArtifactMaxTextBytes + 1
 	if err := collectAuroraTestManifest(t, root, auroraTestManifest(staged)); err == nil {
 		t.Fatal("staged object above the per-kind cap was accepted")
 	}
@@ -544,7 +532,7 @@ func auroraTestNestedMetadata(depth int) map[string]any {
 // vocabulary aligned with the handler's storage contract.
 func TestAuroraManifestRejectsUnknownArtifactKind(t *testing.T) {
 	root := t.TempDir()
-	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.png", "primary-1.png", auroraTestPNG)
+	artifact := auroraTestLocalArtifact(t, root, "primary-1", "artifacts/primary-1.md", "primary-1.md", auroraTestText)
 	artifact.Kind = "audio"
 	if err := collectAuroraTestManifest(t, root, auroraTestManifest(artifact)); err == nil {
 		t.Fatal("unknown artifact kind was accepted")

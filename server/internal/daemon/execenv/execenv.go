@@ -906,6 +906,13 @@ func Reuse(params ReuseParams, logger *slog.Logger) *Environment {
 	// case to avoid creating a stray manifest at the filesystem root.
 	manifest := &sidecarManifest{}
 	if err := writeContextFiles(params.WorkDir, params.Provider, params.Task, manifest); err != nil {
+		// The refresh above already removed the prior skill directories. An
+		// Aurora follow-up that continues here would run without the expert
+		// tree. Decline so the caller falls back to Prepare, which fails closed.
+		if params.Task.AuroraSkillID != "" {
+			logger.Warn("execenv: refresh context files failed; forcing fresh prepare", "error", err)
+			return nil
+		}
 		logger.Warn("execenv: refresh context files failed", "error", err)
 	}
 	if err := prepareOmpMcpConfig(params.WorkDir, params.Provider, params.McpConfig, manifest); err != nil {

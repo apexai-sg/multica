@@ -21,7 +21,7 @@ const (
 	auroraTaskTestGeneration  = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 	auroraTaskTestWorkspaceID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
 	auroraTaskTestAgentID     = "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
-	auroraTaskTestSkill       = "text-image"
+	auroraTaskTestSkill       = "ecommerce-bidding-strategy"
 )
 
 // auroraTaskTestTask is a claimed Aurora system-agent run: the trusted skill
@@ -37,9 +37,9 @@ func auroraTaskTestTask() Task {
 		QuickCreatePrompt: "a poster about clouds",
 		Agent: &AgentData{
 			ID:        auroraTaskTestAgentID,
-			Name:      "aurora-text-image",
+			Name:      "aurora-ecommerce-bidding-strategy",
 			SystemKey: "aurora:" + auroraTaskTestSkill,
-			Skills:    []SkillData{{ID: "text-image-skill", Source: "workspace", Name: "文字生成图片", Content: "# Text to Image\nCreate the requested image and artifact manifest."}},
+			Skills:    []SkillData{{ID: "ecommerce-bidding-strategy-skill", Source: "workspace", Name: "竞价策略专家", Content: "# Ecommerce Bidding Strategy\nProduce the deliverable and the artifact manifest."}},
 			// An agent-level MCP server is an ordinary feature. An Aurora task
 			// must keep it exactly as any other task does.
 			McpConfig: json.RawMessage(`{"mcpServers":{"team-tools":{"command":"node","args":["server.js"]}}}`),

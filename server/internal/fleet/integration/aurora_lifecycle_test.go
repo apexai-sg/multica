@@ -392,7 +392,7 @@ func RoundTripAuroraLifecycle(ctx context.Context, t *testing.T) error {
 		} `json:"generation"`
 	}
 	if err := api.call(ctx, http.MethodPost, "/api/aurora/generations", "", map[string]any{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  "aurora lifecycle " + suffix,
 	}, &created); err != nil {
 		return fmt.Errorf("API create generation: %w", err)

@@ -106,7 +106,13 @@ ARK 兼容 Anthropic Messages 协议，因此图片、视频与文字 skill 复�
 
 Aurora 使用普通智能体的 shell、供应商 CLI 与 Multica CLI，由技能文档驱动。模型写入 `.multica/aurora-artifacts.v1.json`；守护进程独立校验路径、文件类型与链接数、大小、MIME 和 SHA-256。供应商调用记录仅用于记账，不再有防重复计费的强制力。
 
-目前只有 `text-image` 已重写为可执行步骤。用户明确跳过 #199（其余 12 份重写）；删除旧运行时不代表 13 个技能全部可运行。旧源码可从 `2a2cef75fa16ec893960118dd70844c1251cb973` 恢复。
+目录里的每个条目都带可执行步骤。API 只嵌入 `server/internal/aurora/experts/` 下的 24 份 brief。子技能正文、references 和 scripts 在 `aurora-experts/`，不在节点镜像里。第一次生成前导入到节点：
+
+```bash
+node scripts/aurora-import-experts.mjs --import /opt/aurora/experts
+```
+
+运行时镜像设置 `AURORA_EXPERTS_DIR=/opt/aurora/experts`。领取任务时，守护进程把该专家的目录拷进任务的 `.claude/skills/`。更新技能只重跑导入，不重建 API 或节点镜像。原来的 16 个手写技能及其 Seedream/Seedance/ASR 路由已退役，因此没有专家会发起 provider run。旧源码可从 `2a2cef75fa16ec893960118dd70844c1251cb973` 恢复。
 
 ### Aurora 崩溃语义与恢复
 

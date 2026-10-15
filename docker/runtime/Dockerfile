@@ -35,8 +35,12 @@ COPY --from=builder /out/ /usr/local/bin/
 RUN ldd /usr/local/bin/node && /usr/local/bin/node --version && /usr/local/bin/claude --version
 # Fixed layout owned by the node UID so a fresh named volume mounted at /data or
 # /secrets is initialised writable for the non-root node and bootstrap helper.
-RUN install -d -o 10001 -g 10001 -m 0700 /data /data/home /data/workspaces /secrets
+# /opt/aurora/experts is empty until scripts/aurora-import-experts.mjs --import
+# fills it. The tree is not copied into the image, so a skill update does not
+# rebuild this image or the API.
+RUN install -d -o 10001 -g 10001 -m 0700 /data /data/home /data/workspaces /secrets \
+ && install -d -o 10001 -g 10001 -m 0755 /opt/aurora/experts
 USER 10001:10001
-ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin HOME=/data/home
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin HOME=/data/home AURORA_EXPERTS_DIR=/opt/aurora/experts
 ENTRYPOINT ["/usr/local/bin/fleet-node","run"]
 HEALTHCHECK --interval=5s --timeout=5s CMD ["/usr/local/bin/fleet-node","health"]

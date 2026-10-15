@@ -125,7 +125,13 @@ environment, never a mounted file.
 
 Aurora runs on the ordinary agent surface: shell, provider CLI and Multica CLI, driven by the skill document. The model writes `.multica/aurora-artifacts.v1.json`; the daemon independently validates paths, file type/link count, size, MIME and SHA-256. Provider-run records are bookkeeping only and cannot prevent duplicate billable calls.
 
-Only `text-image` has been rewritten as executable steps. The owner waived #199 (the remaining 12 rewrites); removing the old runtime does not make all 13 skills operational. Removed source remains recoverable at `2a2cef75fa16ec893960118dd70844c1251cb973`.
+Every catalog entry carries executable steps. The API embeds only the 24 briefs under `server/internal/aurora/experts/`. Sub-skill bodies, references and scripts live in `aurora-experts/` and are not in the node image. Import them onto the node before the first generation:
+
+```bash
+node scripts/aurora-import-experts.mjs --import /opt/aurora/experts
+```
+
+The runtime image sets `AURORA_EXPERTS_DIR=/opt/aurora/experts`. On claim, the daemon copies that expert's directories into the task `.claude/skills/`. A skill update reruns the import. It does not rebuild the API or the node image. The sixteen hand-written skills and their Seedream/Seedance/ASR routes are retired, so no expert opens a provider run. Removed source remains recoverable at `2a2cef75fa16ec893960118dd70844c1251cb973`.
 
 ### Aurora crash semantics and recovery
 

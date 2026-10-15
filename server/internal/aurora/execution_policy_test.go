@@ -70,92 +70,110 @@ func attachmentID(i int) string {
 	return fmt.Sprintf("aaaaaaaa-0000-0000-0000-%012d", i)
 }
 
-// TestValidateSkillInputsMatrix is the acceptance matrix for the input rules in
-// the plan: every available skill's declared attachment set, plus the shape
-// failures (too many files, mixed kinds, none where one is required).
+// policyFor builds a skill policy directly. The generic input validator must
+// stay testable on its own: the rules every vendored expert ships with are
+// pinned separately, by TestExpertInputRulesMatchTheCuratedTable.
+func policyFor(skillID string, constraints ...aurora.AttachmentConstraint) aurora.SkillExecutionPolicy {
+	return aurora.SkillExecutionPolicy{
+		SkillID:     skillID,
+		Route:       "claude-text",
+		Attachments: constraints,
+		OutputKinds: []string{"text"},
+	}
+}
+
+func documentConstraint(min, max int) aurora.AttachmentConstraint {
+	return aurora.AttachmentConstraint{
+		Kinds:    []aurora.AttachmentKind{aurora.AttachmentDocument},
+		Min:      min,
+		Max:      max,
+		MaxBytes: 25 << 20,
+	}
+}
+
+func imageConstraint(min, max int) aurora.AttachmentConstraint {
+	return aurora.AttachmentConstraint{
+		Kinds:    []aurora.AttachmentKind{aurora.AttachmentImage},
+		Min:      min,
+		Max:      max,
+		MaxBytes: 25 << 20,
+	}
+}
+
+func mediaConstraint(kinds ...aurora.AttachmentKind) aurora.AttachmentConstraint {
+	return aurora.AttachmentConstraint{Kinds: kinds, Min: 1, Max: 1, MaxBytes: 100 << 20}
+}
+
+// TestValidateSkillInputsMatrix is the acceptance matrix for the input rules:
+// every shape the validator must accept or reject, over documents, images and
+// audio-or-video constraints.
 func TestValidateSkillInputsMatrix(t *testing.T) {
+	documents := policyFor("doc-skill", documentConstraint(0, 1))
+	images := policyFor("image-skill", imageConstraint(0, 4))
+	requiredImage := policyFor("image-required", imageConstraint(1, 1))
+	audioOrVideo := policyFor("media-skill", mediaConstraint(aurora.AttachmentAudio, aurora.AttachmentVideo))
+
 	cases := []struct {
-		name  string
-		skill string
-		kinds []string
-		want  bool
+		name   string
+		policy aurora.SkillExecutionPolicy
+		kinds  []string
+		want   bool
 	}{
-		{"poster accepts no files", "poster", nil, true},
-		{"poster accepts four images", "poster", []string{"image", "image", "image", "image"}, true},
-		{"poster rejects five images", "poster", []string{"image", "image", "image", "image", "image"}, false},
-		{"poster rejects a mixed batch", "poster", []string{"image", "document"}, false},
-		{"xhs-image accepts no files", "xhs-image", nil, true},
-		{"product-image accepts reference images", "product-image", []string{"image", "image"}, true},
-		{"text-image accepts no files", "text-image", nil, true},
-		{"text-image rejects an image", "text-image", []string{"image"}, false},
-		{"image-edit accepts one image", "image-edit", []string{"image"}, true},
-		{"image-edit accepts four images", "image-edit", []string{"image", "image", "image", "image"}, true},
-		{"image-edit rejects no files", "image-edit", nil, false},
-		{"image-edit rejects five images", "image-edit", []string{"image", "image", "image", "image", "image"}, false},
-		{"image-edit rejects a mixed batch", "image-edit", []string{"image", "document"}, false},
-		{"id-photo accepts exactly one image", "id-photo", []string{"image"}, true},
-		{"id-photo rejects two images", "id-photo", []string{"image", "image"}, false},
-		{"image-video accepts exactly one image", "image-video", []string{"image"}, true},
-		{"image-video rejects two images", "image-video", []string{"image", "image"}, false},
-		{"text-video accepts no files", "text-video", nil, true},
-		{"text-video rejects an image", "text-video", []string{"image"}, false},
-		{"video-captions accepts one video", "video-captions", []string{"video"}, true},
-		{"video-captions rejects an image", "video-captions", []string{"image"}, false},
-		{"xhs-copy accepts no files", "xhs-copy", nil, true},
-		{"xhs-copy accepts one document", "xhs-copy", []string{"document"}, true},
-		{"xhs-copy rejects two documents", "xhs-copy", []string{"document", "document"}, false},
-		{"resume accepts no files", "resume", nil, true},
-		{"resume accepts one document", "resume", []string{"document"}, true},
-		{"document-summary accepts one document", "document-summary", []string{"document"}, true},
-		{"document-summary rejects no files", "document-summary", nil, false},
-		{"transcription accepts audio", "transcription", []string{"audio"}, true},
-		{"transcription accepts video", "transcription", []string{"video"}, true},
-		{"transcription rejects audio and video together", "transcription", []string{"audio", "video"}, false},
-		{"transcription rejects a document", "transcription", []string{"document"}, false},
+		{"document skill accepts no files", documents, nil, true},
+		{"document skill accepts one document", documents, []string{"document"}, true},
+		{"document skill rejects two documents", documents, []string{"document", "document"}, false},
+		{"document skill rejects an image", documents, []string{"image"}, false},
+		{"image skill accepts no files", images, nil, true},
+		{"image skill accepts four images", images, []string{"image", "image", "image", "image"}, true},
+		{"image skill rejects five images", images, []string{"image", "image", "image", "image", "image"}, false},
+		{"image skill rejects a mixed batch", images, []string{"image", "document"}, false},
+		{"required image rejects no files", requiredImage, nil, false},
+		{"required image accepts one image", requiredImage, []string{"image"}, true},
+		{"required image rejects two images", requiredImage, []string{"image", "image"}, false},
+		{"media skill accepts audio", audioOrVideo, []string{"audio"}, true},
+		{"media skill accepts video", audioOrVideo, []string{"video"}, true},
+		{"media skill rejects audio and video together", audioOrVideo, []string{"audio", "video"}, false},
+		{"media skill rejects a document", audioOrVideo, []string{"document"}, false},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			policy, ok := aurora.ExecutionPolicy(tc.skill)
-			if !ok {
-				t.Fatalf("ExecutionPolicy(%q) not found", tc.skill)
-			}
 			files := make([]db.Attachment, 0, len(tc.kinds))
 			for i, kind := range tc.kinds {
 				files = append(files, attachmentOfKind(attachmentID(i), kind))
 			}
 
-			err := aurora.ValidateSkillInputs(policy, files)
+			err := aurora.ValidateSkillInputs(tc.policy, files)
 			if tc.want && err != nil {
-				t.Fatalf("ValidateSkillInputs(%s) = %v, want nil", tc.skill, err)
+				t.Fatalf("ValidateSkillInputs(%s) = %v, want nil", tc.name, err)
 			}
 			if !tc.want && err == nil {
-				t.Fatalf("ValidateSkillInputs(%s) = nil, want an error", tc.skill)
+				t.Fatalf("ValidateSkillInputs(%s) = nil, want an error", tc.name)
 			}
 		})
 	}
 
 	// The remaining rejection classes live here too so the named matrix is
 	// self-contained; the sibling tests below exercise their variations.
-	t.Run("unavailable skills have no policy", func(t *testing.T) {
-		if _, ok := aurora.ExecutionPolicy("avatar-video"); ok {
-			t.Fatal("avatar-video has a policy")
+	t.Run("retired and unknown skills have no policy", func(t *testing.T) {
+		for _, id := range []string{"poster", "avatar-video", "nope"} {
+			if _, ok := aurora.ExecutionPolicy(id); ok {
+				t.Fatalf("ExecutionPolicy(%q) = ok, want absent", id)
+			}
 		}
 	})
 
 	t.Run("MIME and extension mismatch is rejected", func(t *testing.T) {
-		policy, _ := aurora.ExecutionPolicy("poster")
 		file := attachmentRow(attachmentID(0), "photo.png", "application/pdf", 1024)
-		if err := aurora.ValidateSkillInputs(policy, []db.Attachment{file}); err == nil {
+		if err := aurora.ValidateSkillInputs(documents, []db.Attachment{file}); err == nil {
 			t.Fatal("mismatched MIME accepted")
 		}
 	})
 
 	t.Run("missing storage object is rejected", func(t *testing.T) {
-		policy, _ := aurora.ExecutionPolicy("poster")
-		file := attachmentOfKind(attachmentID(0), "image")
+		file := attachmentOfKind(attachmentID(0), "document")
 		file.Url = ""
-		if err := aurora.ValidateSkillInputs(policy, []db.Attachment{file}); err == nil {
+		if err := aurora.ValidateSkillInputs(documents, []db.Attachment{file}); err == nil {
 			t.Fatal("row without a storage object accepted")
 		}
 	})
@@ -177,13 +195,13 @@ func TestValidateSkillInputsMatrix(t *testing.T) {
 // sniffed metadata must catch before provisioning.
 func TestValidateSkillInputsRejectsBadFiles(t *testing.T) {
 	const mib = 1 << 20
-	poster, _ := aurora.ExecutionPolicy("poster")
-	documents, _ := aurora.ExecutionPolicy("document-summary")
-	transcription, _ := aurora.ExecutionPolicy("transcription")
+	documents := policyFor("doc-skill", documentConstraint(0, 1))
+	images := policyFor("image-skill", imageConstraint(0, 4))
+	media := policyFor("media-skill", mediaConstraint(aurora.AttachmentAudio, aurora.AttachmentVideo))
 
-	missingObject := attachmentRow(attachmentID(0), "photo.png", "image/png", 1024)
+	missingObject := attachmentRow(attachmentID(0), "notes.md", "text/markdown", 1024)
 	missingObject.Url = ""
-	anonymous := attachmentRow(attachmentID(0), "photo.png", "image/png", 1024)
+	anonymous := attachmentRow(attachmentID(0), "notes.md", "text/markdown", 1024)
 	anonymous.ID = pgtype.UUID{}
 
 	cases := []struct {
@@ -191,16 +209,15 @@ func TestValidateSkillInputsRejectsBadFiles(t *testing.T) {
 		policy aurora.SkillExecutionPolicy
 		file   db.Attachment
 	}{
-		{"extension and sniffed MIME disagree", poster, attachmentRow(attachmentID(0), "photo.png", "application/pdf", 1024)},
-		{"unknown extension", poster, attachmentRow(attachmentID(0), "photo.gif", "image/gif", 1024)},
-		{"MIME and extension swap image formats", poster, attachmentRow(attachmentID(0), "photo.png", "image/jpeg", 1024)},
-		{"missing storage object", poster, missingObject},
-		{"missing row id", poster, anonymous},
-		{"zero size", poster, attachmentRow(attachmentID(0), "photo.png", "image/png", 0)},
-		{"image over the 25 MiB cap", poster, attachmentRow(attachmentID(0), "photo.png", "image/png", 25*mib+1)},
+		{"extension and sniffed MIME disagree", documents, attachmentRow(attachmentID(0), "photo.png", "application/pdf", 1024)},
+		{"unknown extension", documents, attachmentRow(attachmentID(0), "photo.gif", "image/gif", 1024)},
+		{"missing storage object", documents, missingObject},
+		{"missing row id", documents, anonymous},
+		{"zero size", documents, attachmentRow(attachmentID(0), "notes.md", "text/markdown", 0)},
 		{"document over the 25 MiB cap", documents, attachmentRow(attachmentID(1), "notes.pdf", "application/pdf", 25*mib+1)},
-		{"audio over the 100 MiB cap", transcription, attachmentRow(attachmentID(2), "voice.mp3", "audio/mpeg", 100*mib+1)},
-		{"document format on an audio-only skill", transcription, attachmentRow(attachmentID(3), "notes.md", "text/markdown", 1024)},
+		{"image over the 25 MiB cap", images, attachmentRow(attachmentID(0), "photo.png", "image/png", 25*mib+1)},
+		{"audio over the 100 MiB cap", media, attachmentRow(attachmentID(2), "voice.mp3", "audio/mpeg", 100*mib+1)},
+		{"document format on an audio-or-video skill", media, attachmentRow(attachmentID(3), "notes.md", "text/markdown", 1024)},
 	}
 
 	for _, tc := range cases {
@@ -211,11 +228,11 @@ func TestValidateSkillInputsRejectsBadFiles(t *testing.T) {
 		})
 	}
 
-	// The boundary itself is accepted: exactly 25 MiB is inside the image cap.
-	if err := aurora.ValidateSkillInputs(poster, []db.Attachment{
-		attachmentRow(attachmentID(0), "photo.png", "image/png", 25*mib),
+	// The boundary itself is accepted: exactly 25 MiB is inside the cap.
+	if err := aurora.ValidateSkillInputs(documents, []db.Attachment{
+		attachmentRow(attachmentID(0), "notes.pdf", "application/pdf", 25*mib),
 	}); err != nil {
-		t.Fatalf("25 MiB image rejected: %v", err)
+		t.Fatalf("25 MiB document rejected: %v", err)
 	}
 }
 
@@ -248,8 +265,27 @@ func TestValidateSkillInputsRejectsForeignWorkspaceOrOwner(t *testing.T) {
 	}
 }
 
+// TestExpertInputRulesMatchTheCuratedTable pins what every vendored expert
+// accepts and where it runs: a written request plus at most one document, on
+// the ordinary-agent text route.
+func TestExpertInputRulesMatchTheCuratedTable(t *testing.T) {
+	want := []aurora.AttachmentConstraint{documentConstraint(0, 1)}
+	for _, entry := range aurora.Catalog() {
+		policy, ok := aurora.ExecutionPolicy(entry.ID)
+		if !ok {
+			t.Fatalf("expert %q has no execution policy", entry.ID)
+		}
+		if policy.Route != "claude-text" {
+			t.Errorf("expert %q route = %q, want claude-text", entry.ID, policy.Route)
+		}
+		if !reflect.DeepEqual(policy.Attachments, want) {
+			t.Errorf("expert %q attachments = %#v, want %#v", entry.ID, policy.Attachments, want)
+		}
+	}
+}
+
 // TestExecutionPolicyCoversEveryAvailableSkill asserts the policy table is
-// complete for the 13 runnable skills and absent for the phase-2 ones.
+// complete for the 24 runnable experts and absent for everything else.
 func TestExecutionPolicyCoversEveryAvailableSkill(t *testing.T) {
 	available := 0
 	for _, entry := range aurora.Catalog() {
@@ -275,11 +311,11 @@ func TestExecutionPolicyCoversEveryAvailableSkill(t *testing.T) {
 			t.Errorf("skill %q output kinds = %#v, want %#v", entry.ID, policy.OutputKinds, entry.Output)
 		}
 	}
-	if available != 13 {
-		t.Fatalf("available skills with policies = %d, want 13", available)
+	if available != len(expertIDs) {
+		t.Fatalf("available experts with policies = %d, want %d", available, len(expertIDs))
 	}
 
-	for _, id := range []string{"", "nope", "avatar-video", "ppt", "excel"} {
+	for _, id := range []string{"", "nope", "poster", "avatar-video", "ppt", "excel"} {
 		if _, ok := aurora.ExecutionPolicy(id); ok {
 			t.Errorf("ExecutionPolicy(%q) = ok, want absent", id)
 		}

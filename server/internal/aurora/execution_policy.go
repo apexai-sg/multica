@@ -23,12 +23,10 @@ const (
 	AttachmentVideo    AttachmentKind = "video"
 )
 
-// Per-file input caps from the plan's Input Rules.
-const (
-	imageAttachmentMaxBytes    = 25 << 20
-	documentAttachmentMaxBytes = 25 << 20
-	mediaAttachmentMaxBytes    = 100 << 20
-)
+// documentAttachmentMaxBytes caps one expert input document. It is the only
+// live per-file cap: every expert accepts a written request plus an optional
+// document.
+const documentAttachmentMaxBytes = 25 << 20
 
 // AttachmentConstraint is one rule over a set of input files. All kinds listed
 // in one constraint count together, so transcription's "exactly one audio or
@@ -55,83 +53,22 @@ type SkillExecutionPolicy struct {
 	RequiredTools []string
 }
 
-// executionPolicies is the one policy table. The catalog projects its
-// attachments onto the wire; the run's artifact manifest is validated against
-// its route (see auroraManifestProducersByRoute). It intentionally excludes
-// avatar-video, ppt and excel.
-var executionPolicies = map[string]SkillExecutionPolicy{
-	"poster": {
-		Route:         "volcengine-seedream",
-		Attachments:   imageConstraint(0, 4),
-		RequiredTools: []string{"aurora.seedream_generate"},
-	},
-	"xhs-image": {
-		Route:         "volcengine-seedream",
-		Attachments:   imageConstraint(0, 4),
-		RequiredTools: []string{"aurora.seedream_generate"},
-	},
-	"product-image": {
-		Route:         "volcengine-seedream",
-		Attachments:   imageConstraint(0, 4),
-		RequiredTools: []string{"aurora.seedream_generate"},
-	},
-	"text-image": {
-		Route:         "volcengine-seedream",
-		RequiredTools: []string{"aurora.seedream_generate"},
-	},
-	"image-edit": {
-		Route:         "volcengine-seedream",
-		Attachments:   imageConstraint(1, 4),
-		RequiredTools: []string{"aurora.seedream_generate"},
-	},
-	"id-photo": {
-		Route:         "local-id-photo",
-		Attachments:   imageConstraint(1, 1),
-		RequiredTools: []string{"aurora.id_photo"},
-	},
-	"image-video": {
-		Route:         "volcengine-seedance",
-		Attachments:   imageConstraint(1, 1),
-		RequiredTools: []string{"aurora.seedance_generate"},
-	},
-	"text-video": {
-		Route:         "volcengine-seedance",
-		RequiredTools: []string{"aurora.seedance_generate"},
-	},
-	"video-captions": {
-		Route:         "volcengine-asr-hyperframes",
-		Attachments:   []AttachmentConstraint{{Kinds: []AttachmentKind{AttachmentVideo}, Min: 1, Max: 1, MaxBytes: mediaAttachmentMaxBytes}},
-		RequiredTools: []string{"aurora.volc_asr_transcribe", "aurora.render_video_captions"},
-	},
-	"xhs-copy": {
-		Route:         "claude-text",
-		Attachments:   documentConstraint(0, 1),
-		RequiredTools: []string{"aurora.read_document", "aurora.write_text_artifact"},
-	},
-	"resume": {
-		Route:         "claude-html-pdf",
-		Attachments:   documentConstraint(0, 1),
-		RequiredTools: []string{"aurora.read_document", "aurora.render_resume"},
-	},
-	"document-summary": {
-		Route:         "claude-text",
-		Attachments:   documentConstraint(1, 1),
-		RequiredTools: []string{"aurora.read_document", "aurora.write_text_artifact"},
-	},
-	"transcription": {
-		Route:         "volcengine-asr",
-		Attachments:   []AttachmentConstraint{{Kinds: []AttachmentKind{AttachmentAudio, AttachmentVideo}, Min: 1, Max: 1, MaxBytes: mediaAttachmentMaxBytes}},
-		RequiredTools: []string{"aurora.volc_asr_transcribe"},
-	},
-}
+// executionPolicies is the one policy table. Every curated expert runs the
+// ordinary-agent text route (expertRoute): the catalog projects its attachments
+// onto the wire, and the run's artifact manifest is validated against that
+// route (see auroraManifestProducersByRoute).
+var executionPolicies = buildExecutionPolicies()
 
-func imageConstraint(min, max int) []AttachmentConstraint {
-	return []AttachmentConstraint{{
-		Kinds:    []AttachmentKind{AttachmentImage},
-		Min:      min,
-		Max:      max,
-		MaxBytes: imageAttachmentMaxBytes,
-	}}
+func buildExecutionPolicies() map[string]SkillExecutionPolicy {
+	policies := make(map[string]SkillExecutionPolicy, len(expertDefs))
+	for _, def := range expertDefs {
+		policies[def.Slug] = SkillExecutionPolicy{
+			Route:         expertRoute,
+			Attachments:   def.Attachments,
+			RequiredTools: []string{expertRequiredTool},
+		}
+	}
+	return policies
 }
 
 func documentConstraint(min, max int) []AttachmentConstraint {
@@ -144,7 +81,8 @@ func documentConstraint(min, max int) []AttachmentConstraint {
 }
 
 // ExecutionPolicy returns an independent copy of the policy for an available
-// skill. Unknown and phase-2 skills report false.
+// skill. An unknown skill reports false, and so does an expert the curated
+// table does not define.
 func ExecutionPolicy(skillID string) (SkillExecutionPolicy, bool) {
 	base, ok := executionPolicies[skillID]
 	if !ok {

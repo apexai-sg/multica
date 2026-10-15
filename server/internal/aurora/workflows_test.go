@@ -1,8 +1,6 @@
 package aurora_test
 
 import (
-	"os"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"sort"
@@ -21,7 +19,7 @@ const auroraManifestSchema = "com.multica.aurora.artifacts"
 
 // auroraToolPattern extracts tool-shaped tokens from a brief. Only
 // auroraManifestSchema's tail may match.
-var auroraToolPattern = regexp.MustCompile(`\baurora\.[a-z0-9_]+\b`)
+var auroraToolPattern = regexp.MustCompile(`aurora.[a-z0-9_]+`)
 
 func availableSkills() []string {
 	var ids []string
@@ -34,31 +32,29 @@ func availableSkills() []string {
 	return ids
 }
 
-// TestAvailableSkillsHaveCanonicalWorkflows asserts the embedded bundle carries
-// exactly one brief per available catalog skill and that each brief names its
-// skill. What a brief may say is TestRewrittenWorkflowsDescribeRealSteps.
+// TestAvailableSkillsHaveCanonicalWorkflows asserts the vendored expert library
+// carries exactly one brief per available expert and that each brief names its
+// expert. What a brief may say is TestRewrittenWorkflowsDescribeRealSteps.
 func TestAvailableSkillsHaveCanonicalWorkflows(t *testing.T) {
 	available := availableSkills()
-	if len(available) != 13 {
-		t.Fatalf("available skills = %d, want 13", len(available))
+	if len(available) != 24 {
+		t.Fatalf("available skills = %d, want 24", len(available))
 	}
 
-	// The directory listing itself is the "exactly one" ground truth: no
-	// orphan brief may exist for an unavailable skill.
-	entries, err := os.ReadDir("workflows")
-	if err != nil {
-		t.Fatalf("read workflows directory: %v", err)
-	}
-	var files []string
-	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".md" {
-			t.Fatalf("workflows contains unexpected entry %q", entry.Name())
+	// The vendored index is the "exactly one" ground truth: no expert without a
+	// brief, and no brief without an expert. scripts/aurora-import-experts.mjs
+	// --check keeps the tree itself in step with the upstream snapshot.
+	var vendored []string
+	for _, expert := range aurora.Experts() {
+		vendored = append(vendored, expert.Slug)
+		brief, ok := aurora.ExpertWorkflow(expert.Slug)
+		if !ok || strings.TrimSpace(brief) == "" {
+			t.Errorf("vendored expert %q has no brief", expert.Slug)
 		}
-		files = append(files, strings.TrimSuffix(entry.Name(), ".md"))
 	}
-	sort.Strings(files)
-	if !slices.Equal(files, available) {
-		t.Fatalf("workflow files = %v, want exactly %v", files, available)
+	sort.Strings(vendored)
+	if !slices.Equal(vendored, available) {
+		t.Fatalf("vendored experts = %v, want exactly %v", vendored, available)
 	}
 
 	for _, skill := range available {
@@ -76,22 +72,16 @@ func TestAvailableSkillsHaveCanonicalWorkflows(t *testing.T) {
 	}
 }
 
-// TestUnavailableSkillsHaveNoWorkflow keeps phase-2 skills non-executable: the
-// three unavailable catalog entries and any unknown id must have no brief.
-func TestUnavailableSkillsHaveNoWorkflow(t *testing.T) {
-	var unavailable []string
+// TestUnknownSkillsHaveNoWorkflow keeps a retired or unknown skill
+// non-executable: every vendored expert is available, and an id outside the
+// catalog must have no brief.
+func TestUnknownSkillsHaveNoWorkflow(t *testing.T) {
 	for _, entry := range aurora.Catalog() {
 		if !entry.Available {
-			unavailable = append(unavailable, entry.ID)
+			t.Errorf("catalog entry %q is unavailable", entry.ID)
 		}
 	}
-	sort.Strings(unavailable)
-	want := []string{"avatar-video", "excel", "ppt"}
-	if !slices.Equal(unavailable, want) {
-		t.Fatalf("unavailable skills = %v, want %v", unavailable, want)
-	}
-
-	for _, id := range append(append([]string{}, want...), "", "unknown", "poster-2") {
+	for _, id := range []string{"", "unknown", "poster", "avatar-video", "ppt", "excel"} {
 		if brief, ok := aurora.Workflow(id); ok || brief != "" {
 			t.Errorf("Workflow(%q) = (%q, %v), want no brief", id, brief, ok)
 		}
@@ -182,7 +172,7 @@ func TestRewrittenWorkflowsDescribeRealSteps(t *testing.T) {
 	}
 }
 
-// TestEveryAvailableSkillHasADocument keeps the catalog and the embedded bundle
+// TestEveryAvailableSkillHasADocument keeps the catalog and the vendored bundle
 // in step.
 func TestEveryAvailableSkillHasADocument(t *testing.T) {
 	for _, e := range aurora.Catalog() {

@@ -176,7 +176,7 @@ func TestAuroraFleetProvisionToClaim(t *testing.T) {
 			t.Fatalf("skill %s has no reviewed workflow", entry.ID)
 		}
 	}
-	if available != 13 {
-		t.Fatalf("available skills = %d, want 13", available)
+	if available != len(aurora.Catalog()) {
+		t.Fatalf("available skills = %d, want %d", available, len(aurora.Catalog()))
 	}
 }

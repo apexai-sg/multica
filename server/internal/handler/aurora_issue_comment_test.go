@@ -33,7 +33,7 @@ func auroraCommentFixture(t *testing.T, prompt string) (generationID, issueID, t
 			ID string `json:"id"`
 		} `json:"generation"`
 	}](t, testHandler.CreateAuroraGeneration, newRequest(http.MethodPost, "/api/aurora/generations", map[string]string{
-		"skillId": "xhs-image",
+		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  prompt,
 	}), http.StatusCreated)
 	generationID = out.Generation.ID

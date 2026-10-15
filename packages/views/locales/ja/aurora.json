@@ -12,10 +12,12 @@
     "unavailable": "近日公開",
     "categories": {
       "all": "すべて",
-      "image": "画像",
-      "video": "動画",
-      "content": "コピー",
-      "office": "オフィス",
+      "ecommerce": "EC",
+      "content-creation": "コンテンツ制作",
+      "marketing": "マーケティング",
+      "legal": "法務",
+      "media": "メディア",
+      "design": "デザイン",
       "other": "その他"
     },
     "eyebrow": "AI ツール",

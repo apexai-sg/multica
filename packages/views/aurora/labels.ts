@@ -201,25 +201,30 @@ export function auroraInputLabel(modality: string): AuroraInputLabel {
 
 /** A directory category tab, as `aurora.directory.categories.*`. */
 export type AuroraCategoryLabel =
-  | "image"
-  | "video"
-  | "content"
-  | "office"
+  | "ecommerce"
+  | "content-creation"
+  | "marketing"
+  | "legal"
+  | "media"
+  | "design"
   | "other";
 
 const CATEGORY_LABELS: Record<string, AuroraCategoryLabel> = {
-  image: "image",
-  video: "video",
-  content: "content",
-  office: "office",
+  ecommerce: "ecommerce",
+  "content-creation": "content-creation",
+  marketing: "marketing",
+  legal: "legal",
+  media: "media",
+  design: "design",
 };
 
 /**
  * The label key for a catalog category.
  *
- * The catalog ships four (`aurora/catalog.go`), but `category` stays a plain
- * string on the wire, so a fifth one gets a tab labelled generically rather
- * than one showing its raw server value.
+ * The catalog ships one category per vendored SkillHub scene
+ * (`aurora/experts_catalog.go`), but `category` stays a plain string on the
+ * wire, so an unrecognised one gets a tab labelled generically rather than one
+ * showing its raw server value.
  */
 export function auroraCategoryLabel(category: string): AuroraCategoryLabel {
   return CATEGORY_LABELS[category] ?? "other";

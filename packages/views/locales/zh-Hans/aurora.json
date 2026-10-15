@@ -12,10 +12,12 @@
     "unavailable": "即将上线",
     "categories": {
       "all": "全部",
-      "image": "图片",
-      "video": "视频",
-      "content": "文案",
-      "office": "办公",
+      "ecommerce": "电商",
+      "content-creation": "内容创作",
+      "marketing": "营销",
+      "legal": "法律",
+      "media": "影视媒体",
+      "design": "设计",
       "other": "其他"
     },
     "eyebrow": "创作工具",

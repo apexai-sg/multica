@@ -3,6 +3,7 @@
 package aurora
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 )
@@ -24,28 +25,42 @@ type SkillCatalogEntry struct {
 	AttachmentRules []AttachmentConstraint `json:"attachment_rules"`
 }
 
-var catalog = []SkillCatalogEntry{
-	{ID: "poster", Name: "海报制作", NameEn: "Poster", Category: "image", Credits: 76, Input: []string{"text", "image"}, Output: []string{"image"}, Featured: true, Available: true},
-	{ID: "xhs-image", Name: "小红书图片", NameEn: "Xiaohongshu Image", Category: "image", Credits: 62, Input: []string{"text", "image"}, Output: []string{"image"}, Featured: true, Available: true},
-	{ID: "product-image", Name: "商品图制作", NameEn: "Product Image", Category: "image", Credits: 86, Input: []string{"text", "image"}, Output: []string{"image"}, Available: true},
-	{ID: "text-image", Name: "文字生成图片", NameEn: "Text to Image", Category: "image", Credits: 68, Input: []string{"text"}, Output: []string{"image"}, Available: true},
-	{ID: "image-edit", Name: "图片修改", NameEn: "Image Edit", Category: "image", Credits: 52, Input: []string{"text", "image"}, Output: []string{"image"}, Available: true},
-	{ID: "id-photo", Name: "证件照制作", NameEn: "ID Photo", Category: "image", Credits: 36, Input: []string{"image", "text"}, Output: []string{"image"}, Available: true},
-	{ID: "image-video", Name: "图片生成视频", NameEn: "Image to Video", Category: "video", Credits: 188, Input: []string{"image", "text"}, Output: []string{"video"}, Available: true},
-	{ID: "text-video", Name: "文字生成视频", NameEn: "Text to Video", Category: "video", Credits: 168, Input: []string{"text"}, Output: []string{"video"}, Available: true},
-	{ID: "video-captions", Name: "视频剪辑与字幕", NameEn: "Video Captions", Category: "video", Credits: 98, Input: []string{"video", "text"}, Output: []string{"video"}, Available: true},
-	{ID: "avatar-video", Name: "数字人口播", NameEn: "Avatar Video", Category: "video", Credits: 148, Input: []string{"text", "image", "audio"}, Output: []string{"video"}, Available: false},
-	{ID: "xhs-copy", Name: "小红书文案", NameEn: "Xiaohongshu Copy", Category: "content", Credits: 26, Input: []string{"text", "document"}, Output: []string{"text"}, Available: true},
-	{ID: "resume", Name: "简历制作", NameEn: "Resume", Category: "office", Credits: 42, Input: []string{"text", "document"}, Output: []string{"pdf", "text"}, Available: true},
-	{ID: "document-summary", Name: "文件总结", NameEn: "Document Summary", Category: "office", Credits: 38, Input: []string{"document", "text"}, Output: []string{"text"}, Available: true},
-	{ID: "transcription", Name: "录音转文字", NameEn: "Transcription", Category: "office", Credits: 30, Input: []string{"audio", "video"}, Output: []string{"text"}, Available: true},
-	{ID: "ppt", Name: "PPT 制作", NameEn: "PPT", Category: "office", Credits: 82, Input: []string{"text", "document", "spreadsheet", "image"}, Output: []string{"pptx", "pdf"}, Available: false},
-	{ID: "excel", Name: "Excel 数据分析", NameEn: "Excel Analysis", Category: "office", Credits: 46, Input: []string{"spreadsheet", "text"}, Output: []string{"xlsx", "pdf", "text"}, Available: false},
+// catalog is the one product-facing skill directory: the 24 vendored experts in
+// fixed display order (the vendored index is alphabetical by slug, which groups
+// the six SkillHub scenes). It is built once from that index plus the curated
+// table in experts_catalog.go, so an expert without a definition — or a
+// definition without an expert — fails loudly at init.
+var catalog = buildCatalog()
+
+func buildCatalog() []SkillCatalogEntry {
+	experts := Experts()
+	entries := make([]SkillCatalogEntry, 0, len(experts))
+	for _, expert := range experts {
+		def, ok := expertDefFor(expert.Slug)
+		if !ok {
+			panic(fmt.Sprintf("aurora: expert %q has no catalog definition", expert.Slug))
+		}
+		entries = append(entries, SkillCatalogEntry{
+			ID:        expert.Slug,
+			Name:      expert.NameZh,
+			NameEn:    expert.NameEn,
+			Category:  def.Category,
+			Credits:   def.Credits,
+			Input:     slices.Clone(expertInputs),
+			Output:    slices.Clone(expertOutputs),
+			Featured:  def.Featured,
+			Available: true,
+		})
+	}
+	if len(entries) != len(expertDefs) {
+		panic(fmt.Sprintf("aurora: %d experts but %d catalog definitions", len(entries), len(expertDefs)))
+	}
+	return entries
 }
 
-// Catalog returns an independent copy of the 16 skills in fixed display order,
-// each carrying its execution policy's attachment rules. avatar-video, ppt and
-// excel are listed but unavailable until phase 2.
+// Catalog returns an independent copy of the 24 experts in fixed display order,
+// each carrying its execution policy's attachment rules. Every entry is
+// available: the three phase-2 skills the catalog used to list are gone.
 func Catalog() []SkillCatalogEntry {
 	entries := make([]SkillCatalogEntry, len(catalog))
 	for i, entry := range catalog {

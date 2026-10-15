@@ -68,10 +68,10 @@ func (f auroraStagingFixture) payload(role string) AuroraArtifactPayload {
 		ManifestArtifactID: f.ManifestArtifactID,
 		StagingID:          f.StagingID,
 		Name:               f.Name,
-		Kind:               "image",
+		Kind:               "text",
 		Role:               role,
-		Format:             "png",
-		MIMEType:           "image/png",
+		Format:             "md",
+		MIMEType:           "text/markdown",
 		SizeBytes:          f.SizeBytes,
 		SHA256:             f.SHA256,
 		Metadata:           map[string]any{},
@@ -98,10 +98,10 @@ func seedAuroraStaging(t *testing.T, store *artifactTestStorage, taskID, generat
 		"manifest_artifact_id": manifestArtifactID,
 		"storage_key":          storageKey,
 		"name":                 name,
-		"kind":                 "image",
+		"kind":                 "text",
 		"role":                 role,
-		"format":               "png",
-		"mime_type":            "image/png",
+		"format":               "md",
+		"mime_type":            "text/markdown",
 		"size_bytes":           int64(len(content)),
 		"sha256":               digest,
 		"metadata":             metadataJSON,
@@ -145,9 +145,9 @@ func TestReportTaskArtifactsCommitsStagedAssets(t *testing.T) {
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
-	first := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
-	second := seedAuroraStaging(t, store, taskID, generationID, "secondary-1", "secondary-1.png", "supporting", []byte("\x89PNG\r\n\x1a\n\x00\x01"), "{}")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
+	first := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.md", "primary", []byte(artifactTestText), "{}")
+	second := seedAuroraStaging(t, store, taskID, generationID, "secondary-1", "secondary-1.md", "supporting", []byte(artifactTestText+"secondary"), "{}")
 
 	if got := reportAuroraArtifacts(t, taskID, first.payload("primary"), second.payload("supporting")); got.Code != http.StatusOK {
 		t.Fatalf("report status = %d, want 200: %s", got.Code, got.Body.String())
@@ -172,7 +172,7 @@ func TestReportTaskArtifactsCommitsStagedAssets(t *testing.T) {
 			continue
 		}
 		seen[row.ManifestArtifactID.String] = true
-		if row.Kind != "image" || row.MimeType.String != "image/png" || row.Format.String != "png" {
+		if row.Kind != "text" || row.MimeType.String != "text/markdown" || row.Format.String != "md" {
 			t.Errorf("asset %+v has the wrong kind/mime/format", row)
 		}
 		if row.SizeBytes.Int64 == 0 || !row.Sha256.Valid {
@@ -200,8 +200,8 @@ func TestReportTaskArtifactsIdenticalRetryCreatesNoDuplicate(t *testing.T) {
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
-	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
+	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.md", "primary", []byte(artifactTestText), "{}")
 	payload := staged.payload("primary")
 
 	if got := reportAuroraArtifacts(t, taskID, payload); got.Code != http.StatusOK {
@@ -226,18 +226,18 @@ func TestReportTaskArtifactsConflictingAssetFailsClosed(t *testing.T) {
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
-	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
+	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.md", "primary", []byte(artifactTestText), "{}")
 	// A previous write already owns this manifest id with a different hash.
 	dbfx.Insert(t, "aurora_asset", testutil.Cols{
 		"generation_id":        generationID,
 		"workspace_id":         testWorkspaceID,
-		"kind":                 "image",
+		"kind":                 "text",
 		"media_url":            "https://cdn.example.com/old",
-		"format":               "png",
+		"format":               "md",
 		"manifest_artifact_id": "primary-1",
-		"name":                 "primary-1.png",
-		"mime_type":            "image/png",
+		"name":                 "primary-1.md",
+		"mime_type":            "text/markdown",
 		"size_bytes":           int64(12),
 		"sha256":               "sha256:" + strings.Repeat("f", 64),
 		"role":                 "primary",
@@ -263,15 +263,15 @@ func TestReportTaskArtifactsRejectsUnknownStagingID(t *testing.T) {
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
 	payload := AuroraArtifactPayload{
 		ManifestArtifactID: "primary-1",
 		StagingID:          uuid.NewString(),
-		Name:               "primary-1.png",
-		Kind:               "image",
+		Name:               "primary-1.md",
+		Kind:               "text",
 		Role:               "primary",
-		Format:             "png",
-		MIMEType:           "image/png",
+		Format:             "md",
+		MIMEType:           "text/markdown",
 		SizeBytes:          12,
 		SHA256:             "sha256:" + strings.Repeat("a", 64),
 		Metadata:           map[string]any{},
@@ -291,10 +291,10 @@ func TestReportTaskArtifactsRejectsForeignStagingID(t *testing.T) {
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 
-	foreignTaskID, foreignGenerationID := auroraReportFixture(t, "xhs-image")
-	staged := seedAuroraStaging(t, store, foreignTaskID, foreignGenerationID, "primary-1", "primary-1.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
+	foreignTaskID, foreignGenerationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
+	staged := seedAuroraStaging(t, store, foreignTaskID, foreignGenerationID, "primary-1", "primary-1.md", "primary", []byte(artifactTestText), "{}")
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
 	if got := reportAuroraArtifacts(t, taskID, staged.payload("primary")); got.Code != http.StatusBadRequest {
 		t.Fatalf("foreign staging id status = %d, want 400: %s", got.Code, got.Body.String())
 	}
@@ -310,8 +310,8 @@ func TestReportTaskArtifactsRejectsMetadataMismatch(t *testing.T) {
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
-	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
+	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.md", "primary", []byte(artifactTestText), "{}")
 	payload := staged.payload("primary")
 	payload.SHA256 = "sha256:" + strings.Repeat("b", 64)
 
@@ -335,8 +335,8 @@ func TestReportTaskArtifactsModerationFailureDeletesStagingObjects(t *testing.T)
 	withArtifactStorage(t, store)
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: false, Reason: "image is explicit"}})
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
-	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
+	staged := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.md", "primary", []byte(artifactTestText), "{}")
 
 	if got := reportAuroraArtifacts(t, taskID, staged.payload("primary")); got.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("moderation failure status = %d, want 422: %s", got.Code, got.Body.String())
@@ -367,9 +367,9 @@ func TestReportTaskArtifactsTransactionFailureLeavesNoPartialAssets(t *testing.T
 	withAuroraModeration(t, &stubModerator{assetDecision: aurora.Decision{Allowed: true}})
 	withAuroraTxStarter(t, auroraRefusingTxStarter{})
 
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
-	first := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.png", "primary", []byte("\x89PNG\r\n\x1a\n\x00\x00"), "{}")
-	second := seedAuroraStaging(t, store, taskID, generationID, "secondary-1", "secondary-1.png", "supporting", []byte("\x89PNG\r\n\x1a\n\x00\x01"), "{}")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
+	first := seedAuroraStaging(t, store, taskID, generationID, "primary-1", "primary-1.md", "primary", []byte(artifactTestText), "{}")
+	second := seedAuroraStaging(t, store, taskID, generationID, "secondary-1", "secondary-1.md", "supporting", []byte(artifactTestText+"secondary"), "{}")
 
 	if got := reportAuroraArtifacts(t, taskID, first.payload("primary"), second.payload("supporting")); got.Code != http.StatusInternalServerError {
 		t.Fatalf("transaction failure status = %d, want 500: %s", got.Code, got.Body.String())
@@ -439,7 +439,7 @@ func genIDOfTask(t *testing.T, taskID string) string {
 // needs_input, moves the generation to needs_input by CAS, and leaves the
 // reservation untouched.
 func TestReportTaskArtifactsNeedsInputMarksGeneration(t *testing.T) {
-	taskID, generationID := auroraReportFixture(t, "xhs-image")
+	taskID, generationID := auroraReportFixture(t, "ecommerce-bidding-strategy")
 	// A generation's stored status stays queued while its task runs; the
 	// needs_input CAS is guarded on that value.
 	dbfx.Exec(t, `UPDATE aurora_generation SET status = 'queued' WHERE id = $1`, generationID)

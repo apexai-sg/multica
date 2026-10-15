@@ -142,101 +142,24 @@ func auroraSmokeProviders() []auroraSmokeProvider {
 			secretEnv: "AURORA_SMOKE_ANTHROPIC_KEY_FILE",
 			provider:  "anthropic",
 			model:     "claude (CLI default)",
-			operations: []auroraSmokeOperation{{
-				skillID: "xhs-copy",
-				kind:    "text",
-				formats: []string{"md", "markdown", "txt"},
-				prompt:  "Write one short Xiaohongshu post about a reusable water bottle.",
-			}},
-		},
-		{
-			name:      "seedream-image",
-			optIn:     "AURORA_RUN_SEEDREAM_SMOKE",
-			secretEnv: "AURORA_SMOKE_ARK_KEY_FILE",
-			provider:  "volcengine-ark",
-			model:     "doubao-seedream-5-0-pro-260628",
+			// Every vendored expert runs the ordinary-agent claude-text route:
+			// the retired Seedream, Seedance, ASR, HyperFrames and Chromium
+			// routes have no catalog entry to smoke any more.
 			operations: []auroraSmokeOperation{
 				{
-					skillID: "xhs-image",
-					kind:    "image",
-					formats: []string{"png", "jpg", "jpeg", "webp"},
-					prompt:  "One low-count 2K image of a single reusable water bottle on a plain background.",
+					skillID: "marketing-ad-copywriting",
+					kind:    "text",
+					formats: []string{"md", "markdown", "txt"},
+					prompt:  "Write one short advertisement for a reusable water bottle.",
 				},
 				{
-					skillID: "product-image",
-					kind:    "image",
-					formats: []string{"png", "jpg", "jpeg", "webp"},
-					prompt:  "One low-count image of a reusable water bottle on a plain background.",
-				},
-				{
-					skillID:     "image-edit",
-					kind:        "image",
-					formats:     []string{"png", "jpg", "jpeg", "webp"},
-					attachments: []string{auroraSmokeImageFixture},
-					prompt:      "Recolor the object in the reference image to a single flat color.",
+					skillID:     "legal-contract-drafting",
+					kind:        "text",
+					formats:     []string{"md", "markdown", "txt"},
+					attachments: []string{auroraSmokeDocumentFixture},
+					prompt:      "Draft a one-page supply agreement from the attached brief.",
 				},
 			},
-		},
-		{
-			name:      "seedance-video",
-			optIn:     "AURORA_RUN_SEEDANCE_SMOKE",
-			secretEnv: "AURORA_SMOKE_ARK_KEY_FILE",
-			provider:  "volcengine-ark",
-			model:     "doubao-seedance-2-5-260628",
-			// The Seedance tree is vendored and merged, so this route is live
-			// rather than fail-closed. The broker's fixed policy selects the
-			// shortest supported low-resolution output; the test cannot and
-			// must not choose provider arguments.
-			operations: []auroraSmokeOperation{{
-				skillID: "text-video",
-				kind:    "video",
-				formats: []string{"mp4", "mov", "webm"},
-				prompt:  "A single short clip of a reusable water bottle rotating on a plain background.",
-			}},
-		},
-		{
-			name:      "volc-asr",
-			optIn:     "AURORA_RUN_VOLC_ASR_SMOKE",
-			secretEnv: "AURORA_SMOKE_VOLC_ASR_KEY_FILE",
-			provider:  "volcengine-asr",
-			model:     "bigmodel",
-			operations: []auroraSmokeOperation{{
-				skillID:     "transcription",
-				kind:        "text",
-				formats:     []string{"txt", "md"},
-				attachments: []string{auroraSmokeWAVFixture},
-				prompt:      "Transcribe this short audio clip.",
-			}},
-		},
-		{
-			name:      "hyperframes-captions",
-			optIn:     "AURORA_RUN_HYPERFRAMES_SMOKE",
-			secretEnv: "AURORA_SMOKE_VOLC_ASR_KEY_FILE",
-			provider:  "hyperframes-ffmpeg",
-			model:     "hyperframes-0.8.75",
-			// video-captions runs the fixed ASR + HyperFrames/FFmpeg render.
-			// Chromium and FFmpeg are image-resident; the host runs neither.
-			operations: []auroraSmokeOperation{{
-				skillID:     "video-captions",
-				kind:        "video",
-				formats:     []string{"mp4", "mov", "webm"},
-				attachments: []string{auroraSmokeVideoFixture},
-				prompt:      "Render the fixed caption track over this short clip.",
-			}},
-		},
-		{
-			name:      "chromium-resume",
-			optIn:     "AURORA_RUN_CHROMIUM_SMOKE",
-			secretEnv: "AURORA_SMOKE_ANTHROPIC_KEY_FILE",
-			provider:  "claude-html-pdf",
-			model:     "claude (CLI default)",
-			operations: []auroraSmokeOperation{{
-				skillID:     "resume",
-				kind:        "pdf",
-				formats:     []string{"pdf"},
-				attachments: []string{auroraSmokeDocumentFixture},
-				prompt:      "Render the attached resume fixture as a one-page PDF.",
-			}},
 		},
 	}
 }
