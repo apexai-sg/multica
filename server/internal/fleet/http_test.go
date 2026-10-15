@@ -1,11 +1,9 @@
 package fleet
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -323,10 +321,7 @@ func TestDiagnoseOperationIdentityAndEpoch(t *testing.T) {
 	if response.Observation.Ready || response.Observation.ReportStatsKnown {
 		t.Fatal("offline unknown authorized ready health")
 	}
-	var logs bytes.Buffer
-	oldLogger := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
-	t.Cleanup(func() { slog.SetDefault(oldLogger) })
+	logs := captureSlog(t)
 	p.diagnose = func(context.Context, model.Node, model.OperationRef) (model.Observation, error) {
 		return model.Observation{}, errors.New("private-provider-error-marker /private/path api_key-marker")
 	}

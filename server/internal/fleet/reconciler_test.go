@@ -252,10 +252,7 @@ func TestRecoveryUnknownOfflinePreservesBarrier(t *testing.T) {
 // in the row. Without it a rejected image environment or a missing image is only
 // discoverable by reconstructing state from the database.
 func TestRecoveryOperationFailureIsLogged(t *testing.T) {
-	previous := slog.Default()
-	var logged bytes.Buffer
-	slog.SetDefault(slog.New(slog.NewTextHandler(&logged, nil)))
-	t.Cleanup(func() { slog.SetDefault(previous) })
+	logged := captureSlog(t)
 
 	_, p, r := workerFixture(model.Create, false)
 	p.err = model.ErrForbidden
@@ -598,6 +595,19 @@ func bootstrapFixture(t *testing.T) (*workerRepo, *workerProvider, *Reconciler, 
 	}
 	return f, p, r, c
 }
+
+// captureSlog redirects the default logger into a buffer for t and restores it on
+// cleanup. Several tests in this package need it; without the restore a forgotten
+// reset silently retargets every later test's logging.
+func captureSlog(t *testing.T) *bytes.Buffer {
+	t.Helper()
+	var logged bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logged, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	return &logged
+}
+
 func joinedTick(t *testing.T, r *Reconciler, ctx context.Context) error {
 	t.Helper()
 	e := r.Tick(ctx)

@@ -36,23 +36,29 @@ func TestRuntimeImageEnvironmentStaysAdoptable(t *testing.T) {
 // mergeEnv models the environment a container starts with: the image's
 // declarations overridden by the container's own, one entry per key.
 func mergeEnv(imageEnv, containerEnv []string) []string {
-	merged := map[string]string{}
-	var order []string
-	for _, entry := range append(append([]string{}, imageEnv...), containerEnv...) {
-		key, value, ok := strings.Cut(entry, "=")
+	at := map[string]int{}
+	var merged []string
+	for _, entry := range imageEnv {
+		key, _, ok := strings.Cut(entry, "=")
 		if !ok {
 			continue
 		}
-		if _, seen := merged[key]; !seen {
-			order = append(order, key)
+		at[key] = len(merged)
+		merged = append(merged, entry)
+	}
+	for _, entry := range containerEnv {
+		key, _, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
 		}
-		merged[key] = value
+		if i, seen := at[key]; seen {
+			merged[i] = entry
+			continue
+		}
+		at[key] = len(merged)
+		merged = append(merged, entry)
 	}
-	out := make([]string, 0, len(order))
-	for _, key := range order {
-		out = append(out, key+"="+merged[key])
-	}
-	return out
+	return merged
 }
 
 // runtimeImageEnv reads the ENV pairs the final stage of the node image declares.
@@ -79,11 +85,10 @@ func runtimeImageEnv(t *testing.T) []string {
 	var env []string
 	for i := final; i < len(lines); i++ {
 		line := strings.TrimSpace(lines[i])
-		upper := strings.ToUpper(line)
 		// Dockerfile keywords are case-insensitive, so an "env" spelling must not
-		// slip past this guard: anything introduced by ENV -- however cased or
-		// spaced -- is either parsed below or fails.
-		if !strings.HasPrefix(upper, "ENV") || (len(line) > 3 && !unicode.IsSpace(rune(line[3]))) {
+		// slip past this guard: anything introduced by ENV -- however cased -- is
+		// either parsed below or fails.
+		if len(line) < 3 || !strings.EqualFold(line[:3], "ENV") || (len(line) > 3 && !unicode.IsSpace(rune(line[3]))) {
 			continue
 		}
 		if !strings.HasPrefix(line, "ENV ") {
