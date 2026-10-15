@@ -16,6 +16,8 @@ COPY packages/nextjs/package.json packages/nextjs/
 COPY packages/plugin-sdk/package.json packages/plugin-sdk/
 COPY packages/tsconfig/package.json packages/tsconfig/
 COPY packages/eslint-config/package.json packages/eslint-config/
+# Root pnpm patchedDependencies is read even without the mobile workspace.
+COPY apps/mobile/patches/ apps/mobile/patches/
 
 RUN corepack enable && \
     PNPM_VERSION="$(node -p 'require("./package.json").packageManager')" && \

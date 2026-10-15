@@ -14,9 +14,9 @@ import (
 // installProviderRunContract bolts one on for the duration of a test, which is
 // what keeps the lease logic below covered.
 const (
-	providerRunTestProvider  = "volcengine-agentplan"
+	providerRunTestProvider  = "volcengine-ark"
 	providerRunTestOperation = "seedance.create"
-	providerRunTestModel     = "doubao-seedance-2.0"
+	providerRunTestModel     = "doubao-seedance-2-5-260628"
 	providerRunTestSkill     = "ecommerce-bidding-strategy"
 )
 

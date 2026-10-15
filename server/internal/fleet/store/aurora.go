@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -15,6 +16,18 @@ import (
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
+
+// auroraDeleteIdempotencyKey scopes a destroy intent to one control
+// generation. fleet_node_operations is UNIQUE on
+// (namespace, owner_id, idempotency_key) and the row is never reused, so a key
+// that is fixed per node makes every teardown after the first collide with its
+// own history: the insert raises a raw unique violation, the Fleet answers 503,
+// and the reaper fails on every sweep forever (#259). A workspace re-arms the
+// same node id across its lifetime cycles, so the generation the destroy
+// advances is what tells the intents apart.
+func auroraDeleteIdempotencyKey(nodeID pgtype.UUID, generation int64) string {
+	return "aurora-delete:" + util.UUIDToString(nodeID) + ":" + strconv.FormatInt(generation, 10)
+}
 
 // auroraFingerprint binds one idempotency key to the immutable identity of an
 // Aurora node intent. The one-time enrollment secret is deliberately excluded:
@@ -313,7 +326,7 @@ func (s *Store) DeleteAuroraIntent(ctx context.Context, owner, nodeID pgtype.UUI
 		if err := q.RevokeFleetCredentials(ctx, db.RevokeFleetCredentialsParams{Namespace: s.namespace, OwnerID: owner, NodeID: nodeID}); err != nil {
 			return err
 		}
-		_, err = q.InsertFleetLifecycleOperation(ctx, db.InsertFleetLifecycleOperationParams{Namespace: s.namespace, OwnerID: owner, NodeID: nodeID, Action: string(model.Delete), IdempotencyKey: "aurora-delete:" + util.UUIDToString(nodeID), RequestHash: lifecycleFingerprint(nodeID, model.Delete), Phase: "queued", PriorDesired: n.Desired, Generation: next, Approved: true})
+		_, err = q.InsertFleetLifecycleOperation(ctx, db.InsertFleetLifecycleOperationParams{Namespace: s.namespace, OwnerID: owner, NodeID: nodeID, Action: string(model.Delete), IdempotencyKey: auroraDeleteIdempotencyKey(nodeID, next), RequestHash: lifecycleFingerprint(nodeID, model.Delete), Phase: "queued", PriorDesired: n.Desired, Generation: next, Approved: true})
 		return err
 	})
 }

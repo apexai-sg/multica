@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strconv"
@@ -72,6 +73,10 @@ func httpError(w http.ResponseWriter, err error) {
 		status, code = 409, "unknown_health"
 	case errors.Is(err, model.ErrProfileMissing):
 		code = "profile_missing"
+	default:
+		// Everything else answers a bare 503, so an unmapped failure would leave
+		// no trace anywhere. Log the cause server-side before answering.
+		slog.Error("fleet request failed", "error_code", code, "error", err)
 	}
 	jsonResponse(w, status, map[string]string{"error_code": code})
 }

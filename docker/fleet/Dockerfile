@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Repository-root context. Building/pulling/running remains separately authorized.
-FROM golang:1.26.6-bookworm AS builder
+FROM golang:1.26.9-bookworm AS builder
 WORKDIR /src
 COPY server/ ./
 RUN CGO_ENABLED=0 go build -o /out/fleet ./cmd/fleet

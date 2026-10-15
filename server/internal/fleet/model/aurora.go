@@ -155,15 +155,16 @@ var claudeCodeEnvAllowlist = map[string]bool{
 // supplied at deploy time from an owner-only Fleet config and must never reach
 // the image, SQL, logs, or Git.
 //
-// ANTHROPIC_API_KEY is the Ark Agent Plan key: the Ark key is
-// Anthropic-Messages-compatible, so the image, video and text skills reuse it
-// (decision 5) instead of a separate ARK_API_KEY. OPENAI_API_KEY is deliberately
-// absent: the OpenAI route is gone (decision 10). Only the Volcengine speech
-// endpoint is not Anthropic-compatible, so VOLC_ASR_API_KEY is the single
-// separate provider variable.
+// ANTHROPIC_API_KEY is the Ark Agent Plan key and only serves the node's Claude
+// CLI. The image and video skills call the platform endpoint /api/v3 instead,
+// which rejects an Agent Plan key with 401, so ARK_PLATFORM_API_KEY is a second,
+// separate provider credential. OPENAI_API_KEY is deliberately absent: the
+// OpenAI route is gone (decision 10). The Volcengine speech endpoint is not
+// Anthropic-compatible either, so VOLC_ASR_API_KEY is a third.
 var providerEnvNames = map[string]bool{
-	"ANTHROPIC_API_KEY": true,
-	"VOLC_ASR_API_KEY":  true,
+	"ANTHROPIC_API_KEY":    true,
+	"ARK_PLATFORM_API_KEY": true,
+	"VOLC_ASR_API_KEY":     true,
 }
 
 // claudeEnvSecretMarkers are the substrings that mark a claude_env key as

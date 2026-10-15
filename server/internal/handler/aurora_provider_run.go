@@ -69,20 +69,18 @@ type auroraProviderRunPolicy struct {
 // create-once provider call, so their tasks cannot open a run.
 var auroraProviderRunPolicies = map[string]auroraProviderRunPolicy{
 	"volcengine-seedream": {
-		Provider:   "volcengine-agentplan",
+		Provider:   "volcengine-ark",
 		Operations: []string{"seedream.generate"},
-		Models:     []string{"doubao-seedream-5.0-lite", "doubao-seedream-5.0-pro"},
+		Models:     []string{"doubao-seedream-5-0-pro-260628", "doubao-seedream-5-0-flash-260915"},
 	},
 	"volcengine-seedance": {
 		// Polling resumes the recorded create run through GetAuroraProviderRun;
 		// it is deliberately not a second operation that could open a new lease.
-		Provider:   "volcengine-agentplan",
+		Provider:   "volcengine-ark",
 		Operations: []string{"seedance.create"},
 		Models: []string{
-			"doubao-seedance-2.0",
-			"doubao-seedance-2.0-fast",
-			"doubao-seedance-2.0-mini",
-			"doubao-seedance-2.5",
+			"doubao-seedance-2-5-260628",
+			"doubao-seedance-2-0-260128",
 		},
 	},
 	"volcengine-asr": {

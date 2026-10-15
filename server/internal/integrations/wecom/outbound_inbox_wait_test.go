@@ -99,8 +99,18 @@ func TestTryDeliverInbox_WaitIsBoundedByTheCallersDeadline(t *testing.T) {
 	if elapsed > 900*time.Millisecond {
 		t.Fatalf("the push blocked %v with a 150ms caller budget; the caller's ctx must cap the window", elapsed)
 	}
-	if got {
-		t.Error("tryDeliverInbox = true; a caller that ran out of time confirmed nothing")
+	// `got` is deliberately NOT asserted. At the caller's deadline the wait ends
+	// as a proven miss, which is what keeps the recipient-wide fallback alive,
+	// and the bus accepts that fallback publish whether or not a replica holds
+	// the socket -- so `got` turns on which side of a scheduling race the first
+	// claim poll lands on, not on the caller's budget. Pinning it to "nothing was
+	// confirmed" asserted the opposite branch (an uncertain verdict that silently
+	// drops the fallback), the outcome confirmInbox's comment exists to avoid.
+	_ = got
+	// What the budget must do is SHORTEN the wait rather than skip it: the poll
+	// still samples the claim for the caller's time.
+	if n := rig.dedupe.claimStateCount(); n == 0 {
+		t.Fatal("the caller's budget skipped the acceptance window entirely instead of shortening it")
 	}
 }
 

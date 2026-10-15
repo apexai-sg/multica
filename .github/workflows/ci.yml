@@ -41,7 +41,7 @@ jobs:
           node-version: 22
 
       - name: Test CI selection and gates
-        run: node --test scripts/ci-scope.test.mjs scripts/check-image-budget.test.mjs scripts/aurora-import-experts.test.mjs
+        run: node --test scripts/ci-scope.test.mjs scripts/check-image-budget.test.mjs scripts/aurora-import-experts.test.mjs scripts/govulncheck.test.mjs
 
       - name: Filter paths
         id: filter
@@ -496,7 +496,9 @@ jobs:
 
       - name: Scan Go vulnerabilities
         working-directory: server
-        run: go tool govulncheck ./...
+        # The wrapper runs the same scan and fails unless every finding that
+        # reaches our code is named in scripts/govulncheck-allowlist.json.
+        run: node ../scripts/govulncheck.mjs
 
   # Preserve the existing required-check name while allowing tests, generated
   # SQL verification, and the vulnerability scan to run independently.
