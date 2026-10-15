@@ -3,6 +3,7 @@ package fleet
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -474,6 +475,19 @@ func (r *Reconciler) recordError(ctx context.Context, s store.RecoverySnapshot, 
 		return r.repo.DeferOperation(ctx, s, 5*time.Second)
 	}
 	code, permanent := recoveryError(e)
+	// This is the Fleet's only failure surface. The operation row keeps just the
+	// code, so without a line here the cause -- a rejected image environment, a
+	// missing image, a Docker error -- is lost and a failed node can only be
+	// diagnosed by reconstructing state from the database. The default slog
+	// handler writes to stderr, which the container's json-file driver captures.
+	slog.WarnContext(ctx, "fleet operation failed",
+		"namespace", r.cfg.Namespace,
+		"node_id", util.UUIDToString(s.Node.ID),
+		"action", string(s.Operation.Action),
+		"generation", s.Operation.Generation,
+		"error_code", code,
+		"permanent", permanent,
+		"error", e)
 	return r.repo.RecordOperationError(ctx, s, code, permanent)
 }
 func recoveryError(e error) (string, bool) {
