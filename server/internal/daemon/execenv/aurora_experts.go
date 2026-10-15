@@ -9,11 +9,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/multica-ai/multica/server/internal/fleet/model"
 )
 
 // defaultAuroraExpertsDir is the directory the runtime image creates and the
-// import script fills. The tree is not compiled into the node binary.
-const defaultAuroraExpertsDir = "/opt/aurora/experts"
+// import script fills. The tree is not compiled into the node binary. It is the
+// Fleet's own constant: the Fleet approves exactly model.AuroraExpertsDir when it
+// adopts a container, so a second literal here could drift from the approved path
+// without anything noticing.
+const defaultAuroraExpertsDir = model.AuroraExpertsDir
 
 // installAuroraExpertSkills copies one expert's skill tree from the runtime
 // directory into the task skills directory. The brief names those directories.
