@@ -1,10 +1,8 @@
 package fleet
 
 import (
-	"bytes"
 	"errors"
 	"log"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,11 +13,10 @@ import (
 
 // A permissive decoder or insecure-file acceptance would expose private material.
 func TestLoadProfileStrictPrivateBoundary(t *testing.T) {
-	var captured bytes.Buffer
-	oldLog, oldSlog := log.Writer(), slog.Default()
-	log.SetOutput(&captured)
-	slog.SetDefault(slog.New(slog.NewTextHandler(&captured, nil)))
-	t.Cleanup(func() { slog.SetDefault(oldSlog); log.SetOutput(oldLog) })
+	captured := captureSlog(t)
+	oldLog := log.Writer()
+	log.SetOutput(captured)
+	t.Cleanup(func() { log.SetOutput(oldLog) })
 	defer func() {
 		if strings.Contains(captured.String(), "fake-marker-secret") || strings.Contains(captured.String(), "mcn_marker") || strings.Contains(captured.String(), "private-marker.json") {
 			t.Fatal("private loader logged marker material")

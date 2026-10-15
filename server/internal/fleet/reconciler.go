@@ -420,6 +420,7 @@ func (r *Reconciler) inspect(ctx context.Context, s store.RecoverySnapshot) erro
 		if e = r.repo.RecordObservation(ctx, current.Node.ID, current.Node.Generation, o); e != nil {
 			return e
 		}
+		r.logOperationFailure(ctx, current, "instance-lost", true, nil)
 		return r.repo.RecordOperationError(ctx, current, "instance-lost", true)
 	}
 	if current.Operation.Action == model.Create && !current.BootstrapSucceeded && !current.Operation.BootstrapClaimedAt.IsZero() && !current.Operation.BootstrapClaimedAt.After(current.SQLNow) && !current.SQLNow.Before(current.Operation.BootstrapClaimedAt.Add(5*time.Minute)) {
@@ -475,20 +476,28 @@ func (r *Reconciler) recordError(ctx context.Context, s store.RecoverySnapshot, 
 		return r.repo.DeferOperation(ctx, s, 5*time.Second)
 	}
 	code, permanent := recoveryError(e)
-	// This is the Fleet's only failure surface. The operation row keeps just the
-	// code, so without a line here the cause -- a rejected image environment, a
-	// missing image, a Docker error -- is lost and a failed node can only be
-	// diagnosed by reconstructing state from the database. The default slog
-	// handler writes to stderr, which the container's json-file driver captures.
-	slog.WarnContext(ctx, "fleet operation failed",
+	r.logOperationFailure(ctx, s, code, permanent, e)
+	return r.repo.RecordOperationError(ctx, s, code, permanent)
+}
+
+// logOperationFailure is the Fleet's only failure surface: the operation row keeps
+// just the code, so the cause -- a rejected image environment, a missing image, a
+// Docker error -- has to reach the log. The default slog handler writes to stderr,
+// which the container's json-file driver captures. e is optional: a path that
+// concludes a failure from state rather than from an error passes nil.
+func (r *Reconciler) logOperationFailure(ctx context.Context, s store.RecoverySnapshot, code string, permanent bool, e error) {
+	args := []any{
 		"namespace", r.cfg.Namespace,
 		"node_id", util.UUIDToString(s.Node.ID),
 		"action", string(s.Operation.Action),
 		"generation", s.Operation.Generation,
 		"error_code", code,
 		"permanent", permanent,
-		"error", e)
-	return r.repo.RecordOperationError(ctx, s, code, permanent)
+	}
+	if e != nil {
+		args = append(args, "error", e)
+	}
+	slog.WarnContext(ctx, "fleet operation failed", args...)
 }
 func recoveryError(e error) (string, bool) {
 	if errors.Is(e, model.ErrForbidden) {
@@ -554,10 +563,11 @@ func (r *Reconciler) initialize(ctx context.Context, s store.RecoverySnapshot, c
 	c, cancel := claim.Context(ctx)
 	defer cancel()
 	fail := func(e error) error {
-		code, _ := recoveryError(e)
+		code, permanent := recoveryError(e)
 		if c.Err() != nil {
 			return nil
 		}
+		r.logOperationFailure(ctx, s, code, permanent, e)
 		return claim.Fail(c, code)
 	}
 	n, e := claim.Check(c)
