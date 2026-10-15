@@ -1,0 +1,18 @@
+{
+  "allowed": [
+    {
+      "id": "GO-2026-4887",
+      "module": "github.com/docker/docker",
+      "reason": "Moby Engine AuthZ-plugin bypass when a request body is oversized. This repository uses the Docker SDK as a client against a local daemon (internal/fleet/docker) and never serves the Engine API or loads AuthZ plugins, so the vulnerable server path is unreachable here; govulncheck only sees the client package's symbols.",
+      "added": "2026-10-14",
+      "revisit": "Remove this entry as soon as github.com/docker/docker publishes a release containing the fix. The advisory lists no fixed version today, and v28.5.2 still scans as vulnerable."
+    },
+    {
+      "id": "GO-2026-4883",
+      "module": "github.com/docker/docker",
+      "reason": "Moby Engine plugin privilege validation off-by-one. Same Engine-side path as GO-2026-4887: the Fleet drives a local daemon through the SDK client and never runs the plugin/AuthZ server code that this advisory affects.",
+      "added": "2026-10-14",
+      "revisit": "Remove this entry as soon as github.com/docker/docker publishes a release containing the fix. The advisory lists no fixed version today, and v28.5.2 still scans as vulnerable."
+    }
+  ]
+}
