@@ -13,13 +13,20 @@ import (
 )
 
 // SystemKeyPrefix identifies an Aurora expert carrier in agent.system_key: the
-// key is "aurora:<skillID>". Exported because read paths outside this package
-// (the skill directory) have to map a carrier back to its catalog entry.
+// key is "aurora:<skillID>". The write side (SystemKey), the read side
+// (SkillIDFromSystemKey) and the directory's query all derive from it here, so
+// the format has one owner.
 const SystemKeyPrefix = "aurora:"
 
 // SystemKey is the stable identity of one expert's carrier agent.
 func SystemKey(skillID string) string {
 	return SystemKeyPrefix + skillID
+}
+
+// SkillIDFromSystemKey recovers the catalog id from a carrier's system_key, or
+// false when the key belongs to some other system agent.
+func SkillIDFromSystemKey(systemKey string) (string, bool) {
+	return strings.CutPrefix(systemKey, SystemKeyPrefix)
 }
 
 // SystemAgentDef describes an Aurora expert carrier. Every carrier is

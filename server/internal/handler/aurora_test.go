@@ -90,7 +90,13 @@ func TestListAuroraSkillsIncludesCarrierAvatars(t *testing.T) {
 	ownerID := dbfx.User(t, "Aurora carrier avatar owner", "aurora-carrier-avatar-"+uuid.NewString()+"@example.com")
 	workspaceID := dbfx.Workspace(t, "Aurora carrier avatars", "aurora-carrier-avatars-"+uuid.NewString())
 	t.Cleanup(func() {
-		testPool.Exec(context.Background(), `DELETE FROM agent WHERE workspace_id = $1`, workspaceID)
+		// dbfx only cleans up its own fixed-slug fixture rows, so this test removes
+		// the throwaway user/workspace pair it inserted rather than leaking one per
+		// run. Agents go first: they reference both.
+		ctx := context.Background()
+		testPool.Exec(ctx, `DELETE FROM agent WHERE workspace_id = $1`, workspaceID)
+		testPool.Exec(ctx, `DELETE FROM workspace WHERE id = $1`, workspaceID)
+		testPool.Exec(ctx, `DELETE FROM "user" WHERE id = $1`, ownerID)
 	})
 
 	const (

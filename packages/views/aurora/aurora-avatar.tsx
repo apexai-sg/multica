@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { parseAvatarEmoji } from "@multica/ui/lib/avatar-emoji";
 import { cn } from "@multica/ui/lib/utils";
 import { resolvePublicFileUrl } from "@multica/core/workspace/avatar-url";
@@ -43,24 +43,19 @@ export function AuroraAvatar({
   available?: boolean;
   className?: string;
 }) {
-  const [imageFailed, setImageFailed] = useState(false);
-  // A skill can be re-pointed at another carrier between renders, so a failure
-  // on the previous portrait must not keep the new one hidden.
-  useEffect(() => setImageFailed(false), [avatarUrl]);
-
+  // The failure is remembered as the URL that failed rather than as a boolean:
+  // a skill can be re-pointed at another carrier between renders, and a new
+  // portrait must not stay hidden behind the previous one's error. Keeping the
+  // URL makes that fall out of the comparison instead of needing a reset effect.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const emoji = parseAvatarEmoji(avatarUrl);
-  // A relative path is one of the backend's own objects (`/uploads/...`), so it
-  // resolves against the API base the way every other avatar in the product
-  // does; an absolute URL passes through untouched. "No portrait" never reaches
-  // the API client at all, so a skill without one cannot depend on it being
-  // initialised.
+  // A relative path is one of the backend's own objects (`/uploads/...`), so
+  // resolvePublicFileUrl anchors it on the API base; an absolute URL passes
+  // through untouched. "No portrait" never reaches the API client at all, so a
+  // skill without one cannot depend on it being initialised.
+  const resolvedUrl = !emoji && avatarUrl ? resolvePublicFileUrl(avatarUrl) : null;
   const imageUrl =
-    !emoji && avatarUrl
-      ? avatarUrl.startsWith("/")
-        ? resolvePublicFileUrl(avatarUrl)
-        : avatarUrl
-      : null;
-  const showImage = imageUrl !== null && !imageFailed;
+    resolvedUrl !== null && resolvedUrl !== failedUrl ? resolvedUrl : null;
 
   // Decorative in every call site: the tile always sits beside the name it
   // stands for, so announcing it would read the identity twice.
@@ -71,19 +66,18 @@ export function AuroraAvatar({
         "aurora-avatar",
         size === "lg" && "aurora-avatar--lg",
         // The tint paints the fallback, not the frame: a portrait covers it.
-        !emoji && !showImage && "aurora-avatar--" + avatarTint(id),
-        showImage && "aurora-avatar--portrait",
+        !emoji && imageUrl === null && "aurora-avatar--" + avatarTint(id),
         className,
       )}
     >
       {emoji ? (
         <span className="aurora-avatar-emoji">{emoji}</span>
-      ) : showImage && imageUrl !== null ? (
+      ) : imageUrl ? (
         <img
           src={imageUrl}
           alt=""
           className="aurora-avatar-img"
-          onError={() => setImageFailed(true)}
+          onError={() => setFailedUrl(imageUrl)}
         />
       ) : (
         avatarInitial(name)

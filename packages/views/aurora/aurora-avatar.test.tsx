@@ -70,7 +70,8 @@ describe("AuroraAvatar", () => {
     expect(tile.querySelector("img")!.getAttribute("src")).toContain(
       "/uploads/agents/lobster.png",
     );
-    expect(tile).toHaveClass("aurora-avatar--portrait");
+    // The tint paints the fallback, so a portrait does not get one.
+    expect(tile).not.toHaveClass("aurora-avatar--blue");
     expect(tile).not.toHaveTextContent("P");
     // The state dot is an overlay, not part of the fallback.
     expect(tile.querySelector(".aurora-avatar-dot")).toBeInTheDocument();
@@ -86,7 +87,18 @@ describe("AuroraAvatar", () => {
     expect(tile).toHaveTextContent("P");
     // The tint belongs to the fallback, so a broken portrait restores it.
     expect(tile).toHaveClass("aurora-avatar--blue");
-    expect(tile).not.toHaveClass("aurora-avatar--portrait");
+  });
+
+  it("retries the next portrait after the previous one failed", () => {
+    const { container, rerender } = render(
+      <AuroraAvatar name="Poster" id="poster" avatarUrl="/uploads/gone.png" />,
+    );
+    fireEvent.error(container.querySelector("img")!);
+    rerender(<AuroraAvatar name="Poster" id="poster" avatarUrl="/uploads/new.png" />);
+    expect(container.querySelector("img")!.getAttribute("src")).toContain(
+      "/uploads/new.png",
+    );
+    expect(container.querySelector(".aurora-avatar")).not.toHaveTextContent("P");
   });
 
   it("renders an emoji avatar marker without treating it as an image", () => {
@@ -96,6 +108,5 @@ describe("AuroraAvatar", () => {
     const tile = container.querySelector(".aurora-avatar")!;
     expect(tile).toHaveTextContent("🦞");
     expect(tile.querySelector("img")).toBeNull();
-    expect(tile).not.toHaveClass("aurora-avatar--portrait");
   });
 });

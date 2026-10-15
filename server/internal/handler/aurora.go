@@ -68,17 +68,17 @@ var (
 // members set on the experts' carrier agents, so this read joins the two.
 func (h *Handler) ListAuroraSkills(w http.ResponseWriter, r *http.Request) {
 	skills := aurora.Catalog()
-	h.attachAuroraSkillAvatars(r.Context(), skills, r)
+	h.attachAuroraExpertAvatars(r, skills)
 	writeJSON(w, http.StatusOK, map[string]any{"skills": skills})
 }
 
-// attachAuroraSkillAvatars decorates the catalog with the workspace's carrier
+// attachAuroraExpertAvatars decorates the catalog with the workspace's carrier
 // avatars, in place.
 //
 // Each expert's carrier is an ordinary agent whose system_key is
-// "aurora:<skillID>" (aurora.SystemKey), which is how a portrait the member
-// uploaded in the Agents settings reaches the directory. Nothing else about the
-// catalog is workspace-specific.
+// aurora.SystemKey(skillID), which is how a portrait the member uploaded in the
+// Agents settings reaches the directory. Nothing else about the catalog is
+// workspace-specific.
 //
 // No carrier seeded, no avatar set, an unresolved workspace, and a failed
 // lookup all leave the entry untouched — that is the initials tile the
@@ -86,30 +86,35 @@ func (h *Handler) ListAuroraSkills(w http.ResponseWriter, r *http.Request) {
 // rendering. The failure path is deliberately not fatal: the directory is the
 // content and the portrait is decoration, and a 500 here would take the whole
 // Create page down over a thumbnail.
-func (h *Handler) attachAuroraSkillAvatars(ctx context.Context, skills []aurora.SkillCatalogEntry, r *http.Request) {
+func (h *Handler) attachAuroraExpertAvatars(r *http.Request, skills []aurora.SkillCatalogEntry) {
 	workspaceID, err := util.ParseUUID(h.resolveWorkspaceID(r))
 	if err != nil {
 		return
 	}
-	rows, err := h.Queries.ListAuroraExpertAvatars(ctx, workspaceID)
+	rows, err := h.Queries.ListAuroraExpertAvatars(r.Context(), db.ListAuroraExpertAvatarsParams{
+		WorkspaceID:     workspaceID,
+		SystemKeyPrefix: strToText(aurora.SystemKeyPrefix + "%"),
+	})
 	if err != nil {
 		slog.Warn("list aurora expert avatars", "error", err)
 		return
 	}
 	avatars := make(map[string]string, len(rows))
 	for _, row := range rows {
-		if !row.SystemKey.Valid || !row.AvatarUrl.Valid || row.AvatarUrl.String == "" {
+		// The query already narrowed to live carriers of this prefix, so the only
+		// skip left is a carrier with no portrait — the common case.
+		if row.AvatarUrl.String == "" {
 			continue
 		}
-		skillID, ok := strings.CutPrefix(row.SystemKey.String, aurora.SystemKeyPrefix)
+		skillID, ok := aurora.SkillIDFromSystemKey(row.SystemKey.String)
 		if !ok {
 			continue
 		}
-		avatars[skillID] = row.AvatarUrl.String
+		avatars[skillID] = h.resolveAvatarURL(row.AvatarUrl.String)
 	}
 	for i := range skills {
-		if raw, ok := avatars[skills[i].ID]; ok {
-			skills[i].AvatarURL = h.resolveAvatarURL(raw)
+		if avatar, ok := avatars[skills[i].ID]; ok {
+			skills[i].AvatarURL = avatar
 		}
 	}
 }
@@ -272,7 +277,7 @@ func (h *Handler) CreateAuroraGeneration(w http.ResponseWriter, r *http.Request)
 	// enqueue below is the only task this issue gets.
 	agent, err := h.Queries.GetAgentBySystemKey(r.Context(), db.GetAgentBySystemKeyParams{
 		WorkspaceID: workspaceID,
-		SystemKey:   pgtype.Text{String: "aurora:" + entry.ID, Valid: true},
+		SystemKey:   pgtype.Text{String: aurora.SystemKey(entry.ID), Valid: true},
 	})
 	if err != nil {
 		// Nothing has been reserved yet, so there is nothing to refund.

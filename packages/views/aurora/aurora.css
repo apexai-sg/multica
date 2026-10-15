@@ -886,11 +886,6 @@ a.aurora-status-chip[href] {
   font-size: var(--text-body);
 }
 
-/* The carrier agent's own portrait, for a workspace that set one. */
-.aurora-avatar--portrait {
-  background: var(--aurora-surface);
-}
-
 /* Clipped to the tile's radius rather than by making the tile
    `overflow: hidden`: the state dot is drawn outside the tile's box. */
 .aurora-avatar-img {

@@ -98,10 +98,13 @@ RETURNING *;
 
 -- name: ListAuroraExpertAvatars :many
 -- The portrait each Aurora expert carrier carries in this workspace, keyed by
--- the agent's stable system_key ("aurora:<skillID>"). The skill directory
--- decorates its catalog with these: the catalog itself is a server-owned
--- constant and stays avatar-free, so only the workspace lookup can answer what
--- the member set on the carrier agent in the Agents settings.
+-- the agent's stable system_key. The skill directory decorates its catalog with
+-- these: the catalog itself is a server-owned constant and stays avatar-free, so
+-- only the workspace lookup can answer what the member set on the carrier agent
+-- in the Agents settings.
+--
+-- system_key_prefix is aurora.SystemKeyPrefix plus the LIKE wildcard, passed in
+-- rather than spelled here: the "<prefix><skillID>" format has one owner in Go.
 --
 -- DISTINCT ON keeps one row per skill, resolving the same way
 -- GetAgentBySystemKey does (earliest live carrier first): migration 172's
@@ -111,7 +114,7 @@ SELECT DISTINCT ON (a.system_key)
     a.system_key,
     a.avatar_url
 FROM agent a
-WHERE a.workspace_id = $1
-  AND a.system_key LIKE 'aurora:%'
+WHERE a.workspace_id = @workspace_id
+  AND a.system_key LIKE @system_key_prefix
   AND a.archived_at IS NULL
 ORDER BY a.system_key ASC, a.created_at ASC, a.id ASC;

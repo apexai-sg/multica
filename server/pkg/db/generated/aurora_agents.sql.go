@@ -204,10 +204,15 @@ SELECT DISTINCT ON (a.system_key)
     a.avatar_url
 FROM agent a
 WHERE a.workspace_id = $1
-  AND a.system_key LIKE 'aurora:%'
+  AND a.system_key LIKE $2
   AND a.archived_at IS NULL
 ORDER BY a.system_key ASC, a.created_at ASC, a.id ASC
 `
+
+type ListAuroraExpertAvatarsParams struct {
+	WorkspaceID     pgtype.UUID `json:"workspace_id"`
+	SystemKeyPrefix pgtype.Text `json:"system_key_prefix"`
+}
 
 type ListAuroraExpertAvatarsRow struct {
 	SystemKey pgtype.Text `json:"system_key"`
@@ -215,17 +220,20 @@ type ListAuroraExpertAvatarsRow struct {
 }
 
 // The portrait each Aurora expert carrier carries in this workspace, keyed by
-// the agent's stable system_key ("aurora:<skillID>"). The skill directory
-// decorates its catalog with these: the catalog itself is a server-owned
-// constant and stays avatar-free, so only the workspace lookup can answer what
-// the member set on the carrier agent in the Agents settings.
+// the agent's stable system_key. The skill directory decorates its catalog with
+// these: the catalog itself is a server-owned constant and stays avatar-free, so
+// only the workspace lookup can answer what the member set on the carrier agent
+// in the Agents settings.
+//
+// system_key_prefix is aurora.SystemKeyPrefix plus the LIKE wildcard, passed in
+// rather than spelled here: the "<prefix><skillID>" format has one owner in Go.
 //
 // DISTINCT ON keeps one row per skill, resolving the same way
 // GetAgentBySystemKey does (earliest live carrier first): migration 172's
 // partial unique index includes runtime_id, so a runtime teardown can leave two
 // live rows for one system_key and the directory must not double-count them.
-func (q *Queries) ListAuroraExpertAvatars(ctx context.Context, workspaceID pgtype.UUID) ([]ListAuroraExpertAvatarsRow, error) {
-	rows, err := q.db.Query(ctx, listAuroraExpertAvatars, workspaceID)
+func (q *Queries) ListAuroraExpertAvatars(ctx context.Context, arg ListAuroraExpertAvatarsParams) ([]ListAuroraExpertAvatarsRow, error) {
+	rows, err := q.db.Query(ctx, listAuroraExpertAvatars, arg.WorkspaceID, arg.SystemKeyPrefix)
 	if err != nil {
 		return nil, err
 	}
