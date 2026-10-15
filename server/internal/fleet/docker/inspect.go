@@ -87,6 +87,15 @@ func inspectEnvironment(env []string, maxRuns int, aurora *model.AuroraConfig) b
 			if aurora == nil || value != model.AuroraClaudePath {
 				return false
 			}
+		case model.AuroraExpertsDirEnv:
+			// The image declares where it placed the vendored expert tree, and the
+			// bootstrap helper - built from that same image - carries the variable
+			// with aurora == nil, so this one is validated rather than required. It
+			// is the same default the daemon falls back to; a different path would
+			// send a run to a tree the operator did not place.
+			if value != model.AuroraExpertsDir {
+				return false
+			}
 		case model.AuroraAnthropicBaseURLEnv:
 			// The operator-configured endpoint override is adoption-relevant:
 			// a container built for a different endpoint keeps talking to the

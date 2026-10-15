@@ -194,6 +194,19 @@ func TestInspectAuroraEnvironment(t *testing.T) {
 			t.Fatalf("aurora environment with baked %s accepted", banner)
 		}
 	}
+	// The node image declares where it placed the vendored expert tree and both
+	// the node container and the bootstrap helper inherit it. The helper carries
+	// no Aurora profile, so the key must validate with aurora == nil too.
+	expert := model.AuroraExpertsDirEnv + "=" + model.AuroraExpertsDir
+	if !inspectEnvironment(append(append([]string{}, full...), expert), 1, auroraConfig().Aurora) {
+		t.Fatal("image-declared expert directory rejected")
+	}
+	if !inspectEnvironment([]string{base[0], base[1], expert}, 0, nil) {
+		t.Fatal("bootstrap helper environment rejected")
+	}
+	if inspectEnvironment(append(append([]string{}, full...), model.AuroraExpertsDirEnv+"=/tmp/experts"), 1, auroraConfig().Aurora) {
+		t.Fatal("unexpected expert directory accepted")
+	}
 	credentialed := append(append([]string{}, base...), "MULTICA_MANAGED=1", "MULTICA_SERVER_URL=http://user:pass@api.internal:8080", "MULTICA_MANAGED_ENROLLMENT_TOKEN_FILE="+model.AuroraEnrollmentFile)
 	credentialed = append(credentialed, agent...)
 	if inspectEnvironment(credentialed, 1, auroraConfig().Aurora) {
