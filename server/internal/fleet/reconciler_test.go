@@ -1,11 +1,13 @@
 package fleet
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/fleet/model"
 	"github.com/multica-ai/multica/server/internal/fleet/store"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -244,6 +246,30 @@ func TestRecoveryUnknownOfflinePreservesBarrier(t *testing.T) {
 		t.Fatalf("lost barrier: actions=%v events=%v snap=%+v", p.actions, f.events, f.snap)
 	}
 }
+
+// TestRecoveryOperationFailureIsLogged pins the Fleet's only failure surface:
+// when an operation fails, the cause has to reach the log, not just an error_code
+// in the row. Without it a rejected image environment or a missing image is only
+// discoverable by reconstructing state from the database.
+func TestRecoveryOperationFailureIsLogged(t *testing.T) {
+	previous := slog.Default()
+	var logged bytes.Buffer
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logged, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	_, p, r := workerFixture(model.Create, false)
+	p.err = model.ErrForbidden
+	if e := joinedTick(t, r, context.Background()); e != nil {
+		t.Fatal(e)
+	}
+	line := logged.String()
+	for _, want := range []string{"fleet operation failed", "error_code=forbidden", "action=create", "namespace=owned"} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("failure log missing %q: %q", want, line)
+		}
+	}
+}
+
 func TestRecoveryConfirmedCreateInspectOnly(t *testing.T) {
 	f, p, r := workerFixture(model.Create, false)
 	for i := 0; i < 2; i++ {
