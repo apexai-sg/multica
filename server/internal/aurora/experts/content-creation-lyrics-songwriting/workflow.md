@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/content-creation-lyrics-songwriting--acestep-songwriting/SKILL.md` — acestep-songwriting
-- `.claude/skills/content-creation-lyrics-songwriting--insight-song/SKILL.md` — insight-song
-- `.claude/skills/content-creation-lyrics-songwriting--songwriting-and-ai-music/SKILL.md` — songwriting-and-ai-music
-- `.claude/skills/content-creation-lyrics-songwriting--suno-browser-songmaking/SKILL.md` — suno-browser-songmaking
-- `.claude/skills/content-creation-lyrics-songwriting--suno-music-composer/SKILL.md` — suno-music-composer
-- `.claude/skills/content-creation-lyrics-songwriting--suno-poetry-music-creator/SKILL.md` — suno-poetry-music-creator
+- `.claude/skills/content-creation-lyrics-songwriting-acestep-songwriting/SKILL.md` — acestep-songwriting
+- `.claude/skills/content-creation-lyrics-songwriting-insight-song/SKILL.md` — insight-song
+- `.claude/skills/content-creation-lyrics-songwriting-songwriting-and-ai-music/SKILL.md` — songwriting-and-ai-music
+- `.claude/skills/content-creation-lyrics-songwriting-suno-browser-songmaking/SKILL.md` — suno-browser-songmaking
+- `.claude/skills/content-creation-lyrics-songwriting-suno-music-composer/SKILL.md` — suno-music-composer
+- `.claude/skills/content-creation-lyrics-songwriting-suno-poetry-music-creator/SKILL.md` — suno-poetry-music-creator
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

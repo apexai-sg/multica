@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/design-prd-writing--prd/SKILL.md` — prd
-- `.claude/skills/design-prd-writing--prd-reviewer/SKILL.md` — prd-reviewer
-- `.claude/skills/design-prd-writing--prd-to-design-doc/SKILL.md` — prd-to-design-doc
-- `.claude/skills/design-prd-writing--prd-writer-pro/SKILL.md` — prd-writer-pro
-- `.claude/skills/design-prd-writing--requirements-analysis/SKILL.md` — requirements-analysis
-- `.claude/skills/design-prd-writing--software-manager-skill/SKILL.md` — software-manager-skill
+- `.claude/skills/design-prd-writing-prd/SKILL.md` — prd
+- `.claude/skills/design-prd-writing-prd-reviewer/SKILL.md` — prd-reviewer
+- `.claude/skills/design-prd-writing-prd-to-design-doc/SKILL.md` — prd-to-design-doc
+- `.claude/skills/design-prd-writing-prd-writer-pro/SKILL.md` — prd-writer-pro
+- `.claude/skills/design-prd-writing-requirements-analysis/SKILL.md` — requirements-analysis
+- `.claude/skills/design-prd-writing-software-manager-skill/SKILL.md` — software-manager-skill
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

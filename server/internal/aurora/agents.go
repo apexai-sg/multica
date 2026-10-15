@@ -78,14 +78,11 @@ func ManagedRuntimeID(ctx context.Context, q *db.Queries, workspaceID pgtype.UUI
 }
 
 // EnsureAuroraExpert lazily materialises one expert in a workspace: the managed
-// runtime, the carrier agent for the requested skill, and every skill the
-// carrier runs with — the primary brief plus the expert's sub-skills and their
-// supporting files. It is idempotent, so generation creation can call it for
-// every request without counting rows first.
-//
-// The generation path seeds only the requested expert on purpose: the vendored
-// library is ~7 MiB, and a workspace should pay for the expert it actually
-// runs. EnsureSystemAgents remains for tests and backfill.
+// runtime, the carrier agent, and the primary brief. Sub-skill bodies are not
+// stored here. scripts/aurora-import-experts.mjs --import copies them onto the
+// cloud runtime, and the daemon copies that tree into the task skills directory.
+// It is idempotent, so generation creation can call it for every request without
+// counting rows first.
 //
 // ownerID must be a real user id (agent.owner_id references "user"): the
 // caller passes the workspace owner. No transaction is taken here on purpose:
@@ -117,8 +114,9 @@ func EnsureSystemAgents(ctx context.Context, q *db.Queries, workspaceID, ownerID
 	return nil
 }
 
-// ensureExpert writes one expert's primary skill, its sub-skills and their
-// files, the carrier, and every junction. Each statement is independently
+// ensureExpert writes one expert's primary skill and its carrier. A re-seed
+// detaches sub-skill rows an older build linked, so claim does not materialise
+// a partial copy over the runtime tree. Each statement is independently
 // idempotent, so a partially applied seed converges on retry.
 func ensureExpert(ctx context.Context, q *db.Queries, workspaceID, ownerID, runtimeID pgtype.UUID, skillID string) error {
 	entry, ok := Lookup(skillID)
@@ -138,27 +136,6 @@ func ensureExpert(ctx context.Context, q *db.Queries, workspaceID, ownerID, runt
 	})
 	if err != nil {
 		return fmt.Errorf("upsert skill %q: %w", skillID, err)
-	}
-	skillIDs := []pgtype.UUID{primary.ID}
-
-	for _, sub := range expert.Subskills {
-		content, ok := LoadExpertSubskill(skillID, sub.Slug)
-		if !ok {
-			return fmt.Errorf("aurora: expert %q sub-skill %q is missing from the vendored library", skillID, sub.Slug)
-		}
-		row, err := q.UpsertAuroraSkill(ctx, db.UpsertAuroraSkillParams{
-			WorkspaceID: workspaceID,
-			Name:        sub.Name,
-			Content:     content.Content,
-			CreatedBy:   ownerID,
-		})
-		if err != nil {
-			return fmt.Errorf("upsert sub-skill %q: %w", sub.Name, err)
-		}
-		if err := syncSkillFiles(ctx, q, row.ID, content.Files); err != nil {
-			return fmt.Errorf("sync sub-skill %q files: %w", sub.Name, err)
-		}
-		skillIDs = append(skillIDs, row.ID)
 	}
 
 	def := systemAgentDef(entry)
@@ -192,44 +169,42 @@ func ensureExpert(ctx context.Context, q *db.Queries, workspaceID, ownerID, runt
 	if err != nil {
 		return fmt.Errorf("upsert agent %q: %w", skillID, err)
 	}
+	if err := detachExpertSubskills(ctx, q, agent.ID, primary.ID, expert); err != nil {
+		return err
+	}
+	if err := q.AddAgentSkill(ctx, db.AddAgentSkillParams{AgentID: agent.ID, SkillID: primary.ID}); err != nil {
+		return fmt.Errorf("link agent %q: %w", skillID, err)
+	}
+	return nil
+}
 
-	for _, id := range skillIDs {
-		if err := q.AddAgentSkill(ctx, db.AddAgentSkillParams{AgentID: agent.ID, SkillID: id}); err != nil {
-			return fmt.Errorf("link agent %q: %w", skillID, err)
+// detachExpertSubskills unlinks sub-skill rows this carrier no longer runs.
+// The rows stay: a historical generation may still name the workspace skill.
+// Both the current directory name and the old double-hyphen name are detached,
+// because sanitizeSkillName collapses both onto the runtime directory.
+func detachExpertSubskills(ctx context.Context, q *db.Queries, agentID, primaryID pgtype.UUID, expert Expert) error {
+	skills, err := q.ListAgentSkills(ctx, agentID)
+	if err != nil {
+		return err
+	}
+	for _, skill := range skills {
+		if skill.ID == primaryID || !isManagedSubskillName(expert, skill.Name) {
+			continue
+		}
+		if err := q.RemoveAgentSkill(ctx, db.RemoveAgentSkillParams{AgentID: agentID, SkillID: skill.ID}); err != nil {
+			return fmt.Errorf("detach sub-skill %q: %w", skill.Name, err)
 		}
 	}
 	return nil
 }
 
-// syncSkillFiles makes a sub-skill's stored supporting files exactly the
-// vendored set: every vendored file is upserted, and a stored file the library
-// no longer carries is deleted, so a re-seed after an upstream change leaves no
-// orphan behind.
-func syncSkillFiles(ctx context.Context, q *db.Queries, skillID pgtype.UUID, files []ExpertFileContent) error {
-	existing, err := q.ListSkillFiles(ctx, skillID)
-	if err != nil {
-		return err
-	}
-	wanted := make(map[string]bool, len(files))
-	for _, file := range files {
-		if _, err := q.UpsertSkillFile(ctx, db.UpsertSkillFileParams{
-			SkillID: skillID,
-			Path:    file.Path,
-			Content: file.Content,
-		}); err != nil {
-			return err
-		}
-		wanted[file.Path] = true
-	}
-	for _, row := range existing {
-		if wanted[row.Path] {
-			continue
-		}
-		if err := q.DeleteSkillFile(ctx, row.ID); err != nil {
-			return err
+func isManagedSubskillName(expert Expert, name string) bool {
+	for _, sub := range expert.Subskills {
+		if name == sub.Name || name == expert.Slug+"--"+sub.Slug {
+			return true
 		}
 	}
-	return nil
+	return false
 }
 
 // ensureManagedRuntime returns the workspace's managed runtime, creating it on
@@ -322,8 +297,8 @@ func systemAgentInstructions(e SkillCatalogEntry) string {
 }
 
 // systemSkillContent is the prompt content stored on the primary skill row: the
-// canonical vendored workflow, refreshed on every seed. It deliberately never
-// reads a sub-skill SKILL.md — those are separate skills the carrier also holds.
+// canonical vendored workflow, refreshed on every seed. Sub-skill documents are
+// not stored on skill rows.
 func systemSkillContent(e SkillCatalogEntry) string {
 	brief, _ := Workflow(e.ID)
 	return brief

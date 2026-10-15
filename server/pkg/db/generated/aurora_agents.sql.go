@@ -166,8 +166,8 @@ type GetAuroraManagedRuntimeParams struct {
 // aurora.EnsureAuroraExpert (generation creation: the requested expert only) and
 // aurora.EnsureSystemAgents (tests and backfill: every expert). Each expert gets
 // one managed runtime row, one kind='user' agent carrying its upstream
-// quick-start cards as conversation_starters, its primary skill row, its
-// sub-skill rows, and the agent_skill junctions.
+// quick-start cards as conversation_starters, and its primary skill row.
+// Sub-skill files are imported onto the cloud runtime, not stored here.
 // The workspace's server-hosted (managed) runtime, the idempotency anchor for
 // seeding. It may be unbound (daemon_id still NULL) or already bound to the
 // sandbox daemon that enrolled it, so the lookup does not filter on daemon_id;

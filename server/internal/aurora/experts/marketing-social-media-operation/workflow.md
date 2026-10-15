@@ -45,11 +45,11 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 5 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/marketing-social-media-operation--content-hunter/SKILL.md` — content-hunter
-- `.claude/skills/marketing-social-media-operation--newmedia-operations/SKILL.md` — newmedia-operations
-- `.claude/skills/marketing-social-media-operation--social-media-operator/SKILL.md` — social-media-operator
-- `.claude/skills/marketing-social-media-operation--social-media-optimizer/SKILL.md` — social-media-optimizer
-- `.claude/skills/marketing-social-media-operation--wechat-mp-writer-skill-mxx/SKILL.md` — wechat-mp-writer-skill-mxx
+- `.claude/skills/marketing-social-media-operation-content-hunter/SKILL.md` — content-hunter
+- `.claude/skills/marketing-social-media-operation-newmedia-operations/SKILL.md` — newmedia-operations
+- `.claude/skills/marketing-social-media-operation-social-media-operator/SKILL.md` — social-media-operator
+- `.claude/skills/marketing-social-media-operation-social-media-optimizer/SKILL.md` — social-media-optimizer
+- `.claude/skills/marketing-social-media-operation-wechat-mp-writer-skill-mxx/SKILL.md` — wechat-mp-writer-skill-mxx
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

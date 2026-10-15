@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/ecommerce-product-selection--1688-trend-trader/SKILL.md` — 1688-trend-trader
-- `.claude/skills/ecommerce-product-selection--apiclaw-analysis/SKILL.md` — apiclaw-analysis
-- `.claude/skills/ecommerce-product-selection--cross-border-ecommerce-product-analysis/SKILL.md` — cross-border-ecommerce-product-analysis
-- `.claude/skills/ecommerce-product-selection--ecommerce-product-selector/SKILL.md` — ecommerce-product-selector
-- `.claude/skills/ecommerce-product-selection--taobao-product-research/SKILL.md` — taobao-product-research
-- `.claude/skills/ecommerce-product-selection--walter-product-research/SKILL.md` — walter-product-research
+- `.claude/skills/ecommerce-product-selection-1688-trend-trader/SKILL.md` — 1688-trend-trader
+- `.claude/skills/ecommerce-product-selection-apiclaw-analysis/SKILL.md` — apiclaw-analysis
+- `.claude/skills/ecommerce-product-selection-cross-border-ecommerce-product-analysis/SKILL.md` — cross-border-ecommerce-product-analysis
+- `.claude/skills/ecommerce-product-selection-ecommerce-product-selector/SKILL.md` — ecommerce-product-selector
+- `.claude/skills/ecommerce-product-selection-taobao-product-research/SKILL.md` — taobao-product-research
+- `.claude/skills/ecommerce-product-selection-walter-product-research/SKILL.md` — walter-product-research
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

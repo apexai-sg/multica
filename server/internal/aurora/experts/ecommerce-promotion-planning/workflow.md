@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/ecommerce-promotion-planning--ad-budget-rebalancer/SKILL.md` — ad-budget-rebalancer
-- `.claude/skills/ecommerce-promotion-planning--campaign-planning/SKILL.md` — campaign-planning
-- `.claude/skills/ecommerce-promotion-planning--discount-marketing-strategy/SKILL.md` — discount-marketing-strategy
-- `.claude/skills/ecommerce-promotion-planning--forecast-analysis-claw/SKILL.md` — forecast-analysis-claw
-- `.claude/skills/ecommerce-promotion-planning--holiday-fomo-marketing/SKILL.md` — holiday-fomo-marketing
-- `.claude/skills/ecommerce-promotion-planning--promotion-enrollment-assistant/SKILL.md` — promotion-enrollment-assistant
+- `.claude/skills/ecommerce-promotion-planning-ad-budget-rebalancer/SKILL.md` — ad-budget-rebalancer
+- `.claude/skills/ecommerce-promotion-planning-campaign-planning/SKILL.md` — campaign-planning
+- `.claude/skills/ecommerce-promotion-planning-discount-marketing-strategy/SKILL.md` — discount-marketing-strategy
+- `.claude/skills/ecommerce-promotion-planning-forecast-analysis-claw/SKILL.md` — forecast-analysis-claw
+- `.claude/skills/ecommerce-promotion-planning-holiday-fomo-marketing/SKILL.md` — holiday-fomo-marketing
+- `.claude/skills/ecommerce-promotion-planning-promotion-enrollment-assistant/SKILL.md` — promotion-enrollment-assistant
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

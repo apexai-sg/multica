@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/ecommerce-user-profiling--ai-intelligent-customer-segmentation/SKILL.md` — ai-intelligent-customer-segmentation
-- `.claude/skills/ecommerce-user-profiling--audience-segmentation-analyst/SKILL.md` — audience-segmentation-analyst
-- `.claude/skills/ecommerce-user-profiling--customer-lifetime-value-optimizer/SKILL.md` — customer-lifetime-value-optimizer
-- `.claude/skills/ecommerce-user-profiling--customer-retention/SKILL.md` — customer-retention
-- `.claude/skills/ecommerce-user-profiling--rfm-segmenter/SKILL.md` — rfm-segmenter
-- `.claude/skills/ecommerce-user-profiling--user-behavior-analytics/SKILL.md` — user-behavior-analytics
+- `.claude/skills/ecommerce-user-profiling-ai-intelligent-customer-segmentation/SKILL.md` — ai-intelligent-customer-segmentation
+- `.claude/skills/ecommerce-user-profiling-audience-segmentation-analyst/SKILL.md` — audience-segmentation-analyst
+- `.claude/skills/ecommerce-user-profiling-customer-lifetime-value-optimizer/SKILL.md` — customer-lifetime-value-optimizer
+- `.claude/skills/ecommerce-user-profiling-customer-retention/SKILL.md` — customer-retention
+- `.claude/skills/ecommerce-user-profiling-rfm-segmenter/SKILL.md` — rfm-segmenter
+- `.claude/skills/ecommerce-user-profiling-user-behavior-analytics/SKILL.md` — user-behavior-analytics
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

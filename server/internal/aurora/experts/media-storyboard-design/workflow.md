@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/media-storyboard-design--ai-video-script/SKILL.md` — ai-video-script
-- `.claude/skills/media-storyboard-design--prompt-bozo/SKILL.md` — prompt-bozo
-- `.claude/skills/media-storyboard-design--script-to-storyboard/SKILL.md` — script-to-storyboard
-- `.claude/skills/media-storyboard-design--seedance2-storyboard-generator/SKILL.md` — seedance2-storyboard-generator
-- `.claude/skills/media-storyboard-design--seedance2-video-prompter/SKILL.md` — seedance2-video-prompter
-- `.claude/skills/media-storyboard-design--video-cinematography/SKILL.md` — video-cinematography
+- `.claude/skills/media-storyboard-design-ai-video-script/SKILL.md` — ai-video-script
+- `.claude/skills/media-storyboard-design-prompt-bozo/SKILL.md` — prompt-bozo
+- `.claude/skills/media-storyboard-design-script-to-storyboard/SKILL.md` — script-to-storyboard
+- `.claude/skills/media-storyboard-design-seedance2-storyboard-generator/SKILL.md` — seedance2-storyboard-generator
+- `.claude/skills/media-storyboard-design-seedance2-video-prompter/SKILL.md` — seedance2-video-prompter
+- `.claude/skills/media-storyboard-design-video-cinematography/SKILL.md` — video-cinematography
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/ecommerce-bidding-strategy--ad-campaign-optimizer/SKILL.md` — ad-campaign-optimizer
-- `.claude/skills/ecommerce-bidding-strategy--amazon-listing-optimizer/SKILL.md` — Amazon Listing Optimizer
-- `.claude/skills/ecommerce-bidding-strategy--amazon-ppc-campaign/SKILL.md` — amazon-ppc-campaign
-- `.claude/skills/ecommerce-bidding-strategy--budget-bidding-optimizer/SKILL.md` — budget-bidding-optimizer
-- `.claude/skills/ecommerce-bidding-strategy--ecommerce-ppc-strategy-planner/SKILL.md` — ecommerce-ppc-strategy-planner
-- `.claude/skills/ecommerce-bidding-strategy--google-ads/SKILL.md` — google-ads
+- `.claude/skills/ecommerce-bidding-strategy-ad-campaign-optimizer/SKILL.md` — ad-campaign-optimizer
+- `.claude/skills/ecommerce-bidding-strategy-amazon-listing-optimizer/SKILL.md` — Amazon Listing Optimizer
+- `.claude/skills/ecommerce-bidding-strategy-amazon-ppc-campaign/SKILL.md` — amazon-ppc-campaign
+- `.claude/skills/ecommerce-bidding-strategy-budget-bidding-optimizer/SKILL.md` — budget-bidding-optimizer
+- `.claude/skills/ecommerce-bidding-strategy-ecommerce-ppc-strategy-planner/SKILL.md` — ecommerce-ppc-strategy-planner
+- `.claude/skills/ecommerce-bidding-strategy-google-ads/SKILL.md` — google-ads
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

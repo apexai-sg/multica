@@ -179,6 +179,15 @@ func writeContextFiles(workDir, provider string, ctx TaskContextForEnv, manifest
 			}
 		}
 	}
+	if provider == "claude" && ctx.AuroraSkillID != "" {
+		skillsDir, err := resolveSkillsDir(workDir, provider, manifest)
+		if err != nil {
+			return fmt.Errorf("resolve skills dir: %w", err)
+		}
+		if err := installAuroraExpertSkills(skillsDir, ctx.AuroraSkillID, manifest); err != nil {
+			return fmt.Errorf("install aurora expert skills: %w", err)
+		}
+	}
 
 	// Project resources are best-effort: a write failure logs but does not
 	// block task startup. Missing resources surface as the agent simply not

@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/legal-contract-drafting--employment-contract/SKILL.md` — employment-contract
-- `.claude/skills/legal-contract-drafting--hetongzhushou/SKILL.md` — hetongzhushou
-- `.claude/skills/legal-contract-drafting--legal-advisor/SKILL.md` — legal-advisor
-- `.claude/skills/legal-contract-drafting--legal-doc-writer/SKILL.md` — legal-doc-writer
-- `.claude/skills/legal-contract-drafting--legal-document-assistant/SKILL.md` — legal-document-assistant
-- `.claude/skills/legal-contract-drafting--nda/SKILL.md` — nda
+- `.claude/skills/legal-contract-drafting-employment-contract/SKILL.md` — employment-contract
+- `.claude/skills/legal-contract-drafting-hetongzhushou/SKILL.md` — hetongzhushou
+- `.claude/skills/legal-contract-drafting-legal-advisor/SKILL.md` — legal-advisor
+- `.claude/skills/legal-contract-drafting-legal-doc-writer/SKILL.md` — legal-doc-writer
+- `.claude/skills/legal-contract-drafting-legal-document-assistant/SKILL.md` — legal-document-assistant
+- `.claude/skills/legal-contract-drafting-nda/SKILL.md` — nda
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

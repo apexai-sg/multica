@@ -1,15 +1,19 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 
 import {
   buildLibrary,
+  importExperts,
+  importPlan,
+  isProvenancePath,
   namespacedSlug,
   parseFrontmatter,
   renderBrief,
   rewriteSkillName,
+  sanitizeSkillDir,
   sceneOf,
   validateBriefs,
 } from "./aurora-import-experts.mjs";
@@ -47,10 +51,10 @@ function scaffold() {
       "display_name_en: Alpha" + "\n" + "description: d" + "\n" + "---" + "\n" + "\n" + "# Alpha" + "\n",
   );
   write("skillhub-skillset-ecommerce-demo-a/skills/alpha/scripts/run.sh", "#!/bin/sh" + "\n" + "echo hi" + "\n");
-  // Vendored for provenance, never listed: go:embed cannot serve an underscore
-  // name, and the Go loader would fail on the whole sub-skill if it did.
   write("skillhub-skillset-ecommerce-demo-a/skills/alpha/_meta.json", JSON.stringify({ slug: "alpha" }));
   write("skillhub-skillset-ecommerce-demo-a/skills/alpha/references/notes.md", "# notes" + "\n");
+  write("skillhub-skillset-ecommerce-demo-a/skills/alpha/.learnings/CHARACTERS.md", "# characters" + "\n");
+  write("skillhub-skillset-ecommerce-demo-a/skills/alpha/scripts/__init__.py", "# package" + "\n");
   // An upstream download that failed leaves an empty directory behind.
   mkdirSync(join(dir, "skillhub-skillset-ecommerce-demo-a/skills/empty-sub"), { recursive: true });
 
@@ -108,29 +112,30 @@ test("buildLibrary keeps the six scenes, folds the slug prefix and namespaces su
     ["alpha"],
   );
   assert.equal(demo.subskills[0].name, namespacedSlug("ecommerce-demo-a", "alpha"));
+  assert.equal(demo.subskills[0].name, "ecommerce-demo-a-alpha");
+  assert.equal(demo.subskills[0].name, sanitizeSkillDir(demo.subskills[0].name));
   assert.deepEqual(
     demo.subskills[0].files.map((file) => file.path),
-    ["SKILL.md", "references/notes.md", "scripts/run.sh"],
+    [".learnings/CHARACTERS.md", "SKILL.md", "references/notes.md", "scripts/__init__.py", "scripts/run.sh"],
   );
 
-  const subSkill = files.get(
-    "server/internal/aurora/experts/ecommerce-demo-a/subskills/alpha/SKILL.md",
-  );
-  assert.match(subSkill, /^name: ecommerce-demo-a--alpha$/m);
+  const subSkill = files.get("aurora-experts/ecommerce-demo-a/ecommerce-demo-a-alpha/SKILL.md");
+  assert.match(subSkill, /^name: ecommerce-demo-a-alpha$/m);
   assert.equal(
-    files.get("server/internal/aurora/experts/ecommerce-demo-a/subskills/alpha/scripts/run.sh"),
+    files.get("aurora-experts/ecommerce-demo-a/ecommerce-demo-a-alpha/scripts/run.sh"),
     "#!/bin/sh" + "\n" + "echo hi" + "\n",
   );
   assert.ok(files.has("server/internal/aurora/experts/index.json"));
   assert.ok(
-    files.has("server/internal/aurora/experts/ecommerce-demo-a/subskills/alpha/_meta.json"),
-    "_meta.json stays vendored for provenance",
+    files.has("aurora-experts/ecommerce-demo-a/ecommerce-demo-a-alpha/_meta.json"),
+    "_meta.json stays in the checkout for provenance",
   );
+  assert.equal(files.has("server/internal/aurora/experts/ecommerce-demo-a/subskills/alpha/SKILL.md"), false);
 
   const index = JSON.parse(files.get("server/internal/aurora/experts/index.json"));
-  assert.equal(index.schema, 1);
+  assert.equal(index.schema, 2);
+  assert.equal(index.experts[0].subskills[0].files, undefined);
   assert.deepEqual(index.experts[1].missing_subskills, []);
-  assert.equal(index.experts[0].subskills[0].files.length, 3);
   assert.deepEqual(index.experts[0].quick_prompts, [
     {
       label_zh: "第一步",
@@ -139,6 +144,23 @@ test("buildLibrary keeps the six scenes, folds the slug prefix and namespaces su
       prompt_en: "Help me with step one.",
     },
   ]);
+
+  const plan = importPlan(files);
+  const planned = new Set(plan.map((file) => file.path));
+  assert.equal(planned.has("ecommerce-demo-a/ecommerce-demo-a-alpha/_meta.json"), false);
+  for (const [path] of files) {
+    if (!path.startsWith("aurora-experts/")) {
+      continue;
+    }
+    const rel = path.slice("aurora-experts/".length);
+    if (isProvenancePath(rel)) {
+      assert.equal(planned.has(rel), false, rel + " must stay out of the import");
+      continue;
+    }
+    assert.equal(planned.has(rel), true, rel + " is missing from the import plan");
+  }
+  const alpha = plan.find((file) => file.path.endsWith("/.learnings/CHARACTERS.md"));
+  assert.equal(alpha.content, "# characters" + "\n");
 });
 
 test("buildLibrary is deterministic", async (t) => {
@@ -172,7 +194,7 @@ test("the generated brief satisfies the Aurora workflow contract", async (t) => 
   }
   assert.ok(brief.includes("com.multica.aurora.artifacts"));
   assert.ok(brief.includes("ecommerce-demo-a"));
-  assert.ok(brief.includes(".claude/skills/ecommerce-demo-a--alpha/SKILL.md"));
+  assert.ok(brief.includes(".claude/skills/ecommerce-demo-a-alpha/SKILL.md"));
   assert.ok(brief.includes("使用 **Alpha** 完成。"));
 });
 
@@ -202,4 +224,39 @@ test("sceneOf prefers the frontmatter and falls back to the slug prefix", () => 
   assert.equal(sceneOf("content-creation-novel-writing", "content-creation"), "content-creation");
   assert.equal(sceneOf("legal-demo-b", ""), "legal");
   assert.equal(sceneOf("tech-test-automation", ""), "");
+});
+
+test("importExperts copies every non-provenance file and keeps directory names", async (t) => {
+  const dir = scaffold();
+  const dest = mkdtempSync(join(tmpdir(), "aurora-runtime-"));
+  t.after(() => {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(dest, { recursive: true, force: true });
+  });
+
+  const { files } = await buildLibrary(dir);
+  const source = mkdtempSync(join(tmpdir(), "aurora-skills-"));
+  t.after(() => rmSync(source, { recursive: true, force: true }));
+  const { mkdirSync: mkdir, writeFileSync: write } = await import("node:fs");
+  for (const [path, content] of files) {
+    if (!path.startsWith("aurora-experts/")) {
+      continue;
+    }
+    const rel = path.slice("aurora-experts/".length);
+    const full = join(source, rel);
+    mkdir(dirname(full), { recursive: true });
+    write(full, content);
+  }
+
+  const copied = await importExperts(dest, source);
+  assert.deepEqual(copied, importPlan(files).map((file) => file.path));
+  assert.equal(copied.some((path) => path.endsWith("/_meta.json")), false);
+  assert.equal(
+    copied.includes("ecommerce-demo-a/ecommerce-demo-a-alpha/.learnings/CHARACTERS.md"),
+    true,
+  );
+  const script = join(dest, "ecommerce-demo-a/ecommerce-demo-a-alpha/scripts/run.sh");
+  assert.equal(statSync(script).mode & 0o111, 0o111);
+  const notes = join(dest, "ecommerce-demo-a/ecommerce-demo-a-alpha/references/notes.md");
+  assert.equal(statSync(notes).mode & 0o111, 0);
 });

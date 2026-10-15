@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/marketing-ad-copywriting--ad-copywriter/SKILL.md` — ad-copywriter
-- `.claude/skills/marketing-ad-copywriting--bytesagain-copywriter-cn/SKILL.md` — bytesagain-copywriter-cn
-- `.claude/skills/marketing-ad-copywriting--copywriting/SKILL.md` — copywriting
-- `.claude/skills/marketing-ad-copywriting--ecommerce-copywriter/SKILL.md` — ecommerce-copywriter
-- `.claude/skills/marketing-ad-copywriting--landing-page-generator-openclaw/SKILL.md` — landing-page-generator-openclaw
-- `.claude/skills/marketing-ad-copywriting--marketing-skills/SKILL.md` — marketing-skills
+- `.claude/skills/marketing-ad-copywriting-ad-copywriter/SKILL.md` — ad-copywriter
+- `.claude/skills/marketing-ad-copywriting-bytesagain-copywriter-cn/SKILL.md` — bytesagain-copywriter-cn
+- `.claude/skills/marketing-ad-copywriting-copywriting/SKILL.md` — copywriting
+- `.claude/skills/marketing-ad-copywriting-ecommerce-copywriter/SKILL.md` — ecommerce-copywriter
+- `.claude/skills/marketing-ad-copywriting-landing-page-generator-openclaw/SKILL.md` — landing-page-generator-openclaw
+- `.claude/skills/marketing-ad-copywriting-marketing-skills/SKILL.md` — marketing-skills
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

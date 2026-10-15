@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/design-ui-prototype--afrexai-ui-design-system/SKILL.md` — afrexai-ui-design-system
-- `.claude/skills/design-ui-prototype--design-to-code/SKILL.md` — design-to-code
-- `.claude/skills/design-ui-prototype--frontend-design-pro/SKILL.md` — frontend-design-pro
-- `.claude/skills/design-ui-prototype--prd-to-prototype/SKILL.md` — prd-to-prototype
-- `.claude/skills/design-ui-prototype--ui-design/SKILL.md` — ui-design
-- `.claude/skills/design-ui-prototype--wireframe/SKILL.md` — wireframe
+- `.claude/skills/design-ui-prototype-afrexai-ui-design-system/SKILL.md` — afrexai-ui-design-system
+- `.claude/skills/design-ui-prototype-design-to-code/SKILL.md` — design-to-code
+- `.claude/skills/design-ui-prototype-frontend-design-pro/SKILL.md` — frontend-design-pro
+- `.claude/skills/design-ui-prototype-prd-to-prototype/SKILL.md` — prd-to-prototype
+- `.claude/skills/design-ui-prototype-ui-design/SKILL.md` — ui-design
+- `.claude/skills/design-ui-prototype-wireframe/SKILL.md` — wireframe
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

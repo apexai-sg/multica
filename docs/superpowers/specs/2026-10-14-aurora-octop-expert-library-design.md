@@ -32,24 +32,29 @@ Aurora 现在的 16 个 skill 是手写的：每个 skill 一份单文件 brief�
 | --- | --- | --- |
 | catalog 条目（24） | `manifest.json` 的 label/description + `experts_catalog.go` 的人工表 | `server/internal/aurora/catalog.go` 构造 |
 | 主 brief（24） | 技能集 `skills/<slug>/SKILL.md` 正文 + `SOUL.md`，套 Aurora 五段契约 | `server/internal/aurora/experts/<slug>/workflow.md`（commit，`//go:embed`） |
-| 子技能（161 个不同 slug，含 13 个跨专家重名） | `skills/<sub>/` 原文 | `experts/<slug>/subskills/<sub>/**`（commit），种子时写 `skill` + `skill_file` |
-| 快速开始预设 | `manifest.json` 的 `quick_prompts` | `experts/index.json` 的 `quick_prompts`；种子时取前 3 条写入 `agent.conversation_starters`（label=title.zh，prompt=prompt.zh），即 agent 的 suggestion |
+| 子技能（143） | `skills/<sub>/` 原文，含 `references/`、`scripts/`、`_` / `.` 文件 | `aurora-experts/<slug>/<dir>/`（commit，不 embed）。`<dir>` 是 `sanitizeSkillName` 的不动点 |
+| 快速开始预设 | `manifest.json` 的 `quick_prompts` | `experts/index.json` 的 `quick_prompts`；种子时取前 3 条写入 `agent.conversation_starters` |
 
 数据流：
 
 ```
 API GET /api/aurora/skills                 → catalog（24 条，从 experts/index.json + 人工表构造）
-POST /api/aurora/generations {skillId}     → 懒种子该专家：1 agent + 7 skill 行 + skill_file
-claim（daemon）                            → 该 agent 的 7 个 skill 的 content + files
-沙箱 .claude/skills/<slug>/SKILL.md        → 主 brief 与 6 个子技能逐个可见
+POST /api/aurora/generations {skillId}     → 懒种子该专家：1 agent + 1 主 skill 行（brief）
+node scripts/aurora-import-experts.mjs --import <dest>
+                                           → 把 aurora-experts/ 拷进 cloud runtime 的 AURORA_EXPERTS_DIR
+                                             （镜像默认 /opt/aurora/experts，不打进二进制）
+claim（daemon）                            → 主 brief 写入任务 .claude/skills/；
+                                             再把 AURORA_EXPERTS_DIR/<slug>/ 拷进同一目录
 任务结束                                   → manifest（kind=text, producer=multica-aurora-runtime）照旧结算
 ```
+
+子技能正文不进 API、`multica` 或 `fleet-node` 二进制。更新技能只重跑导入脚本，不重建 API。
 
 ## 4. 命名与标识
 
 - catalog id = 专家 slug（如 `ecommerce-bidding-strategy`）；system key = `aurora:<slug>`（机制不变）。
 - 主 skill 行名 = catalog `Name`（上游中文标签，如「竞价策略专家」）。daemon 的 `requireAuroraSkillDocument` 按这个名字校验，不能改。
-- 子技能行名 = `<专家 slug>--<子技能 slug>`（ASCII）。原因有二：`skill` 表 `UNIQUE(workspace_id, name)`，而 13 个子技能 slug 跨专家重名；且 `execenv.sanitizeSkillName` 的正则是 `[^a-z0-9]+`，中文名会被压成 `skill`，模型无法按名字调用。
+- 子技能目录名 = `sanitizeSkillName(<专家 slug>-<子技能 slug>)`（单个 `-`，小写 `[a-z0-9]`）。`execenv.sanitizeSkillName` 把 `[^a-z0-9]+` 收成一个 `-`，所以 `--` 不是不动点，brief 路径必须用这个目录名。`_meta.json` 只留在仓库作来源记录，导入时排除；其余文件，包括 `.learnings/` 和 `__init__.py`，都进 runtime。
 - 子技能 SKILL.md 的 `name:` frontmatter 在导入时改写成同一个 namespaced 值，保证目录名与 frontmatter 一致。
 
 ## 5. brief 契约
@@ -73,4 +78,4 @@ claim（daemon）                            → 该 agent 的 7 个 skill 的 c
 
 ## 7. 验收
 
-以实施计划的「验收标准」一节为准：API 返回 24 条、单专家种子出 1 agent + 7 skill + files、沙箱目录可见、`scripts/aurora-import-experts.mjs --check` 通过、相关 Go/前端测试通过。部署与真实 Fleet 端到端跑不在本次范围。
+以实施计划的「验收标准」一节为准，并加这一条：API 返回 24 条；单专家种子出 1 agent + 1 主 skill 行，不写子技能 `skill_file`；`aurora-import-experts.mjs --import <dest>` 把除 `_meta.json` 以外的子技能文件拷进 runtime；daemon 再把 `AURORA_EXPERTS_DIR/<slug>/` 拷进任务 `.claude/skills/`，目录名与 brief 一致。部署与真实 Fleet 端到端跑不在本次范围。

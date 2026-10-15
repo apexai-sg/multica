@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/media-video-editing--ai-agentic-video-editor/SKILL.md` — ai-agentic-video-editor
-- `.claude/skills/media-video-editing--ai-video-clipper/SKILL.md` — ai-video-clipper
-- `.claude/skills/media-video-editing--ffmpeg-video-editor/SKILL.md` — ffmpeg-video-editor
-- `.claude/skills/media-video-editing--remotion-video-toolkit/SKILL.md` — remotion-video-toolkit
-- `.claude/skills/media-video-editing--video-clip-assistant/SKILL.md` — video-clip-assistant
-- `.claude/skills/media-video-editing--video-editor/SKILL.md` — video-editor
+- `.claude/skills/media-video-editing-ai-agentic-video-editor/SKILL.md` — ai-agentic-video-editor
+- `.claude/skills/media-video-editing-ai-video-clipper/SKILL.md` — ai-video-clipper
+- `.claude/skills/media-video-editing-ffmpeg-video-editor/SKILL.md` — ffmpeg-video-editor
+- `.claude/skills/media-video-editing-remotion-video-toolkit/SKILL.md` — remotion-video-toolkit
+- `.claude/skills/media-video-editing-video-clip-assistant/SKILL.md` — video-clip-assistant
+- `.claude/skills/media-video-editing-video-editor/SKILL.md` — video-editor
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

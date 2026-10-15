@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/media-script-breakdown--ai-viral-team-script-writing/SKILL.md` — ai-viral-team-script-writing
-- `.claude/skills/media-script-breakdown--movie/SKILL.md` — movie
-- `.claude/skills/media-script-breakdown--script-to-storyboard/SKILL.md` — script-to-storyboard
-- `.claude/skills/media-script-breakdown--seedance2-storyboard-generator/SKILL.md` — seedance2-storyboard-generator
-- `.claude/skills/media-script-breakdown--short-drama-writer/SKILL.md` — short-drama-writer
-- `.claude/skills/media-script-breakdown--video-script-generator/SKILL.md` — video-script-generator
+- `.claude/skills/media-script-breakdown-ai-viral-team-script-writing/SKILL.md` — ai-viral-team-script-writing
+- `.claude/skills/media-script-breakdown-movie/SKILL.md` — movie
+- `.claude/skills/media-script-breakdown-script-to-storyboard/SKILL.md` — script-to-storyboard
+- `.claude/skills/media-script-breakdown-seedance2-storyboard-generator/SKILL.md` — seedance2-storyboard-generator
+- `.claude/skills/media-script-breakdown-short-drama-writer/SKILL.md` — short-drama-writer
+- `.claude/skills/media-script-breakdown-video-script-generator/SKILL.md` — video-script-generator
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/legal-legal-research--case-research/SKILL.md` — case-research
-- `.claude/skills/legal-legal-research--legal-case-validator-mctmilk/SKILL.md` — legal-case-validator-mctmilk
-- `.claude/skills/legal-legal-research--legal-concept-deep-dive-mctmilk/SKILL.md` — legal-concept-deep-dive-mctmilk
-- `.claude/skills/legal-legal-research--legal-hybrid-skill/SKILL.md` — legal-hybrid-skill
-- `.claude/skills/legal-legal-research--legal-system-mapper-mctmilk/SKILL.md` — legal-system-mapper-mctmilk
-- `.claude/skills/legal-legal-research--legalkb/SKILL.md` — legalkb
+- `.claude/skills/legal-legal-research-case-research/SKILL.md` — case-research
+- `.claude/skills/legal-legal-research-legal-case-validator-mctmilk/SKILL.md` — legal-case-validator-mctmilk
+- `.claude/skills/legal-legal-research-legal-concept-deep-dive-mctmilk/SKILL.md` — legal-concept-deep-dive-mctmilk
+- `.claude/skills/legal-legal-research-legal-hybrid-skill/SKILL.md` — legal-hybrid-skill
+- `.claude/skills/legal-legal-research-legal-system-mapper-mctmilk/SKILL.md` — legal-system-mapper-mctmilk
+- `.claude/skills/legal-legal-research-legalkb/SKILL.md` — legalkb
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/ecommerce-pricing-analysis--competitor-analysis-report/SKILL.md` — competitor-analysis-report
-- `.claude/skills/ecommerce-pricing-analysis--competitor-watch/SKILL.md` — competitor-watch
-- `.claude/skills/ecommerce-pricing-analysis--market-research/SKILL.md` — market-research
-- `.claude/skills/ecommerce-pricing-analysis--price-hunter/SKILL.md` — price-hunter
-- `.claude/skills/ecommerce-pricing-analysis--pricing-strategy/SKILL.md` — pricing-strategy
-- `.claude/skills/ecommerce-pricing-analysis--reverse-costing/SKILL.md` — reverse-costing
+- `.claude/skills/ecommerce-pricing-analysis-competitor-analysis-report/SKILL.md` — competitor-analysis-report
+- `.claude/skills/ecommerce-pricing-analysis-competitor-watch/SKILL.md` — competitor-watch
+- `.claude/skills/ecommerce-pricing-analysis-market-research/SKILL.md` — market-research
+- `.claude/skills/ecommerce-pricing-analysis-price-hunter/SKILL.md` — price-hunter
+- `.claude/skills/ecommerce-pricing-analysis-pricing-strategy/SKILL.md` — pricing-strategy
+- `.claude/skills/ecommerce-pricing-analysis-reverse-costing/SKILL.md` — reverse-costing
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

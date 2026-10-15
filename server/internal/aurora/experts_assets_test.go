@@ -1,41 +1,54 @@
 package aurora_test
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/multica-ai/multica/server/internal/aurora"
 )
 
-// TestEveryIndexedFileIsEmbedded walks the vendored index and proves that every
-// expert brief and every sub-skill file is readable from the embedded tree.
-//
-// This is the CI-side guard: a vendored file that git ignores is absent from a
-// fresh checkout, and a single unreadable file makes LoadExpertSubskill drop the
-// whole sub-skill. The generator's --check catches that too, but it recomputes
-// from the upstream snapshot, which CI does not have.
-func TestEveryIndexedFileIsEmbedded(t *testing.T) {
+// TestExpertBriefsMatchTheRuntimeDirectories is the CI guard for the split
+// library. The API embeds the brief and the index. Sub-skill files live in
+// aurora-experts/ and must not be compiled in. Each brief names the directory
+// the daemon copies, and that name is a fixed point of sanitizeSkillName.
+func TestExpertBriefsMatchTheRuntimeDirectories(t *testing.T) {
 	experts := aurora.Experts()
-	if len(experts) == 0 {
-		t.Fatal("the vendored expert index is empty")
+	if len(experts) != 24 {
+		t.Fatalf("experts = %d, want 24", len(experts))
 	}
 	for _, expert := range experts {
 		brief, ok := aurora.ExpertWorkflow(expert.Slug)
 		if !ok || brief == "" {
 			t.Errorf("expert %q has no embedded brief", expert.Slug)
+			continue
+		}
+		if strings.Contains(brief, expert.Slug+"--") {
+			t.Errorf("expert %q brief still names a double-hyphen skill directory", expert.Slug)
 		}
 		for _, sub := range expert.Subskills {
-			content, ok := aurora.LoadExpertSubskill(expert.Slug, sub.Slug)
-			if !ok {
-				t.Errorf("expert %q sub-skill %q is not fully embedded", expert.Slug, sub.Slug)
-				continue
+			want := ".claude/skills/" + sub.Name + "/SKILL.md"
+			if !strings.Contains(brief, want) {
+				t.Errorf("expert %q brief does not name %s", expert.Slug, want)
 			}
-			if content.Content == "" {
-				t.Errorf("expert %q sub-skill %q has an empty SKILL.md", expert.Slug, sub.Slug)
-			}
-			// SKILL.md is the skill body, so it never appears among the files.
-			if want := len(sub.Files) - 1; len(content.Files) != want {
-				t.Errorf("expert %q sub-skill %q supporting files = %d, want %d", expert.Slug, sub.Slug, len(content.Files), want)
+			if strings.Contains(sub.Name, "--") || sub.Name != strings.ToLower(sub.Name) {
+				t.Errorf("expert %q sub-skill directory %q is not a sanitizeSkillName fixed point", expert.Slug, sub.Name)
 			}
 		}
+	}
+
+	embedRoot := filepath.Join("experts")
+	err := filepath.WalkDir(embedRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() && entry.Name() == "subskills" {
+			t.Errorf("embedded tree still contains %s", path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

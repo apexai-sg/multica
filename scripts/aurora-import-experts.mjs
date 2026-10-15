@@ -1,33 +1,41 @@
 #!/usr/bin/env node
-// Generate the vendored Aurora expert library from an octop SkillHub snapshot.
+// Generate the Aurora expert library from an octop SkillHub snapshot.
 //
 // The snapshot is the expert_market directory of an Octop instance; see
 // docs/superpowers/specs/2026-10-14-aurora-octop-expert-library-design.md.
-// This script owns exactly two things under server/internal/aurora/experts:
+// This script owns two trees:
 //
-//   <slug>/workflow.md   the Aurora brief (the five fixed sections)
-//   <slug>/subskills/**  the expert sub-skills, verbatim except that each
-//                        SKILL.md frontmatter name is namespaced
-//   index.json           the inventory the Go side reads
+//   server/internal/aurora/experts/<slug>/workflow.md
+//   server/internal/aurora/experts/index.json
+//       the Aurora brief and the catalog index. The API embeds only these.
 //
-// Everything else in that tree (PROVENANCE.md) is hand-written and untouched.
+//   aurora-experts/<slug>/<dir>/**
+//       sub-skill bodies, references and scripts. <dir> is the fixed point of
+//       execenv.sanitizeSkillName. These files are not embedded. --import
+//       copies them onto the cloud runtime.
+//
+// PROVENANCE.md under the briefs tree is hand-written and untouched.
 //
 // Usage:
 //   node scripts/aurora-import-experts.mjs --source /tmp/octop-expert-market
 //   node scripts/aurora-import-experts.mjs --check
+//   node scripts/aurora-import-experts.mjs --import /opt/aurora/experts
 //
-// --check recomputes the tree and byte-compares it with the committed one; it
-// never writes. Exit code 1 means drift.
+// --check recomputes both trees and byte-compares them with the committed
+// ones; it never writes. Exit code 1 means drift.
+// --import copies aurora-experts/ to <dest>, skipping _meta.json. It does
+// not need the snapshot and does not rebuild the API.
 
-import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const EXPERTS_ROOT = "server/internal/aurora/experts";
-const EXPERTS_ABS = join(REPO_ROOT, EXPERTS_ROOT);
+const BRIEFS_ROOT = "server/internal/aurora/experts";
+const SKILLS_ROOT = "aurora-experts";
+const BRIEFS_ABS = join(REPO_ROOT, BRIEFS_ROOT);
+const SKILLS_ABS = join(REPO_ROOT, SKILLS_ROOT);
 
 // The six SkillHub scenes the 2026-10-14 sync installed. tech-test-automation
 // is the pre-existing seventh template and is deliberately not imported.
@@ -55,10 +63,6 @@ function lines(...parts) {
 function die(message) {
   process.stderr.write("aurora-import-experts: " + message + NL);
   process.exit(2);
-}
-
-function sha256(text) {
-  return createHash("sha256").update(text, "utf8").digest("hex");
 }
 
 // readText reads one vendored file with line endings normalized to LF. The
@@ -119,16 +123,28 @@ export function sceneOf(slug, frontmatterScene) {
   return "";
 }
 
-// namespacedSlug is the workspace-unique skill name of one sub-skill. A skill
-// row is unique per (workspace, name) and 13 sub-skill slugs repeat across
-// experts, so the expert slug is part of the name. ASCII keeps it usable as a
-// .claude/skills directory: execenv.sanitizeSkillName keeps only [a-z0-9].
+// namespacedSlug is the directory name of one sub-skill. It is a fixed point
+// of execenv.sanitizeSkillName ([^a-z0-9]+ → one "-"), so the brief path and
+// the directory the daemon copies are the same string. A single "-" is the
+// separator this script adds; sub-skill slugs are unique within one expert.
 export function namespacedSlug(expertSlug, subSlug) {
-  return expertSlug + "--" + subSlug;
+  return sanitizeSkillDir(expertSlug + "-" + subSlug);
 }
 
-// rewriteSkillName points a sub-skill frontmatter name at its namespaced slug
-// so the directory writeSkillFiles allocates and the name a model invokes agree.
+// sanitizeSkillDir matches execenv.sanitizeSkillName. An empty result becomes
+// "skill", which is also what a Chinese primary skill name collapses to, so
+// the generator rejects that result for a sub-skill.
+export function sanitizeSkillDir(name) {
+  const cleaned = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return cleaned || "skill";
+}
+
+// rewriteSkillName points a sub-skill frontmatter name at its directory name
+// so the name a model invokes and the directory on disk agree.
 export function rewriteSkillName(text, name) {
   const parsed = parseFrontmatter(text);
   if (!parsed.frontmatter) {
@@ -148,11 +164,11 @@ export function rewriteSkillName(text, name) {
   return "---" + NL + rows.join(NL) + NL + "---" + NL + NL + parsed.body;
 }
 
-// isEmbeddablePath reports whether go:embed can serve a vendored path. The Go
-// toolchain excludes files and directories whose names begin with '_' or '.',
-// recursively.
-export function isEmbeddablePath(relPath) {
-  return relPath.split("/").every((segment) => !segment.startsWith("_") && !segment.startsWith("."));
+// isProvenancePath reports a SkillHub provenance file. It stays in the
+// checkout so the snapshot can be audited, and --import does not copy it.
+// Every other file, including dot directories and __init__.py, is skill content.
+export function isProvenancePath(relPath) {
+  return relPath.split("/").pop() === "_meta.json";
 }
 
 function sortedEntries(dir) {
@@ -305,11 +321,13 @@ export function renderBrief(expert) {
   );
 }
 
-// renderIndex is the inventory the Go side parses. Key order is fixed and the
-// file ends with a newline so --check is byte-stable.
+// renderIndex is the catalog inventory the Go side embeds. It names each
+// sub-skill directory and does not carry file bodies: those live in
+// aurora-experts/ and are imported onto the runtime. Key order is fixed and
+// the file ends with a newline so --check is byte-stable.
 function renderIndex(experts) {
   const data = {
-    schema: 1,
+    schema: 2,
     source: "octop expert_market snapshot (SkillHub skillsets)",
     experts: experts.map((expert) => ({
       slug: expert.slug,
@@ -330,11 +348,6 @@ function renderIndex(experts) {
         name: sub.name,
         display_zh: sub.displayZh,
         display_en: sub.displayEn,
-        files: sub.files.map((file) => ({
-          path: file.path,
-          size: Buffer.byteLength(file.content, "utf8"),
-          sha256: sha256(file.content),
-        })),
       })),
     })),
   };
@@ -392,20 +405,16 @@ export async function buildLibrary(sourceDir) {
         continue;
       }
       const name = namespacedSlug(slug, subSlug);
+      if (name === "skill") {
+        die(slug + "/" + subSlug + " sanitizes to the primary skill directory");
+      }
       const content = rewriteSkillName(await readText(join(subDir, "SKILL.md")), name);
       const subFrontmatter = parseFrontmatter(content).frontmatter;
       const files = [];
       for (const file of await listFiles(subDir, "")) {
         const body = file.path === "SKILL.md" ? content : await readText(file.full);
-        desired.set(
-          EXPERTS_ROOT + "/" + slug + "/subskills/" + subSlug + "/" + file.path,
-          body,
-        );
-        // go:embed never includes a file whose base name begins with '_' or '.',
-        // so upstream's _meta.json is vendored for provenance but must not enter
-        // the index: the Go side would fail to read it and drop the whole
-        // sub-skill.
-        if (!isEmbeddablePath(file.path)) {
+        desired.set(SKILLS_ROOT + "/" + slug + "/" + name + "/" + file.path, body);
+        if (isProvenancePath(file.path)) {
           continue;
         }
         files.push({ path: file.path, content: body });
@@ -435,22 +444,29 @@ export async function buildLibrary(sourceDir) {
       quickPrompts,
     };
     experts.push(expert);
-    desired.set(EXPERTS_ROOT + "/" + slug + "/workflow.md", renderBrief(expert));
+    desired.set(BRIEFS_ROOT + "/" + slug + "/workflow.md", renderBrief(expert));
   }
 
   experts.sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
   const seen = new Set();
+  const dirs = new Set();
   for (const expert of experts) {
     if (seen.has(expert.nameZh)) {
       die("duplicate expert display name " + expert.nameZh);
     }
     seen.add(expert.nameZh);
+    for (const sub of expert.subskills) {
+      const dir = expert.slug + "/" + sub.name;
+      if (dirs.has(dir)) {
+        die("duplicate skill directory " + dir);
+      }
+      dirs.add(dir);
+    }
   }
-  desired.set(EXPERTS_ROOT + "/index.json", renderIndex(experts));
+  desired.set(BRIEFS_ROOT + "/index.json", renderIndex(experts));
 
   return { experts, files: desired };
 }
-
 // validateBriefs enforces the workflow contract at generation time so a bad
 // upstream document cannot reach the repo silently.
 export function validateBriefs(experts) {
@@ -465,6 +481,15 @@ export function validateBriefs(experts) {
       expert.quickPrompts.slice(0, 3).some((prompt) => !prompt.labelZh || !prompt.promptZh)
     ) {
       problems.push(expert.slug + " has an empty quick prompt label or prompt");
+    }
+    for (const sub of expert.subskills) {
+      if (sub.name !== sanitizeSkillDir(sub.name) || sub.name.includes("--")) {
+        problems.push(expert.slug + " sub-skill " + sub.slug + " is not a sanitizeSkillName fixed point");
+      }
+      const skillPath = ".claude/skills/" + sub.name + "/SKILL.md";
+      if (!brief.includes(skillPath)) {
+        problems.push(expert.slug + " brief does not name " + skillPath);
+      }
     }
     for (const section of [
       "## Inputs",
@@ -492,18 +517,39 @@ export function validateBriefs(experts) {
   return problems;
 }
 
+// importPlan is the file set --import copies onto the cloud runtime. It is
+// every skill file except provenance _meta.json. Callers compare this list
+// with the checkout so a reference cannot be vendored and then dropped.
+export function importPlan(files) {
+  const prefix = SKILLS_ROOT + "/";
+  const plan = [];
+  for (const [path, content] of files) {
+    if (!path.startsWith(prefix)) {
+      continue;
+    }
+    const rel = path.slice(prefix.length);
+    if (isProvenancePath(rel)) {
+      continue;
+    }
+    plan.push({ path: rel, content });
+  }
+  plan.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return plan;
+}
+
 async function currentFiles() {
   const out = new Map();
-  if (!existsSync(EXPERTS_ABS)) {
-    return out;
+  if (existsSync(BRIEFS_ABS)) {
+    for (const file of await listFiles(BRIEFS_ABS, "")) {
+      const managed = file.path === "index.json" || file.path.endsWith("/workflow.md");
+      if (managed) {
+        out.set(BRIEFS_ROOT + "/" + file.path, await readText(file.full));
+      }
+    }
   }
-  for (const file of await listFiles(EXPERTS_ABS, "")) {
-    const managed =
-      file.path === "index.json" ||
-      file.path.endsWith("/workflow.md") ||
-      file.path.includes("/subskills/");
-    if (managed) {
-      out.set(EXPERTS_ROOT + "/" + file.path, await readFile(file.full, "utf8"));
+  if (existsSync(SKILLS_ABS)) {
+    for (const file of await listFiles(SKILLS_ABS, "")) {
+      out.set(SKILLS_ROOT + "/" + file.path, await readText(file.full));
     }
   }
   return out;
@@ -526,15 +572,52 @@ function diff(desired, current) {
   return drift.sort();
 }
 
+// importExperts copies the committed skill tree to dest. _meta.json stays in
+// the checkout. The destination layout is the layout the daemon reads:
+// <dest>/<expert-slug>/<skill-dir>/... A shebang script is mode 0755: the
+// skill documents run it as ./scripts/<name>, and a normal umask would
+// otherwise clear the execute bit.
+export async function importExperts(dest, sourceRoot = SKILLS_ABS) {
+  if (!existsSync(sourceRoot)) {
+    die("skill tree " + sourceRoot + " does not exist");
+  }
+  const copied = [];
+  for (const file of await listFiles(sourceRoot, "")) {
+    if (isProvenancePath(file.path)) {
+      continue;
+    }
+    const body = await readFile(file.full);
+    const full = join(dest, file.path);
+    await mkdir(dirname(full), { recursive: true });
+    await writeFile(full, body);
+    await chmod(full, modeForImportedFile(body, await stat(file.full)));
+    copied.push(file.path);
+  }
+  copied.sort();
+  return copied;
+}
+
+function modeForImportedFile(body, info) {
+  if (body.subarray(0, 2).toString("utf8") === "#!") {
+    return 0o755;
+  }
+  const perm = info.mode & 0o777;
+  return perm === 0 ? 0o644 : perm;
+}
+
 function parseArgs(argv) {
-  const args = { check: false, source: "" };
+  const args = { check: false, source: "", importDest: "" };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--check") {
       args.check = true;
     } else if (argv[i] === "--source") {
       args.source = argv[++i] || "";
+    } else if (argv[i] === "--import") {
+      args.importDest = argv[++i] || "";
     } else if (argv[i] === "--help" || argv[i] === "-h") {
-      process.stdout.write("usage: aurora-import-experts.mjs --source <snapshot-dir> | --check" + NL);
+      process.stdout.write(
+        "usage: aurora-import-experts.mjs --source <snapshot-dir> | --check | --import <runtime-dir>" + NL,
+      );
       process.exit(0);
     } else {
       die("unknown argument " + argv[i]);
@@ -545,8 +628,13 @@ function parseArgs(argv) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.importDest) {
+    const copied = await importExperts(args.importDest);
+    process.stdout.write("imported " + copied.length + " skill files to " + args.importDest + NL);
+    return;
+  }
   if (!args.source && !args.check) {
-    die("--source is required unless --check is used");
+    die("--source is required unless --check or --import is used");
   }
   if (args.check) {
     const source = args.source || process.env.OCTOP_EXPERT_MARKET || "/tmp/octop-expert-market";
@@ -573,7 +661,8 @@ async function main() {
     die(problems.join(NL));
   }
   for (const expert of experts) {
-    await rm(join(EXPERTS_ABS, expert.slug), { recursive: true, force: true });
+    await rm(join(BRIEFS_ABS, expert.slug), { recursive: true, force: true });
+    await rm(join(SKILLS_ABS, expert.slug), { recursive: true, force: true });
   }
   for (const [path, content] of files) {
     const full = join(REPO_ROOT, path);

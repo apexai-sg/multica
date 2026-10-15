@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/ecommerce-product-copywriting--cross-border-copywriter/SKILL.md` — cross-border-copywriter
-- `.claude/skills/ecommerce-product-copywriting--crossborder-listing/SKILL.md` — crossborder-listing
-- `.claude/skills/ecommerce-product-copywriting--ecommerce-copy-humanizer-zh/SKILL.md` — ecommerce-copy-humanizer-zh
-- `.claude/skills/ecommerce-product-copywriting--ecommerce-copywriter/SKILL.md` — ecommerce-copywriter
-- `.claude/skills/ecommerce-product-copywriting--ecommerce-product-description-generator/SKILL.md` — ecommerce-product-description-generator
-- `.claude/skills/ecommerce-product-copywriting--taobao-listing/SKILL.md` — taobao-listing
+- `.claude/skills/ecommerce-product-copywriting-cross-border-copywriter/SKILL.md` — cross-border-copywriter
+- `.claude/skills/ecommerce-product-copywriting-crossborder-listing/SKILL.md` — crossborder-listing
+- `.claude/skills/ecommerce-product-copywriting-ecommerce-copy-humanizer-zh/SKILL.md` — ecommerce-copy-humanizer-zh
+- `.claude/skills/ecommerce-product-copywriting-ecommerce-copywriter/SKILL.md` — ecommerce-copywriter
+- `.claude/skills/ecommerce-product-copywriting-ecommerce-product-description-generator/SKILL.md` — ecommerce-product-description-generator
+- `.claude/skills/ecommerce-product-copywriting-taobao-listing/SKILL.md` — taobao-listing
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

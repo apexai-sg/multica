@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/media-short-video-copy--cn-video-script-writer/SKILL.md` — cn-video-script-writer
-- `.claude/skills/media-short-video-copy--douyin-copy-extract/SKILL.md` — douyin-copy-extract
-- `.claude/skills/media-short-video-copy--short-video-script/SKILL.md` — short-video-script
-- `.claude/skills/media-short-video-copy--short-video-script-creator/SKILL.md` — short-video-script-creator
-- `.claude/skills/media-short-video-copy--viral-script-writer/SKILL.md` — viral-script-writer
-- `.claude/skills/media-short-video-copy--viral-title-generator/SKILL.md` — viral-title-generator
+- `.claude/skills/media-short-video-copy-cn-video-script-writer/SKILL.md` — cn-video-script-writer
+- `.claude/skills/media-short-video-copy-douyin-copy-extract/SKILL.md` — douyin-copy-extract
+- `.claude/skills/media-short-video-copy-short-video-script/SKILL.md` — short-video-script
+- `.claude/skills/media-short-video-copy-short-video-script-creator/SKILL.md` — short-video-script-creator
+- `.claude/skills/media-short-video-copy-viral-script-writer/SKILL.md` — viral-script-writer
+- `.claude/skills/media-short-video-copy-viral-title-generator/SKILL.md` — viral-title-generator
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

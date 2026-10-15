@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/marketing-event-planning--activity-campaign-from-ui/SKILL.md` — activity-campaign-from-ui
-- `.claude/skills/marketing-event-planning--afrexai-event-management/SKILL.md` — afrexai-event-management
-- `.claude/skills/marketing-event-planning--afrexai-event-planner/SKILL.md` — afrexai-event-planner
-- `.claude/skills/marketing-event-planning--afrexai-event-planning/SKILL.md` — afrexai-event-planning
-- `.claude/skills/marketing-event-planning--campaign-planning/SKILL.md` — campaign-planning
-- `.claude/skills/marketing-event-planning--marketing-designer/SKILL.md` — marketing-designer
+- `.claude/skills/marketing-event-planning-activity-campaign-from-ui/SKILL.md` — activity-campaign-from-ui
+- `.claude/skills/marketing-event-planning-afrexai-event-management/SKILL.md` — afrexai-event-management
+- `.claude/skills/marketing-event-planning-afrexai-event-planner/SKILL.md` — afrexai-event-planner
+- `.claude/skills/marketing-event-planning-afrexai-event-planning/SKILL.md` — afrexai-event-planning
+- `.claude/skills/marketing-event-planning-campaign-planning/SKILL.md` — campaign-planning
+- `.claude/skills/marketing-event-planning-marketing-designer/SKILL.md` — marketing-designer
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

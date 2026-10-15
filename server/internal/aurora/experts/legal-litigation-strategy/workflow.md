@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/legal-litigation-strategy--ai-legal-assistant-pro/SKILL.md` — ai-legal-assistant-pro
-- `.claude/skills/legal-litigation-strategy--complaint-drafting/SKILL.md` — complaint-drafting
-- `.claude/skills/legal-litigation-strategy--court-prep/SKILL.md` — court-prep
-- `.claude/skills/legal-litigation-strategy--legal-advisor/SKILL.md` — legal-advisor
-- `.claude/skills/legal-litigation-strategy--litigation-response/SKILL.md` — litigation-response
-- `.claude/skills/legal-litigation-strategy--pro-legal-strategist-v2/SKILL.md` — pro-legal-strategist-v2
+- `.claude/skills/legal-litigation-strategy-ai-legal-assistant-pro/SKILL.md` — ai-legal-assistant-pro
+- `.claude/skills/legal-litigation-strategy-complaint-drafting/SKILL.md` — complaint-drafting
+- `.claude/skills/legal-litigation-strategy-court-prep/SKILL.md` — court-prep
+- `.claude/skills/legal-litigation-strategy-legal-advisor/SKILL.md` — legal-advisor
+- `.claude/skills/legal-litigation-strategy-litigation-response/SKILL.md` — litigation-response
+- `.claude/skills/legal-litigation-strategy-pro-legal-strategist-v2/SKILL.md` — pro-legal-strategist-v2
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/marketing-user-growth--afrexai-churn-analyzer/SKILL.md` — afrexai-churn-analyzer
-- `.claude/skills/marketing-user-growth--afrexai-growth-engine/SKILL.md` — afrexai-growth-engine
-- `.claude/skills/marketing-user-growth--cgo/SKILL.md` — cgo
-- `.claude/skills/marketing-user-growth--customer-onboarding-2/SKILL.md` — customer-onboarding-2
-- `.claude/skills/marketing-user-growth--customer-retention/SKILL.md` — customer-retention
-- `.claude/skills/marketing-user-growth--funnel-analyzer/SKILL.md` — funnel-analyzer
+- `.claude/skills/marketing-user-growth-afrexai-churn-analyzer/SKILL.md` — afrexai-churn-analyzer
+- `.claude/skills/marketing-user-growth-afrexai-growth-engine/SKILL.md` — afrexai-growth-engine
+- `.claude/skills/marketing-user-growth-cgo/SKILL.md` — cgo
+- `.claude/skills/marketing-user-growth-customer-onboarding-2/SKILL.md` — customer-onboarding-2
+- `.claude/skills/marketing-user-growth-customer-retention/SKILL.md` — customer-retention
+- `.claude/skills/marketing-user-growth-funnel-analyzer/SKILL.md` — funnel-analyzer
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

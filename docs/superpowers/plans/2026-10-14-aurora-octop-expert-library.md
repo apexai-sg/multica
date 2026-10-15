@@ -1,8 +1,8 @@
 # Aurora 导入 octop 专家库 —— 实施计划
 
-> **For agentic workers:** 按 Task 顺序执行；Task 1 完成后是检查点 A（停一下，让 Lead 审 vendored 资产与生成器），Task 2–4 可并行但共享同一工作树时注意写域。Steps 用 - [ ] 语法跟踪。
+> **2026-10-15 目录修订：** 子技能正文、references 和 scripts 不再 `//go:embed`。它们在 `aurora-experts/<slug>/<dir>/`，由 `scripts/aurora-import-experts.mjs --import <dest>` 导入 cloud runtime。`<dir>` 是 `sanitizeSkillName` 的不动点（单个 `-`，不是 `--`）。API 只嵌入 brief 和 `index.json`。下文 Task 1 里 `subskills/` 与 `--` 命名是当时的写法，以规格修订为准。
 
-**Goal:** 用 172.16.12.89 上 octop 的 24 个专家（技能集工作流 + 6 个子技能、含 scripts/references）替换 Aurora 现在硬编码的 16 个 skill；每个专家成为一个 Aurora system agent，子技能作为该 agent 的附属 workspace skill 随 claim 进入沙箱 `.claude/skills/`。
+> **For agentic workers:** 按 Task 顺序执行；Task 1 完成后是检查点 A（停一下，让 Lead 审 vendored 资产与生成器），Task 2–4 可并行但共享同一工作树时注意写域。Steps 用 - [ ] 语法跟踪。
 
 **Architecture:** octop 的三层（模板缓存 / agent 工作区 / 内置技能）在 Aurora 压成两层：catalog 条目 + system agent（专家），以及附属 skill 行（主 brief 一份、子技能各一份，子技能带 `skill_file`）。主 brief 由生成器按 Aurora 既有五段契约重写；执行路由复用 `claude-text`；产物仍走 `com.multica.aurora.artifacts` manifest，因此结算、审核、作品库链路零改动。种子按「用户实际请求的那个专家」懒加载，避免每 workspace 落 7 MiB。
 

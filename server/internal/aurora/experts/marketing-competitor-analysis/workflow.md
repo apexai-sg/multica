@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/marketing-competitor-analysis--competitive-intelligence-market-research/SKILL.md` — competitive-intelligence-market-research
-- `.claude/skills/marketing-competitor-analysis--competitive-product-research/SKILL.md` — competitive-product-research
-- `.claude/skills/marketing-competitor-analysis--competitor-analysis-report/SKILL.md` — competitor-analysis-report
-- `.claude/skills/marketing-competitor-analysis--competitor-watch/SKILL.md` — competitor-watch
-- `.claude/skills/marketing-competitor-analysis--market-analysis-cn/SKILL.md` — market-analysis-cn
-- `.claude/skills/marketing-competitor-analysis--market-research/SKILL.md` — market-research
+- `.claude/skills/marketing-competitor-analysis-competitive-intelligence-market-research/SKILL.md` — competitive-intelligence-market-research
+- `.claude/skills/marketing-competitor-analysis-competitive-product-research/SKILL.md` — competitive-product-research
+- `.claude/skills/marketing-competitor-analysis-competitor-analysis-report/SKILL.md` — competitor-analysis-report
+- `.claude/skills/marketing-competitor-analysis-competitor-watch/SKILL.md` — competitor-watch
+- `.claude/skills/marketing-competitor-analysis-market-analysis-cn/SKILL.md` — market-analysis-cn
+- `.claude/skills/marketing-competitor-analysis-market-research/SKILL.md` — market-research
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

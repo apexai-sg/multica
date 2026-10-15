@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/content-creation-screenwriting--drama-script/SKILL.md` — drama-script
-- `.claude/skills/content-creation-screenwriting--short-drama-pro/SKILL.md` — short-drama-pro
-- `.claude/skills/content-creation-screenwriting--short-drama-writer/SKILL.md` — short-drama-writer
-- `.claude/skills/content-creation-screenwriting--text-echo-chamber/SKILL.md` — text-echo-chamber
-- `.claude/skills/content-creation-screenwriting--wahoo/SKILL.md` — wahoo
-- `.claude/skills/content-creation-screenwriting--walrus03/SKILL.md` — walrus03
+- `.claude/skills/content-creation-screenwriting-drama-script/SKILL.md` — drama-script
+- `.claude/skills/content-creation-screenwriting-short-drama-pro/SKILL.md` — short-drama-pro
+- `.claude/skills/content-creation-screenwriting-short-drama-writer/SKILL.md` — short-drama-writer
+- `.claude/skills/content-creation-screenwriting-text-echo-chamber/SKILL.md` — text-echo-chamber
+- `.claude/skills/content-creation-screenwriting-wahoo/SKILL.md` — wahoo
+- `.claude/skills/content-creation-screenwriting-walrus03/SKILL.md` — walrus03
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

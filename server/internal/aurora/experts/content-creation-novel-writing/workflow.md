@@ -46,12 +46,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 
 This expert ships 6 supporting sub-skills, each with its own SKILL.md:
 
-- `.claude/skills/content-creation-novel-writing--chinese-novelist-skill/SKILL.md` — chinese-novelist-skill
-- `.claude/skills/content-creation-novel-writing--fanqie-masterclass/SKILL.md` — fanqie-masterclass
-- `.claude/skills/content-creation-novel-writing--g113593/SKILL.md` — g113593
-- `.claude/skills/content-creation-novel-writing--novel-generator/SKILL.md` — novel-generator
-- `.claude/skills/content-creation-novel-writing--novel-writer-structure/SKILL.md` — novel-writer-structure
-- `.claude/skills/content-creation-novel-writing--novel-writer-v2/SKILL.md` — novel-writer-v2
+- `.claude/skills/content-creation-novel-writing-chinese-novelist-skill/SKILL.md` — chinese-novelist-skill
+- `.claude/skills/content-creation-novel-writing-fanqie-masterclass/SKILL.md` — fanqie-masterclass
+- `.claude/skills/content-creation-novel-writing-g113593/SKILL.md` — g113593
+- `.claude/skills/content-creation-novel-writing-novel-generator/SKILL.md` — novel-generator
+- `.claude/skills/content-creation-novel-writing-novel-writer-structure/SKILL.md` — novel-writer-structure
+- `.claude/skills/content-creation-novel-writing-novel-writer-v2/SKILL.md` — novel-writer-v2
 
 Read a sub-skill SKILL.md before the workflow step that needs it.
 

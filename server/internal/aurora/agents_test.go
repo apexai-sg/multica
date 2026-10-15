@@ -169,14 +169,8 @@ func TestAuroraAgentsAreVisibleToMembers(t *testing.T) {
 		if err != nil {
 			t.Fatalf("list skills for %s: %v", entry.ID, err)
 		}
-		// The expert carrier runs with its primary brief plus every sub-skill of
-		// the skillset.
-		expert, ok := aurora.ExpertBySlug(entry.ID)
-		if !ok {
-			t.Fatalf("no vendored expert %q", entry.ID)
-		}
-		if len(skills) != 1+len(expert.Subskills) {
-			t.Fatalf("catalog skill links for %s = %d, want %d", entry.ID, len(skills), 1+len(expert.Subskills))
+		if len(skills) != 1 {
+			t.Fatalf("catalog skill links for %s = %d, want 1", entry.ID, len(skills))
 		}
 		found := false
 		for _, skill := range skills {
@@ -421,8 +415,8 @@ func assertSeeded(t *testing.T, ws pgtype.UUID) {
 		`SELECT count(*) FROM skill WHERE workspace_id = $1`, ws).Scan(&skillCount); err != nil {
 		t.Fatalf("count skills: %v", err)
 	}
-	if skillCount != len(aurora.Catalog())+subskillCount() {
-		t.Errorf("skill rows = %d, want %d", skillCount, len(aurora.Catalog())+subskillCount())
+	if skillCount != len(aurora.Catalog()) {
+		t.Errorf("skill rows = %d, want %d", skillCount, len(aurora.Catalog()))
 	}
 
 	var junctionCount int
@@ -432,18 +426,9 @@ func assertSeeded(t *testing.T, ws pgtype.UUID) {
 		ws).Scan(&junctionCount); err != nil {
 		t.Fatalf("count agent_skill: %v", err)
 	}
-	if junctionCount != len(aurora.Catalog())+subskillCount() {
-		t.Errorf("agent_skill rows = %d, want %d", junctionCount, len(aurora.Catalog())+subskillCount())
+	if junctionCount != len(aurora.Catalog()) {
+		t.Errorf("agent_skill rows = %d, want %d", junctionCount, len(aurora.Catalog()))
 	}
-}
-
-// subskillCount is the number of vendored sub-skills across every expert.
-func subskillCount() int {
-	total := 0
-	for _, expert := range aurora.Experts() {
-		total += len(expert.Subskills)
-	}
-	return total
 }
 
 // Seed legacy hidden placeholders and capture their complete row state.
@@ -551,8 +536,8 @@ func countAvailableAuroraCarriers(t *testing.T, ctx context.Context, tx pgx.Tx, 
 }
 
 // TestEnsureAuroraExpertSeedsOneCarrier pins the per-request seed: one call
-// materialises the requested expert alone, with its primary brief, every
-// sub-skill and every supporting file, and a second call adds nothing.
+// materialises the requested expert alone, with its primary brief and no
+// sub-skill rows, and a second call adds nothing.
 func TestEnsureAuroraExpertSeedsOneCarrier(t *testing.T) {
 	if agentsTestPool == nil {
 		t.Skip("database not available")
@@ -614,19 +599,21 @@ func TestEnsureAuroraExpertSeedsOneCarrier(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(skills) != 1+len(expert.Subskills) {
-		t.Fatalf("linked skills = %d, want %d", len(skills), 1+len(expert.Subskills))
+	if len(skills) != 1 {
+		t.Fatalf("linked skills = %d, want 1", len(skills))
 	}
-	files := 0
-	for _, skill := range skills {
-		rows, err := q.ListSkillFiles(ctx, skill.ID)
-		if err != nil {
-			t.Fatalf("list files for %q: %v", skill.Name, err)
-		}
-		files += len(rows)
+	if skills[0].Name != entry.Name {
+		t.Errorf("linked skill = %q, want %q", skills[0].Name, entry.Name)
 	}
-	if files == 0 {
-		t.Fatal("no supporting files were seeded for the expert's sub-skills")
+	if skills[0].Content == "" || !strings.Contains(skills[0].Content, ".claude/skills/"+expert.Subskills[0].Name+"/SKILL.md") {
+		t.Fatal("primary skill content does not name the runtime sub-skill directory")
+	}
+	rows, err := q.ListSkillFiles(ctx, skills[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("primary skill files = %d, want 0", len(rows))
 	}
 
 	// Idempotency: the second call must leave the same row counts.
@@ -640,15 +627,11 @@ func TestEnsureAuroraExpertSeedsOneCarrier(t *testing.T) {
 	if len(again) != len(skills) {
 		t.Fatalf("linked skills after retry = %d, want %d", len(again), len(skills))
 	}
-	filesAfter := 0
-	for _, skill := range again {
-		rows, err := q.ListSkillFiles(ctx, skill.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		filesAfter += len(rows)
+	rowsAfter, err := q.ListSkillFiles(ctx, again[0].ID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if filesAfter != files {
-		t.Fatalf("supporting files after retry = %d, want %d", filesAfter, files)
+	if len(rowsAfter) != 0 {
+		t.Fatalf("primary skill files after retry = %d, want 0", len(rowsAfter))
 	}
 }
