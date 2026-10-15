@@ -61,6 +61,7 @@ function skill(overrides: Partial<AuroraSkill> = {}): AuroraSkill {
     featured: false,
     available: true,
     attachments: [],
+    avatarUrl: "",
     ...overrides,
   };
 }

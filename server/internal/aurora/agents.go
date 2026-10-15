@@ -12,6 +12,16 @@ import (
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
+// SystemKeyPrefix identifies an Aurora expert carrier in agent.system_key: the
+// key is "aurora:<skillID>". Exported because read paths outside this package
+// (the skill directory) have to map a carrier back to its catalog entry.
+const SystemKeyPrefix = "aurora:"
+
+// SystemKey is the stable identity of one expert's carrier agent.
+func SystemKey(skillID string) string {
+	return SystemKeyPrefix + skillID
+}
+
 // SystemAgentDef describes an Aurora expert carrier. Every carrier is
 // member-visible and assignable. The 24 definitions correspond one-to-one with
 // the 24 catalog entries; SystemKey is the agent's stable identity
@@ -41,7 +51,7 @@ func SystemAgents() []SystemAgentDef {
 func systemAgentDef(e SkillCatalogEntry) SystemAgentDef {
 	def := SystemAgentDef{
 		SkillID:      e.ID,
-		SystemKey:    "aurora:" + e.ID,
+		SystemKey:    SystemKey(e.ID),
 		Name:         e.Name,
 		Instructions: systemAgentInstructions(e),
 	}

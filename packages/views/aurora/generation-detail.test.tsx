@@ -44,6 +44,7 @@ const POSTER: AuroraSkill = {
   featured: false,
   available: true,
   attachments: [],
+  avatarUrl: "",
 };
 
 function asset(overrides: Partial<AuroraAsset> = {}): AuroraAsset {

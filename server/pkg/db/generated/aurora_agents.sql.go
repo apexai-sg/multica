@@ -198,6 +198,52 @@ func (q *Queries) GetAuroraManagedRuntime(ctx context.Context, arg GetAuroraMana
 	return i, err
 }
 
+const listAuroraExpertAvatars = `-- name: ListAuroraExpertAvatars :many
+SELECT DISTINCT ON (a.system_key)
+    a.system_key,
+    a.avatar_url
+FROM agent a
+WHERE a.workspace_id = $1
+  AND a.system_key LIKE 'aurora:%'
+  AND a.archived_at IS NULL
+ORDER BY a.system_key ASC, a.created_at ASC, a.id ASC
+`
+
+type ListAuroraExpertAvatarsRow struct {
+	SystemKey pgtype.Text `json:"system_key"`
+	AvatarUrl pgtype.Text `json:"avatar_url"`
+}
+
+// The portrait each Aurora expert carrier carries in this workspace, keyed by
+// the agent's stable system_key ("aurora:<skillID>"). The skill directory
+// decorates its catalog with these: the catalog itself is a server-owned
+// constant and stays avatar-free, so only the workspace lookup can answer what
+// the member set on the carrier agent in the Agents settings.
+//
+// DISTINCT ON keeps one row per skill, resolving the same way
+// GetAgentBySystemKey does (earliest live carrier first): migration 172's
+// partial unique index includes runtime_id, so a runtime teardown can leave two
+// live rows for one system_key and the directory must not double-count them.
+func (q *Queries) ListAuroraExpertAvatars(ctx context.Context, workspaceID pgtype.UUID) ([]ListAuroraExpertAvatarsRow, error) {
+	rows, err := q.db.Query(ctx, listAuroraExpertAvatars, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAuroraExpertAvatarsRow{}
+	for rows.Next() {
+		var i ListAuroraExpertAvatarsRow
+		if err := rows.Scan(&i.SystemKey, &i.AvatarUrl); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertAuroraSkill = `-- name: UpsertAuroraSkill :one
 INSERT INTO skill (workspace_id, name, description, content, config, created_by)
 VALUES ($1, $2, '', $3, '{}'::jsonb, $4)

@@ -63,8 +63,55 @@ var (
 
 // ListAuroraSkills returns the full catalog, including unavailable phase-2 skills.
 // The router requires authentication and workspace membership.
+//
+// The catalog itself is a constant; what a workspace owns is the avatar its
+// members set on the experts' carrier agents, so this read joins the two.
 func (h *Handler) ListAuroraSkills(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"skills": aurora.Catalog()})
+	skills := aurora.Catalog()
+	h.attachAuroraSkillAvatars(r.Context(), skills, r)
+	writeJSON(w, http.StatusOK, map[string]any{"skills": skills})
+}
+
+// attachAuroraSkillAvatars decorates the catalog with the workspace's carrier
+// avatars, in place.
+//
+// Each expert's carrier is an ordinary agent whose system_key is
+// "aurora:<skillID>" (aurora.SystemKey), which is how a portrait the member
+// uploaded in the Agents settings reaches the directory. Nothing else about the
+// catalog is workspace-specific.
+//
+// No carrier seeded, no avatar set, an unresolved workspace, and a failed
+// lookup all leave the entry untouched — that is the initials tile the
+// directory already drew, so every one of them degrades to the previous
+// rendering. The failure path is deliberately not fatal: the directory is the
+// content and the portrait is decoration, and a 500 here would take the whole
+// Create page down over a thumbnail.
+func (h *Handler) attachAuroraSkillAvatars(ctx context.Context, skills []aurora.SkillCatalogEntry, r *http.Request) {
+	workspaceID, err := util.ParseUUID(h.resolveWorkspaceID(r))
+	if err != nil {
+		return
+	}
+	rows, err := h.Queries.ListAuroraExpertAvatars(ctx, workspaceID)
+	if err != nil {
+		slog.Warn("list aurora expert avatars", "error", err)
+		return
+	}
+	avatars := make(map[string]string, len(rows))
+	for _, row := range rows {
+		if !row.SystemKey.Valid || !row.AvatarUrl.Valid || row.AvatarUrl.String == "" {
+			continue
+		}
+		skillID, ok := strings.CutPrefix(row.SystemKey.String, aurora.SystemKeyPrefix)
+		if !ok {
+			continue
+		}
+		avatars[skillID] = row.AvatarUrl.String
+	}
+	for i := range skills {
+		if raw, ok := avatars[skills[i].ID]; ok {
+			skills[i].AvatarURL = h.resolveAvatarURL(raw)
+		}
+	}
 }
 
 // AuroraGenerationResponse is the consumer-facing shape of a generation row.

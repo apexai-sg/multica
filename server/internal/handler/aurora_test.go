@@ -75,6 +75,97 @@ func TestListAuroraSkills(t *testing.T) {
 	}
 }
 
+// TestListAuroraSkillsIncludesCarrierAvatars covers the directory's portrait
+// join: the avatar a member set on an expert's carrier agent rides along with
+// that expert's catalog entry, and only with that one. Everything else keeps
+// the initials tile the client falls back to.
+func TestListAuroraSkillsIncludesCarrierAvatars(t *testing.T) {
+	if testHandler == nil || testPool == nil {
+		t.Skip("database not available")
+	}
+
+	// A throwaway workspace: seeding carriers with system keys into the shared
+	// fixture workspace would leak into every later test's "agent ... LIMIT 1"
+	// heuristics (see cleanupAuroraSystemAgents).
+	ownerID := dbfx.User(t, "Aurora carrier avatar owner", "aurora-carrier-avatar-"+uuid.NewString()+"@example.com")
+	workspaceID := dbfx.Workspace(t, "Aurora carrier avatars", "aurora-carrier-avatars-"+uuid.NewString())
+	t.Cleanup(func() {
+		testPool.Exec(context.Background(), `DELETE FROM agent WHERE workspace_id = $1`, workspaceID)
+	})
+
+	const (
+		withAvatar    = "media-short-video-copy"
+		withoutAvatar = "legal-contract-drafting"
+		archivedOne   = "design-prd-writing"
+		// A third-party URL: nothing this deployment's storage minted, so the
+		// response is a passthrough the test can assert exactly. Resolution of a
+		// storage object is covered by avatar_test.go.
+		avatarURL = "https://cdn.example.com/agents/lobster.png"
+		goneURL   = "https://cdn.example.com/agents/archived.png"
+	)
+	dbfx.Agent(t, "Aurora carrier with avatar", "", testutil.Cols{
+		"workspace_id": workspaceID,
+		"owner_id":     ownerID,
+		"system_key":   aurora.SystemKey(withAvatar),
+		"avatar_url":   avatarURL,
+	})
+	dbfx.Agent(t, "Aurora carrier without avatar", "", testutil.Cols{
+		"workspace_id": workspaceID,
+		"owner_id":     ownerID,
+		"system_key":   aurora.SystemKey(withoutAvatar),
+	})
+	dbfx.Agent(t, "Archived Aurora carrier", "", testutil.Cols{
+		"workspace_id": workspaceID,
+		"owner_id":     ownerID,
+		"system_key":   aurora.SystemKey(archivedOne),
+		"avatar_url":   goneURL,
+		"archived_at":  testutil.Raw("now()"),
+	})
+	// A carrier whose skill the catalog does not list must not invent an entry.
+	dbfx.Agent(t, "Retired Aurora carrier", "", testutil.Cols{
+		"workspace_id": workspaceID,
+		"owner_id":     ownerID,
+		"system_key":   "aurora:retired-poster",
+		"avatar_url":   goneURL,
+	})
+	// A runtime teardown can leave two live carriers for one system_key (migration
+	// 172's partial unique index includes runtime_id). The directory has to
+	// resolve the same one GetAgentBySystemKey does — the earliest — rather than
+	// whichever row the planner happened to return last.
+	dbfx.Agent(t, "Aurora carrier with avatar rebound", "", testutil.Cols{
+		"workspace_id": workspaceID,
+		"owner_id":     ownerID,
+		"system_key":   aurora.SystemKey(withAvatar),
+		"avatar_url":   goneURL,
+		"created_at":   testutil.Raw("now() + interval '1 hour'"),
+	})
+
+	req := newRequest(http.MethodGet, "/api/aurora/skills", nil)
+	req.Header.Set("X-Workspace-ID", workspaceID)
+	var out struct {
+		Skills []struct {
+			ID        string `json:"id"`
+			AvatarURL string `json:"avatar_url"`
+		} `json:"skills"`
+	}
+	testutil.Call(t, testHandler.ListAuroraSkills, req).Want(http.StatusOK).JSON(&out)
+	if len(out.Skills) != 24 {
+		t.Fatalf("expected 24 experts, got %d", len(out.Skills))
+	}
+	avatars := make(map[string]string, len(out.Skills))
+	for _, s := range out.Skills {
+		avatars[s.ID] = s.AvatarURL
+	}
+	if got := avatars[withAvatar]; got != avatarURL {
+		t.Errorf("avatar for %q = %q, want %q", withAvatar, got, avatarURL)
+	}
+	for _, id := range []string{withoutAvatar, archivedOne} {
+		if got := avatars[id]; got != "" {
+			t.Errorf("avatar for %q = %q, want none", id, got)
+		}
+	}
+}
+
 // cleanupAuroraSystemAgents removes the workspace's lazily seeded Aurora system
 // agents, skills and managed runtime at teardown. Generation creation seeds
 // these on first use and they would otherwise persist into every later handler
