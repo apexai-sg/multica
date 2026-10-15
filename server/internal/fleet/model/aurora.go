@@ -33,6 +33,16 @@ const (
 	AuroraClaudePathEnv = "MULTICA_CLAUDE_PATH"
 	AuroraClaudePath    = "/usr/local/bin/claude"
 
+	// AuroraExpertsDirEnv and AuroraExpertsDir are the node image's own
+	// declaration of where the vendored expert tree lives. The bootstrap helper
+	// and the node container both inherit it from the image, and the daemon falls
+	// back to the same path when it is absent (internal/daemon/execenv), so no run
+	// depends on the variable being set. The adoption authority accepts only this
+	// fixed value: any other path would make a container read a tree the operator
+	// did not place there.
+	AuroraExpertsDirEnv = "AURORA_EXPERTS_DIR"
+	AuroraExpertsDir    = "/opt/aurora/experts"
+
 	// AuroraWorkspaceMount, AuroraTmpMount and AuroraRunMount are the fixed
 	// writable tmpfs surfaces of the Aurora node. Every one is nosuid,nodev,noexec
 	// and owned by the sandbox user.
