@@ -4,8 +4,10 @@ package docker
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"net"
 	"regexp"
 	"strconv"
 	"time"
@@ -71,8 +73,31 @@ func (p *Provider) workspaceNetwork(n model.Node) Resource {
 		Name:     "multica-fleet-ws-" + hex.EncodeToString(sum[:9]),
 		Role:     "workspace-network",
 		Internal: false,
+		Subnet:   p.workspaceSubnet(n),
 		Labels:   labels(n.Namespace, p.cfg.FleetID, nodeID(n), "workspace-network"),
 	}
+}
+
+// workspaceSubnet returns the /24 a node network is created in, or "" to keep
+// Docker's automatic pool. A pinned pool makes each node's address space
+// deterministic, so a node network can never land on the host's own LAN.
+func (p *Provider) workspaceSubnet(n model.Node) string {
+	_, pool, err := net.ParseCIDR(p.cfg.NetworkPool)
+	if err != nil {
+		return ""
+	}
+	ones, bits := pool.Mask.Size()
+	if bits != 32 || ones > 24 {
+		return ""
+	}
+	count := 1 << uint(24-ones)
+	sum := sha256.Sum256([]byte(p.cfg.Namespace + "\x00" + p.cfg.FleetID + "\x00" + nodeID(n) + "\x00subnet"))
+	index := int(binary.BigEndian.Uint32(sum[:4]) % uint32(count))
+	subnet := make(net.IP, net.IPv4len)
+	copy(subnet, pool.IP.To4())
+	subnet[2] = byte(index >> 8)
+	subnet[3] = byte(index)
+	return (&net.IPNet{IP: subnet, Mask: net.CIDRMask(24, 32)}).String()
 }
 
 func (p *Provider) volume(n model.Node, role string) Resource {
