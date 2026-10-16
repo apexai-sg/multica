@@ -23,8 +23,14 @@ SET attempts = attempts + 1
 WHERE id = $1;
 
 -- name: GetLatestCodeByEmail :one
+-- The per-email send cooldown reads this, so it must see only codes that are
+-- still outstanding. Counting consumed rows too kept the cooldown open after a
+-- successful login, and since the web and Aurora apps are separate hosts with
+-- separate cookie jars, the second app's login landed inside those 60 seconds
+-- and was refused with "please wait before requesting another code".
 SELECT * FROM verification_code
 WHERE email = $1
+  AND used = FALSE
 ORDER BY created_at DESC
 LIMIT 1;
 

@@ -51,10 +51,16 @@ func (q *Queries) DeleteExpiredVerificationCodes(ctx context.Context) error {
 const getLatestCodeByEmail = `-- name: GetLatestCodeByEmail :one
 SELECT id, email, code, expires_at, used, created_at, attempts FROM verification_code
 WHERE email = $1
+  AND used = FALSE
 ORDER BY created_at DESC
 LIMIT 1
 `
 
+// The per-email send cooldown reads this, so it must see only codes that are
+// still outstanding. Counting consumed rows too kept the cooldown open after a
+// successful login, and since the web and Aurora apps are separate hosts with
+// separate cookie jars, the second app's login landed inside those 60 seconds
+// and was refused with "please wait before requesting another code".
 func (q *Queries) GetLatestCodeByEmail(ctx context.Context, email string) (VerificationCode, error) {
 	row := q.db.QueryRow(ctx, getLatestCodeByEmail, email)
 	var i VerificationCode
