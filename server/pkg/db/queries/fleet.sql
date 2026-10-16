@@ -270,11 +270,38 @@ INSERT INTO fleet_nodes (id, daemon_id, namespace, owner_id, workspace_id, runti
 VALUES (@node_id, @daemon_id, @namespace, @owner_id, @workspace_id, @runtime_id, @name, @spec, @image, '', @spec_config, @data_volume, @secrets_volume)
 RETURNING *;
 
+-- name: GetFleetAuroraIdentityClaim :many
+-- The node id and the daemon id are both globally unique (fleet_nodes_id_idx,
+-- fleet_nodes_daemon_idx) while every scoped lookup in this file filters by
+-- namespace, so one statement resolves both claims in a single round trip: a row
+-- left by an earlier Fleet namespace is invisible to the scoped lookups yet still
+-- blocks the insert. At most one row can match -- a row owning this daemon id
+-- would have to carry this same node id to match both, and the unique indexes
+-- forbid a second row for either key.
+SELECT * FROM fleet_nodes WHERE id = @node_id OR daemon_id = @daemon_id;
+
+-- name: AdoptFleetAuroraNode :one
+-- Move a row left by an earlier Fleet namespace onto the caller's namespace and
+-- rewind it to a fresh bootstrap on the next control generation, mirroring
+-- FleetResetAuroraNode's fresh-bootstrap state. The approved image and the spec
+-- config are deployment-scoped, not identity, so both are rewritten from the
+-- current deployment. Owner, daemon id and the workspace/runtime dimensions are
+-- durable identity the caller has already verified; the volumes are named from
+-- the node id and stay in place.
+UPDATE fleet_nodes SET namespace= @namespace, generation= @next_generation, image= @image,
+ spec_config= @spec_config, desired='running', status='creating', container_id='', start_epoch='', ready=false,
+ maintenance=false, revoked=false, error_code='', error_message='', observation='{}'::jsonb,
+ updated_at=now()
+WHERE id= @node_id
+RETURNING *;
+
 -- name: InsertFleetCreateOperation :one
 INSERT INTO fleet_node_operations (namespace, owner_id, node_id, action, idempotency_key, request_hash)
 VALUES (@namespace, @owner_id, @node_id, 'create', @idempotency_key, @request_hash) RETURNING *;
 
 -- name: FleetResetAuroraNode :one
+-- Keep the fresh-bootstrap column list below in step with AdoptFleetAuroraNode,
+-- which rewinds a row left by an earlier namespace to the same state.
 -- Re-arm the same Aurora node identity after its create failed, it was revoked,
 -- or the deployed image digest changed. Volumes, daemon id, owner and
 -- workspace/runtime dimensions are durable identity and must survive; only the

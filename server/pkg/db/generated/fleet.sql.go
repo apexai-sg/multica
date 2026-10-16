@@ -11,6 +11,74 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const adoptFleetAuroraNode = `-- name: AdoptFleetAuroraNode :one
+UPDATE fleet_nodes SET namespace= $1, generation= $2, image= $3,
+ spec_config= $4, desired='running', status='creating', container_id='', start_epoch='', ready=false,
+ maintenance=false, revoked=false, error_code='', error_message='', observation='{}'::jsonb,
+ updated_at=now()
+WHERE id= $5
+RETURNING id, namespace, owner_id, created_at, updated_at, container_id, daemon_id, name, spec, image, profile_ref, start_epoch, data_volume, secrets_volume, desired, status, generation, ready, health_at, active_runs, pending_reports, failed_reports, maintenance, revoked, error_code, error_message, spec_config, observation, workspace_id, runtime_id
+`
+
+type AdoptFleetAuroraNodeParams struct {
+	Namespace      string      `json:"namespace"`
+	NextGeneration int64       `json:"next_generation"`
+	Image          string      `json:"image"`
+	SpecConfig     []byte      `json:"spec_config"`
+	NodeID         pgtype.UUID `json:"node_id"`
+}
+
+// Move a row left by an earlier Fleet namespace onto the caller's namespace and
+// rewind it to a fresh bootstrap on the next control generation, mirroring
+// FleetResetAuroraNode's fresh-bootstrap state. The approved image and the spec
+// config are deployment-scoped, not identity, so both are rewritten from the
+// current deployment. Owner, daemon id and the workspace/runtime dimensions are
+// durable identity the caller has already verified; the volumes are named from
+// the node id and stay in place.
+func (q *Queries) AdoptFleetAuroraNode(ctx context.Context, arg AdoptFleetAuroraNodeParams) (FleetNode, error) {
+	row := q.db.QueryRow(ctx, adoptFleetAuroraNode,
+		arg.Namespace,
+		arg.NextGeneration,
+		arg.Image,
+		arg.SpecConfig,
+		arg.NodeID,
+	)
+	var i FleetNode
+	err := row.Scan(
+		&i.ID,
+		&i.Namespace,
+		&i.OwnerID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ContainerID,
+		&i.DaemonID,
+		&i.Name,
+		&i.Spec,
+		&i.Image,
+		&i.ProfileRef,
+		&i.StartEpoch,
+		&i.DataVolume,
+		&i.SecretsVolume,
+		&i.Desired,
+		&i.Status,
+		&i.Generation,
+		&i.Ready,
+		&i.HealthAt,
+		&i.ActiveRuns,
+		&i.PendingReports,
+		&i.FailedReports,
+		&i.Maintenance,
+		&i.Revoked,
+		&i.ErrorCode,
+		&i.ErrorMessage,
+		&i.SpecConfig,
+		&i.Observation,
+		&i.WorkspaceID,
+		&i.RuntimeID,
+	)
+	return i, err
+}
+
 const beginFleetNamespaceDestroy = `-- name: BeginFleetNamespaceDestroy :one
 UPDATE fleet_namespace_fences SET finalized=false,generation=generation+1,completion_manifest=NULL
 WHERE namespace = $1 AND fleet_id = $2 AND operation_key = $3
@@ -1391,6 +1459,8 @@ type FleetResetAuroraNodeParams struct {
 	OperationID    pgtype.UUID `json:"operation_id"`
 }
 
+// Keep the fresh-bootstrap column list below in step with AdoptFleetAuroraNode,
+// which rewinds a row left by an earlier namespace to the same state.
 // Re-arm the same Aurora node identity after its create failed, it was revoked,
 // or the deployed image digest changed. Volumes, daemon id, owner and
 // workspace/runtime dimensions are durable identity and must survive; only the
@@ -1724,6 +1794,73 @@ func (q *Queries) FleetUnfinishedOperations(ctx context.Context, arg FleetUnfini
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const getFleetAuroraIdentityClaim = `-- name: GetFleetAuroraIdentityClaim :many
+SELECT id, namespace, owner_id, created_at, updated_at, container_id, daemon_id, name, spec, image, profile_ref, start_epoch, data_volume, secrets_volume, desired, status, generation, ready, health_at, active_runs, pending_reports, failed_reports, maintenance, revoked, error_code, error_message, spec_config, observation, workspace_id, runtime_id FROM fleet_nodes WHERE id = $1 OR daemon_id = $2
+`
+
+type GetFleetAuroraIdentityClaimParams struct {
+	NodeID   pgtype.UUID `json:"node_id"`
+	DaemonID pgtype.UUID `json:"daemon_id"`
+}
+
+// The node id and the daemon id are both globally unique (fleet_nodes_id_idx,
+// fleet_nodes_daemon_idx) while every scoped lookup in this file filters by
+// namespace, so one statement resolves both claims in a single round trip: a row
+// left by an earlier Fleet namespace is invisible to the scoped lookups yet still
+// blocks the insert. At most one row can match -- a row owning this daemon id
+// would have to carry this same node id to match both, and the unique indexes
+// forbid a second row for either key.
+func (q *Queries) GetFleetAuroraIdentityClaim(ctx context.Context, arg GetFleetAuroraIdentityClaimParams) ([]FleetNode, error) {
+	rows, err := q.db.Query(ctx, getFleetAuroraIdentityClaim, arg.NodeID, arg.DaemonID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FleetNode{}
+	for rows.Next() {
+		var i FleetNode
+		if err := rows.Scan(
+			&i.ID,
+			&i.Namespace,
+			&i.OwnerID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ContainerID,
+			&i.DaemonID,
+			&i.Name,
+			&i.Spec,
+			&i.Image,
+			&i.ProfileRef,
+			&i.StartEpoch,
+			&i.DataVolume,
+			&i.SecretsVolume,
+			&i.Desired,
+			&i.Status,
+			&i.Generation,
+			&i.Ready,
+			&i.HealthAt,
+			&i.ActiveRuns,
+			&i.PendingReports,
+			&i.FailedReports,
+			&i.Maintenance,
+			&i.Revoked,
+			&i.ErrorCode,
+			&i.ErrorMessage,
+			&i.SpecConfig,
+			&i.Observation,
+			&i.WorkspaceID,
+			&i.RuntimeID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getFleetIntentByKey = `-- name: GetFleetIntentByKey :one
