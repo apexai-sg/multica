@@ -3,15 +3,15 @@
   "cancel": "キャンセル",
   "credits": "{{credits}} クレジット",
   "directory": {
-    "title": "作成",
-    "search_placeholder": "スキルを検索",
+    "title": "作成を始める",
+    "search_placeholder": "作りたい内容を検索",
     "load_failed_title": "スキル一覧を読み込めませんでした",
     "load_failed_description": "カタログを一時的に利用できません。",
     "empty_title": "一致するスキルがありません",
     "empty_description": "別のキーワードやカテゴリをお試しください。",
     "unavailable": "近日公開",
     "categories": {
-      "all": "すべて",
+      "all": "すべてのツール",
       "ecommerce": "EC",
       "content-creation": "コンテンツ制作",
       "marketing": "マーケティング",
@@ -21,12 +21,12 @@
       "other": "その他"
     },
     "eyebrow": "AI ツール",
-    "hero_title": "スキルを選ぶだけ。実行は Aurora が行います。",
+    "hero_title": "今日は何を作りますか？",
     "stats_runnable_other": "件が実行可能",
     "stats_total_other": "件のスキル",
-    "visible_count_other": "{{count}} 件が利用可能",
-    "ready": "実行可能",
-    "clear_filters": "すべてのスキルを表示",
+    "visible_count_other": "{{count}} 個のツール",
+    "ready": "使ってみる",
+    "clear_filters": "すべてのツール",
     "inputs": {
       "text": "テキスト",
       "image": "画像",
@@ -35,6 +35,51 @@
       "video": "動画",
       "spreadsheet": "表計算",
       "other": "その他"
+    },
+    "hero_subtitle": "ツールを選び、内容を入力して、成果物を受け取りましょう。",
+    "hero_tag": "毎日の AI アシスタント",
+    "recommended": "おすすめ",
+    "upcoming_title": "画像・動画・オフィスツール",
+    "upcoming_description": "準備中のため、まだ送信や課金はできません。",
+    "guide_label": "3ステップで作成",
+    "step_choose": "ツールを選択",
+    "step_describe": "内容を入力",
+    "step_download": "確認・ダウンロード",
+    "output_label": "成果物",
+    "text_output": "文章 · Markdown（.md）",
+    "planned": {
+      "poster": {
+        "name": "ポスター作成",
+        "output": "ポスター画像"
+      },
+      "text_image": {
+        "name": "文章から画像",
+        "output": "生成画像"
+      },
+      "image_video": {
+        "name": "画像から動画",
+        "output": "動画ファイル"
+      },
+      "text_video": {
+        "name": "文章から動画",
+        "output": "動画ファイル"
+      },
+      "product_image": {
+        "name": "商品画像",
+        "output": "商品画像"
+      },
+      "image_edit": {
+        "name": "画像編集",
+        "output": "編集済み画像"
+      },
+      "ppt": {
+        "name": "PowerPoint 作成",
+        "output": "編集可能なプレゼン"
+      },
+      "excel": {
+        "name": "Excel 分析",
+        "output": "表計算ファイル"
+      }
     }
   },
   "composer": {
@@ -78,7 +123,13 @@
       "needs_input": "返信を待っています",
       "unknown": "不明"
     },
-    "progress_unreadable": "この生成の進行状況を読み取れませんでした。"
+    "progress_unreadable": "この生成の進行状況を読み取れませんでした。",
+    "example": "例を入力",
+    "audience_label": "誰に向けた内容ですか？（任意）",
+    "audience_placeholder": "例：小さな子どもがいる保護者",
+    "preferences_label": "文体・条件（任意）",
+    "preferences_placeholder": "例：親しみやすく、300語、二言語",
+    "deliverable_title": "受け取れる内容"
   },
   "works": {
     "title": "作品",
@@ -142,7 +193,7 @@
     "eyebrow": "生成"
   },
   "billing": {
-    "title": "クレジット",
+    "title": "クレジット・チャージ",
     "balance_title": "利用可能なクレジット",
     "top_up": "チャージ",
     "transactions_title": "利用履歴",
@@ -211,7 +262,7 @@
     }
   },
   "runtime": {
-    "title": "実行",
+    "title": "サービス状況",
     "status": {
       "offline": "オフライン",
       "unconfigured": "未設定",

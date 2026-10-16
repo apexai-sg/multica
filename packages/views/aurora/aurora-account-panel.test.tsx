@@ -169,7 +169,7 @@ describe("AuroraAccountDialog", () => {
     await user.keyboard("{Enter}");
     const dialog = await screen.findByRole("dialog", { name: "Hannah Han" });
     expect(within(dialog).getByText("hannah@apex.ai")).toBeVisible();
-    expect(within(dialog).getByRole("link", { name: "Credits" })).toHaveAttribute("href", "/acme/billing");
+    expect(within(dialog).getByRole("link", { name: "Credits & top-up" })).toHaveAttribute("href", "/acme/billing");
     await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -206,7 +206,7 @@ describe("AuroraAccountMenu", () => {
     const menu = await screen.findByRole("dialog", { name: "Hannah Han" });
     expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeNull();
     expect(within(menu).getByRole("link", { name: "Top up" })).toHaveAttribute("href", "/acme/billing");
-    expect(within(menu).getByRole("link", { name: "Execution" })).toHaveAttribute("href", "/acme/runtimes");
+    expect(within(menu).getByRole("link", { name: "Service status" })).toHaveAttribute("href", "/acme/runtimes");
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(trigger).toHaveFocus();

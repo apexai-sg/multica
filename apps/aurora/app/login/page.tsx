@@ -83,7 +83,7 @@ function LoginPageContent() {
         <span className="aurora-brand aurora-brand--on-light justify-center">
           <span aria-hidden="true" className="aurora-brand-mark">A</span>
           <span className="aurora-brand-copy">
-            <strong>Aurora</strong>
+            <strong>Apex AI</strong>
             <small>{t(($) => $.shell.brand_tagline)}</small>
           </span>
         </span>

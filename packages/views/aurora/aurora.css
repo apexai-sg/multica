@@ -755,25 +755,8 @@ a.aurora-status-chip[href] {
   background: var(--aurora-violet);
 }
 
-.aurora-hero-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
-  margin-top: 24px;
-}
 
-.aurora-hero-stats span {
-  color: var(--aurora-on-dark-muted);
-  font-size: var(--text-label);
-}
 
-.aurora-hero-stats strong {
-  margin-right: 4px;
-  color: var(--aurora-on-white);
-  font-size: var(--text-title);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
 
 .aurora-hero-orbit {
   position: relative;
@@ -1970,9 +1953,6 @@ a.aurora-status-chip[href] {
     display: none;
   }
 
-  .aurora-hero-stats {
-    gap: 16px;
-  }
 
   .aurora-page-head {
     align-items: flex-start;
@@ -2037,3 +2017,72 @@ a.aurora-status-chip[href] {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Consumer workbench: explicit outcomes and a persistent wallet. */
+.aurora-hero-label {
+  color: var(--aurora-tint-lavender);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+.aurora-quick-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  padding: 18px 4px 0;
+  list-style: none;
+  color: var(--aurora-slate);
+  font-size: var(--text-label);
+}
+.aurora-quick-steps li { display: flex; align-items: center; gap: 8px; }
+.aurora-quick-steps li > span {
+  display: grid; place-items: center;
+  width: 24px; height: 24px;
+  border-radius: var(--aurora-r-full);
+  background: var(--aurora-tint-lavender); color: var(--aurora-violet-deep);
+  font-weight: 600;
+}
+.aurora-card-grid > li { min-width: 0; }
+.aurora-card-grid .aurora-card { height: 100%; }
+.aurora-card-description {
+  display: block; margin-top: 16px;
+  color: var(--aurora-slate); font-size: var(--text-body);
+  line-height: 1.65; min-height: 3.3em;
+}
+.aurora-delivery-note {
+  margin-top: 12px; color: var(--aurora-violet-deep);
+  font-size: var(--text-label); font-weight: 500;
+}
+.aurora-section-note {
+  margin: -4px 0 20px; color: var(--aurora-slate); font-size: var(--text-body);
+}
+.aurora-planned-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.aurora-planned-card {
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  padding: 18px; background: var(--aurora-surface);
+  border: 1px dashed var(--aurora-line-strong); border-radius: var(--aurora-r-lg);
+  color: var(--aurora-slate);
+}
+.aurora-planned-card > svg { flex-shrink: 0; color: var(--aurora-violet-deep); }
+.aurora-planned-card > div { flex: 1; min-width: 0; }
+.aurora-planned-card strong { display: block; color: var(--aurora-ink); font-size: var(--text-body); }
+.aurora-planned-card div > span { display: block; font-size: var(--text-label); margin-top: 4px; }
+.aurora-planned-card > .aurora-status-pill { flex-shrink: 0; }
+.aurora-deliverable {
+  padding: 18px; border-radius: var(--aurora-r-lg);
+  background: var(--aurora-tint-lavender); color: var(--aurora-violet-deep);
+  font-size: var(--text-body);
+}
+.aurora-deliverable p { margin: 8px 0; line-height: 1.6; }
+.aurora-deliverable > span { font-size: var(--text-label); }
+.aurora-sidebar-footer .aurora-user-panel { margin: 20px 0 12px; }
+.aurora-topbar-context { color: var(--aurora-slate); font-size: var(--text-label); }
+.aurora-pill-tabs { max-width: 100%; overflow-x: auto; justify-content: flex-start; }
+@media (max-width: 600px) {
+  .aurora-planned-grid { grid-template-columns: minmax(0, 1fr); }
+  .aurora-quick-steps { gap: 12px; justify-content: space-between; }
+  .aurora-planned-card { padding: 14px; }
+  .aurora-topbar-context { max-width: 45vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.aurora-upcoming { margin-top: 48px; }

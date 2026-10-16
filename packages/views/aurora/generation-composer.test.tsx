@@ -169,11 +169,26 @@ describe("GenerationComposer", () => {
     });
   });
 
+  it("adds optional guidance to the original prompt and keeps the expert ID", async () => {
+    const user = userEvent.setup();
+    mocks.create.mockResolvedValue(payload(detail()));
+    renderComposer({});
+    await user.type(screen.getByLabelText("What should it make?"), "A song about courage");
+    expect(screen.getByRole("button", { name: "Try an example" })).toBeDisabled();
+    await user.type(screen.getByLabelText("Who is it for? (optional)"), "Young children");
+    await user.type(screen.getByLabelText("Style & requirements (optional)"), "Simple and warm");
+    await user.click(screen.getByRole("button", { name: "Generate" }));
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      skillId: "content-creation-lyrics-songwriting",
+      prompt: expect.stringMatching(/A song about courage[\s\S]*Young children[\s\S]*Simple and warm/),
+    }));
+  });
+
   it("groups the labelled prompt and submit action in the Aurora drawer", () => {
     renderComposer({});
-    const drawer = screen.getByRole("dialog", { name: "Content Creation Lyrics Songwriting Expert" });
+    const drawer = screen.getByRole("dialog", { name: "Write lyrics" });
     expect(drawer).toHaveClass("aurora-drawer");
-    const heading = screen.getByRole("heading", { name: "Content Creation Lyrics Songwriting Expert" });
+    const heading = screen.getByRole("heading", { name: "Write lyrics" });
     const header = heading.closest(".aurora-drawer-head");
     expect(header).not.toBeNull();
     expect(header).toHaveClass("flex-row");

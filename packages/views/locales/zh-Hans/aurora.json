@@ -3,30 +3,30 @@
   "cancel": "取消",
   "credits": "{{credits}} 积分",
   "directory": {
-    "title": "创作",
-    "search_placeholder": "搜索功能",
+    "title": "开始创作",
+    "search_placeholder": "搜索你想做的事，例如：小红书",
     "load_failed_title": "无法加载功能目录",
     "load_failed_description": "功能目录暂时不可用。",
     "empty_title": "没有匹配的功能",
     "empty_description": "换个关键词或分类试试。",
     "unavailable": "即将上线",
     "categories": {
-      "all": "全部",
+      "all": "全部功能",
       "ecommerce": "电商",
-      "content-creation": "内容创作",
-      "marketing": "营销",
-      "legal": "法律",
-      "media": "影视媒体",
-      "design": "设计",
+      "content-creation": "故事与写作",
+      "marketing": "推广与文案",
+      "legal": "合同与资料",
+      "media": "视频脚本",
+      "design": "产品与网页",
       "other": "其他"
     },
     "eyebrow": "创作工具",
-    "hero_title": "挑一个 skill，Aurora 帮你跑完。",
+    "hero_title": "你今天想做什么？",
     "stats_runnable_other": "个 skill 可运行",
     "stats_total_other": "个 skill",
-    "visible_count_other": "{{count}} 个 skill 可用",
-    "ready": "可运行",
-    "clear_filters": "查看全部 skill",
+    "visible_count_other": "{{count}} 个功能",
+    "ready": "开始使用",
+    "clear_filters": "全部功能",
     "inputs": {
       "text": "文本",
       "image": "图片",
@@ -35,12 +35,57 @@
       "video": "视频",
       "spreadsheet": "表格",
       "other": "其他"
+    },
+    "hero_subtitle": "选一个功能，填入你的需求，把想法变成可用的内容。",
+    "hero_tag": "APEX AI · 你的创作助手",
+    "recommended": "常用推荐",
+    "upcoming_title": "图片、视频与办公工具",
+    "upcoming_description": "以下功能正在准备，暂不能提交，也不会扣费。",
+    "guide_label": "三步完成创作",
+    "step_choose": "选择功能",
+    "step_describe": "填写需求",
+    "step_download": "查看与下载",
+    "output_label": "交付内容",
+    "text_output": "文字内容 · Markdown（.md）",
+    "planned": {
+      "poster": {
+        "name": "海报制作",
+        "output": "海报图片"
+      },
+      "text_image": {
+        "name": "文字生成图片",
+        "output": "生成图片"
+      },
+      "image_video": {
+        "name": "图片生成视频",
+        "output": "视频文件"
+      },
+      "text_video": {
+        "name": "文字生成视频",
+        "output": "视频文件"
+      },
+      "product_image": {
+        "name": "商品图制作",
+        "output": "商品图片"
+      },
+      "image_edit": {
+        "name": "图片修改",
+        "output": "修改后的图片"
+      },
+      "ppt": {
+        "name": "PPT 制作",
+        "output": "可编辑演示文稿"
+      },
+      "excel": {
+        "name": "Excel 数据分析",
+        "output": "表格文件"
+      }
     }
   },
   "composer": {
     "cost": "每次生成消耗 {{credits}} 积分",
     "prompt_label": "想要生成什么？",
-    "prompt_placeholder": "描述你希望生成的内容",
+    "prompt_placeholder": "例如：介绍你的产品、活动或故事，以及你想得到的结果。",
     "attachments_label_image": "参考图片",
     "attachments_label_document": "文档",
     "attachments_label_audio": "音频",
@@ -78,7 +123,13 @@
       "needs_input": "等你回复",
       "unknown": "未知"
     },
-    "progress_unreadable": "无法读取该次生成的进度。"
+    "progress_unreadable": "无法读取该次生成的进度。",
+    "example": "填入示例",
+    "audience_label": "写给谁看？（选填）",
+    "audience_placeholder": "例如：带3—8岁孩子的家长",
+    "preferences_label": "风格与要求（选填）",
+    "preferences_placeholder": "例如：自然分享、300字、中英双语",
+    "deliverable_title": "你会得到什么"
   },
   "works": {
     "title": "我的作品",
@@ -124,8 +175,8 @@
     "status_label": "状态",
     "created_label": "创建时间",
     "elapsed_label": "耗时",
-    "skill_label": "技能",
-    "prompt_label": "提示词",
+    "skill_label": "功能",
+    "prompt_label": "你的需求",
     "credits_reserved_label": "预扣积分",
     "credits_charged_label": "实扣积分",
     "refunded": "已退还",
@@ -142,7 +193,7 @@
     "eyebrow": "生成"
   },
   "billing": {
-    "title": "积分",
+    "title": "积分与充值",
     "balance_title": "可用积分",
     "top_up": "充值",
     "transactions_title": "积分明细",
@@ -211,7 +262,7 @@
     }
   },
   "runtime": {
-    "title": "执行",
+    "title": "服务状态",
     "status": {
       "offline": "离线",
       "unconfigured": "未配置",
@@ -230,11 +281,11 @@
     "generations_empty": "当前没有正在进行的生成。"
   },
   "shell": {
-    "brand_tagline": "AI STUDIO",
+    "brand_tagline": "让创作更简单",
     "menu_open": "打开菜单",
     "menu_close": "关闭菜单",
     "account_menu": "账户",
-    "nav_group_work": "工作区",
+    "nav_group_work": "创作中心",
     "nav_group_account": "账户"
   },
   "workspace": {

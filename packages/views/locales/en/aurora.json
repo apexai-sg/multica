@@ -3,15 +3,15 @@
   "cancel": "Cancel",
   "credits": "{{credits}} credits",
   "directory": {
-    "title": "Create",
-    "search_placeholder": "Search skills",
+    "title": "Start creating",
+    "search_placeholder": "Search a task, e.g. social posts",
     "load_failed_title": "Could not load the skill directory",
     "load_failed_description": "The catalog is temporarily unavailable.",
     "empty_title": "No matching skills",
     "empty_description": "Try another keyword or category.",
     "unavailable": "Coming soon",
     "categories": {
-      "all": "All",
+      "all": "All tools",
       "ecommerce": "E-commerce",
       "content-creation": "Content creation",
       "marketing": "Marketing",
@@ -21,15 +21,15 @@
       "other": "Other"
     },
     "eyebrow": "AI TOOLS",
-    "hero_title": "Pick a skill. Aurora runs it.",
+    "hero_title": "What would you like to create?",
     "stats_runnable_one": "skill runnable",
     "stats_runnable_other": "skills runnable",
     "stats_total_one": "skill in the catalog",
     "stats_total_other": "skills in the catalog",
-    "visible_count_one": "{{count}} skill available",
-    "visible_count_other": "{{count}} skills available",
-    "ready": "Ready",
-    "clear_filters": "Show all skills",
+    "visible_count_one": "{{count}} tools shown",
+    "visible_count_other": "{{count}} tools shown",
+    "ready": "Open tool",
+    "clear_filters": "All tools",
     "inputs": {
       "text": "Text",
       "image": "Images",
@@ -38,6 +38,51 @@
       "video": "Video",
       "spreadsheet": "Spreadsheets",
       "other": "Other"
+    },
+    "hero_subtitle": "Pick a task. Add your details. Get a result you can use.",
+    "hero_tag": "YOUR EVERYDAY AI TEAM",
+    "recommended": "Popular tasks",
+    "upcoming_title": "Images, video & office tools",
+    "upcoming_description": "Coming soon. These tools cannot be submitted or charged yet.",
+    "guide_label": "Start in three steps",
+    "step_choose": "Choose a tool",
+    "step_describe": "Add your details",
+    "step_download": "Review & download",
+    "output_label": "Deliverable",
+    "text_output": "Written content · Markdown (.md)",
+    "planned": {
+      "poster": {
+        "name": "Poster design",
+        "output": "Poster image"
+      },
+      "text_image": {
+        "name": "Text to image",
+        "output": "Generated image"
+      },
+      "image_video": {
+        "name": "Image to video",
+        "output": "Video file"
+      },
+      "text_video": {
+        "name": "Text to video",
+        "output": "Video file"
+      },
+      "product_image": {
+        "name": "Product images",
+        "output": "Product image"
+      },
+      "image_edit": {
+        "name": "Image editing",
+        "output": "Edited image"
+      },
+      "ppt": {
+        "name": "PowerPoint creation",
+        "output": "Editable presentation"
+      },
+      "excel": {
+        "name": "Excel analysis",
+        "output": "Spreadsheet"
+      }
     }
   },
   "composer": {
@@ -81,7 +126,13 @@
       "needs_input": "Waiting for your reply",
       "unknown": "Unknown"
     },
-    "progress_unreadable": "Could not read this generation's progress."
+    "progress_unreadable": "Could not read this generation's progress.",
+    "example": "Try an example",
+    "audience_label": "Who is it for? (optional)",
+    "audience_placeholder": "For example: parents with young children",
+    "preferences_label": "Style & requirements (optional)",
+    "preferences_placeholder": "For example: friendly tone, 300 words, bilingual",
+    "deliverable_title": "What you will receive"
   },
   "works": {
     "title": "My works",
@@ -145,7 +196,7 @@
     "eyebrow": "GENERATION"
   },
   "billing": {
-    "title": "Credits",
+    "title": "Credits & top-up",
     "balance_title": "Available credits",
     "top_up": "Top up",
     "transactions_title": "Activity",
@@ -214,7 +265,7 @@
     }
   },
   "runtime": {
-    "title": "Execution",
+    "title": "Service status",
     "status": {
       "offline": "Offline",
       "unconfigured": "Not set up",
@@ -233,7 +284,7 @@
     "generations_empty": "Nothing is running."
   },
   "shell": {
-    "brand_tagline": "AI STUDIO",
+    "brand_tagline": "CREATE SOMETHING USEFUL",
     "menu_open": "Open menu",
     "menu_close": "Close menu",
     "account_menu": "Account",

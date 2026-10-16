@@ -105,39 +105,25 @@ describe("AuroraShell", () => {
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Hannah Han" })).toBeNull());
     expect(account).toHaveFocus();
-    expect(screen.getByRole("dialog", { name: "Aurora" })).toBeVisible();
+    expect(screen.getByRole("dialog", { name: "Apex AI" })).toBeVisible();
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(menu).toHaveFocus();
   });
-  it("moves the account card behind a top-bar button", async () => {
+  it("keeps the desktop wallet visible and opens account details", async () => {
     const user = userEvent.setup();
     renderShell("/acme/skills");
-    expect(screen.queryByRole("button", { name: "Open menu" })).toBeNull();
-    expect(screen.getAllByRole("navigation")).toHaveLength(1);
-    expect(screen.getByRole("link", { name: "Online" })).toHaveAttribute("href", "/acme/runtimes");
-
-    const nav = screen.getByRole("navigation", { name: "Aurora" });
-    expect(within(nav).queryByText("Available credits")).toBeNull();
-    expect(within(nav).queryByRole("link", { name: "Top up" })).toBeNull();
-
-    const trigger = screen.getByRole("button", { name: "Account" });
-    expect(nav.contains(trigger)).toBe(false);
-    expect(trigger.closest(".aurora-topbar-actions")).not.toBeNull();
-    expect(trigger).toHaveTextContent("Hannah Han");
-    expect(trigger).toHaveTextContent("2,480");
-
+    const nav = screen.getByRole("navigation", { name: "Apex AI" });
+    expect(within(nav).getByText("Available credits")).toBeVisible();
+    expect(within(nav).getByText("2,480")).toBeVisible();
+    expect(within(nav).getByRole("link", { name: "Top up" })).toHaveAttribute("href", "/acme/billing");
+    expect(within(nav).getByRole("link", { name: "Service status" })).toHaveAttribute("href", "/acme/runtimes");
+    const trigger = within(nav).getByRole("button", { name: "Account" });
     await user.click(trigger);
-    const menu = await screen.findByRole("dialog", { name: "Hannah Han" });
-    expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeNull();
-    expect(within(menu).getByText("Available credits")).toBeVisible();
-    expect(within(menu).getByText("2,480")).toBeVisible();
-    expect(within(menu).getByText("Creator")).toBeVisible();
-    expect(within(menu).getByText("12 of 30")).toBeVisible();
-    expect(within(menu).getByRole("link", { name: "Top up" })).toHaveAttribute("href", "/acme/billing");
-    expect(within(menu).getByRole("link", { name: "Execution" })).toHaveAttribute("href", "/acme/runtimes");
-    expect(within(menu).getByRole("link", { name: "Credits" })).toHaveAttribute("href", "/acme/billing");
-    expect(within(menu).getByRole("button", { name: "Log out" })).toBeVisible();
+    const dialog = await screen.findByRole("dialog", { name: "Hannah Han" });
+    expect(within(dialog).getByText("hannah@apex.ai")).toBeVisible();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
   it("opens the mobile navigation by keyboard and returns focus after Escape", async () => {
     stubCompact(true);
@@ -147,14 +133,14 @@ describe("AuroraShell", () => {
     expect(screen.queryByRole("navigation")).toBeNull();
     opener.focus();
     await user.keyboard("{Enter}");
-    const dialog = await screen.findByRole("dialog", { name: "Aurora" });
-    expect(within(dialog).getByRole("navigation", { name: "Aurora" })).toBeVisible();
-    expect(document.querySelectorAll('nav[aria-label="Aurora"]')).toHaveLength(1);
+    const dialog = await screen.findByRole("dialog", { name: "Apex AI" });
+    expect(within(dialog).getByRole("navigation", { name: "Apex AI" })).toBeVisible();
+    expect(document.querySelectorAll('nav[aria-label="Apex AI"]')).toHaveLength(1);
     await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(opener).toHaveFocus();
-    expect(document.querySelectorAll('nav[aria-label="Aurora"]')).toHaveLength(0);
+    expect(document.querySelectorAll('nav[aria-label="Apex AI"]')).toHaveLength(0);
   });
   it("closes mobile navigation using the named close button", async () => {
     stubCompact(true);
@@ -178,7 +164,7 @@ describe("AuroraShell", () => {
     expect(document.querySelector('[data-slot="sheet-overlay"]')).toBeNull();
     expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeNull();
     await user.click(screen.getByRole("button", { name: "Open menu" }));
-    expect(await screen.findByRole("link", { name: "Credits" })).toHaveAttribute("aria-current", "page");
+    expect(await screen.findByRole("link", { name: "Credits & top-up" })).toHaveAttribute("aria-current", "page");
   });
   it.each([false, true])("closes an interrupted account on breakpoint change without resurrection (initial compact=%s)", async (initialCompact) => {
     const resize = stubCompact(initialCompact);
@@ -205,7 +191,7 @@ describe("AuroraShell", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     resize(true);
     await user.click(screen.getByRole("button", { name: "Open menu" }));
-    expect(await screen.findByRole("dialog", { name: "Aurora" })).toBeVisible();
+    expect(await screen.findByRole("dialog", { name: "Apex AI" })).toBeVisible();
     expect(screen.queryByRole("dialog", { name: "Hannah Han" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Account" }));
     expect(await screen.findByRole("dialog", { name: "Hannah Han" })).toBeVisible();
@@ -217,13 +203,13 @@ describe("AuroraShell", () => {
     const user = userEvent.setup();
     renderShell("/acme/skills");
     await user.click(await screen.findByRole("button", { name: "Open menu" }));
-    await screen.findByRole("dialog", { name: "Aurora" });
+    await screen.findByRole("dialog", { name: "Apex AI" });
     resize(false);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(document.querySelector('[data-slot="sheet-overlay"]')).toBeNull();
     expect(screen.getAllByRole("navigation")).toHaveLength(1);
     expect(screen.getByRole("main")).not.toHaveAttribute("aria-hidden");
-    const create = screen.getByRole("link", { name: "Create" });
+    const create = screen.getByRole("link", { name: "Start creating" });
     create.focus();
     expect(create).toHaveFocus();
     await user.click(screen.getByRole("button", { name: "Log out" }));
@@ -240,13 +226,13 @@ describe("AuroraShell", () => {
     await screen.findByRole("dialog");
     view.rerender(shell("/acme/billing"));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.getByRole("link", { name: "Credits" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Credits & top-up" })).toHaveAttribute("aria-current", "page");
   });
   it("links every destination the app serves", () => {
     renderShell("/acme/skills");
 
-    expect(screen.getByRole("navigation", { name: "Aurora" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Create" })).toHaveAttribute(
+    expect(screen.getByRole("navigation", { name: "Apex AI" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Start creating" })).toHaveAttribute(
       "href",
       "/acme/skills",
     );
@@ -258,11 +244,11 @@ describe("AuroraShell", () => {
       "href",
       "/acme/history",
     );
-    expect(screen.getByRole("link", { name: "Execution" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Service status" })).toHaveAttribute(
       "href",
       "/acme/runtimes",
     );
-    expect(screen.getByRole("link", { name: "Credits" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Credits & top-up" })).toHaveAttribute(
       "href",
       "/acme/billing",
     );
@@ -275,10 +261,10 @@ describe("AuroraShell", () => {
       "aria-current",
       "page",
     );
-    expect(screen.getByRole("link", { name: "Create" })).not.toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Start creating" })).not.toHaveAttribute(
       "aria-current",
     );
-    expect(screen.getByRole("link", { name: "Credits" })).not.toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Credits & top-up" })).not.toHaveAttribute(
       "aria-current",
     );
   });
@@ -286,7 +272,7 @@ describe("AuroraShell", () => {
   it("counts a trailing slash as the same destination", () => {
     renderShell("/acme/billing/");
 
-    expect(screen.getByRole("link", { name: "Credits" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Credits & top-up" })).toHaveAttribute(
       "aria-current",
       "page",
     );
@@ -299,7 +285,7 @@ describe("AuroraShell", () => {
       "aria-current",
       "page",
     );
-    for (const name of ["Create", "History", "Execution", "Credits"]) {
+    for (const name of ["Start creating", "History", "Service status", "Credits & top-up"]) {
       expect(screen.getByRole("link", { name })).not.toHaveAttribute(
         "aria-current",
       );
@@ -309,7 +295,7 @@ describe("AuroraShell", () => {
   it("marks nothing on a route the nav does not own", () => {
     renderShell("/acme/unknown");
 
-    for (const name of ["Create", "My works", "History", "Execution", "Credits"]) {
+    for (const name of ["Start creating", "My works", "History", "Service status", "Credits & top-up"]) {
       expect(screen.getByRole("link", { name })).not.toHaveAttribute(
         "aria-current",
       );

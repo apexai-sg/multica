@@ -22,6 +22,8 @@ import {
   AlertTitle,
 } from "@multica/ui/components/ui/alert";
 import { Button } from "@multica/ui/components/ui/button";
+import { Input } from "@multica/ui/components/ui/input";
+import { toolGuidance } from "./tool-guidance";
 import { Label } from "@multica/ui/components/ui/label";
 import {
   Sheet,
@@ -211,6 +213,9 @@ function ComposerBody({
   const create = useCreateAuroraGeneration();
   const { upload } = useFileUpload(api);
   const [prompt, setPrompt] = useState("");
+  const [audience, setAudience] = useState("");
+  const [preferences, setPreferences] = useState("");
+  const guidance = toolGuidance(skill.id, locale);
   const [outcome, setOutcome] = useState<SubmitOutcome>({ kind: "idle" });
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const nextAttachmentKey = useRef(0);
@@ -381,7 +386,11 @@ function ComposerBody({
     try {
       const created = await create.mutateAsync({
         skillId: skill.id,
-        prompt: trimmedPrompt,
+        prompt: [
+          trimmedPrompt,
+          audience.trim() ? `${t(($) => $.composer.audience_label)}: ${audience.trim()}` : "",
+          preferences.trim() ? `${t(($) => $.composer.preferences_label)}: ${preferences.trim()}` : "",
+        ].filter(Boolean).join("\n\n"),
         attachmentIds: uploadedAttachmentIds,
       });
       // A usable issue identifier means the result belongs on the issue detail,
@@ -461,6 +470,13 @@ function ComposerBody({
         />
       ) : null}
 
+      {guidance ? (
+        <section className="aurora-deliverable" aria-label={t(($) => $.composer.deliverable_title)}>
+          <strong>{t(($) => $.composer.deliverable_title)}</strong>
+          <p>{guidance.summary}</p>
+          {skill.output.length === 1 && skill.output[0] === "text" ? <span>{t(($) => $.directory.text_output)}</span> : null}
+        </section>
+      ) : null}
       <form className="aurora-composer" onSubmit={handleSubmit}>
         <div className="aurora-field">
           <Label className="aurora-field-label" htmlFor="aurora-prompt">
@@ -471,13 +487,32 @@ function ComposerBody({
             className="aurora-textarea"
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            placeholder={t(($) => $.composer.prompt_placeholder)}
+            placeholder={guidance?.example ?? t(($) => $.composer.prompt_placeholder)}
             rows={5}
             // The prompt is the whole input, and losing it costs the user their
             // work — so it is kept rather than cleared when the submit fails.
             disabled={!skill.available}
           />
         </div>
+        {guidance ? (
+          <>
+            <Button type="button" variant="outline" size="sm"
+              disabled={!skill.available || prompt.trim().length > 0 || create.isPending || outcome.kind === "started" || outcome.kind === "unreadable"}
+              onClick={() => setPrompt(guidance.example)}>
+              <Sparkles aria-hidden="true" />{t(($) => $.composer.example)}
+            </Button>
+            <div className="aurora-field">
+              <Label htmlFor="aurora-audience">{t(($) => $.composer.audience_label)}</Label>
+              <Input id="aurora-audience" value={audience} onChange={(event) => setAudience(event.target.value)}
+                disabled={!skill.available} placeholder={t(($) => $.composer.audience_placeholder)} />
+            </div>
+            <div className="aurora-field">
+              <Label htmlFor="aurora-preferences">{t(($) => $.composer.preferences_label)}</Label>
+              <Input id="aurora-preferences" value={preferences} onChange={(event) => setPreferences(event.target.value)}
+                disabled={!skill.available} placeholder={t(($) => $.composer.preferences_placeholder)} />
+            </div>
+          </>
+        ) : null}
         {attachmentRules.length > 0 ? (
           <div className="aurora-field">
             <Label className="aurora-field-label" htmlFor="aurora-attachments">
