@@ -270,16 +270,15 @@ INSERT INTO fleet_nodes (id, daemon_id, namespace, owner_id, workspace_id, runti
 VALUES (@node_id, @daemon_id, @namespace, @owner_id, @workspace_id, @runtime_id, @name, @spec, @image, '', @spec_config, @data_volume, @secrets_volume)
 RETURNING *;
 
--- name: GetFleetNodeByGlobalID :one
--- The node id is globally unique (fleet_nodes_id_idx), so it locates a row
--- whatever namespace or owner recorded it. The namespace-scoped lookups cannot
--- see a row left by an earlier Fleet namespace; this one can.
-SELECT * FROM fleet_nodes WHERE id = @node_id;
-
--- name: GetFleetNodeByDaemonID :one
--- The daemon id is globally unique too (fleet_nodes_daemon_idx), so an unused
--- node id must still not be admitted under a daemon another node already owns.
-SELECT * FROM fleet_nodes WHERE daemon_id = @daemon_id;
+-- name: GetFleetAuroraIdentityClaim :many
+-- The node id and the daemon id are both globally unique (fleet_nodes_id_idx,
+-- fleet_nodes_daemon_idx) while every scoped lookup in this file filters by
+-- namespace, so one statement resolves both claims in a single round trip: a row
+-- left by an earlier Fleet namespace is invisible to the scoped lookups yet still
+-- blocks the insert. At most one row can match -- a row owning this daemon id
+-- would have to carry this same node id to match both, and the unique indexes
+-- forbid a second row for either key.
+SELECT * FROM fleet_nodes WHERE id = @node_id OR daemon_id = @daemon_id;
 
 -- name: AdoptFleetAuroraNode :one
 -- Move a row left by an earlier Fleet namespace onto the caller's namespace and

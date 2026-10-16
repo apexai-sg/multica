@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	guuid "github.com/google/uuid"
@@ -17,27 +16,16 @@ import (
 // the identity-scope mismatch: the node and daemon UUIDs are Aurora-owned and
 // globally unique (fleet_nodes_id_idx, fleet_nodes_daemon_idx), while the replay
 // lookup is scoped to (namespace, owner_id). A row left by an earlier Fleet
-// namespace was invisible to that lookup yet still blocked the insert, so the
-// arm answered 503 forever and only manual SQL could unblock the workspace.
-// The row must instead be adopted into the caller's namespace.
+// namespace was invisible to that lookup yet still blocked the insert, so the arm
+// answered 503 forever and only manual SQL unblocked the workspace. The row must
+// instead be adopted into the caller's namespace.
 func TestFleetAuroraIntentAdoptsIdentityFromAnEarlierNamespace(t *testing.T) {
 	s, f, ns := auroraStoreFixture(t, 2)
 	ctx := context.Background()
 	owner := uuid(t, f.UserID)
 	nodeID := uuid(t, guuid.NewString())
-	req := model.AuroraNodeRequest{
-		WorkspaceID:     uuid(t, f.WorkspaceID),
-		RuntimeID:       uuid(t, guuid.NewString()),
-		DaemonID:        guuid.NewString(),
-		ImageDigest:     "aurora-test-image",
-		Name:            "aurora-node",
-		Spec:            "sandbox",
-		IdempotencyKey:  "aurora-identity-key",
-		EnrollmentToken: "mse_" + strings.Repeat("a", 40),
-	}
-	stale := "stale-" + ns
-	f.Cleanup(t, "DELETE FROM fleet_nodes WHERE id=$1", util.UUIDToString(nodeID))
-	seedFleetNode(t, f, stale, f.UserID, nodeID, req)
+	req := auroraRebootstrapRequest(t, f, "aurora-identity-key")
+	seedSurvivingNode(t, f, "stale-"+ns, f.UserID, nodeID, req)
 
 	node, _, replayed, err := s.CreateAuroraIntent(ctx, owner, nodeID, req)
 	if err != nil {
@@ -46,6 +34,7 @@ func TestFleetAuroraIntentAdoptsIdentityFromAnEarlierNamespace(t *testing.T) {
 	if replayed || node.ID != nodeID || node.OwnerID != owner || node.Namespace != ns {
 		t.Fatalf("adopted node=%+v replayed=%v", node, replayed)
 	}
+	// Adoption moves the surviving row; it never adds a second one for the id.
 	if n := f.Count(t, "SELECT count(*) FROM fleet_nodes WHERE id=$1", util.UUIDToString(nodeID)); n != 1 {
 		t.Fatalf("rows for the adopted identity = %d, want 1", n)
 	}
@@ -57,26 +46,16 @@ func TestFleetAuroraIntentAdoptsIdentityFromAnEarlierNamespace(t *testing.T) {
 }
 
 // TestFleetAuroraIntentRejectsIdentityOwnedByAnotherOwner pins the refusal: a
-// foreign namespace is adoptable only for the same owner, and the refusal is a
-// typed conflict rather than the unique violation that used to leak as a 503.
+// surviving row is adoptable only for the same owner, and the refusal is a typed
+// conflict rather than the unique violation that used to leak as a 503.
 func TestFleetAuroraIntentRejectsIdentityOwnedByAnotherOwner(t *testing.T) {
 	s, f, ns := auroraStoreFixture(t, 2)
 	ctx := context.Background()
 	owner := uuid(t, f.UserID)
 	stranger := f.User(t, "Stranger", "stranger-"+f.UserID+"@example.test")
 	nodeID := uuid(t, guuid.NewString())
-	req := model.AuroraNodeRequest{
-		WorkspaceID:     uuid(t, f.WorkspaceID),
-		RuntimeID:       uuid(t, guuid.NewString()),
-		DaemonID:        guuid.NewString(),
-		ImageDigest:     "aurora-test-image",
-		Name:            "aurora-node",
-		Spec:            "sandbox",
-		IdempotencyKey:  "aurora-owner-key",
-		EnrollmentToken: "mse_" + strings.Repeat("a", 40),
-	}
-	f.Cleanup(t, "DELETE FROM fleet_nodes WHERE id=$1", util.UUIDToString(nodeID))
-	seedFleetNode(t, f, ns, stranger, nodeID, req)
+	req := auroraRebootstrapRequest(t, f, "aurora-owner-key")
+	seedSurvivingNode(t, f, ns, stranger, nodeID, req)
 
 	if _, _, _, err := s.CreateAuroraIntent(ctx, owner, nodeID, req); !errors.Is(err, model.ErrConflict) {
 		t.Fatalf("foreign owner identity err=%v want ErrConflict", err)
@@ -84,43 +63,38 @@ func TestFleetAuroraIntentRejectsIdentityOwnedByAnotherOwner(t *testing.T) {
 }
 
 // TestFleetAuroraIntentRejectsReusedDaemonIdentity covers the second global
-// unique index: a node id nobody has used yet must not slip past an existing row
-// that already owns the daemon UUID.
+// unique index: an unused node id must not be admitted under a daemon another
+// node already owns.
 func TestFleetAuroraIntentRejectsReusedDaemonIdentity(t *testing.T) {
 	s, f, ns := auroraStoreFixture(t, 2)
 	ctx := context.Background()
 	owner := uuid(t, f.UserID)
-	otherNode := uuid(t, guuid.NewString())
 	nodeID := uuid(t, guuid.NewString())
-	req := model.AuroraNodeRequest{
-		WorkspaceID:     uuid(t, f.WorkspaceID),
-		RuntimeID:       uuid(t, guuid.NewString()),
-		DaemonID:        guuid.NewString(),
-		ImageDigest:     "aurora-test-image",
-		Name:            "aurora-node",
-		Spec:            "sandbox",
-		IdempotencyKey:  "aurora-daemon-key",
-		EnrollmentToken: "mse_" + strings.Repeat("a", 40),
-	}
-	f.Cleanup(t, "DELETE FROM fleet_nodes WHERE id=$1", util.UUIDToString(otherNode))
-	f.Cleanup(t, "DELETE FROM fleet_nodes WHERE id=$1", util.UUIDToString(nodeID))
-	seedFleetNode(t, f, ns, f.UserID, otherNode, req)
+	req := auroraRebootstrapRequest(t, f, "aurora-daemon-key")
+	seedSurvivingNode(t, f, ns, f.UserID, uuid(t, guuid.NewString()), req)
 
 	if _, _, _, err := s.CreateAuroraIntent(ctx, owner, nodeID, req); !errors.Is(err, model.ErrConflict) {
 		t.Fatalf("reused daemon identity err=%v want ErrConflict", err)
 	}
 }
 
-// seedFleetNode writes a node row directly, standing in for one left behind by an
-// earlier Fleet namespace or owner.
-func seedFleetNode(t *testing.T, f *testutil.Fixture, namespace, ownerID string, nodeID pgtype.UUID, req model.AuroraNodeRequest) {
+// seedSurvivingNode writes the row an earlier Fleet namespace (or another owner)
+// left behind: the caller-supplied ids and durable dimensions, its own namespace.
+// Fixture.Insert registers the matching delete itself, so adoption moving the row
+// into another namespace needs no caller-side teardown.
+func seedSurvivingNode(t *testing.T, f *testutil.Fixture, namespace, ownerID string, nodeID pgtype.UUID, req model.AuroraNodeRequest) {
 	t.Helper()
-	f.Exec(t,
-		"INSERT INTO fleet_nodes (id, daemon_id, namespace, owner_id, workspace_id, runtime_id, name, spec, image, spec_config, data_volume, secrets_volume, status) "+
-			"VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'{}',$10,$11,'running')",
-		util.UUIDToString(nodeID), req.DaemonID, namespace, ownerID,
-		util.UUIDToString(req.WorkspaceID), util.UUIDToString(req.RuntimeID), req.Name, req.Spec, req.ImageDigest,
-		"multica-fleet-"+util.UUIDToString(nodeID)+"-data",
-		"multica-fleet-"+util.UUIDToString(nodeID)+"-secrets",
-	)
+	text := util.UUIDToString(nodeID)
+	f.FleetNode(t, namespace, testutil.Cols{
+		"id":             text,
+		"owner_id":       ownerID,
+		"daemon_id":      req.DaemonID,
+		"workspace_id":   util.UUIDToString(req.WorkspaceID),
+		"runtime_id":     util.UUIDToString(req.RuntimeID),
+		"name":           req.Name,
+		"spec":           req.Spec,
+		"image":          req.ImageDigest,
+		"data_volume":    "multica-fleet-" + text + "-data",
+		"secrets_volume": "multica-fleet-" + text + "-secrets",
+	})
 }

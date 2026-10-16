@@ -1794,6 +1794,73 @@ func (q *Queries) FleetUnfinishedOperations(ctx context.Context, arg FleetUnfini
 	return count, err
 }
 
+const getFleetAuroraIdentityClaim = `-- name: GetFleetAuroraIdentityClaim :many
+SELECT id, namespace, owner_id, created_at, updated_at, container_id, daemon_id, name, spec, image, profile_ref, start_epoch, data_volume, secrets_volume, desired, status, generation, ready, health_at, active_runs, pending_reports, failed_reports, maintenance, revoked, error_code, error_message, spec_config, observation, workspace_id, runtime_id FROM fleet_nodes WHERE id = $1 OR daemon_id = $2
+`
+
+type GetFleetAuroraIdentityClaimParams struct {
+	NodeID   pgtype.UUID `json:"node_id"`
+	DaemonID pgtype.UUID `json:"daemon_id"`
+}
+
+// The node id and the daemon id are both globally unique (fleet_nodes_id_idx,
+// fleet_nodes_daemon_idx) while every scoped lookup in this file filters by
+// namespace, so one statement resolves both claims in a single round trip: a row
+// left by an earlier Fleet namespace is invisible to the scoped lookups yet still
+// blocks the insert. At most one row can match -- a row owning this daemon id
+// would have to carry this same node id to match both, and the unique indexes
+// forbid a second row for either key.
+func (q *Queries) GetFleetAuroraIdentityClaim(ctx context.Context, arg GetFleetAuroraIdentityClaimParams) ([]FleetNode, error) {
+	rows, err := q.db.Query(ctx, getFleetAuroraIdentityClaim, arg.NodeID, arg.DaemonID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FleetNode{}
+	for rows.Next() {
+		var i FleetNode
+		if err := rows.Scan(
+			&i.ID,
+			&i.Namespace,
+			&i.OwnerID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ContainerID,
+			&i.DaemonID,
+			&i.Name,
+			&i.Spec,
+			&i.Image,
+			&i.ProfileRef,
+			&i.StartEpoch,
+			&i.DataVolume,
+			&i.SecretsVolume,
+			&i.Desired,
+			&i.Status,
+			&i.Generation,
+			&i.Ready,
+			&i.HealthAt,
+			&i.ActiveRuns,
+			&i.PendingReports,
+			&i.FailedReports,
+			&i.Maintenance,
+			&i.Revoked,
+			&i.ErrorCode,
+			&i.ErrorMessage,
+			&i.SpecConfig,
+			&i.Observation,
+			&i.WorkspaceID,
+			&i.RuntimeID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getFleetIntentByKey = `-- name: GetFleetIntentByKey :one
 SELECT id, namespace, owner_id, created_at, updated_at, node_id, action, idempotency_key, request_hash, phase, prior_desired, generation, approved, attempts, error_code, error_message, bootstrap_claimed_at, bootstrap_minted, non_retryable, next_attempt_at, action_claimed_at, action_start_epoch FROM fleet_node_operations WHERE namespace = $1 AND owner_id = $2 AND idempotency_key = $3
 `
@@ -1865,95 +1932,6 @@ type GetFleetNodeParams struct {
 
 func (q *Queries) GetFleetNode(ctx context.Context, arg GetFleetNodeParams) (FleetNode, error) {
 	row := q.db.QueryRow(ctx, getFleetNode, arg.Namespace, arg.OwnerID, arg.NodeID)
-	var i FleetNode
-	err := row.Scan(
-		&i.ID,
-		&i.Namespace,
-		&i.OwnerID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.ContainerID,
-		&i.DaemonID,
-		&i.Name,
-		&i.Spec,
-		&i.Image,
-		&i.ProfileRef,
-		&i.StartEpoch,
-		&i.DataVolume,
-		&i.SecretsVolume,
-		&i.Desired,
-		&i.Status,
-		&i.Generation,
-		&i.Ready,
-		&i.HealthAt,
-		&i.ActiveRuns,
-		&i.PendingReports,
-		&i.FailedReports,
-		&i.Maintenance,
-		&i.Revoked,
-		&i.ErrorCode,
-		&i.ErrorMessage,
-		&i.SpecConfig,
-		&i.Observation,
-		&i.WorkspaceID,
-		&i.RuntimeID,
-	)
-	return i, err
-}
-
-const getFleetNodeByDaemonID = `-- name: GetFleetNodeByDaemonID :one
-SELECT id, namespace, owner_id, created_at, updated_at, container_id, daemon_id, name, spec, image, profile_ref, start_epoch, data_volume, secrets_volume, desired, status, generation, ready, health_at, active_runs, pending_reports, failed_reports, maintenance, revoked, error_code, error_message, spec_config, observation, workspace_id, runtime_id FROM fleet_nodes WHERE daemon_id = $1
-`
-
-// The daemon id is globally unique too (fleet_nodes_daemon_idx), so an unused
-// node id must still not be admitted under a daemon another node already owns.
-func (q *Queries) GetFleetNodeByDaemonID(ctx context.Context, daemonID pgtype.UUID) (FleetNode, error) {
-	row := q.db.QueryRow(ctx, getFleetNodeByDaemonID, daemonID)
-	var i FleetNode
-	err := row.Scan(
-		&i.ID,
-		&i.Namespace,
-		&i.OwnerID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.ContainerID,
-		&i.DaemonID,
-		&i.Name,
-		&i.Spec,
-		&i.Image,
-		&i.ProfileRef,
-		&i.StartEpoch,
-		&i.DataVolume,
-		&i.SecretsVolume,
-		&i.Desired,
-		&i.Status,
-		&i.Generation,
-		&i.Ready,
-		&i.HealthAt,
-		&i.ActiveRuns,
-		&i.PendingReports,
-		&i.FailedReports,
-		&i.Maintenance,
-		&i.Revoked,
-		&i.ErrorCode,
-		&i.ErrorMessage,
-		&i.SpecConfig,
-		&i.Observation,
-		&i.WorkspaceID,
-		&i.RuntimeID,
-	)
-	return i, err
-}
-
-const getFleetNodeByGlobalID = `-- name: GetFleetNodeByGlobalID :one
-SELECT id, namespace, owner_id, created_at, updated_at, container_id, daemon_id, name, spec, image, profile_ref, start_epoch, data_volume, secrets_volume, desired, status, generation, ready, health_at, active_runs, pending_reports, failed_reports, maintenance, revoked, error_code, error_message, spec_config, observation, workspace_id, runtime_id FROM fleet_nodes WHERE id = $1
-`
-
-// The node id is globally unique (fleet_nodes_id_idx), so it locates a row
-// whatever namespace or owner recorded it. The namespace-scoped lookups cannot
-// see a row left by an earlier Fleet namespace; this one can.
-func (q *Queries) GetFleetNodeByGlobalID(ctx context.Context, nodeID pgtype.UUID) (FleetNode, error) {
-	row := q.db.QueryRow(ctx, getFleetNodeByGlobalID, nodeID)
 	var i FleetNode
 	err := row.Scan(
 		&i.ID,

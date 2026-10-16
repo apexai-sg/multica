@@ -183,49 +183,55 @@ func (s *Store) lookupAuroraIntent(ctx context.Context, q *db.Queries, owner, no
 	return node, op, true, nil
 }
 
-// adoptAuroraIdentity reconciles the caller-supplied node and daemon UUIDs against the
-// whole table before a new node is admitted. Both indexes are global
-// (fleet_nodes_id_idx, fleet_nodes_daemon_idx) while lookupAuroraIntent only sees
-// this namespace, so a row left by an earlier Fleet namespace used to block the
-// insert with a unique violation that reached Aurora as an opaque 503 and
-// stranded the workspace until someone deleted rows by hand. A row for the same
-// owner and the same durable identity is adopted onto this namespace; anything
-// else is a typed conflict, never a leaked unique violation.
-func (s *Store) adoptAuroraIdentity(ctx context.Context, q *db.Queries, owner, nodeID, daemonID pgtype.UUID, req model.AuroraNodeRequest, specConfig []byte) (model.Node, bool, error) {
-	existing, err := q.GetFleetNodeByGlobalID(ctx, nodeID)
-	switch {
-	case err == nil:
-		if existing.OwnerID != owner || !auroraSameIdentity(existing, req) {
-			return model.Node{}, false, model.ErrConflict
+// admitAuroraNode persists one Aurora node under the caller-supplied identity: it
+// adopts the row an earlier Fleet namespace left behind, and inserts a new one
+// otherwise.
+//
+// The node and daemon ids are Aurora-owned and globally unique
+// (fleet_nodes_id_idx, fleet_nodes_daemon_idx) while every scoped lookup filters
+// by namespace, so a surviving row is invisible to lookupAuroraIntent yet still
+// blocks the insert; that used to reach Aurora as an opaque 503 and stranded the
+// workspace until someone deleted rows by hand. A survivor for the same owner and
+// the same durable identity is adopted onto this namespace; anything else is a
+// typed conflict, never a leaked unique violation.
+//
+// Adoption deliberately abandons the old namespace: its operations and node
+// credentials join on n.namespace and stop matching, which is the intent for a
+// namespace the Fleet has replaced.
+func (s *Store) admitAuroraNode(ctx context.Context, q *db.Queries, owner, nodeID pgtype.UUID, req model.AuroraNodeRequest, specConfig []byte) (model.Node, error) {
+	daemonID, err := util.ParseUUID(req.DaemonID)
+	if err != nil {
+		return model.Node{}, model.ErrInvalidRequest
+	}
+	claims, err := q.GetFleetAuroraIdentityClaim(ctx, db.GetFleetAuroraIdentityClaimParams{NodeID: nodeID, DaemonID: daemonID})
+	if err != nil {
+		return model.Node{}, err
+	}
+	// The two global indexes allow at most one claim, so a non-empty result is the
+	// surviving row: adopt it only when it is this owner's same durable identity.
+	if len(claims) > 0 {
+		claim := claims[0]
+		if claim.ID != nodeID || claim.OwnerID != owner || !auroraSameIdentity(claim, req) {
+			return model.Node{}, model.ErrConflict
 		}
 		row, err := q.AdoptFleetAuroraNode(ctx, db.AdoptFleetAuroraNodeParams{
 			Namespace:      s.namespace,
-			NextGeneration: existing.Generation + 1,
+			NextGeneration: claim.Generation + 1,
 			Image:          req.ImageDigest,
 			SpecConfig:     specConfig,
 			NodeID:         nodeID,
 		})
 		if err != nil {
-			return model.Node{}, false, err
+			return model.Node{}, err
 		}
-		node, err := nodeFromRow(row)
-		if err != nil {
-			return model.Node{}, false, err
-		}
-		return node, true, nil
-	case errors.Is(err, pgx.ErrNoRows):
-	default:
-		return model.Node{}, false, err
+		return nodeFromRow(row)
 	}
-	switch _, err := q.GetFleetNodeByDaemonID(ctx, daemonID); {
-	case err == nil:
-		// The daemon UUID already belongs to another node row: never share it.
-		return model.Node{}, false, model.ErrConflict
-	case errors.Is(err, pgx.ErrNoRows):
-		return model.Node{}, false, nil
-	default:
-		return model.Node{}, false, err
+	nodeText := util.UUIDToString(nodeID)
+	row, err := q.InsertFleetAuroraNode(ctx, db.InsertFleetAuroraNodeParams{NodeID: nodeID, DaemonID: daemonID, Namespace: s.namespace, OwnerID: owner, WorkspaceID: req.WorkspaceID, RuntimeID: req.RuntimeID, Name: req.Name, Spec: req.Spec, Image: req.ImageDigest, SpecConfig: specConfig, DataVolume: "multica-fleet-" + nodeText + "-data", SecretsVolume: "multica-fleet-" + nodeText + "-secrets"})
+	if err != nil {
+		return model.Node{}, err
 	}
+	return nodeFromRow(row)
 }
 
 // CreateAuroraIntent is the single Aurora workspace-node admission point. The
@@ -281,23 +287,9 @@ func (s *Store) CreateAuroraIntent(ctx context.Context, owner, nodeID pgtype.UUI
 		if err != nil {
 			return model.ErrInvalidRequest
 		}
-		daemonID, _ := util.ParseUUID(req.DaemonID)
-		nodeText := util.UUIDToString(nodeID)
-		adopted, ok, err := s.adoptAuroraIdentity(ctx, q, owner, nodeID, daemonID, req, snapshot)
+		node, err = s.admitAuroraNode(ctx, q, owner, nodeID, req, snapshot)
 		if err != nil {
 			return err
-		}
-		if ok {
-			node = adopted
-		} else {
-			row, err := q.InsertFleetAuroraNode(ctx, db.InsertFleetAuroraNodeParams{NodeID: nodeID, DaemonID: daemonID, Namespace: s.namespace, OwnerID: owner, WorkspaceID: req.WorkspaceID, RuntimeID: req.RuntimeID, Name: req.Name, Spec: req.Spec, Image: req.ImageDigest, SpecConfig: snapshot, DataVolume: "multica-fleet-" + nodeText + "-data", SecretsVolume: "multica-fleet-" + nodeText + "-secrets"})
-			if err != nil {
-				return err
-			}
-			node, err = nodeFromRow(row)
-			if err != nil {
-				return err
-			}
 		}
 		operation, err := q.InsertFleetCreateOperation(ctx, db.InsertFleetCreateOperationParams{Namespace: s.namespace, OwnerID: owner, NodeID: node.ID, IdempotencyKey: req.IdempotencyKey, RequestHash: fingerprint})
 		if err != nil {
