@@ -300,6 +300,8 @@ INSERT INTO fleet_node_operations (namespace, owner_id, node_id, action, idempot
 VALUES (@namespace, @owner_id, @node_id, 'create', @idempotency_key, @request_hash) RETURNING *;
 
 -- name: FleetResetAuroraNode :one
+-- Keep the fresh-bootstrap column list below in step with AdoptFleetAuroraNode,
+-- which rewinds a row left by an earlier namespace to the same state.
 -- Re-arm the same Aurora node identity after its create failed, it was revoked,
 -- or the deployed image digest changed. Volumes, daemon id, owner and
 -- workspace/runtime dimensions are durable identity and must survive; only the
