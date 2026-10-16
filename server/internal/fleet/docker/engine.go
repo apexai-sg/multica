@@ -32,6 +32,9 @@ type Resource struct {
 	Labels         map[string]string
 	// Internal is inspected exactly; node networks must support direct outbound access.
 	Internal bool
+	// Subnet, when set, is the IPv4 CIDR the network is created in. Empty keeps
+	// Docker's automatic pool.
+	Subnet string
 }
 type Inspection struct {
 	ID, State, StartedAt string
@@ -226,7 +229,11 @@ func (e *sdkEngine) EnsureNetwork(ctx context.Context, r Resource) error {
 	if !errdefs.IsNotFound(err) {
 		return err
 	}
-	_, createErr := e.client.NetworkCreate(ctx, r.Name, network.CreateOptions{Driver: "bridge", Labels: r.Labels, Internal: r.Internal})
+	opts := network.CreateOptions{Driver: "bridge", Labels: r.Labels, Internal: r.Internal}
+	if r.Subnet != "" {
+		opts.IPAM = &network.IPAM{Driver: "default", Config: []network.IPAMConfig{{Subnet: r.Subnet}}}
+	}
+	_, createErr := e.client.NetworkCreate(ctx, r.Name, opts)
 	if err = check(); err == nil {
 		return nil
 	}

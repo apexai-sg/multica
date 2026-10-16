@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"reflect"
 	"strings"
@@ -18,10 +19,30 @@ type Config struct {
 	APIURL    string          `json:"api_url"`
 	Specs     map[string]Spec `json:"specs"`
 	MaxNodes  int             `json:"max_nodes"`
+	// NetworkPool optionally pins the address space node networks are created in,
+	// as one IPv4 CIDR of /24 or wider (for example "10.213.0.0/16"). Each node
+	// then owns one deterministic /24 of it. Empty keeps Docker's automatic pool,
+	// which can overlap the host's own LAN: one node network took 192.168.0.0/20
+	// and swallowed the route to the operator's 192.168.15.0/24, leaving that LAN
+	// unreachable until the network was deleted.
+	NetworkPool string `json:"network_pool"`
 	// Aurora, when present, selects the managed-sandbox execution profile.
 	// The tag carries no omitempty because DecodeStrictObject matches exact
 	// json tag values when it rejects unknown administrator keys.
 	Aurora *AuroraConfig `json:"aurora"`
+}
+
+// parseNetworkPool accepts one IPv4 CIDR wide enough to hold at least one /24.
+func parseNetworkPool(value string) (*net.IPNet, error) {
+	_, pool, err := net.ParseCIDR(strings.TrimSpace(value))
+	if err != nil || pool.IP.To4() == nil {
+		return nil, fmt.Errorf("%w: network_pool must be an IPv4 CIDR", ErrInvalidRequest)
+	}
+	ones, bits := pool.Mask.Size()
+	if bits != 32 || ones > 24 {
+		return nil, fmt.Errorf("%w: network_pool must be /24 or wider", ErrInvalidRequest)
+	}
+	return pool, nil
 }
 
 type Spec struct {
@@ -50,6 +71,13 @@ func DecodeConfig(raw []byte) (Config, error) {
 	if strings.TrimSpace(cfg.Namespace) == "" || strings.TrimSpace(cfg.FleetID) == "" ||
 		strings.TrimSpace(cfg.Image) == "" || strings.TrimSpace(cfg.APIURL) == "" || cfg.MaxNodes <= 0 || len(cfg.Specs) == 0 {
 		return Config{}, fmt.Errorf("%w: required config identity, image, API URL, specs and positive node limit", ErrInvalidRequest)
+	}
+	if cfg.NetworkPool != "" {
+		pool, err := parseNetworkPool(cfg.NetworkPool)
+		if err != nil {
+			return Config{}, err
+		}
+		cfg.NetworkPool = pool.String()
 	}
 	if cfg.Aurora != nil {
 		if err := cfg.Aurora.Validate(); err != nil {
