@@ -45,15 +45,24 @@ export const auroraSkillSchema = z
     /** false = a phase-2 skill: listed, but not yet runnable. */
     available: z.boolean().default(true),
     /**
+     * The avatar the workspace set on this skill's carrier agent, already
+     * resolved by the server for a browser to load. Empty when the workspace
+     * never seeded that carrier, left it without a portrait, or runs a server
+     * that predates the field — the tile then falls back to the skill's
+     * initials, so an older server changes nothing.
+     */
+    avatar_url: z.string().default(""),
+    /**
      * The skill's parsed input rules. Defaulted to an empty array so a server
      * that predates the field still parses: the composer then renders no file
      * input rather than guessing a rule set.
      */
     attachment_rules: z.array(auroraSkillAttachmentRuleSchema).default([]),
   })
-  .transform(({ name_en, attachment_rules, ...skill }) => ({
+  .transform(({ name_en, avatar_url, attachment_rules, ...skill }) => ({
     ...skill,
     nameEn: name_en,
+    avatarUrl: avatar_url,
     attachments: attachment_rules.map(
       (rule): AuroraSkillAttachmentRule => ({
         kinds: rule.kinds,

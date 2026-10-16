@@ -23,6 +23,13 @@ type SkillCatalogEntry struct {
 	// an array (empty for skills that take no attachments) so the client never
 	// has to distinguish "none" from "an older server".
 	AttachmentRules []AttachmentConstraint `json:"attachment_rules"`
+	// AvatarURL is the portrait this workspace set on the skill's carrier agent
+	// ("aurora:<id>" in agent.system_key), already resolved for the browser.
+	// Empty when the workspace never seeded that carrier or left it without an
+	// avatar; the client then draws its own initials tile. Omitted rather than
+	// sent empty so a client that predates the field sees the same body as
+	// before, and so does a response with nothing to decorate.
+	AvatarURL string `json:"avatar_url,omitempty"`
 }
 
 // catalog is the one product-facing skill directory: the 24 vendored experts in

@@ -118,6 +118,34 @@ describe("parseAuroraSkills", () => {
     expect(withoutRules.value[0]?.attachments).toEqual([]);
   });
 
+  it("carries the carrier agent's avatar and defaults it for an older server", () => {
+    const withAvatar = parseAuroraSkills({
+      skills: [
+        {
+          id: "media-short-video-copy",
+          name: "短视频文案专家",
+          category: "media",
+          credits: 120,
+          avatar_url: "/api/avatars/signature/workspaces/ws/lobster.png",
+        },
+      ],
+    });
+
+    expect(withAvatar.value[0]?.avatarUrl).toBe(
+      "/api/avatars/signature/workspaces/ws/lobster.png",
+    );
+
+    // A server that predates the field must still parse: the directory keeps
+    // drawing the skill's initials, which is the same rendering as "no avatar".
+    const withoutAvatar = parseAuroraSkills({
+      skills: [
+        { id: "poster", name: "海报制作", category: "image", credits: 76 },
+      ],
+    });
+
+    expect(withoutAvatar.value[0]?.avatarUrl).toBe("");
+  });
+
   it("tells a degraded catalog apart from an empty one (GH #55)", () => {
     // The directory renders "no skills" for both without the flag, and only one
     // of them is a fact.

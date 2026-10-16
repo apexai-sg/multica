@@ -424,6 +424,7 @@ function ComposerBody({
         <AuroraAvatar
           name={skillDisplayName(skill, locale)}
           id={skill.id}
+          avatarUrl={skill.avatarUrl}
           size="lg"
           available={skill.available}
         />

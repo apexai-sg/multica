@@ -258,6 +258,7 @@ function DirectoryHero({ skills }: { skills: AuroraSkill[] | undefined }) {
             <AuroraAvatar
               name={skillDisplayName(skill, locale)}
               id={skill.id}
+              avatarUrl={skill.avatarUrl}
               available
             />
           </span>
@@ -305,6 +306,7 @@ function SkillCard({
         <AuroraAvatar
           name={displayName}
           id={skill.id}
+          avatarUrl={skill.avatarUrl}
           size="lg"
           available={skill.available}
         />

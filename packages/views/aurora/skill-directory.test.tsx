@@ -30,6 +30,12 @@ vi.mock("@multica/core/aurora", async (importOriginal) => {
   };
 });
 
+// See aurora-avatar.test.tsx: the real resolver needs the app's API singleton,
+// and the directory only has to hand the URL through to the tile.
+vi.mock("@multica/core/workspace/avatar-url", () => ({
+  resolvePublicFileUrl: (url: string | null | undefined) => url ?? null,
+}));
+
 import { SkillDirectory } from "./skill-directory";
 
 /**
@@ -74,6 +80,7 @@ const CATALOG: AuroraSkill[] = [
   featured: false,
   available: true,
   attachments: [],
+  avatarUrl: "",
 }));
 
 const ALL_SKILLS = CATALOG;
@@ -181,6 +188,28 @@ describe("SkillDirectory", () => {
     expect(first.querySelector(".aurora-avatar")).toHaveAttribute("aria-hidden", "true");
     expect(first.querySelector(".aurora-card-arrow")).toHaveAttribute("aria-hidden", "true");
     expect(screen.queryByText("Coming soon")).not.toBeInTheDocument();
+  });
+
+  it("shows the carrier agent's avatar on the card that owns it", () => {
+    const [first, ...rest] = CATALOG;
+    mocks.skills.mockReturnValue({
+      data: {
+        value: [{ ...first!, avatarUrl: "/uploads/agents/lobster.png" }, ...rest],
+        degraded: false,
+      },
+      isPending: false,
+    });
+    renderDirectory();
+
+    const [withPortrait, ...others] = cards();
+    expect(
+      withPortrait!.querySelector(".aurora-avatar-img")?.getAttribute("src"),
+    ).toContain("/uploads/agents/lobster.png");
+    // Only that skill's carrier has a portrait; every other card keeps the
+    // initials tile.
+    for (const card of others) {
+      expect(card.querySelector(".aurora-avatar-img")).toBeNull();
+    }
   });
 
   it.each([

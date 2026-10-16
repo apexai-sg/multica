@@ -47,6 +47,7 @@ const POSTER: AuroraSkill = {
   featured: false,
   available: true,
   attachments: [],
+  avatarUrl: "",
 };
 
 function generation(
