@@ -133,6 +133,60 @@ func TestSetAuthCookies_HTTPSProduction(t *testing.T) {
 	}
 }
 
+// expiredCookieShapes collects the cookies a response expires, keyed as
+// "name|domain" so a host-only cookie and a domain-scoped one stay distinct.
+func expiredCookieShapes(rec *httptest.ResponseRecorder) map[string]bool {
+	out := map[string]bool{}
+	for _, c := range rec.Result().Cookies() {
+		if c.Value == "" && c.MaxAge < 0 {
+			out[c.Name+"|"+c.Domain] = true
+		}
+	}
+	return out
+}
+
+// With COOKIE_DOMAIN unset, logout expires exactly the host-only cookies it
+// always did — three headers, no Domain attribute.
+func TestClearAuthCookies_WithoutCookieDomainExpiresHostOnly(t *testing.T) {
+	t.Setenv("COOKIE_DOMAIN", "")
+
+	rec := httptest.NewRecorder()
+	ClearAuthCookies(rec)
+
+	got := expiredCookieShapes(rec)
+	for _, name := range []string{AuthCookieName, CSRFCookieName, SessionCSRFCookieName} {
+		if !got[name+"|"] {
+			t.Errorf("ClearAuthCookies did not expire host-only %s; headers: %v", name, rec.Result().Header["Set-Cookie"])
+		}
+	}
+	if len(got) != 3 {
+		t.Errorf("ClearAuthCookies expired %d cookies, want 3: %v", len(got), rec.Result().Header["Set-Cookie"])
+	}
+}
+
+// COOKIE_DOMAIN can change on a running deployment, and a browser keeps the
+// host-only and the domain-scoped cookie as two distinct cookies: a session
+// established before the change stays host-only afterwards. Logout has to
+// expire both shapes, or that stale session survives the logout until its own
+// MaxAge runs out.
+func TestClearAuthCookies_WithCookieDomainExpiresBothShapes(t *testing.T) {
+	t.Setenv("COOKIE_DOMAIN", ".apexxai.net")
+
+	rec := httptest.NewRecorder()
+	ClearAuthCookies(rec)
+
+	got := expiredCookieShapes(rec)
+	// Go writes the Domain attribute without the leading dot, the way browsers
+	// normalize it, so the domain-scoped shape reads back as "apexxai.net".
+	for _, domain := range []string{"apexxai.net", ""} {
+		for _, name := range []string{AuthCookieName, CSRFCookieName, SessionCSRFCookieName} {
+			if !got[name+"|"+domain] {
+				t.Errorf("ClearAuthCookies left %s (domain %q) unexpired; headers: %v", name, domain, rec.Result().Header["Set-Cookie"])
+			}
+		}
+	}
+}
+
 // csrfHeaderFor builds the request a browser would send: the auth cookie the
 // server set, plus the CSRF cookie's value echoed in the header.
 // csrfRequest presents authToken as the auth cookie and echoes csrfValue in
