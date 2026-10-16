@@ -11,6 +11,74 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const adoptFleetAuroraNode = `-- name: AdoptFleetAuroraNode :one
+UPDATE fleet_nodes SET namespace= $1, generation= $2, image= $3,
+ spec_config= $4, desired='running', status='creating', container_id='', start_epoch='', ready=false,
+ maintenance=false, revoked=false, error_code='', error_message='', observation='{}'::jsonb,
+ updated_at=now()
+WHERE id= $5
+RETURNING id, namespace, owner_id, created_at, updated_at, container_id, daemon_id, name, spec, image, profile_ref, start_epoch, data_volume, secrets_volume, desired, status, generation, ready, health_at, active_runs, pending_reports, failed_reports, maintenance, revoked, error_code, error_message, spec_config, observation, workspace_id, runtime_id
+`
+
+type AdoptFleetAuroraNodeParams struct {
+	Namespace      string      `json:"namespace"`
+	NextGeneration int64       `json:"next_generation"`
+	Image          string      `json:"image"`
+	SpecConfig     []byte      `json:"spec_config"`
+	NodeID         pgtype.UUID `json:"node_id"`
+}
+
+// Move a row left by an earlier Fleet namespace onto the caller's namespace and
+// rewind it to a fresh bootstrap on the next control generation, mirroring
+// FleetResetAuroraNode's fresh-bootstrap state. The approved image and the spec
+// config are deployment-scoped, not identity, so both are rewritten from the
+// current deployment. Owner, daemon id and the workspace/runtime dimensions are
+// durable identity the caller has already verified; the volumes are named from
+// the node id and stay in place.
+func (q *Queries) AdoptFleetAuroraNode(ctx context.Context, arg AdoptFleetAuroraNodeParams) (FleetNode, error) {
+	row := q.db.QueryRow(ctx, adoptFleetAuroraNode,
+		arg.Namespace,
+		arg.NextGeneration,
+		arg.Image,
+		arg.SpecConfig,
+		arg.NodeID,
+	)
+	var i FleetNode
+	err := row.Scan(
+		&i.ID,
+		&i.Namespace,
+		&i.OwnerID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ContainerID,
+		&i.DaemonID,
+		&i.Name,
+		&i.Spec,
+		&i.Image,
+		&i.ProfileRef,
+		&i.StartEpoch,
+		&i.DataVolume,
+		&i.SecretsVolume,
+		&i.Desired,
+		&i.Status,
+		&i.Generation,
+		&i.Ready,
+		&i.HealthAt,
+		&i.ActiveRuns,
+		&i.PendingReports,
+		&i.FailedReports,
+		&i.Maintenance,
+		&i.Revoked,
+		&i.ErrorCode,
+		&i.ErrorMessage,
+		&i.SpecConfig,
+		&i.Observation,
+		&i.WorkspaceID,
+		&i.RuntimeID,
+	)
+	return i, err
+}
+
 const beginFleetNamespaceDestroy = `-- name: BeginFleetNamespaceDestroy :one
 UPDATE fleet_namespace_fences SET finalized=false,generation=generation+1,completion_manifest=NULL
 WHERE namespace = $1 AND fleet_id = $2 AND operation_key = $3
@@ -1797,6 +1865,95 @@ type GetFleetNodeParams struct {
 
 func (q *Queries) GetFleetNode(ctx context.Context, arg GetFleetNodeParams) (FleetNode, error) {
 	row := q.db.QueryRow(ctx, getFleetNode, arg.Namespace, arg.OwnerID, arg.NodeID)
+	var i FleetNode
+	err := row.Scan(
+		&i.ID,
+		&i.Namespace,
+		&i.OwnerID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ContainerID,
+		&i.DaemonID,
+		&i.Name,
+		&i.Spec,
+		&i.Image,
+		&i.ProfileRef,
+		&i.StartEpoch,
+		&i.DataVolume,
+		&i.SecretsVolume,
+		&i.Desired,
+		&i.Status,
+		&i.Generation,
+		&i.Ready,
+		&i.HealthAt,
+		&i.ActiveRuns,
+		&i.PendingReports,
+		&i.FailedReports,
+		&i.Maintenance,
+		&i.Revoked,
+		&i.ErrorCode,
+		&i.ErrorMessage,
+		&i.SpecConfig,
+		&i.Observation,
+		&i.WorkspaceID,
+		&i.RuntimeID,
+	)
+	return i, err
+}
+
+const getFleetNodeByDaemonID = `-- name: GetFleetNodeByDaemonID :one
+SELECT id, namespace, owner_id, created_at, updated_at, container_id, daemon_id, name, spec, image, profile_ref, start_epoch, data_volume, secrets_volume, desired, status, generation, ready, health_at, active_runs, pending_reports, failed_reports, maintenance, revoked, error_code, error_message, spec_config, observation, workspace_id, runtime_id FROM fleet_nodes WHERE daemon_id = $1
+`
+
+// The daemon id is globally unique too (fleet_nodes_daemon_idx), so an unused
+// node id must still not be admitted under a daemon another node already owns.
+func (q *Queries) GetFleetNodeByDaemonID(ctx context.Context, daemonID pgtype.UUID) (FleetNode, error) {
+	row := q.db.QueryRow(ctx, getFleetNodeByDaemonID, daemonID)
+	var i FleetNode
+	err := row.Scan(
+		&i.ID,
+		&i.Namespace,
+		&i.OwnerID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ContainerID,
+		&i.DaemonID,
+		&i.Name,
+		&i.Spec,
+		&i.Image,
+		&i.ProfileRef,
+		&i.StartEpoch,
+		&i.DataVolume,
+		&i.SecretsVolume,
+		&i.Desired,
+		&i.Status,
+		&i.Generation,
+		&i.Ready,
+		&i.HealthAt,
+		&i.ActiveRuns,
+		&i.PendingReports,
+		&i.FailedReports,
+		&i.Maintenance,
+		&i.Revoked,
+		&i.ErrorCode,
+		&i.ErrorMessage,
+		&i.SpecConfig,
+		&i.Observation,
+		&i.WorkspaceID,
+		&i.RuntimeID,
+	)
+	return i, err
+}
+
+const getFleetNodeByGlobalID = `-- name: GetFleetNodeByGlobalID :one
+SELECT id, namespace, owner_id, created_at, updated_at, container_id, daemon_id, name, spec, image, profile_ref, start_epoch, data_volume, secrets_volume, desired, status, generation, ready, health_at, active_runs, pending_reports, failed_reports, maintenance, revoked, error_code, error_message, spec_config, observation, workspace_id, runtime_id FROM fleet_nodes WHERE id = $1
+`
+
+// The node id is globally unique (fleet_nodes_id_idx), so it locates a row
+// whatever namespace or owner recorded it. The namespace-scoped lookups cannot
+// see a row left by an earlier Fleet namespace; this one can.
+func (q *Queries) GetFleetNodeByGlobalID(ctx context.Context, nodeID pgtype.UUID) (FleetNode, error) {
+	row := q.db.QueryRow(ctx, getFleetNodeByGlobalID, nodeID)
 	var i FleetNode
 	err := row.Scan(
 		&i.ID,

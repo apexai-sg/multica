@@ -270,6 +270,32 @@ INSERT INTO fleet_nodes (id, daemon_id, namespace, owner_id, workspace_id, runti
 VALUES (@node_id, @daemon_id, @namespace, @owner_id, @workspace_id, @runtime_id, @name, @spec, @image, '', @spec_config, @data_volume, @secrets_volume)
 RETURNING *;
 
+-- name: GetFleetNodeByGlobalID :one
+-- The node id is globally unique (fleet_nodes_id_idx), so it locates a row
+-- whatever namespace or owner recorded it. The namespace-scoped lookups cannot
+-- see a row left by an earlier Fleet namespace; this one can.
+SELECT * FROM fleet_nodes WHERE id = @node_id;
+
+-- name: GetFleetNodeByDaemonID :one
+-- The daemon id is globally unique too (fleet_nodes_daemon_idx), so an unused
+-- node id must still not be admitted under a daemon another node already owns.
+SELECT * FROM fleet_nodes WHERE daemon_id = @daemon_id;
+
+-- name: AdoptFleetAuroraNode :one
+-- Move a row left by an earlier Fleet namespace onto the caller's namespace and
+-- rewind it to a fresh bootstrap on the next control generation, mirroring
+-- FleetResetAuroraNode's fresh-bootstrap state. The approved image and the spec
+-- config are deployment-scoped, not identity, so both are rewritten from the
+-- current deployment. Owner, daemon id and the workspace/runtime dimensions are
+-- durable identity the caller has already verified; the volumes are named from
+-- the node id and stay in place.
+UPDATE fleet_nodes SET namespace= @namespace, generation= @next_generation, image= @image,
+ spec_config= @spec_config, desired='running', status='creating', container_id='', start_epoch='', ready=false,
+ maintenance=false, revoked=false, error_code='', error_message='', observation='{}'::jsonb,
+ updated_at=now()
+WHERE id= @node_id
+RETURNING *;
+
 -- name: InsertFleetCreateOperation :one
 INSERT INTO fleet_node_operations (namespace, owner_id, node_id, action, idempotency_key, request_hash)
 VALUES (@namespace, @owner_id, @node_id, 'create', @idempotency_key, @request_hash) RETURNING *;
