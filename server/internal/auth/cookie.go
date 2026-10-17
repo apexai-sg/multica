@@ -307,11 +307,15 @@ func SetAuthCookies(w http.ResponseWriter, token string) error {
 // domain-scoped and the host-only shape.
 //
 // A browser keeps those two shapes as distinct cookies, so whichever one the
-// current configuration issues, the other can outlive a logout. That window is
-// only reachable when COOKIE_DOMAIN changes: before it is set, sessions are
-// host-only, and a session established before the change stays host-only after
-// it. Expiring a shape that was never issued is a no-op, so doing both keeps
-// logout authoritative across the switch in either direction.
+// current configuration issues, the other can outlive a logout. That window
+// opens when COOKIE_DOMAIN is introduced: sessions established before it is set
+// stay host-only afterwards, and expiring a shape that was never issued is a
+// no-op, so clearing both expires that stale session.
+//
+// The reverse switch is not covered: once COOKIE_DOMAIN is removed, its previous
+// value is gone, so a domain-scoped cookie issued while it was set survives a
+// logout until its own MaxAge runs out. Clear those sessions before unsetting
+// the variable.
 func ClearAuthCookies(w http.ResponseWriter) {
 	secure := isSecureCookie()
 
