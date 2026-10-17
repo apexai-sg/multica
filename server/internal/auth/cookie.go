@@ -303,12 +303,24 @@ func SetAuthCookies(w http.ResponseWriter, token string) error {
 	return nil
 }
 
-// ClearAuthCookies removes the auth cookie and both CSRF cookies.
+// ClearAuthCookies removes the auth cookie and both CSRF cookies, in both the
+// domain-scoped and the host-only shape.
+//
+// A browser keeps those two shapes as distinct cookies, so whichever one the
+// current configuration issues, the other can outlive a logout. That window is
+// only reachable when COOKIE_DOMAIN changes: before it is set, sessions are
+// host-only, and a session established before the change stays host-only after
+// it. Expiring a shape that was never issued is a no-op, so doing both keeps
+// logout authoritative across the switch in either direction.
 func ClearAuthCookies(w http.ResponseWriter) {
-	domain := cookieDomain()
 	secure := isSecureCookie()
 
-	expire := func(name string, httpOnly bool) {
+	domains := []string{cookieDomain()}
+	if domains[0] != "" {
+		domains = append(domains, "")
+	}
+
+	expire := func(name string, httpOnly bool, domain string) {
 		http.SetCookie(w, &http.Cookie{
 			Name:     name,
 			Value:    "",
@@ -322,11 +334,13 @@ func ClearAuthCookies(w http.ResponseWriter) {
 		})
 	}
 
-	expire(AuthCookieName, true)
-	expire(CSRFCookieName, false)
-	// Logout must clear BOTH, or a stale session-bound value survives the
-	// logout and is presented alongside the next login's cookies.
-	expire(SessionCSRFCookieName, false)
+	for _, domain := range domains {
+		expire(AuthCookieName, true, domain)
+		expire(CSRFCookieName, false, domain)
+		// Logout must clear BOTH, or a stale session-bound value survives the
+		// logout and is presented alongside the next login's cookies.
+		expire(SessionCSRFCookieName, false, domain)
+	}
 }
 
 // IsSafeMethod reports whether a method is read-only under RFC 9110, i.e. one
