@@ -2234,6 +2234,65 @@ func TestSendCodeRateLimit(t *testing.T) {
 	}
 }
 
+// TestSendCodeAllowsResendAfterCodeUsed covers the cross-app login flow (the
+// web and Aurora apps share one API): once a code has been verified, the used
+// row must not keep consuming the 60s send cooldown, or logging in from a
+// second app right after the first fails with "please wait before requesting
+// another code".
+func TestSendCodeAllowsResendAfterCodeUsed(t *testing.T) {
+	const email = "ratelimit-used-test@multica.ai"
+	ctx := context.Background()
+
+	t.Cleanup(func() {
+		testPool.Exec(ctx, `DELETE FROM verification_code WHERE email = $1`, email)
+		user, err := testHandler.Queries.GetUserByEmail(ctx, email)
+		if err == nil {
+			workspaces, listErr := testHandler.Queries.ListWorkspaces(ctx, user.ID)
+			if listErr == nil {
+				for _, workspace := range workspaces {
+					_ = testHandler.Queries.DeleteWorkspace(ctx, workspace.ID)
+				}
+			}
+		}
+		testPool.Exec(ctx, `DELETE FROM "user" WHERE email = $1`, email)
+	})
+
+	sendCode := func() int {
+		w := httptest.NewRecorder()
+		var buf bytes.Buffer
+		json.NewEncoder(&buf).Encode(map[string]string{"email": email})
+		req := httptest.NewRequest("POST", "/auth/send-code", &buf)
+		req.Header.Set("Content-Type", "application/json")
+		testHandler.SendCode(w, req)
+		return w.Code
+	}
+
+	if code := sendCode(); code != http.StatusOK {
+		t.Fatalf("SendCode (first): expected 200, got %d", code)
+	}
+
+	// Complete the first app's login so the code is marked used.
+	dbCode, err := testHandler.Queries.GetLatestVerificationCode(ctx, email)
+	if err != nil {
+		t.Fatalf("GetLatestVerificationCode: %v", err)
+	}
+	w := httptest.NewRecorder()
+	var buf bytes.Buffer
+	json.NewEncoder(&buf).Encode(map[string]string{"email": email, "code": dbCode.Code})
+	req := httptest.NewRequest("POST", "/auth/verify-code", &buf)
+	req.Header.Set("Content-Type", "application/json")
+	testHandler.VerifyCode(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("VerifyCode: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Immediately requesting a code for the same email from the other app
+	// must not be rate limited by the already-used row.
+	if code := sendCode(); code != http.StatusOK {
+		t.Fatalf("SendCode (after used): expected 200, got %d", code)
+	}
+}
+
 func TestVerifyCode(t *testing.T) {
 	const email = "verify-test@multica.ai"
 	ctx := context.Background()
