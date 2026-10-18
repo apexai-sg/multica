@@ -90,6 +90,10 @@ export function SkillDirectory({
   const agentsRead = agentsQuery.data !== undefined;
   const loadFailed = agentsQuery.isError && !agentsRead;
   const agentsKnown = !agentsQuery.isPending && agentsRead;
+  // A successfully read empty list means no assistant is configured, which is
+  // a different fact from "this keyword matched none"; the two get distinct
+  // copy rather than telling the user to try another keyword that cannot help.
+  const noAgents = query.trim() === "" && agents.length === 0;
 
   return (
     <div className="aurora-page">
@@ -155,8 +159,16 @@ export function SkillDirectory({
       ) : visible.length === 0 ? (
         <AuroraPageState
           icon={SearchX}
-          title={t(($) => $.directory.empty_title)}
-          description={t(($) => $.directory.empty_description)}
+          title={
+            noAgents
+              ? t(($) => $.directory.empty_agents_title)
+              : t(($) => $.directory.empty_title)
+          }
+          description={
+            noAgents
+              ? t(($) => $.directory.empty_agents_description)
+              : t(($) => $.directory.empty_description)
+          }
           actions={
             query ? (
               <Button

@@ -212,7 +212,7 @@ describe("GenerationComposer", () => {
     mocks.create.mockResolvedValue(payload(detail()));
     renderComposer({});
     await user.type(screen.getByLabelText("What should it make?"), "A song about courage");
-    expect(screen.getByRole("button", { name: "Try an example" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Try an example" })).toBeEnabled();
     await user.type(screen.getByLabelText("Who is it for? (optional)"), "Young children");
     await user.type(screen.getByLabelText("Style & requirements (optional)"), "Simple and warm");
     await user.click(screen.getByRole("button", { name: "Generate" }));
@@ -813,5 +813,50 @@ describe("GenerationComposer", () => {
     expect(
       screen.queryByRole("button", { name: "Try an example" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("replaces the draft when a starter is clicked", async () => {
+    const user = userEvent.setup();
+    renderComposer({});
+
+    const prompt = screen.getByLabelText("What should it make?");
+    await user.type(prompt, "my own draft");
+
+    const starter = screen.getByRole("button", { name: "Try an example" });
+    expect(starter).toBeEnabled();
+    await user.click(starter);
+
+    expect(prompt).toHaveValue(
+      "A warm song about a family trip to Singapore",
+    );
+    expect(screen.getByRole("button", { name: "Generate" })).toBeEnabled();
+  });
+
+  it("shows at most three starters, skipping blank labels and prompts", () => {
+    renderComposer({
+      agent: agent({
+        conversation_starters: [
+          { label: "   ", prompt: "Ignored blank label" },
+          { label: "Blank prompt", prompt: "   " },
+          { label: "First", prompt: "Prompt one" },
+          { label: "Second", prompt: "Prompt two" },
+          { label: "Third", prompt: "Prompt three" },
+          { label: "Fourth", prompt: "Prompt four" },
+        ],
+      }),
+    });
+
+    expect(screen.getByRole("button", { name: "First" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Second" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Third" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Fourth" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Blank prompt" }),
+    ).not.toBeInTheDocument();
+    // Three starters plus Generate: the blank pairs render no button at all.
+    const form = screen.getByLabelText("What should it make?").closest("form");
+    expect(within(form!).getAllByRole("button")).toHaveLength(4);
   });
 });

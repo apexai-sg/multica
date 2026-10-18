@@ -162,6 +162,7 @@ describe("SkillDirectory", () => {
     expect(first).toHaveTextContent("Lyrics helper");
     expect(first).toHaveTextContent("Writes short lyrics.");
     expect(first).toHaveTextContent("歌词创作");
+    expect(first).not.toHaveTextContent("歌词创作专家");
     expect(first.querySelector(".aurora-avatar-img")).toHaveAttribute(
       "src",
       "/uploads/lyrics.png",
@@ -176,6 +177,7 @@ describe("SkillDirectory", () => {
     await user.type(screen.getByRole("searchbox"), "Runbooks");
     expect(cards()).toHaveLength(1);
     expect(cards()[0]).toHaveTextContent("Ops assistant");
+    expect(screen.getByText("1 assistant shown")).toBeVisible();
   });
 
   it("searches names, descriptions, skills, and conversation starters", async () => {
@@ -209,8 +211,11 @@ describe("SkillDirectory", () => {
     expect(cards()[0]).toHaveTextContent("60 credits");
   });
 
-  it("treats a pending or failed catalog as nothing submittable", () => {
-    mocks.skills.mockReturnValue({ data: undefined, isPending: true });
+  it.each([
+    { data: undefined, isPending: true },
+    { data: undefined, isPending: false, isError: true },
+  ])("treats an unread catalog (%j) as nothing submittable", (catalogQuery) => {
+    mocks.skills.mockReturnValue(catalogQuery);
     renderDirectory();
     expect(cards()[0]!.tagName).toBe("DIV");
     expect(screen.queryByText("60 credits")).not.toBeInTheDocument();
@@ -219,17 +224,20 @@ describe("SkillDirectory", () => {
   it.each([
     { isPending: true, data: undefined },
     { isPending: false, isError: true, refetch: vi.fn(), data: undefined },
-  ])("does not present an unread agent list as zero assistants", (query) => {
-    directory([], query);
-    renderDirectory();
-    expect(screen.queryByText("0 assistants shown")).not.toBeInTheDocument();
-  });
+  ])(
+    "does not present an unread agent list as zero assistants: %j",
+    (query) => {
+      directory([], query);
+      renderDirectory();
+      expect(screen.queryByText("0 assistants shown")).not.toBeInTheDocument();
+    },
+  );
 
   it("reports a successfully read empty agent list honestly", () => {
     directory([]);
     renderDirectory();
     expect(screen.getByText("0 assistants shown")).toBeVisible();
-    expect(screen.getByText("No matching assistants")).toBeVisible();
+    expect(screen.getByText("No assistants yet")).toBeVisible();
   });
 
   it("offers retry for a failed agent list", async () => {

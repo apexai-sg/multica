@@ -15,7 +15,14 @@ import { agentNamesBySkillId, visibleAgents } from "./aurora-agents";
  */
 export function useAuroraAgentNames(): Map<string, string> {
   const wsId = useWorkspaceId();
-  const { data } = useQuery(agentListOptions(wsId));
+  // Shares the query key (and cache) with the directory, but these screens only
+  // need a name at read time and never polled before — a refetch interval here
+  // would keep every history page awake for a list that rarely changes.
+  const query = useQuery({
+    ...agentListOptions(wsId),
+    refetchInterval: false,
+  });
+  const { data } = query;
   return useMemo(
     () => agentNamesBySkillId(visibleAgents(data ?? [])),
     [data],

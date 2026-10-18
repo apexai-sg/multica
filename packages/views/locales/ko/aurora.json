@@ -8,6 +8,8 @@
     "load_failed_title": "어시스턴트 목록을 불러오지 못했습니다",
     "empty_title": "일치하는 어시스턴트가 없습니다",
     "empty_description": "다른 키워드를 시도해 보세요.",
+    "empty_agents_title": "아직 어시스턴트가 없습니다",
+    "empty_agents_description": "Multica에서 설정한 어시스턴트가 여기에 표시됩니다.",
     "eyebrow": "AI 어시스턴트",
     "hero_title": "오늘 무엇을 만들까요?",
     "hero_subtitle": "어시스턴트를 선택하고 내용을 입력해 결과물을 받아 보세요.",

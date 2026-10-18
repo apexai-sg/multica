@@ -8,6 +8,8 @@
     "load_failed_title": "Could not load assistants",
     "empty_title": "No matching assistants",
     "empty_description": "Try another keyword.",
+    "empty_agents_title": "No assistants yet",
+    "empty_agents_description": "Assistants configured in Multica appear here.",
     "eyebrow": "AI ASSISTANTS",
     "hero_title": "What would you like to create?",
     "hero_subtitle": "Pick an assistant. Add your details. Get a result you can use.",

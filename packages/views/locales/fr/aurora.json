@@ -8,6 +8,8 @@
     "load_failed_title": "Impossible de charger les assistants",
     "empty_title": "Aucun assistant correspondant",
     "empty_description": "Essayez un autre mot-clé.",
+    "empty_agents_title": "Aucun assistant pour le moment",
+    "empty_agents_description": "Les assistants configurés dans Multica apparaissent ici.",
     "eyebrow": "ASSISTANTS IA",
     "hero_title": "Que souhaitez-vous créer ?",
     "hero_subtitle": "Choisissez un assistant, précisez votre besoin et récupérez le résultat.",

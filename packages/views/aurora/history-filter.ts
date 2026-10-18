@@ -1,8 +1,8 @@
 /**
  * What the history page shows for a given status tab and skill filter.
  *
- * Extracted from the component for the same reason the directory keeps its own
- * `skill-filter.ts`: the matching rules are the part worth testing
+ * Extracted from the component for the same reason the `skills` domain keeps
+ * its own `skill-list-filter.ts`: the matching rules are the part worth testing
  * exhaustively, and they do not need a DOM to be exercised.
  */
 

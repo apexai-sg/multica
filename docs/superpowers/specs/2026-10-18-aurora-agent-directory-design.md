@@ -172,3 +172,13 @@ The work lands on a branch based on `origin/codex/apex-consumer-workbench`. The
 current worktree branch points at `main`; it must first include the
 consumer-workbench commit (merge or rebase) before implementation so the
 hardcoded tables being removed actually exist.
+
+### Deployment prerequisite
+
+The directory lists existing carrier agents; it does not synthesize catalog
+cards. Before deploying to a workspace, verify that every catalog id the
+workspace should offer has an `aurora:<id>` carrier (`GET /api/agents`). A
+missing carrier is invisible or read-only, and the public agent API cannot set
+`system_key`; `EnsureSystemAgents` has no production caller. Backfill before
+release (or create each generation once through the API, which seeds the
+carrier before the Fleet and credit checks).

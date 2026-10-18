@@ -117,14 +117,15 @@ interface PendingAttachment {
 }
 
 /**
- * The task drawer: turn one skill into one generation and follow it to its
- * result.
+ * The task drawer: turn one agent's skill into one generation and follow it to
+ * its result.
  *
- * The drawer is opened from the skill grid rather than routed to, so it takes
- * the skill it runs as a prop and reports dismissal back up — the grid owns
- * which skill is selected, exactly as the platform owns the URL. `worksHref`
- * is supplied by the host app for the same reason `paths` is not imported here:
- * the library route belongs to the app that defines it.
+ * The drawer is opened from the directory rather than routed to, so it takes
+ * the backend agent it presents and the skill it executes as props, and both
+ * are required for it to render. It reports dismissal back up — the directory
+ * owns which agent is selected, exactly as the platform owns the URL.
+ * `worksHref` is supplied by the host app for the same reason `paths` is not
+ * imported here: the library route belongs to the app that defines it.
  */
 export interface GenerationComposerProps {
   /** The backend agent this drawer presents. Required with `skill`. */
@@ -509,7 +510,6 @@ function ComposerBody({
                 size="sm"
                 disabled={
                   !skill.available ||
-                  prompt.trim().length > 0 ||
                   create.isPending ||
                   outcome.kind === "started" ||
                   outcome.kind === "unreadable"

@@ -8,6 +8,8 @@
     "load_failed_title": "アシスタント一覧を読み込めませんでした",
     "empty_title": "一致するアシスタントがありません",
     "empty_description": "別のキーワードをお試しください。",
+    "empty_agents_title": "アシスタントはまだありません",
+    "empty_agents_description": "Multica で設定したアシスタントがここに表示されます。",
     "eyebrow": "AI アシスタント",
     "hero_title": "今日は何を作りますか？",
     "hero_subtitle": "アシスタントを選び、内容を入力して、成果物を受け取りましょう。",
