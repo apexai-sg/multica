@@ -20,7 +20,8 @@
     "guide_label": "三步完成创作",
     "step_choose": "选择助手",
     "step_describe": "填写需求",
-    "step_download": "查看与下载"
+    "step_download": "查看与下载",
+    "catalog_unreadable": "无法加载 Aurora 助手，重试后可显示。"
   },
   "composer": {
     "cost": "每次生成消耗 {{credits}} 积分",
@@ -71,11 +72,17 @@
     "preferences_label": "风格与要求（选填）",
     "preferences_placeholder": "例如：自然分享、300字、中英双语",
     "deliverable_title": "你会得到什么",
-    "issue_description": "助手会执行这次请求，并在对应 issue 中回复。",
+    "issue_description": "助手会执行这次请求，并在对应任务中回复。",
     "attachments_label_files": "文件",
     "submit_task": "开始任务",
     "issue_create_failed": "无法开始任务，请重试。",
-    "issue_started": "任务已在 {{identifier}} 开始。"
+    "issue_started": "任务已在 {{identifier}} 开始。请到任务列表查看。",
+    "prompt_label_task": "想让助手做什么？",
+    "prompt_placeholder_task": "描述你想让助手完成的任务，以及期望的结果。",
+    "issue_not_permitted": "你没有权限把任务指派给这个助手。",
+    "issue_rejected": "助手无法接受这个任务。",
+    "issue_ambiguous": "任务可能已经创建，但未收到确认。请先到任务列表确认，再决定是否重试。",
+    "attachment_limit": "文件过多，请先移除一个。"
   },
   "works": {
     "title": "我的作品",

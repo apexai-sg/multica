@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ApiError } from "@multica/core/api";
@@ -207,6 +207,7 @@ function stubLocationAssign(assign: ReturnType<typeof vi.fn>): () => void {
 describe("GenerationComposer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.createIssue.mockReset();
     mocks.detail.mockReturnValue({
       data: undefined,
       isPending: true,
@@ -881,55 +882,127 @@ describe("GenerationComposer", () => {
     const assign = vi.fn();
     const restore = stubLocationAssign(assign);
     mocks.createIssue.mockResolvedValue({ identifier: "APX-1" } as Issue);
-    renderComposer({
-      skill: null,
-      issueHref: (identifier) => `/acme/issues/${identifier}`,
-    });
+    try {
+      renderComposer({
+        skill: null,
+        issueHref: (identifier) => `/acme/issues/${identifier}`,
+      });
 
-    expect(
-      screen.getByText(
-        "The assistant runs this request and replies on the issue.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/credits per generation/),
-    ).not.toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "The assistant runs this request and replies on the task.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText(/credits per generation/),
+      ).not.toBeInTheDocument();
 
-    const submit = screen.getByRole("button", { name: "Start task" });
-    expect(submit).toBeDisabled();
-    await user.type(
-      screen.getByLabelText("What should it make?"),
-      "Plan the offsite",
-    );
-    await user.click(submit);
+      const submit = screen.getByRole("button", { name: "Start task" });
+      expect(submit).toBeDisabled();
+      await user.type(
+        screen.getByLabelText("What should the assistant do?"),
+        "  \nPlan the offsite",
+      );
+      await user.click(submit);
 
-    expect(mocks.createIssue).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "Plan the offsite",
-        assignee_type: "agent",
-        assignee_id: DEFAULT_AGENT.id,
-        attachment_ids: [],
-      }),
-    );
-    expect(assign).toHaveBeenCalledWith("/acme/issues/APX-1");
-    expect(mocks.create).not.toHaveBeenCalled();
-
-    restore();
+      expect(mocks.createIssue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Plan the offsite",
+          description: "Plan the offsite",
+          assignee_type: "agent",
+          assignee_id: DEFAULT_AGENT.id,
+          attachment_ids: [],
+          allow_duplicate: true,
+        }),
+      );
+      expect(assign).toHaveBeenCalledWith("/acme/issues/APX-1");
+      expect(mocks.create).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
   });
 
-  it("reports the started issue when the host has no issue route", async () => {
+  it("reports the started issue and spends the button", async () => {
     const user = userEvent.setup();
     mocks.createIssue.mockResolvedValue({ identifier: "APX-2" } as Issue);
     renderComposer({ skill: null });
 
+    const submit = screen.getByRole("button", { name: "Start task" });
     await user.type(
-      screen.getByLabelText("What should it make?"),
+      screen.getByLabelText("What should the assistant do?"),
+      "Plan the offsite",
+    );
+    await user.click(submit);
+
+    expect(
+      await screen.findByText(
+        "Task started on APX-2. Open it from the task list.",
+      ),
+    ).toBeInTheDocument();
+    expect(submit).toBeDisabled();
+    await user.click(submit);
+    expect(mocks.createIssue).toHaveBeenCalledTimes(1);
+  });
+
+  it("explains a refused task instead of offering a retry", async () => {
+    const user = userEvent.setup();
+    mocks.createIssue.mockRejectedValue(
+      new ApiError("forbidden", 403, "Forbidden"),
+    );
+    renderComposer({ skill: null });
+
+    await user.type(
+      screen.getByLabelText("What should the assistant do?"),
       "Plan the offsite",
     );
     await user.click(screen.getByRole("button", { name: "Start task" }));
 
     expect(
-      await screen.findByText("Task started on APX-2."),
+      await screen.findByText("You cannot assign work to this assistant."),
     ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("What should the assistant do?"),
+    ).toHaveValue("Plan the offsite");
+    expect(screen.getByRole("button", { name: "Start task" })).toBeEnabled();
+  });
+
+  it("spends the button when the issue response may have been lost", async () => {
+    const user = userEvent.setup();
+    mocks.createIssue.mockRejectedValue(new Error("network down"));
+    renderComposer({ skill: null });
+
+    await user.type(
+      screen.getByLabelText("What should the assistant do?"),
+      "Plan the offsite",
+    );
+    await user.click(screen.getByRole("button", { name: "Start task" }));
+
+    expect(
+      await screen.findByText(/may already have started/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start task" })).toBeDisabled();
+  });
+
+  it("accepts attachments for an ordinary task", async () => {
+    const user = userEvent.setup();
+    mocks.upload.mockResolvedValue({ id: "att-1" });
+    mocks.createIssue.mockResolvedValue({ identifier: "APX-3" } as Issue);
+    renderComposer({ skill: null });
+
+    expect(screen.getByText("Files")).toBeInTheDocument();
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("file input not rendered");
+    await user.upload(input, new File(["x"], "notes.txt", { type: "text/plain" }));
+    await waitFor(() => expect(screen.getByText("Uploaded")).toBeInTheDocument());
+
+    await user.type(
+      screen.getByLabelText("What should the assistant do?"),
+      "Plan the offsite",
+    );
+    await user.click(screen.getByRole("button", { name: "Start task" }));
+
+    expect(mocks.createIssue).toHaveBeenCalledWith(
+      expect.objectContaining({ attachment_ids: ["att-1"] }),
+    );
   });
 });

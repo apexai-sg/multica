@@ -20,7 +20,8 @@
     "guide_label": "3ステップで作成",
     "step_choose": "アシスタントを選択",
     "step_describe": "内容を入力",
-    "step_download": "確認・ダウンロード"
+    "step_download": "確認・ダウンロード",
+    "catalog_unreadable": "Aurora アシスタントを読み込めませんでした。再試行してください。"
   },
   "composer": {
     "cost": "1 回の生成に {{credits}} クレジット",
@@ -71,11 +72,17 @@
     "preferences_label": "文体・条件（任意）",
     "preferences_placeholder": "例：親しみやすく、300語、二言語",
     "deliverable_title": "受け取れる内容",
-    "issue_description": "アシスタントがこの依頼を実行し、issue に返信します。",
+    "issue_description": "アシスタントがこの依頼を実行し、タスクに返信します。",
     "attachments_label_files": "ファイル",
     "submit_task": "タスクを開始",
     "issue_create_failed": "タスクを開始できませんでした。もう一度お試しください。",
-    "issue_started": "{{identifier}} でタスクを開始しました。"
+    "issue_started": "{{identifier}} でタスクを開始しました。タスク一覧から開いてください。",
+    "prompt_label_task": "アシスタントに何をしてもらいますか？",
+    "prompt_placeholder_task": "タスクと期待する結果を入力してください。",
+    "issue_not_permitted": "このアシスタントに作業を割り当てる権限がありません。",
+    "issue_rejected": "アシスタントがこのタスクを受け付けませんでした。",
+    "issue_ambiguous": "タスクは開始された可能性がありますが、確認が届いていません。再試行する前にタスク一覧を確認してください。",
+    "attachment_limit": "ファイルが多すぎます。先に1つ削除してください。"
   },
   "works": {
     "title": "作品",

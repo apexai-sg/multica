@@ -18,6 +18,13 @@ export interface CreateIssueRequest {
   start_date?: string;
   due_date?: string;
   attachment_ids?: string[];
+  /**
+   * Bypass the workspace's active-duplicate-title guard. A consumer task is
+   * deliberately repeatable ("run this prompt again"), and the agent's issue
+   * title comes from the prompt, so the guard would otherwise reject the
+   * second run with 409.
+   */
+  allow_duplicate?: boolean;
   /** Issue-scoped label IDs to attach in the same transaction as the create.
    *  Unknown or non-issue ids are rejected by the server with 400. */
   label_ids?: string[];

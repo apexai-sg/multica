@@ -20,7 +20,8 @@
     "guide_label": "세 단계로 만들기",
     "step_choose": "어시스턴트 선택",
     "step_describe": "요청 입력",
-    "step_download": "확인 및 다운로드"
+    "step_download": "확인 및 다운로드",
+    "catalog_unreadable": "Aurora 어시스턴트를 불러오지 못했습니다. 다시 시도해 주세요."
   },
   "composer": {
     "cost": "생성 1회당 {{credits}} 크레딧",
@@ -71,11 +72,17 @@
     "preferences_label": "문체 및 요구 사항 (선택)",
     "preferences_placeholder": "예: 친근한 문체, 300단어, 두 언어",
     "deliverable_title": "제공되는 결과물",
-    "issue_description": "어시스턴트가 이 요청을 실행하고 issue에 답변합니다.",
+    "issue_description": "어시스턴트가 이 요청을 실행하고 태스크에 답변합니다.",
     "attachments_label_files": "파일",
-    "submit_task": "작업 시작",
-    "issue_create_failed": "작업을 시작하지 못했습니다. 다시 시도해 주세요.",
-    "issue_started": "{{identifier}}에서 작업을 시작했습니다."
+    "submit_task": "태스크 시작",
+    "issue_create_failed": "태스크를 시작하지 못했습니다. 다시 시도해 주세요.",
+    "issue_started": "{{identifier}}에서 태스크를 시작했습니다. 태스크 목록에서 확인해 주세요.",
+    "prompt_label_task": "어시스턴트가 무엇을 하면 되나요?",
+    "prompt_placeholder_task": "수행할 작업과 원하는 결과를 설명해 주세요.",
+    "issue_not_permitted": "이 어시스턴트에 작업을 할당할 권한이 없습니다.",
+    "issue_rejected": "어시스턴트가 이 태스크를 받아들이지 않았습니다.",
+    "issue_ambiguous": "태스크가 이미 시작되었을 수 있지만 확인을 받지 못했습니다. 다시 시도하기 전에 태스크 목록을 확인해 주세요.",
+    "attachment_limit": "파일이 너무 많습니다. 먼저 하나를 제거해 주세요."
   },
   "works": {
     "title": "내 작품",

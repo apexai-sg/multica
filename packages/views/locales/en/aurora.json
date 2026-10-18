@@ -21,7 +21,8 @@
     "guide_label": "Start in three steps",
     "step_choose": "Choose an assistant",
     "step_describe": "Add your details",
-    "step_download": "Review & download"
+    "step_download": "Review & download",
+    "catalog_unreadable": "Could not load Aurora assistants. Retry to see them."
   },
   "composer": {
     "cost": "{{credits}} credits per generation",
@@ -72,11 +73,17 @@
     "preferences_label": "Style & requirements (optional)",
     "preferences_placeholder": "For example: friendly tone, 300 words, bilingual",
     "deliverable_title": "What you will receive",
-    "issue_description": "The assistant runs this request and replies on the issue.",
+    "issue_description": "The assistant runs this request and replies on the task.",
     "attachments_label_files": "Files",
     "submit_task": "Start task",
     "issue_create_failed": "Could not start the task. Try again.",
-    "issue_started": "Task started on {{identifier}}."
+    "issue_started": "Task started on {{identifier}}. Open it from the task list.",
+    "prompt_label_task": "What should the assistant do?",
+    "prompt_placeholder_task": "Describe the task and the result you expect.",
+    "issue_not_permitted": "You cannot assign work to this assistant.",
+    "issue_rejected": "The assistant rejected this task.",
+    "issue_ambiguous": "The task may already have started, but no confirmation arrived. Check the issue list before trying again.",
+    "attachment_limit": "Too many files. Remove one first."
   },
   "works": {
     "title": "My works",
