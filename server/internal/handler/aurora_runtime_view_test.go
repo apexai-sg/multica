@@ -2,13 +2,16 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/testutil"
+	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
 // auroraRuntimeView is the decoded GET /api/aurora/runtime body. It mirrors the
@@ -343,4 +346,66 @@ func TestAuroraRuntimeViewIsReadOnly(t *testing.T) {
 	if before != after {
 		t.Fatal("GET mutated runtime projection rows or created lifecycle records")
 	}
+}
+
+// recordingSandboxManager records the ensure calls the wake endpoint makes. It
+// satisfies aurora.WorkspaceSandboxManager so the handler seam stays unchanged.
+type recordingSandboxManager struct {
+	ensured []string
+	err     error
+}
+
+func (m *recordingSandboxManager) Ensure(_ context.Context, workspaceID, runtimeID pgtype.UUID) (db.AuroraSandboxNode, error) {
+	m.ensured = append(m.ensured, uuidToString(workspaceID)+"/"+uuidToString(runtimeID))
+	return db.AuroraSandboxNode{}, m.err
+}
+
+func (m *recordingSandboxManager) HandoffWorkspaceToFleet(_ context.Context, _ pgtype.UUID) error {
+	return nil
+}
+
+func ensureRuntimeRequest(workspaceID string) *http.Request {
+	req := newRequest(http.MethodPost, "/api/aurora/runtime/ensure", nil)
+	req.Header.Set("X-Workspace-ID", workspaceID)
+	return req
+}
+
+// TestEnsureAuroraRuntimeWakesTheManagedNode pins the explicit recovery control:
+// the endpoint asks the manager to ensure exactly the workspace's managed
+// runtime and returns the same projection the read uses.
+func TestEnsureAuroraRuntimeWakesTheManagedNode(t *testing.T) {
+	if testHandler == nil || testPool == nil {
+		t.Skip("database not available")
+	}
+	workspaceID, runtimeID := runtimeViewWorkspace(t)
+	manager := &recordingSandboxManager{}
+	withSandboxManager(t, manager)
+
+	view := testutil.Decode[auroraRuntimeView](
+		t, testHandler.EnsureAuroraRuntime, ensureRuntimeRequest(workspaceID), http.StatusOK,
+	)
+	if len(manager.ensured) != 1 || manager.ensured[0] != workspaceID+"/"+runtimeID {
+		t.Fatalf("ensure calls = %v, want [%s/%s]", manager.ensured, workspaceID, runtimeID)
+	}
+	if view.WorkspaceID != workspaceID {
+		t.Fatalf("view workspace = %q, want %q", view.WorkspaceID, workspaceID)
+	}
+}
+
+// TestEnsureAuroraRuntimeFailsClosed pins the two refusals: no manager means the
+// feature is off, and the ensure failure is reported as a runtime outage rather
+// than a successful wake.
+func TestEnsureAuroraRuntimeFailsClosed(t *testing.T) {
+	if testHandler == nil || testPool == nil {
+		t.Skip("database not available")
+	}
+	workspaceID, _ := runtimeViewWorkspace(t)
+
+	withSandboxManager(t, nil)
+	testutil.Call(t, testHandler.EnsureAuroraRuntime, ensureRuntimeRequest(workspaceID)).
+		Want(http.StatusServiceUnavailable)
+
+	withSandboxManager(t, &recordingSandboxManager{err: errors.New("fleet down")})
+	testutil.Call(t, testHandler.EnsureAuroraRuntime, ensureRuntimeRequest(workspaceID)).
+		Want(http.StatusServiceUnavailable)
 }

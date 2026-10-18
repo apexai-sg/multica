@@ -18,6 +18,14 @@ WHERE workspace_id = $1
 ORDER BY created_at ASC, id ASC
 LIMIT 1;
 
+-- name: ListAuroraManagedRuntimes :many
+-- Every workspace that has a managed Aurora runtime. The reconciler keeps one
+-- node online per such workspace; a workspace that never used Aurora has no row
+-- and therefore no node to maintain.
+SELECT * FROM agent_runtime
+WHERE provider = sqlc.arg(provider)
+ORDER BY workspace_id ASC, created_at ASC, id ASC;
+
 -- name: CreateAuroraManagedRuntime :one
 INSERT INTO agent_runtime (
     workspace_id, daemon_id, name, runtime_mode, provider, status,

@@ -32,11 +32,6 @@ const (
 	// sandboxStartingGrace is how long a node may stay starting before the
 	// reaper concludes its daemon never arrived.
 	sandboxStartingGrace = 2 * time.Minute
-	// sandboxIdleTimeout is how long an online node may go without activity
-	// before it is stopped.
-	sandboxIdleTimeout = 15 * time.Minute
-	// sandboxHardLifetime is the maximum wall-clock life of one sandbox node.
-	sandboxHardLifetime = 8 * time.Hour
 	// sandboxDrainGrace is how long a draining node may keep an active task
 	// before that task is failed and the node is stopped.
 	sandboxDrainGrace = 30 * time.Minute
@@ -44,15 +39,18 @@ const (
 	// SandboxRuntimeStartFailed is the failure reason recorded for tasks whose
 	// sandbox node never started.
 	SandboxRuntimeStartFailed = "runtime_start_failed"
-	// SandboxRuntimeLifetimeExceeded is the failure reason recorded for tasks
-	// that outlived the node's hard lifetime.
-	SandboxRuntimeLifetimeExceeded = "runtime_lifetime_exceeded"
+	// SandboxDrainTimeout is the failure reason recorded for tasks that kept a
+	// draining node busy past the drain grace.
+	SandboxDrainTimeout = "runtime_drain_timeout"
 )
 
-// SandboxReaper advances managed sandbox nodes through their lifecycle:
-// starting nodes that never enrolled are failed, idle online nodes are stopped,
-// nodes past the hard lifetime drain, and draining nodes are stopped once their
-// work is finished or the drain grace expires.
+// SandboxReaper advances managed sandbox nodes through their terminal
+// transitions: starting nodes that never enrolled are failed, and draining
+// nodes are stopped once their work is finished or the drain grace expires.
+//
+// It deliberately never stops a healthy online node. The workspace runtime is
+// long-lived: idle and age are not lifecycle events, and the ensure reconciler
+// (runtime_sweeper) is the path that brings a stopped or failed node back.
 type SandboxReaper struct {
 	queries *db.Queries
 	tx      TxBeginner
@@ -74,7 +72,6 @@ func NewSandboxReaper(queries *db.Queries, tx TxBeginner, fleet FleetProvisioner
 type SandboxReapStats struct {
 	Candidates     int
 	StartingFailed int
-	Draining       int
 	Stopped        int
 	Settled        int
 }
@@ -85,8 +82,6 @@ func (r *SandboxReaper) Sweep(ctx context.Context) (SandboxReapStats, error) {
 	now := r.now()
 	rows, err := r.queries.ListAuroraSandboxNodesForReap(ctx, db.ListAuroraSandboxNodesForReapParams{
 		StartingCutoff: sandboxTimestamp(now.Add(-sandboxStartingGrace)),
-		IdleCutoff:     sandboxTimestamp(now.Add(-sandboxIdleTimeout)),
-		HardCutoff:     sandboxTimestamp(now.Add(-sandboxHardLifetime)),
 		RowLimit:       SandboxReapBatchSize,
 	})
 	if err != nil {
@@ -99,8 +94,6 @@ func (r *SandboxReaper) Sweep(ctx context.Context) (SandboxReapStats, error) {
 		switch node.State {
 		case "starting":
 			err = r.reapStarting(ctx, node, now, &stats)
-		case "online":
-			err = r.reapOnline(ctx, node, now, &stats)
 		case "draining":
 			err = r.reapDraining(ctx, node, now, &stats)
 		}
@@ -140,29 +133,6 @@ func (r *SandboxReaper) reapStarting(ctx context.Context, node db.AuroraSandboxN
 	return nil
 }
 
-// reapOnline drains a node past its hard lifetime, stops an idle one, and
-// leaves a busy one alone.
-func (r *SandboxReaper) reapOnline(ctx context.Context, node db.AuroraSandboxNode, now time.Time, stats *SandboxReapStats) error {
-	if node.StartedAt.Valid && node.StartedAt.Time.Before(now.Add(-sandboxHardLifetime)) {
-		if err := r.markDraining(ctx, node); err != nil {
-			return err
-		}
-		stats.Draining++
-		return nil
-	}
-	if !node.LastActiveAt.Valid || node.LastActiveAt.Time.After(now.Add(-sandboxIdleTimeout)) {
-		return nil
-	}
-	active, err := r.activeTasks(ctx, node)
-	if err != nil {
-		return err
-	}
-	if active > 0 {
-		return nil
-	}
-	return r.stopNode(ctx, node, stats)
-}
-
 // reapDraining stops a node with no work left and, once the drain grace has
 // passed, fails the work that is still holding it.
 func (r *SandboxReaper) reapDraining(ctx context.Context, node db.AuroraSandboxNode, now time.Time, stats *SandboxReapStats) error {
@@ -176,23 +146,12 @@ func (r *SandboxReaper) reapDraining(ctx context.Context, node db.AuroraSandboxN
 	if !node.DrainStartedAt.Valid || node.DrainStartedAt.Time.After(now.Add(-sandboxDrainGrace)) {
 		return nil
 	}
-	settled, err := r.failTasks(ctx, node, SandboxRuntimeLifetimeExceeded)
+	settled, err := r.failTasks(ctx, node, SandboxDrainTimeout)
 	if err != nil {
 		return err
 	}
 	stats.Settled += settled
 	return r.stopNode(ctx, node, stats)
-}
-
-// markDraining starts the drain window for a node that outlived its lifetime.
-func (r *SandboxReaper) markDraining(ctx context.Context, node db.AuroraSandboxNode) error {
-	if _, err := r.queries.MarkAuroraSandboxNodeDraining(ctx, db.MarkAuroraSandboxNodeDrainingParams{
-		WorkspaceID: node.WorkspaceID,
-		DaemonID:    node.DaemonID,
-	}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return fmt.Errorf("mark sandbox node draining: %w", err)
-	}
-	return nil
 }
 
 // stopNode tears the node down: the fleet destroys the containers, then one

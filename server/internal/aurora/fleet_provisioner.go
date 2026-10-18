@@ -5,11 +5,21 @@ import (
 	"errors"
 
 	"github.com/multica-ai/multica/server/internal/cloudruntime"
+	"github.com/multica-ai/multica/server/internal/fleet/model"
 )
 
 // ErrNodeNotFound reports that the Fleet does not know the node a delete
 // targeted. The reaper treats it as success so repeated cleanup is a no-op.
 var ErrNodeNotFound = errors.New("fleet node not found")
+
+// ErrNodeConflict and ErrNodeForbidden are the provider-neutral forms of the
+// Fleet's identity rejections. The manager replaces the node identity on these
+// rather than retrying the same id forever: a row left under an older Fleet
+// namespace or generation answers this way on every ensure.
+var (
+	ErrNodeConflict  = errors.New("fleet node identity conflict")
+	ErrNodeForbidden = errors.New("fleet node identity forbidden")
+)
 
 // The Aurora profile admits every workspace node under one fixed name and one
 // administrator-approved resource spec. The spec name must match a key in the
@@ -84,7 +94,14 @@ func (p *fleetProvisioner) EnsureWorkspaceNode(ctx context.Context, ownerID stri
 		IdempotencyKey:  "aurora:" + req.NodeID,
 	})
 	if err != nil {
-		return FleetNode{}, err
+		switch {
+		case errors.Is(err, model.ErrConflict):
+			return FleetNode{}, ErrNodeConflict
+		case errors.Is(err, model.ErrForbidden):
+			return FleetNode{}, ErrNodeForbidden
+		default:
+			return FleetNode{}, err
+		}
 	}
 	return FleetNode{ID: node.ID, State: node.Status, BackendID: node.InstanceID}, nil
 }

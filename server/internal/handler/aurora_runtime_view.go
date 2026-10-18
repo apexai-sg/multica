@@ -1,12 +1,15 @@
 package handler
 
 import (
+	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/fleet/model"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
@@ -56,16 +59,68 @@ func (h *Handler) GetAuroraRuntime(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	target, err := h.auroraRuntimeTarget(r.Context(), workspaceID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, target)
+}
 
+// EnsureAuroraRuntime wakes (or re-arms) the workspace's long-lived runtime.
+// GET is deliberately side-effect free; this write path is the explicit action a
+// user or an operator takes when the projection says the node is offline. The
+// server's ensure reconciler calls the same manager method in the background,
+// so this endpoint is a recovery control rather than the only way back.
+func (h *Handler) EnsureAuroraRuntime(w http.ResponseWriter, r *http.Request) {
+	workspaceID, ok := parseUUIDOrBadRequest(w, h.resolveWorkspaceID(r), "workspace_id")
+	if !ok {
+		return
+	}
+	if h.SandboxManager == nil {
+		writeErrorCode(w, http.StatusServiceUnavailable, auroraRuntimeUnavailableCode, errAuroraRuntimeUnavailable.Error())
+		return
+	}
+	managed, err := h.Queries.GetAuroraManagedRuntime(r.Context(), db.GetAuroraManagedRuntimeParams{
+		WorkspaceID: workspaceID,
+		Provider:    auroraManagedRuntimeProvider,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusConflict, "Aurora runtime is not configured for this workspace")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to load managed runtime")
+		return
+	}
+	if _, err := h.SandboxManager.Ensure(r.Context(), workspaceID, managed.ID); err != nil {
+		slog.Warn("ensure aurora runtime failed",
+			"workspace_id", uuidToString(workspaceID),
+			"runtime_id", uuidToString(managed.ID),
+			"error", err)
+		writeErrorCode(w, http.StatusServiceUnavailable, auroraRuntimeUnavailableCode, errAuroraRuntimeUnavailable.Error())
+		return
+	}
+	target, err := h.auroraRuntimeTarget(r.Context(), workspaceID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, target)
+}
+
+// auroraRuntimeTarget projects the workspace's node, Fleet row, and managed
+// runtime into the runtime view. Both the read and the ensure endpoint settle on
+// this one projection so their responses cannot disagree about the state.
+func (h *Handler) auroraRuntimeTarget(ctx context.Context, workspaceID pgtype.UUID) (AuroraExecutionTargetResponse, error) {
 	// No node row means the workspace has never provisioned a sandbox. That is
 	// unconfigured, not failed: nothing has gone wrong yet.
 	var node *db.AuroraSandboxNode
-	row, err := h.Queries.GetAuroraSandboxNodeByWorkspace(r.Context(), workspaceID)
+	row, err := h.Queries.GetAuroraSandboxNodeByWorkspace(ctx, workspaceID)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 	case err != nil:
-		writeError(w, http.StatusInternalServerError, "failed to load execution node")
-		return
+		return AuroraExecutionTargetResponse{}, errors.New("failed to load execution node")
 	default:
 		node = &row
 	}
@@ -73,15 +128,14 @@ func (h *Handler) GetAuroraRuntime(w http.ResponseWriter, r *http.Request) {
 	// The managed runtime is seeded lazily on generation creation, so an
 	// unseeded workspace legitimately has none.
 	var runtimeID *string
-	managed, err := h.Queries.GetAuroraManagedRuntime(r.Context(), db.GetAuroraManagedRuntimeParams{
+	managed, err := h.Queries.GetAuroraManagedRuntime(ctx, db.GetAuroraManagedRuntimeParams{
 		WorkspaceID: workspaceID,
 		Provider:    auroraManagedRuntimeProvider,
 	})
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 	case err != nil:
-		writeError(w, http.StatusInternalServerError, "failed to load managed runtime")
-		return
+		return AuroraExecutionTargetResponse{}, errors.New("failed to load managed runtime")
 	default:
 		id := uuidToString(managed.ID)
 		runtimeID = &id
@@ -89,25 +143,24 @@ func (h *Handler) GetAuroraRuntime(w http.ResponseWriter, r *http.Request) {
 
 	var fleet *db.FleetNode
 	if node != nil {
-		row, err := h.Queries.GetAuroraRuntimeFleetNode(r.Context(), db.GetAuroraRuntimeFleetNodeParams{
+		row, err := h.Queries.GetAuroraRuntimeFleetNode(ctx, db.GetAuroraRuntimeFleetNodeParams{
 			NodeID: node.ID, WorkspaceID: workspaceID, RuntimeID: node.RuntimeID,
 		})
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
 		case err != nil:
-			writeError(w, http.StatusInternalServerError, "failed to load execution status")
-			return
+			return AuroraExecutionTargetResponse{}, errors.New("failed to load execution status")
 		default:
 			fleet = &row
 		}
 	}
 	state := auroraExecutionState(node, fleet, time.Now())
-	writeJSON(w, http.StatusOK, AuroraExecutionTargetResponse{
+	return AuroraExecutionTargetResponse{
 		WorkspaceID: uuidToString(workspaceID),
 		Node:        auroraRuntimeNodeResponse(node, fleet, state),
 		RuntimeID:   runtimeID,
 		State:       state,
-	})
+	}, nil
 }
 
 // auroraRuntimeNodeResponse projects a node row into its consumer shape. It

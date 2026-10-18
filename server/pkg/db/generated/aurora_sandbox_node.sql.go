@@ -196,6 +196,18 @@ func (q *Queries) CreateAuroraSandboxNode(ctx context.Context, arg CreateAuroraS
 	return i, err
 }
 
+const deleteAuroraSandboxNodeByWorkspace = `-- name: DeleteAuroraSandboxNodeByWorkspace :exec
+DELETE FROM aurora_sandbox_node WHERE workspace_id = $1
+`
+
+// Removes the node row after its Fleet identity was rejected. The next Ensure
+// then creates a fresh row and mints a new node id, which is the recovery for
+// a Fleet-side identity left under an older namespace or generation.
+func (q *Queries) DeleteAuroraSandboxNodeByWorkspace(ctx context.Context, workspaceID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteAuroraSandboxNodeByWorkspace, workspaceID)
+	return err
+}
+
 const failAuroraSandboxNode = `-- name: FailAuroraSandboxNode :one
 UPDATE aurora_sandbox_node
 SET state = 'failed',
@@ -439,35 +451,24 @@ func (q *Queries) GetAuroraSandboxNodeByWorkspace(ctx context.Context, workspace
 
 const listAuroraSandboxNodesForReap = `-- name: ListAuroraSandboxNodesForReap :many
 SELECT id, workspace_id, runtime_id, daemon_id, backend_node_id, image_digest, state, enrollment_token_hash, enrollment_expires_at, enrollment_consumed_at, last_active_at, drain_started_at, started_at, stopped_at, failure_reason, created_at, updated_at FROM aurora_sandbox_node
-WHERE state IN ('starting', 'online', 'draining')
-  AND (
-    (state = 'starting' AND created_at < $1)
-    OR (state IN ('online', 'draining') AND last_active_at < $2)
-    OR created_at < $3
-  )
+WHERE (state = 'starting' AND created_at < $1)
+   OR state = 'draining'
 ORDER BY created_at ASC, id ASC
-LIMIT $4
+LIMIT $2
 `
 
 type ListAuroraSandboxNodesForReapParams struct {
 	StartingCutoff pgtype.Timestamptz `json:"starting_cutoff"`
-	IdleCutoff     pgtype.Timestamptz `json:"idle_cutoff"`
-	HardCutoff     pgtype.Timestamptz `json:"hard_cutoff"`
 	RowLimit       int32              `json:"row_limit"`
 }
 
 // Bounded, oldest-first candidate scan for the node reaper. A candidate is a
-// starting node that never completed its grace window, an online or draining
-// node idle past the idle cutoff, or any active node older than the hard
-// lifetime. The three cutoffs stay separate so a queue of not-yet-due idle
-// nodes cannot consume the batch before a stuck starting node is examined.
+// starting node that never enrolled within its grace window, or a draining node
+// waiting for teardown. Healthy online nodes are deliberately absent: the
+// workspace runtime is long-lived and only the starting/draining states need
+// lifecycle action.
 func (q *Queries) ListAuroraSandboxNodesForReap(ctx context.Context, arg ListAuroraSandboxNodesForReapParams) ([]AuroraSandboxNode, error) {
-	rows, err := q.db.Query(ctx, listAuroraSandboxNodesForReap,
-		arg.StartingCutoff,
-		arg.IdleCutoff,
-		arg.HardCutoff,
-		arg.RowLimit,
-	)
+	rows, err := q.db.Query(ctx, listAuroraSandboxNodesForReap, arg.StartingCutoff, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}
