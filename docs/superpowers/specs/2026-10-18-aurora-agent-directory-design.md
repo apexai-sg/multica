@@ -124,8 +124,9 @@ Only opened for submittable agents:
 
 Generation rows still carry only `skillId`. The client builds a
 `skillId -> agent` map from the agent list (`system_key` suffix) and prefers the
-agent's name and avatar in history and work views. When no visible agent
-matches, the existing server catalog name remains the fallback.
+agent's name in history and work views (neither view renders an agent avatar
+today). When no visible agent matches, the existing server catalog name remains
+the fallback.
 
 ### Removed behavior and copy
 
