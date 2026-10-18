@@ -663,14 +663,6 @@ a.aurora-status-chip[href] {
   line-height: 1.12;
 }
 
-.aurora-hero p {
-  max-width: 560px;
-  margin: 0;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: var(--text-body-lg);
-  line-height: 1.6;
-}
-
 .aurora-mini-label {
   display: inline-flex;
   align-items: center;

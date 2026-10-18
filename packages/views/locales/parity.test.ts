@@ -78,16 +78,13 @@ describe("Aurora directory plural families", () => {
     await i18n.init({ lng: locale, fallbackLng: false, resources: RESOURCES });
     expect(i18n.t(($) => $.directory.visible_count, { ns: "aurora", count })).toBe(visible);
   });
-  const families = ["visible_count"];
+  const base = "directory.visible_count";
   const categories = { en: ["one", "other"], "zh-Hans": ["other"], ja: ["other"], ko: ["other"], fr: ["many", "one", "other"] };
   for (const [locale, suffixes] of Object.entries(categories)) {
     it(`${locale} supplies exactly its grammatical count forms`, () => {
       const keys = flattenKeys(RESOURCES[locale as keyof typeof RESOURCES].aurora);
-      for (const family of families) {
-        const base = `directory.${family}`;
-        expect(keys.filter((key) => key === base || key.startsWith(base + "_")).sort())
-          .toEqual(suffixes.map((suffix) => base + "_" + suffix).sort());
-      }
+      expect(keys.filter((key) => key === base || key.startsWith(base + "_")).sort())
+        .toEqual(suffixes.map((suffix) => base + "_" + suffix).sort());
     });
   }
 });
