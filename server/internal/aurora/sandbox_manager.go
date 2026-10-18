@@ -366,10 +366,23 @@ func (m *SandboxManager) staleOnline(node db.AuroraSandboxNode) bool {
 	return node.LastActiveAt.Time.Before(m.now().Add(-sandboxAdoptStaleness))
 }
 
-// reusable reports whether the node is bound to the requested runtime and was
-// armed for the deployed image.
+// reusable reports whether the existing node already satisfies the request.
+//
+// A healthy online node is reusable even when its image differs from the
+// deployed one: replacing a running container under the same node id collides
+// with the Fleet's own identity (the old container is still running while the
+// new ensure is creating), and an idle-free runtime must not be torn down by a
+// routine deploy. The new image is adopted the next time the node is actually
+// (re)created after a stop, a failure, or a stale heartbeat. Non-online rows
+// still require the image match so a re-arm never resurrects an old image.
 func (m *SandboxManager) reusable(node db.AuroraSandboxNode, runtimeID pgtype.UUID) bool {
-	return node.RuntimeID == runtimeID && node.ImageDigest == m.imageDigest
+	if node.RuntimeID != runtimeID {
+		return false
+	}
+	if node.State == "online" {
+		return true
+	}
+	return node.ImageDigest == m.imageDigest
 }
 
 // freshStarting reports whether the node carries an unspent, unexpired

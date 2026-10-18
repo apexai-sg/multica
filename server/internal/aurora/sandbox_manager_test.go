@@ -130,6 +130,47 @@ func TestSandboxManagerReturnsHealthyOnlineNodeWithoutFleetCall(t *testing.T) {
 	}
 }
 
+// TestSandboxManagerKeepsAnOnlineNodeAcrossAnImageChange pins the upgrade
+// policy: a deploy must not tear down a healthy online node. Replacing a
+// running container under the same node id collides with the Fleet's identity;
+// the new image is adopted the next time the node is actually recreated.
+func TestSandboxManagerKeepsAnOnlineNodeAcrossAnImageChange(t *testing.T) {
+	pool := auroraTestPool(t)
+	q := db.New(pool)
+	ws, runtimeID := newSandboxNodeWorkspace(t, q, pool)
+	ctx := context.Background()
+
+	oldImage := "ghcr.io/eanfs/multica-aurora@sha256:" + strings.Repeat("b", 64)
+	params := sandboxNodeParams(t, ws, runtimeID, uuid.NewString())
+	params.ImageDigest = oldImage
+	created, err := q.CreateAuroraSandboxNode(ctx, params)
+	if err != nil {
+		t.Fatalf("create starting node: %v", err)
+	}
+	if _, err := q.ConsumeAuroraSandboxEnrollment(ctx, params.EnrollmentTokenHash); err != nil {
+		t.Fatalf("consume enrollment to online: %v", err)
+	}
+
+	fleet := &fakeProvisioner{}
+	mgr := aurora.NewSandboxManager(q, pool, fleet, validSandboxImageDigest, nil)
+	node, err := mgr.Ensure(ctx, ws, runtimeID)
+	if err != nil {
+		t.Fatalf("ensure online node across image change: %v", err)
+	}
+	if node.ID != created.ID {
+		t.Fatalf("ensured node id = %v, want %v", node.ID, created.ID)
+	}
+	if node.State != "online" {
+		t.Fatalf("ensured node state = %q, want online", node.State)
+	}
+	if fleet.callCount() != 0 {
+		t.Fatalf("provisioner ensure calls = %d, want 0 for a healthy online node", fleet.callCount())
+	}
+	if stored := sandboxNodeByWorkspace(t, pool, ws); stored.ImageDigest != oldImage {
+		t.Fatalf("stored image = %q, want the running image %q", stored.ImageDigest, oldImage)
+	}
+}
+
 // TestSandboxManagerIssuesEnrollmentAndCallsFleetOnce pins first provision:
 // Ensure mints one single-use enrollment, sends exactly one provision request
 // carrying that secret, the locked runtime owner and the node identity, and
