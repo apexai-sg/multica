@@ -41,7 +41,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Apex AI · 创作中心",
+  title: "Apex AI",
   robots: { index: false, follow: false },
 };
 

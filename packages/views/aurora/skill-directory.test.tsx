@@ -178,11 +178,11 @@ describe("SkillDirectory", () => {
   it("filters categories and clears both filters when nothing matches", async () => {
     const user = userEvent.setup();
     renderDirectory();
-    await user.click(screen.getByRole("tab", { name: "Media" }));
+    await user.click(screen.getByRole("tab", { name: "Video scripts" }));
     expect(cards()).toHaveLength(4);
     await user.type(screen.getByRole("searchbox"), "nothing matches");
     expect(screen.getByText("0 tools shown")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "All tools" }));
+    await user.click(screen.getByRole("button", { name: "Show all tools" }));
     expect(screen.getByRole("searchbox")).toHaveValue("");
     expect(cards()).toHaveLength(24);
   });

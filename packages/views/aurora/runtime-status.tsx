@@ -34,9 +34,9 @@ import { GenerationStatusBadge } from "./generation-artifacts";
 
 /**
  * The runtime state vocabulary, in one place: the dot class, the pill modifier
- * and the tonal text class. Exported because three surfaces name the same five
- * states — this page, the directory hero and the topbar chip — and a second
- * mapping would be a second thing to keep in step.
+ * and the tonal text class. Exported because two surfaces name the same five
+ * states — this page and the topbar chip — and a second mapping would be a
+ * second thing to keep in step.
  */
 export const AURORA_RUNTIME_VISUAL: Record<
   AuroraRuntimeState,

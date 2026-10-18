@@ -180,8 +180,10 @@ describe("GenerationComposer", () => {
     await user.click(screen.getByRole("button", { name: "Generate" }));
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
       skillId: "content-creation-lyrics-songwriting",
-      prompt: expect.stringMatching(/A song about courage[\s\S]*Young children[\s\S]*Simple and warm/),
+      prompt: expect.stringMatching(/A song about courage[\s\S]*Audience: Young children[\s\S]*Style & requirements: Simple and warm/),
     }));
+    const prompt = mocks.create.mock.calls[0]![0].prompt as string;
+    expect(prompt).not.toContain("(optional)");
   });
 
   it("groups the labelled prompt and submit action in the Aurora drawer", () => {
@@ -196,7 +198,7 @@ describe("GenerationComposer", () => {
       "aria-hidden",
       "true",
     );
-    expect(screen.getByText("Content creation")).toHaveClass("aurora-drawer-head-category");
+    expect(screen.getByText("Stories & writing")).toHaveClass("aurora-drawer-head-category");
     const field = screen.getByLabelText("What should it make?");
     // The field carries its own surface and focus ring now; the panel is a flat
     // card rather than one large focusable box.
@@ -274,7 +276,7 @@ describe("GenerationComposer", () => {
 
     expect(await screen.findByText("Not enough credits")).toBeInTheDocument();
     expect(
-      screen.getByText("This skill costs 60 credits and you have 50."),
+      screen.getByText("This tool costs 60 credits and you have 50."),
     ).toBeInTheDocument();
   });
 
@@ -483,7 +485,7 @@ describe("GenerationComposer", () => {
 
     expect(await screen.findByText("Not enough credits")).toBeInTheDocument();
     expect(
-      screen.getByText("This skill costs 60 credits."),
+      screen.getByText("This tool costs 60 credits."),
     ).toBeInTheDocument();
   });
 
@@ -503,7 +505,7 @@ describe("GenerationComposer", () => {
 
     expect(await screen.findByText("Not enough credits")).toBeInTheDocument();
     expect(
-      screen.getByText("This skill costs 60 credits."),
+      screen.getByText("This tool costs 60 credits."),
     ).toBeInTheDocument();
   });
 

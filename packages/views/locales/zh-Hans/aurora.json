@@ -22,11 +22,9 @@
     },
     "eyebrow": "创作工具",
     "hero_title": "你今天想做什么？",
-    "stats_runnable_other": "个 skill 可运行",
-    "stats_total_other": "个 skill",
     "visible_count_other": "{{count}} 个功能",
     "ready": "开始使用",
-    "clear_filters": "全部功能",
+    "clear_filters": "查看全部功能",
     "inputs": {
       "text": "文本",
       "image": "图片",
@@ -36,7 +34,6 @@
       "spreadsheet": "表格",
       "other": "其他"
     },
-    "hero_subtitle": "选一个功能，填入你的需求，把想法变成可用的内容。",
     "hero_tag": "APEX AI · 你的创作助手",
     "recommended": "常用推荐",
     "upcoming_title": "图片、视频与办公工具",
@@ -45,7 +42,6 @@
     "step_choose": "选择功能",
     "step_describe": "填写需求",
     "step_download": "查看与下载",
-    "output_label": "交付内容",
     "text_output": "文字内容 · Markdown（.md）",
     "planned": {
       "poster": {
@@ -125,8 +121,10 @@
     },
     "progress_unreadable": "无法读取该次生成的进度。",
     "example": "填入示例",
+    "audience_field": "受众",
     "audience_label": "写给谁看？（选填）",
     "audience_placeholder": "例如：带3—8岁孩子的家长",
+    "preferences_field": "风格与要求",
     "preferences_label": "风格与要求（选填）",
     "preferences_placeholder": "例如：自然分享、300字、中英双语",
     "deliverable_title": "你会得到什么"
@@ -135,7 +133,7 @@
     "title": "我的作品",
     "generations_title": "生成记录",
     "generations_empty_title": "还没有生成记录",
-    "generations_empty_description": "到「创作」里挑一个功能开始吧。",
+    "generations_empty_description": "到「开始创作」里挑一个功能开始吧。",
     "assets_title": "作品库",
     "assets_empty_title": "还没有作品",
     "assets_empty_description": "生成完成后，文件会出现在这里。",

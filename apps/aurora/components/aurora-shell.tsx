@@ -15,6 +15,7 @@ import {
 import {
   AuroraAccountDialog,
   AuroraAccountPanel,
+  AuroraRuntimeChip,
 } from "@multica/views/aurora";
 import { AppLink, useNavigation } from "@multica/views/navigation";
 import { useT } from "@multica/views/i18n";
@@ -107,6 +108,13 @@ export function AuroraShell({
   const accountItems = [
     { href: routes.billing(), icon: Coins, label: t(($) => $.billing.title) },
   ];
+  // The top bar names the current page, and the runtime owns a page of its own
+  // even though it sits in the sidebar footer rather than a nav group.
+  const contextItems = [
+    ...workItems,
+    ...accountItems,
+    { href: routes.runtime(), label: t(($) => $.runtime.title) },
+  ];
   const worksHref = routes.works();
   // Trailing slashes are the same destination, and Next keeps the URL the user
   // typed. Comparing raw strings would drop the selected state for `…/works/`.
@@ -153,8 +161,6 @@ export function AuroraShell({
         ) : null}
       </div>
 
-
-
       <div className="aurora-nav-groups">
         <div className="aurora-nav-group">
           <p>{t(($) => $.shell.nav_group_work)}</p>
@@ -183,9 +189,17 @@ export function AuroraShell({
       </div>
 
       <div className="aurora-sidebar-footer">
-        <AuroraAccountPanel creditsHref={routes.billing()} onOpenAccount={() => setAccountOpen(true)} />
-        <AppLink href={routes.runtime()} className="aurora-nav-link" aria-current={selected(routes.runtime()) ? "page" : undefined}>
-          <Server aria-hidden="true" /><span>{t(($) => $.runtime.title)}</span>
+        <AuroraAccountPanel
+          creditsHref={routes.billing()}
+          onOpenAccount={() => setAccountOpen(true)}
+        />
+        <AppLink
+          href={routes.runtime()}
+          className="aurora-nav-link"
+          aria-current={selected(routes.runtime()) ? "page" : undefined}
+        >
+          <Server aria-hidden="true" />
+          <span>{t(($) => $.runtime.title)}</span>
         </AppLink>
         <button type="button" className="aurora-nav-link" onClick={logout}>
           <LogOut aria-hidden="true" />
@@ -231,7 +245,13 @@ export function AuroraShell({
             Apex <span>AI</span>
           </span>
           <div className="aurora-topbar-actions">
-            <span className="aurora-topbar-context">{[...workItems, ...accountItems].find((item) => selected(item.href))?.label ?? t(($) => $.shell.brand_tagline)}</span>
+            {/* A generation can start from any page, so a runtime that is
+                offline is surfaced here instead of only after a failed submit. */}
+            <AuroraRuntimeChip href={routes.runtime()} />
+            <span className="aurora-topbar-context">
+              {contextItems.find((item) => selected(item.href))?.label ??
+                t(($) => $.shell.brand_tagline)}
+            </span>
           </div>
         </header>
         <main className="aurora-scroll">{children}</main>

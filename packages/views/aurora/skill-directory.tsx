@@ -33,14 +33,46 @@ import { orderTools, RECOMMENDED_TOOL_IDS, toolGuidance } from "./tool-guidance"
 
 const RECOMMENDED = "recommended";
 const PLANNED = [
-  { key: "poster", icon: Image, ids: ["poster"] },
-  { key: "text_image", icon: Image, ids: ["text-image", "text-to-image"] },
-  { key: "image_video", icon: Film, ids: ["image-video", "image-to-video"] },
-  { key: "text_video", icon: Film, ids: ["text-video", "text-to-video"] },
-  { key: "product_image", icon: Image, ids: ["product-image"] },
-  { key: "image_edit", icon: Image, ids: ["image-edit"] },
-  { key: "ppt", icon: Presentation, ids: ["ppt"] },
-  { key: "excel", icon: FileSpreadsheet, ids: ["excel"] },
+  {
+    key: "poster",
+    icon: Image,
+    ids: ["poster"],
+  },
+  {
+    key: "text_image",
+    icon: Image,
+    ids: ["text-image", "text-to-image"],
+  },
+  {
+    key: "image_video",
+    icon: Film,
+    ids: ["image-video", "image-to-video"],
+  },
+  {
+    key: "text_video",
+    icon: Film,
+    ids: ["text-video", "text-to-video"],
+  },
+  {
+    key: "product_image",
+    icon: Image,
+    ids: ["product-image"],
+  },
+  {
+    key: "image_edit",
+    icon: Image,
+    ids: ["image-edit"],
+  },
+  {
+    key: "ppt",
+    icon: Presentation,
+    ids: ["ppt"],
+  },
+  {
+    key: "excel",
+    icon: FileSpreadsheet,
+    ids: ["excel"],
+  },
 ] as const;
 
 /**
@@ -98,10 +130,20 @@ export function SkillDirectory({
 
   const visible = useMemo(
     () => {
-      const matching = filterAuroraSkills(skills, query, category === RECOMMENDED ? AURORA_CATEGORY_ALL : category);
+      const matching = filterAuroraSkills(
+        skills,
+        query,
+        category === RECOMMENDED ? AURORA_CATEGORY_ALL : category,
+      );
       // Search always covers the catalog when the popular tab is selected.
-      const recommended = matching.filter((skill) => RECOMMENDED_TOOL_IDS.includes(skill.id));
-      return orderTools(category === RECOMMENDED && !query.trim() && recommended.length > 0 ? recommended : matching);
+      const recommended = matching.filter((skill) =>
+        RECOMMENDED_TOOL_IDS.includes(skill.id),
+      );
+      return orderTools(
+        category === RECOMMENDED && !query.trim() && recommended.length > 0
+          ? recommended
+          : matching,
+      );
     },
     [skills, query, category],
   );
@@ -122,9 +164,18 @@ export function SkillDirectory({
     <div className="aurora-page">
       <DirectoryHero skills={catalogKnown ? skills : undefined} />
       <ol className="aurora-quick-steps" aria-label={t(($) => $.directory.guide_label)}>
-        <li><span>1</span>{t(($) => $.directory.step_choose)}</li>
-        <li><span>2</span>{t(($) => $.directory.step_describe)}</li>
-        <li><span>3</span>{t(($) => $.directory.step_download)}</li>
+        <li>
+          <span aria-hidden="true">1</span>
+          {t(($) => $.directory.step_choose)}
+        </li>
+        <li>
+          <span aria-hidden="true">2</span>
+          {t(($) => $.directory.step_describe)}
+        </li>
+        <li>
+          <span aria-hidden="true">3</span>
+          {t(($) => $.directory.step_download)}
+        </li>
       </ol>
 
       <div className="aurora-section-head">
@@ -147,7 +198,9 @@ export function SkillDirectory({
       <Tabs value={category} onValueChange={setCategory} className="gap-0">
         <div className="aurora-toolbar">
           <TabsList className="aurora-pill-tabs">
-            <TabsTrigger value={RECOMMENDED} className="aurora-pill-tab">{t(($) => $.directory.recommended)}</TabsTrigger>
+            <TabsTrigger value={RECOMMENDED} className="aurora-pill-tab">
+              {t(($) => $.directory.recommended)}
+            </TabsTrigger>
             <TabsTrigger value={AURORA_CATEGORY_ALL} className="aurora-pill-tab">
               {t(($) => $.directory.categories.all)}
             </TabsTrigger>
@@ -222,16 +275,34 @@ export function SkillDirectory({
       </Tabs>
       <section className="aurora-upcoming" aria-labelledby="aurora-upcoming-title">
         <div className="aurora-section-head">
-          <div><p className="aurora-eyebrow"><Clock3 aria-hidden="true" className="size-3.5" />{t(($) => $.directory.unavailable)}</p>
-          <h2 id="aurora-upcoming-title">{t(($) => $.directory.upcoming_title)}</h2></div>
+          <div>
+            <p className="aurora-eyebrow">
+              <Clock3 aria-hidden="true" className="size-3.5" />
+              {t(($) => $.directory.unavailable)}
+            </p>
+            <h2 id="aurora-upcoming-title">
+              {t(($) => $.directory.upcoming_title)}
+            </h2>
+          </div>
         </div>
-        <p className="aurora-section-note">{t(($) => $.directory.upcoming_description)}</p>
+        <p className="aurora-section-note">
+          {t(($) => $.directory.upcoming_description)}
+        </p>
         <div className="aurora-planned-grid">
-          {PLANNED.filter((item) => !skills.some((skill) => item.ids.some((id) => id === skill.id))).map(({ key, icon: Icon }) => (
+          {PLANNED.filter((item) =>
+            !skills.some((skill) =>
+              item.ids.some((id) => id === skill.id),
+            ),
+          ).map(({ key, icon: Icon }) => (
             <div key={key} className="aurora-planned-card">
               <Icon aria-hidden="true" className="size-5" />
-              <div><strong>{t(($) => $.directory.planned[key].name)}</strong><span>{t(($) => $.directory.planned[key].output)}</span></div>
-              <span className="aurora-status-pill aurora-status-pill--muted">{t(($) => $.directory.unavailable)}</span>
+              <div>
+                <strong>{t(($) => $.directory.planned[key].name)}</strong>
+                <span>{t(($) => $.directory.planned[key].output)}</span>
+              </div>
+              <span className="aurora-status-pill aurora-status-pill--muted">
+                {t(($) => $.directory.unavailable)}
+              </span>
             </div>
           ))}
         </div>
@@ -259,10 +330,9 @@ function DirectoryHero({ skills }: { skills: AuroraSkill[] | undefined }) {
       <div>
         <span className="aurora-hero-label">{t(($) => $.directory.hero_tag)}</span>
         <h1>{t(($) => $.directory.hero_title)}</h1>
-        <p>{t(($) => $.directory.hero_subtitle)}</p>
       </div>
-      {/* Decorative: the four runnable skills as tiles. It carries no fact the
-          stats above do not, which is why it is hidden from assistive tech. */}
+      {/* Decorative: the four runnable skills as tiles. It says nothing the
+          grid below does not, which is why it is hidden from assistive tech. */}
       <div className="aurora-hero-orbit" aria-hidden="true">
         <div className="aurora-hero-center">
           <Sparkles className="size-6" />
@@ -333,7 +403,9 @@ function SkillCard({
         />
         <span className="aurora-card-name">
           <span className="aurora-card-category">
-            {t(($) => $.directory.categories[auroraCategoryLabel(skill.category)])}
+            {t(
+              ($) => $.directory.categories[auroraCategoryLabel(skill.category)],
+            )}
           </span>
           <span className="aurora-card-title">{displayName}</span>
         </span>
@@ -341,9 +413,13 @@ function SkillCard({
           <ArrowUpRight className="size-4" />
         </span>
       </span>
-      {summary ? <span className="aurora-card-description">{summary}</span> : null}
+      {summary ? (
+        <span className="aurora-card-description">{summary}</span>
+      ) : null}
       {skill.output.length === 1 && skill.output[0] === "text" ? (
-        <span className="aurora-delivery-note">{t(($) => $.directory.text_output)}</span>
+        <span className="aurora-delivery-note">
+          {t(($) => $.directory.text_output)}
+        </span>
       ) : null}
       {/* What the skill accepts, from the catalog's own modalities. The
           reference shows three capability tags here. */}

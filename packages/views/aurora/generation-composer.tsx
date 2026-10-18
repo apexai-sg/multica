@@ -388,9 +388,15 @@ function ComposerBody({
         skillId: skill.id,
         prompt: [
           trimmedPrompt,
-          audience.trim() ? `${t(($) => $.composer.audience_label)}: ${audience.trim()}` : "",
-          preferences.trim() ? `${t(($) => $.composer.preferences_label)}: ${preferences.trim()}` : "",
-        ].filter(Boolean).join("\n\n"),
+          audience.trim()
+            ? `${t(($) => $.composer.audience_field)}: ${audience.trim()}`
+            : "",
+          preferences.trim()
+            ? `${t(($) => $.composer.preferences_field)}: ${preferences.trim()}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
         attachmentIds: uploadedAttachmentIds,
       });
       // A usable issue identifier means the result belongs on the issue detail,
@@ -471,10 +477,15 @@ function ComposerBody({
       ) : null}
 
       {guidance ? (
-        <section className="aurora-deliverable" aria-label={t(($) => $.composer.deliverable_title)}>
+        <section
+          className="aurora-deliverable"
+          aria-label={t(($) => $.composer.deliverable_title)}
+        >
           <strong>{t(($) => $.composer.deliverable_title)}</strong>
           <p>{guidance.summary}</p>
-          {skill.output.length === 1 && skill.output[0] === "text" ? <span>{t(($) => $.directory.text_output)}</span> : null}
+          {skill.output.length === 1 && skill.output[0] === "text" ? (
+            <span>{t(($) => $.directory.text_output)}</span>
+          ) : null}
         </section>
       ) : null}
       <form className="aurora-composer" onSubmit={handleSubmit}>
@@ -496,20 +507,45 @@ function ComposerBody({
         </div>
         {guidance ? (
           <>
-            <Button type="button" variant="outline" size="sm"
-              disabled={!skill.available || prompt.trim().length > 0 || create.isPending || outcome.kind === "started" || outcome.kind === "unreadable"}
-              onClick={() => setPrompt(guidance.example)}>
-              <Sparkles aria-hidden="true" />{t(($) => $.composer.example)}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={
+                !skill.available ||
+                prompt.trim().length > 0 ||
+                create.isPending ||
+                outcome.kind === "started" ||
+                outcome.kind === "unreadable"
+              }
+              onClick={() => setPrompt(guidance.example)}
+            >
+              <Sparkles aria-hidden="true" />
+              {t(($) => $.composer.example)}
             </Button>
             <div className="aurora-field">
-              <Label htmlFor="aurora-audience">{t(($) => $.composer.audience_label)}</Label>
-              <Input id="aurora-audience" value={audience} onChange={(event) => setAudience(event.target.value)}
-                disabled={!skill.available} placeholder={t(($) => $.composer.audience_placeholder)} />
+              <Label className="aurora-field-label" htmlFor="aurora-audience">
+                {t(($) => $.composer.audience_label)}
+              </Label>
+              <Input
+                id="aurora-audience"
+                value={audience}
+                onChange={(event) => setAudience(event.target.value)}
+                disabled={!skill.available}
+                placeholder={t(($) => $.composer.audience_placeholder)}
+              />
             </div>
             <div className="aurora-field">
-              <Label htmlFor="aurora-preferences">{t(($) => $.composer.preferences_label)}</Label>
-              <Input id="aurora-preferences" value={preferences} onChange={(event) => setPreferences(event.target.value)}
-                disabled={!skill.available} placeholder={t(($) => $.composer.preferences_placeholder)} />
+              <Label className="aurora-field-label" htmlFor="aurora-preferences">
+                {t(($) => $.composer.preferences_label)}
+              </Label>
+              <Input
+                id="aurora-preferences"
+                value={preferences}
+                onChange={(event) => setPreferences(event.target.value)}
+                disabled={!skill.available}
+                placeholder={t(($) => $.composer.preferences_placeholder)}
+              />
             </div>
           </>
         ) : null}

@@ -120,7 +120,7 @@ describe("HistoryList", () => {
     install([generation()], { "gen-1": [asset()] });
   });
 
-  it("lists a generation with its skill, status, creation time and charged credits", () => {
+  it("lists a generation with its tool, status, creation time and charged credits", () => {
     const { container } = renderHistory();
 
     expect(screen.getByText("a launch poster")).toBeInTheDocument();
@@ -329,7 +329,7 @@ describe("HistoryList", () => {
       expect(tab).toHaveClass("aurora-pill-tab");
     }
     expect(
-      screen.getByRole("combobox", { name: "Skill" }).parentElement,
+      screen.getByRole("combobox", { name: "Tool" }).parentElement,
     ).toHaveClass("aurora-toolbar");
     const row = screen.getByText("a launch poster").closest("li");
     expect(row?.parentElement).toHaveClass("aurora-list");
@@ -344,9 +344,9 @@ describe("HistoryList", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("keeps the skill trigger at the touch target floor within the toolbar", () => {
+  it("keeps the tool trigger at the touch target floor within the toolbar", () => {
     renderHistory();
-    const trigger = screen.getByRole("combobox", { name: "Skill" });
+    const trigger = screen.getByRole("combobox", { name: "Tool" });
     expect(trigger).toHaveClass("min-h-10", "max-w-full");
     expect(trigger).toHaveAttribute("data-size", "default");
   });

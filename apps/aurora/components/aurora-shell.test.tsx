@@ -118,6 +118,7 @@ describe("AuroraShell", () => {
     expect(within(nav).getByText("2,480")).toBeVisible();
     expect(within(nav).getByRole("link", { name: "Top up" })).toHaveAttribute("href", "/acme/billing");
     expect(within(nav).getByRole("link", { name: "Service status" })).toHaveAttribute("href", "/acme/runtimes");
+    expect(screen.getByRole("link", { name: "Online" })).toHaveAttribute("href", "/acme/runtimes");
     const trigger = within(nav).getByRole("button", { name: "Account" });
     await user.click(trigger);
     const dialog = await screen.findByRole("dialog", { name: "Hannah Han" });
@@ -300,6 +301,19 @@ describe("AuroraShell", () => {
         "aria-current",
       );
     }
+  });
+
+  // The runtime page has no nav group entry, so the top bar must resolve it from
+  // the context list rather than falling back to the brand tagline.
+  it.each([
+    ["/acme/skills", "Start creating"],
+    ["/acme/runtimes", "Service status"],
+  ])("names the current page in the top bar on %s", (pathname, label) => {
+    renderShell(pathname);
+
+    expect(document.querySelector(".aurora-topbar-context")?.textContent).toBe(
+      label,
+    );
   });
 
   it("renders the page it wraps", () => {

@@ -57,30 +57,28 @@ const translatedLocales = Object.keys(RESOURCES).filter(
 
 describe("Aurora directory plural families", () => {
   it.each([
-    ["en", 0, "0 skills available", "skills runnable", "skills in the catalog"],
-    ["en", 1, "1 skill available", "skill runnable", "skill in the catalog"],
-    ["en", 3, "3 skills available", "skills runnable", "skills in the catalog"],
-    ["zh-Hans", 0, "0 个 skill 可用", "个 skill 可运行", "个 skill"],
-    ["zh-Hans", 1, "1 个 skill 可用", "个 skill 可运行", "个 skill"],
-    ["zh-Hans", 3, "3 个 skill 可用", "个 skill 可运行", "个 skill"],
-    ["ja", 0, "0 件が利用可能", "件が実行可能", "件のスキル"],
-    ["ja", 1, "1 件が利用可能", "件が実行可能", "件のスキル"],
-    ["ja", 3, "3 件が利用可能", "件が実行可能", "件のスキル"],
-    ["ko", 0, "0개 사용 가능", "개 실행 가능", "개 스킬"],
-    ["ko", 1, "1개 사용 가능", "개 실행 가능", "개 스킬"],
-    ["ko", 3, "3개 사용 가능", "개 실행 가능", "개 스킬"],
-    ["fr", 0, "0 compétence disponible", "compétence exécutable", "compétence au catalogue"],
-    ["fr", 1, "1 compétence disponible", "compétence exécutable", "compétence au catalogue"],
-    ["fr", 3, "3 compétences disponibles", "compétences exécutables", "compétences au catalogue"],
-    ["fr", 1000000, "1000000 compétences disponibles", "compétences exécutables", "compétences au catalogue"],
-  ] as const)("renders %s count %i without fallback or duplicated numerals", async (locale, count, visible, runnable, total) => {
+    ["en", 0, "0 tools shown"],
+    ["en", 1, "1 tool shown"],
+    ["en", 3, "3 tools shown"],
+    ["zh-Hans", 0, "0 个功能"],
+    ["zh-Hans", 1, "1 个功能"],
+    ["zh-Hans", 3, "3 个功能"],
+    ["ja", 0, "0 個のツール"],
+    ["ja", 1, "1 個のツール"],
+    ["ja", 3, "3 個のツール"],
+    ["ko", 0, "도구 0개"],
+    ["ko", 1, "도구 1개"],
+    ["ko", 3, "도구 3개"],
+    ["fr", 0, "0 outil affiché"],
+    ["fr", 1, "1 outil affiché"],
+    ["fr", 3, "3 outils affichés"],
+    ["fr", 1000000, "1000000 outils affichés"],
+  ] as const)("renders %s count %i without fallback or duplicated numerals", async (locale, count, visible) => {
     const i18n = createInstance();
     await i18n.init({ lng: locale, fallbackLng: false, resources: RESOURCES });
     expect(i18n.t(($) => $.directory.visible_count, { ns: "aurora", count })).toBe(visible);
-    expect(i18n.t(($) => $.directory.stats_runnable, { ns: "aurora", count })).toBe(runnable);
-    expect(i18n.t(($) => $.directory.stats_total, { ns: "aurora", count })).toBe(total);
   });
-  const families = ["visible_count", "stats_runnable", "stats_total"];
+  const families = ["visible_count"];
   const categories = { en: ["one", "other"], "zh-Hans": ["other"], ja: ["other"], ko: ["other"], fr: ["many", "one", "other"] };
   for (const [locale, suffixes] of Object.entries(categories)) {
     it(`${locale} supplies exactly its grammatical count forms`, () => {
