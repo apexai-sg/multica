@@ -17,7 +17,6 @@
  */
 
 import type { AuroraSkill } from "@multica/core/aurora";
-import { toolGuidance } from "./tool-guidance";
 
 /** Where a generation is, as `aurora.composer.status.*`. */
 export type AuroraGenerationStatusLabel =
@@ -81,18 +80,15 @@ export function ledgerKindLabel(
 }
 
 /**
- * The name to put on a skill card, for the language the UI is in.
+ * The name to put on a generation that only carries a skill id.
  *
- * Known experts use consumer task names from tool-guidance. Unknown entries
- * preserve the catalog name. The catalog carries a Chinese `name` and English `nameEn`
- * (`aurora/catalog.go`). A Chinese reader gets the Chinese name and every other
- * reader gets the English one, which is the catalog's own convention rather
- * than a translation we could add here. `nameEn` defaults to `""` in the
- * schema, so a Chinese name is still the better answer than an empty label.
+ * The consumer surfaces show agent names; this is the fallback for an id no
+ * visible agent owns. The catalog carries a Chinese `name` and English
+ * `nameEn`, so a Chinese reader gets the Chinese name and every other reader
+ * gets the English one. `nameEn` defaults to `""` in the schema, so a Chinese
+ * name is still the better answer than an empty label.
  */
 export function skillDisplayName(skill: AuroraSkill, locale: string): string {
-  const guidance = toolGuidance(skill.id, locale);
-  if (guidance) return guidance.name;
   if (locale.startsWith("zh")) return skill.name;
   return skill.nameEn || skill.name;
 }
@@ -177,59 +173,4 @@ const TOPUP_PACK_LABELS: Record<string, AuroraTopupPackLabel> = {
  */
 export function topupPackLabel(id: string): AuroraTopupPackLabel {
   return TOPUP_PACK_LABELS[id] ?? "other";
-}
-
-/** What a skill accepts, as `directory.inputs.*`. */
-export type AuroraInputLabel =
-  | "text"
-  | "image"
-  | "document"
-  | "audio"
-  | "video"
-  | "spreadsheet"
-  | "other";
-
-const INPUT_LABELS: Record<string, AuroraInputLabel> = {
-  text: "text",
-  image: "image",
-  document: "document",
-  audio: "audio",
-  video: "video",
-  spreadsheet: "spreadsheet",
-};
-
-/** Unknown wire modalities still receive a translated label. */
-export function auroraInputLabel(modality: string): AuroraInputLabel {
-  return Object.hasOwn(INPUT_LABELS, modality) ? INPUT_LABELS[modality]! : "other";
-}
-
-/** A directory category tab, as `aurora.directory.categories.*`. */
-export type AuroraCategoryLabel =
-  | "ecommerce"
-  | "content-creation"
-  | "marketing"
-  | "legal"
-  | "media"
-  | "design"
-  | "other";
-
-const CATEGORY_LABELS: Record<string, AuroraCategoryLabel> = {
-  ecommerce: "ecommerce",
-  "content-creation": "content-creation",
-  marketing: "marketing",
-  legal: "legal",
-  media: "media",
-  design: "design",
-};
-
-/**
- * The label key for a catalog category.
- *
- * The catalog ships one category per vendored SkillHub scene
- * (`aurora/experts_catalog.go`), but `category` stays a plain string on the
- * wire, so an unrecognised one gets a tab labelled generically rather than one
- * showing its raw server value.
- */
-export function auroraCategoryLabel(category: string): AuroraCategoryLabel {
-  return CATEGORY_LABELS[category] ?? "other";
 }

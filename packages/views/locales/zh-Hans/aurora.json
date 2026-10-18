@@ -6,7 +6,6 @@
     "title": "开始创作",
     "search_placeholder": "搜索助手，例如：小红书",
     "load_failed_title": "无法加载助手列表",
-    "load_failed_description": "助手列表暂时不可用。",
     "empty_title": "没有匹配的助手",
     "empty_description": "换个关键词试试。",
     "eyebrow": "AI 助手",
@@ -21,17 +20,7 @@
     "guide_label": "三步完成创作",
     "step_choose": "选择助手",
     "step_describe": "填写需求",
-    "step_download": "查看与下载",
-    "categories": {
-      "all": "全部功能",
-      "ecommerce": "电商",
-      "content-creation": "故事与写作",
-      "marketing": "推广与文案",
-      "legal": "合同与资料",
-      "media": "视频脚本",
-      "design": "产品与网页",
-      "other": "其他"
-    }
+    "step_download": "查看与下载"
   },
   "composer": {
     "cost": "每次生成消耗 {{credits}} 积分",
@@ -75,7 +64,6 @@
       "unknown": "未知"
     },
     "progress_unreadable": "无法读取该次生成的进度。",
-    "example": "填入示例",
     "audience_label": "写给谁看？（选填）",
     "audience_placeholder": "例如：带3—8岁孩子的家长",
     "preferences_label": "风格与要求（选填）",

@@ -6,7 +6,6 @@
     "title": "Commencer à créer",
     "search_placeholder": "Rechercher un assistant",
     "load_failed_title": "Impossible de charger les assistants",
-    "load_failed_description": "La liste des assistants est temporairement indisponible.",
     "empty_title": "Aucun assistant correspondant",
     "empty_description": "Essayez un autre mot-clé.",
     "eyebrow": "ASSISTANTS IA",
@@ -23,17 +22,7 @@
     "guide_label": "Créer en trois étapes",
     "step_choose": "Choisir un assistant",
     "step_describe": "Préciser votre besoin",
-    "step_download": "Vérifier et télécharger",
-    "categories": {
-      "all": "Tous les outils",
-      "ecommerce": "E-commerce",
-      "content-creation": "Création de contenu",
-      "marketing": "Marketing",
-      "legal": "Juridique",
-      "media": "Médias",
-      "design": "Design",
-      "other": "Autre"
-    }
+    "step_download": "Vérifier et télécharger"
   },
   "composer": {
     "cost": "{{credits}} crédits par génération",
@@ -77,7 +66,6 @@
       "unknown": "Inconnu"
     },
     "progress_unreadable": "Impossible de lire la progression de cette génération.",
-    "example": "Essayer un exemple",
     "audience_label": "Pour quel public ? (facultatif)",
     "audience_placeholder": "Exemple : parents de jeunes enfants",
     "preferences_label": "Style et exigences (facultatif)",

@@ -6,7 +6,6 @@
     "title": "Start creating",
     "search_placeholder": "Search assistants, e.g. social posts",
     "load_failed_title": "Could not load assistants",
-    "load_failed_description": "The agent list is temporarily unavailable.",
     "empty_title": "No matching assistants",
     "empty_description": "Try another keyword.",
     "eyebrow": "AI ASSISTANTS",
@@ -22,17 +21,7 @@
     "guide_label": "Start in three steps",
     "step_choose": "Choose an assistant",
     "step_describe": "Add your details",
-    "step_download": "Review & download",
-    "categories": {
-      "all": "All tools",
-      "ecommerce": "E-commerce",
-      "content-creation": "Content creation",
-      "marketing": "Marketing",
-      "legal": "Legal",
-      "media": "Media",
-      "design": "Design",
-      "other": "Other"
-    }
+    "step_download": "Review & download"
   },
   "composer": {
     "cost": "{{credits}} credits per generation",
@@ -76,7 +65,6 @@
       "unknown": "Unknown"
     },
     "progress_unreadable": "Could not read this generation's progress.",
-    "example": "Try an example",
     "audience_label": "Who is it for? (optional)",
     "audience_placeholder": "For example: parents with young children",
     "preferences_label": "Style & requirements (optional)",

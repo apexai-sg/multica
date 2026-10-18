@@ -6,7 +6,6 @@
     "title": "作成を始める",
     "search_placeholder": "アシスタントを検索",
     "load_failed_title": "アシスタント一覧を読み込めませんでした",
-    "load_failed_description": "アシスタント一覧を一時的に利用できません。",
     "empty_title": "一致するアシスタントがありません",
     "empty_description": "別のキーワードをお試しください。",
     "eyebrow": "AI アシスタント",
@@ -21,17 +20,7 @@
     "guide_label": "3ステップで作成",
     "step_choose": "アシスタントを選択",
     "step_describe": "内容を入力",
-    "step_download": "確認・ダウンロード",
-    "categories": {
-      "all": "すべてのツール",
-      "ecommerce": "EC",
-      "content-creation": "コンテンツ制作",
-      "marketing": "マーケティング",
-      "legal": "法務",
-      "media": "メディア",
-      "design": "デザイン",
-      "other": "その他"
-    }
+    "step_download": "確認・ダウンロード"
   },
   "composer": {
     "cost": "1 回の生成に {{credits}} クレジット",
@@ -75,7 +64,6 @@
       "unknown": "不明"
     },
     "progress_unreadable": "この生成の進行状況を読み取れませんでした。",
-    "example": "例を入力",
     "audience_label": "誰に向けた内容ですか？（任意）",
     "audience_placeholder": "例：小さな子どもがいる保護者",
     "preferences_label": "文体・条件（任意）",

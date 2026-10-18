@@ -979,14 +979,6 @@ a.aurora-status-chip[href] {
   transform: translateY(-2px);
 }
 
-.aurora-card--featured {
-  border-color: var(--aurora-coral-line);
-}
-
-.aurora-card--unavailable {
-  color: var(--aurora-soft-muted);
-}
-
 .aurora-card--read-only {
   cursor: default;
 }
@@ -1008,14 +1000,6 @@ a.aurora-status-chip[href] {
   min-width: 0;
   flex: 1;
   flex-direction: column;
-}
-
-.aurora-card-category {
-  color: var(--aurora-soft-muted);
-  font-size: var(--text-label);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .aurora-card-title {
@@ -2066,18 +2050,6 @@ a.aurora-status-chip[href] {
 .aurora-section-note {
   margin: -4px 0 20px; color: var(--aurora-slate); font-size: var(--text-body);
 }
-.aurora-planned-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.aurora-planned-card {
-  display: flex; align-items: center; gap: 12px; min-width: 0;
-  padding: 18px; background: var(--aurora-surface);
-  border: 1px dashed var(--aurora-line-strong); border-radius: var(--aurora-r-lg);
-  color: var(--aurora-slate);
-}
-.aurora-planned-card > svg { flex-shrink: 0; color: var(--aurora-violet-deep); }
-.aurora-planned-card > div { flex: 1; min-width: 0; }
-.aurora-planned-card strong { display: block; color: var(--aurora-ink); font-size: var(--text-body); }
-.aurora-planned-card div > span { display: block; font-size: var(--text-label); margin-top: 4px; }
-.aurora-planned-card > .aurora-status-pill { flex-shrink: 0; }
 .aurora-deliverable {
   padding: 18px; border-radius: var(--aurora-r-lg);
   background: var(--aurora-tint-lavender); color: var(--aurora-violet-deep);
@@ -2089,10 +2061,6 @@ a.aurora-status-chip[href] {
 .aurora-topbar-context { color: var(--aurora-slate); font-size: var(--text-label); }
 .aurora-pill-tabs { max-width: 100%; overflow-x: auto; justify-content: flex-start; }
 @media (max-width: 600px) {
-  .aurora-planned-grid { grid-template-columns: minmax(0, 1fr); }
   .aurora-quick-steps { gap: 12px; justify-content: space-between; }
-  .aurora-planned-card { padding: 14px; }
   .aurora-topbar-context { max-width: 45vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
-
-.aurora-upcoming { margin-top: 48px; }
