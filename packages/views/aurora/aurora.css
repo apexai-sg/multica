@@ -1374,13 +1374,6 @@ a.aurora-status-chip[href] {
   min-width: 0;
 }
 
-.aurora-drawer-head-category {
-  color: var(--aurora-violet);
-  font-size: var(--text-micro);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-}
-
 .aurora-drawer-head h2 {
   margin: 2px 0 4px;
   font-size: var(--text-display-sm);
@@ -2046,9 +2039,6 @@ a.aurora-status-chip[href] {
 .aurora-delivery-note {
   margin-top: 12px; color: var(--aurora-violet-deep);
   font-size: var(--text-label); font-weight: 500;
-}
-.aurora-section-note {
-  margin: -4px 0 20px; color: var(--aurora-slate); font-size: var(--text-body);
 }
 .aurora-deliverable {
   padding: 18px; border-radius: var(--aurora-r-lg);
