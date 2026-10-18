@@ -3,11 +3,17 @@
 import { useMemo, useState } from "react";
 import {
   ArrowUpRight,
+  CircleAlert,
   LayoutGrid,
   Search,
   SearchX,
   Sparkles,
 } from "lucide-react";
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+} from "@multica/ui/components/ui/alert";
 import { Button } from "@multica/ui/components/ui/button";
 import {
   InputGroup,
@@ -15,7 +21,11 @@ import {
   InputGroupInput,
 } from "@multica/ui/components/ui/input-group";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
-import { useAuroraSkills, type AuroraSkill } from "@multica/core/aurora";
+import {
+  isAuroraDegraded,
+  useAuroraSkills,
+  type AuroraSkill,
+} from "@multica/core/aurora";
 import type { Agent } from "@multica/core/types";
 import { AuroraAvatar } from "./aurora-avatar";
 import { AuroraPageState } from "./aurora-page-header";
@@ -33,8 +43,11 @@ import {
 import { useAuroraAgentDirectory } from "./use-aurora-agent-directory";
 
 /**
- * The consumer directory: every agent the backend shows this member, with the
- * skill catalog consulted only to decide which agents can submit.
+ * The consumer directory: the backend agents this member can run, each routed
+ * either to an Aurora generation (a current carrier) or to an ordinary issue
+ * task (a user-created agent). The catalog decides both listability and which
+ * mode applies, so a catalog that could not be read is reported rather than
+ * mistaken for "no assistants".
  *
  * The directory owns which agent's drawer is open. That stays component state
  * rather than a URL so a half-written prompt does not survive a refresh as a
@@ -97,10 +110,18 @@ export function SkillDirectory({
   const agentsRead = agentsQuery.data !== undefined;
   const loadFailed = agentsQuery.isError && !agentsRead;
   const agentsKnown = !agentsQuery.isPending && agentsRead;
+  // The catalog is what maps a carrier to its generation contract. Until it has
+  // been read, or when the read failed, carriers cannot be classified, so the
+  // directory must say so instead of claiming the workspace has no assistants.
+  const catalogDegraded = isAuroraDegraded(skillsQuery.data);
+  const catalogUnreadable =
+    catalogDegraded || (skillsQuery.isError && skillsQuery.data === undefined);
+  const catalogKnown = !skillsQuery.isPending && !catalogUnreadable;
   // A successfully read empty list means no assistant is configured, which is
   // a different fact from "this keyword matched none"; the two get distinct
   // copy rather than telling the user to try another keyword that cannot help.
-  const noAgents = query.trim() === "" && listable.length === 0;
+  const noAgents =
+    query.trim() === "" && listable.length === 0 && catalogKnown;
 
   return (
     <div className="aurora-page">
@@ -131,7 +152,7 @@ export function SkillDirectory({
           </p>
           <h2>{t(($) => $.directory.title)}</h2>
         </div>
-        {agentsKnown ? (
+        {agentsKnown && !catalogUnreadable ? (
           <span>
             {t(($) => $.directory.visible_count, { count: visible.length })}
           </span>
@@ -153,7 +174,26 @@ export function SkillDirectory({
         </InputGroup>
       </div>
 
-      {agentsQuery.isPending ? (
+      {catalogUnreadable ? (
+        <Alert variant="destructive">
+          <CircleAlert aria-hidden="true" />
+          <AlertDescription>
+            {t(($) => $.directory.catalog_unreadable)}
+          </AlertDescription>
+          <AlertAction>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void skillsQuery.refetch()}
+            >
+              {t(($) => $.retry)}
+            </Button>
+          </AlertAction>
+        </Alert>
+      ) : null}
+
+      {agentsQuery.isPending || skillsQuery.isPending ? (
         <DirectorySkeleton />
       ) : loadFailed ? (
         <AuroraLoadFailed
@@ -161,30 +201,32 @@ export function SkillDirectory({
           onRetry={() => void agentsQuery.refetch()}
         />
       ) : visible.length === 0 ? (
-        <AuroraPageState
-          icon={SearchX}
-          title={
-            noAgents
-              ? t(($) => $.directory.empty_agents_title)
-              : t(($) => $.directory.empty_title)
-          }
-          description={
-            noAgents
-              ? t(($) => $.directory.empty_agents_description)
-              : t(($) => $.directory.empty_description)
-          }
-          actions={
-            query ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setQuery("")}
-              >
-                {t(($) => $.directory.clear_search)}
-              </Button>
-            ) : undefined
-          }
-        />
+        catalogUnreadable ? null : (
+          <AuroraPageState
+            icon={SearchX}
+            title={
+              noAgents
+                ? t(($) => $.directory.empty_agents_title)
+                : t(($) => $.directory.empty_title)
+            }
+            description={
+              noAgents
+                ? t(($) => $.directory.empty_agents_description)
+                : t(($) => $.directory.empty_description)
+            }
+            actions={
+              query ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setQuery("")}
+                >
+                  {t(($) => $.directory.clear_search)}
+                </Button>
+              ) : undefined
+            }
+          />
+        )
       ) : (
         <ul className={GRID_CLASS}>
           {visible.map((agent) => {

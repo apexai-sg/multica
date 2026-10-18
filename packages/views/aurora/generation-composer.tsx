@@ -45,7 +45,7 @@ import {
   type AuroraSkill,
   type AuroraSkillAttachmentRule,
 } from "@multica/core/aurora";
-import { api } from "@multica/core/api";
+import { ApiError, api } from "@multica/core/api";
 import type { Agent, CreateIssueRequest } from "@multica/core/types";
 import { useFileUpload } from "@multica/core/hooks/use-file-upload";
 import { AppLink } from "../navigation";
@@ -72,8 +72,9 @@ const DOCUMENT_MIMES = new Set([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ]);
 
-// A user-created agent has no skill policy. Its ordinary issue task accepts the
-// common attachment kinds with the same per-file cap the document policy uses.
+// A user-created agent has no skill policy. This is a client-side convenience
+// limit for its ordinary issue task (four common files, 25 MiB each); the
+// upload endpoint itself accepts larger files.
 const ISSUE_ATTACHMENT_RULES: AuroraSkillAttachmentRule[] = [
   {
     kinds: ["image", "document", "audio", "video"],
@@ -117,7 +118,11 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-type AttachmentFailure = "unsupported" | "too_large" | "upload";
+type AttachmentFailure =
+  | "unsupported"
+  | "too_large"
+  | "too_many"
+  | "upload";
 
 /** One file the user picked, from selection through upload to submit. */
 interface PendingAttachment {
@@ -153,10 +158,11 @@ export interface GenerationComposerProps {
   /** The app's checkout route. Omitted, the shortfall offers no way to top up. */
   topUpHref?: string;
   /**
-   * The app's route for the issue a generation runs on. Takes the
-   * `issueIdentifier` and returns null when it cannot build a URL — what core's
-   * `auroraIssueHref` does for a missing or degraded identifier — in which case
-   * the drawer keeps polling the generation instead.
+   * The app's route for the issue a run lands on. Takes the issue identifier
+   * and returns null when it cannot build a URL — what core's `auroraIssueHref`
+   * does for a missing or degraded identifier. A generation with no URL keeps
+   * polling in the drawer; an ordinary agent's task with no URL reports the
+   * identifier in place.
    */
   issueHref?: (identifier: string) => string | null;
 }
@@ -199,8 +205,17 @@ export function GenerationComposer({
  */
 type SubmitOutcome =
   | { kind: "idle" }
+  /** A generation was accepted and the drawer is handing off to its issue. */
+  | { kind: "navigating" }
   | { kind: "started"; generationId: string }
   | { kind: "issue_started"; identifier: string }
+  /**
+   * The issue create may have committed even though the response did not
+   * arrive (network error, 5xx, or a response without an identifier). Retrying
+   * could create a second task, so the button is spent and the copy asks the
+   * reader to check the issue list first.
+   */
+  | { kind: "issue_ambiguous" }
   | { kind: "failed"; error: unknown }
   /**
    * The create call answered 2xx with a body that could not be read, so the
@@ -310,15 +325,18 @@ function ComposerBody({
 
   const busy = create.isPending || createIssue.isPending;
   const submitted =
+    outcome.kind === "navigating" ||
     outcome.kind === "started" ||
     outcome.kind === "issue_started" ||
+    outcome.kind === "issue_ambiguous" ||
     outcome.kind === "unreadable";
 
   // One submission per drawer. A second generation POST reserves the skill's
   // credits again, and an issue submission would start a second task; either
-  // way the button is spent once the server has accepted the first one. A
-  // *failed* submit stays live, because retrying that costs nothing; an
-  // *unreadable* one does not, because the server may have accepted it.
+  // way the button is spent as soon as the server accepts the first one. A
+  // definite 4xx refusal stays live because retrying is the reader's choice;
+  // an ambiguous post or an unreadable body does not, because the server may
+  // have accepted it.
   const canSubmit =
     available &&
     trimmedPrompt.length > 0 &&
@@ -341,8 +359,23 @@ function ComposerBody({
     if (picked.length === 0) return;
 
     const room = Math.max(0, maxAttachments - attachments.length);
-    for (const file of picked.slice(0, room)) {
+    for (const [index, file] of picked.entries()) {
       const key = nextAttachmentKey.current++;
+      // Never drop a file silently: an over-limit pick stays in the list with
+      // an explicit failure so the reader knows why it will not be sent.
+      if (index >= room) {
+        setAttachments((prev) => [
+          ...prev,
+          {
+            key,
+            name: file.name,
+            size: file.size,
+            status: "failed",
+            failure: "too_many",
+          },
+        ]);
+        continue;
+      }
       const kind = fileKind(file);
       const rule = kind
         ? attachmentRules.find((candidate) => candidate.kinds.includes(kind))
@@ -388,7 +421,8 @@ function ComposerBody({
               : item,
           ),
         );
-      } catch {
+      } catch (error) {
+        console.error("aurora attachment upload failed", error);
         setAttachments((prev) =>
           prev.map((item) =>
             item.key === key
@@ -416,59 +450,93 @@ function ComposerBody({
     if (!canSubmit) return;
     setOutcome({ kind: "idle" });
 
-    const promptText = [
-      trimmedPrompt,
-      audience.trim() ? `${t(($) => $.composer.audience_field)}: ${audience.trim()}` : "",
-      preferences.trim() ? `${t(($) => $.composer.preferences_field)}: ${preferences.trim()}` : "",
-    ].filter(Boolean).join("\n\n");
+    // The audience/style fields belong to the generation form; an ordinary
+    // task carries just the prompt.
+    const promptText = skill
+      ? [
+          trimmedPrompt,
+          audience.trim()
+            ? `${t(($) => $.composer.audience_field)}: ${audience.trim()}`
+            : "",
+          preferences.trim()
+            ? `${t(($) => $.composer.preferences_field)}: ${preferences.trim()}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n\n")
+      : trimmedPrompt;
 
     // A user-created agent runs an ordinary issue task: no Aurora credits and
     // no artifact follow-up, so the drawer hands the user to the issue.
     if (!skill) {
+      let created;
       try {
-        const created = await createIssue.mutateAsync({
+        created = await createIssue.mutateAsync({
           title: issueTitle(trimmedPrompt, agent.name),
           description: promptText,
           assignee_type: "agent",
           assignee_id: agent.id,
           attachment_ids: uploadedAttachmentIds,
+          // A consumer task is deliberately repeatable; the workspace's
+          // duplicate-title guard would otherwise reject the same prompt.
+          allow_duplicate: true,
         });
-        const issueUrl = issueHref?.(created.identifier) ?? null;
-        if (issueUrl) {
-          window.location.assign(issueUrl);
-          return;
-        }
-        setOutcome({ kind: "issue_started", identifier: created.identifier });
       } catch (error) {
-        setOutcome({ kind: "failed", error });
+        // A 4xx is a definite refusal (forbidden, rejected payload, rate
+        // limit). Anything else may have committed before the response was
+        // lost, so it must not invite a retry that could create a second task.
+        if (error instanceof ApiError && error.status < 500) {
+          setOutcome({ kind: "failed", error });
+        } else {
+          setOutcome({ kind: "issue_ambiguous" });
+        }
+        return;
       }
+      if (!created.identifier) {
+        setOutcome({ kind: "issue_ambiguous" });
+        return;
+      }
+      // Spend the button before navigating: a failed or blocked navigation
+      // must not present the create as a failure or allow a second submit.
+      setOutcome({ kind: "issue_started", identifier: created.identifier });
+      const issueUrl = issueHref?.(created.identifier) ?? null;
+      if (issueUrl) window.location.assign(issueUrl);
       return;
     }
 
+    let created;
     try {
-      const created = await create.mutateAsync({
+      created = await create.mutateAsync({
         skillId: skill.id,
         prompt: promptText,
         attachmentIds: uploadedAttachmentIds,
       });
-      // A usable issue identifier means the result belongs on the issue detail,
-      // not in this drawer: open it and let the drawer stop following the
-      // generation. A missing or degraded identifier (the old server's "#N")
-      // keeps the polling path below.
-      const identifier = created.value?.issueIdentifier ?? "";
-      const issueUrl = identifier && issueHref ? issueHref(identifier) : null;
-      if (issueUrl) {
-        window.location.assign(issueUrl);
-        return;
-      }
-      setOutcome(
-        created.value
-          ? { kind: "started", generationId: created.value.id }
-          : { kind: "unreadable" },
-      );
     } catch (error) {
       setOutcome({ kind: "failed", error });
+      return;
     }
+    // A usable issue identifier means the result belongs on the issue detail,
+    // not in this drawer: open it and let the drawer stop following the
+    // generation. A missing or degraded identifier (the old server's "#N")
+    // keeps the polling path below.
+    const identifier = created.value?.issueIdentifier ?? "";
+    const issueUrl = identifier && issueHref ? issueHref(identifier) : null;
+    if (issueUrl) {
+      // Spend the button before navigating; a navigation that fails or is
+      // blocked must not turn an accepted generation into a retry.
+      setOutcome({ kind: "navigating" });
+      try {
+        window.location.assign(issueUrl);
+      } catch {
+        // The generation exists and will appear in the library.
+      }
+      return;
+    }
+    setOutcome(
+      created.value
+        ? { kind: "started", generationId: created.value.id }
+        : { kind: "unreadable" },
+    );
   }
 
   // Read from the raw status rather than the label: the label has already
@@ -528,10 +596,25 @@ function ComposerBody({
           <Alert variant="destructive">
             <CircleAlert aria-hidden="true" />
             <AlertDescription>
-              {t(($) => $.composer.issue_create_failed)}
+              {outcome.error instanceof ApiError &&
+              outcome.error.status === 403
+                ? t(($) => $.composer.issue_not_permitted)
+                : outcome.error instanceof ApiError &&
+                    outcome.error.status === 400
+                  ? outcome.error.message || t(($) => $.composer.issue_rejected)
+                  : t(($) => $.composer.issue_create_failed)}
             </AlertDescription>
           </Alert>
         )
+      ) : null}
+
+      {outcome.kind === "issue_ambiguous" ? (
+        <Alert variant="destructive">
+          <CircleAlert aria-hidden="true" />
+          <AlertDescription>
+            {t(($) => $.composer.issue_ambiguous)}
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {outcome.kind === "issue_started" ? (
@@ -560,14 +643,20 @@ function ComposerBody({
       <form className="aurora-composer" onSubmit={handleSubmit}>
         <div className="aurora-field">
           <Label className="aurora-field-label" htmlFor="aurora-prompt">
-            {t(($) => $.composer.prompt_label)}
+            {skill
+              ? t(($) => $.composer.prompt_label)
+              : t(($) => $.composer.prompt_label_task)}
           </Label>
           <Textarea
             id="aurora-prompt"
             className="aurora-textarea"
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            placeholder={t(($) => $.composer.prompt_placeholder)}
+            placeholder={
+              skill
+                ? t(($) => $.composer.prompt_placeholder)
+                : t(($) => $.composer.prompt_placeholder_task)
+            }
             rows={5}
             // The prompt is the whole input, and losing it costs the user their
             // work — so it is kept rather than cleared when the submit fails.
@@ -591,30 +680,34 @@ function ComposerBody({
             ))}
           </div>
         ) : null}
-        <div className="aurora-field">
-          <Label htmlFor="aurora-audience">
-            {t(($) => $.composer.audience_label)}
-          </Label>
-          <Input
-            id="aurora-audience"
-            value={audience}
-            onChange={(event) => setAudience(event.target.value)}
-            disabled={!available}
-            placeholder={t(($) => $.composer.audience_placeholder)}
-          />
-        </div>
-        <div className="aurora-field">
-          <Label htmlFor="aurora-preferences">
-            {t(($) => $.composer.preferences_label)}
-          </Label>
-          <Input
-            id="aurora-preferences"
-            value={preferences}
-            onChange={(event) => setPreferences(event.target.value)}
-            disabled={!available}
-            placeholder={t(($) => $.composer.preferences_placeholder)}
-          />
-        </div>
+        {skill ? (
+          <>
+            <div className="aurora-field">
+              <Label htmlFor="aurora-audience">
+                {t(($) => $.composer.audience_label)}
+              </Label>
+              <Input
+                id="aurora-audience"
+                value={audience}
+                onChange={(event) => setAudience(event.target.value)}
+                disabled={!available}
+                placeholder={t(($) => $.composer.audience_placeholder)}
+              />
+            </div>
+            <div className="aurora-field">
+              <Label htmlFor="aurora-preferences">
+                {t(($) => $.composer.preferences_label)}
+              </Label>
+              <Input
+                id="aurora-preferences"
+                value={preferences}
+                onChange={(event) => setPreferences(event.target.value)}
+                disabled={!available}
+                placeholder={t(($) => $.composer.preferences_placeholder)}
+              />
+            </div>
+          </>
+        ) : null}
         {attachmentRules.length > 0 ? (
           <div className="aurora-field">
             <Label className="aurora-field-label" htmlFor="aurora-attachments">
@@ -674,7 +767,9 @@ function ComposerBody({
                         ? t(($) => $.composer.attachment_uploading)
                         : item.status === "uploaded"
                           ? t(($) => $.composer.attachment_uploaded)
-                          : item.failure === "unsupported"
+                          : item.failure === "too_many"
+                            ? t(($) => $.composer.attachment_limit)
+                            : item.failure === "unsupported"
                             ? t(($) => $.composer.attachment_unsupported)
                             : item.failure === "too_large"
                               ? t(($) => $.composer.attachment_too_large)

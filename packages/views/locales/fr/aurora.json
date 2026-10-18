@@ -22,7 +22,8 @@
     "guide_label": "Créer en trois étapes",
     "step_choose": "Choisir un assistant",
     "step_describe": "Préciser votre besoin",
-    "step_download": "Vérifier et télécharger"
+    "step_download": "Vérifier et télécharger",
+    "catalog_unreadable": "Impossible de charger les assistants Aurora. Réessayez."
   },
   "composer": {
     "cost": "{{credits}} crédits par génération",
@@ -73,11 +74,17 @@
     "preferences_label": "Style et exigences (facultatif)",
     "preferences_placeholder": "Exemple : ton chaleureux, 300 mots, bilingue",
     "deliverable_title": "Ce que vous recevrez",
-    "issue_description": "L'assistant exécute cette demande et répond dans l'issue.",
+    "issue_description": "L'assistant exécute cette demande et répond dans la tâche.",
     "attachments_label_files": "Fichiers",
     "submit_task": "Lancer la tâche",
     "issue_create_failed": "Impossible de lancer la tâche. Réessayez.",
-    "issue_started": "Tâche lancée sur {{identifier}}."
+    "issue_started": "Tâche lancée sur {{identifier}}. Ouvrez-la depuis la liste des tâches.",
+    "prompt_label_task": "Que doit faire l'assistant ?",
+    "prompt_placeholder_task": "Décrivez la tâche et le résultat attendu.",
+    "issue_not_permitted": "Vous ne pouvez pas confier de travail à cet assistant.",
+    "issue_rejected": "L'assistant a refusé cette tâche.",
+    "issue_ambiguous": "La tâche a peut-être démarré, mais aucune confirmation n'est arrivée. Vérifiez la liste des tâches avant de réessayer.",
+    "attachment_limit": "Trop de fichiers. Retirez-en un d'abord."
   },
   "works": {
     "title": "Mes œuvres",

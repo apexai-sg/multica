@@ -240,16 +240,49 @@ describe("SkillDirectory", () => {
     expect(screen.queryByText("Retired carrier")).not.toBeInTheDocument();
   });
 
-  it.each([
-    { data: undefined, isPending: true },
-    { data: undefined, isPending: false, isError: true },
-  ])("keeps ordinary agents usable when the catalog is unavailable (%j)", (catalogQuery) => {
-    mocks.skills.mockReturnValue(catalogQuery);
+  it("shows the skeleton until both the agent list and the catalog resolve", () => {
+    mocks.skills.mockReturnValue({ data: undefined, isPending: true });
+    renderDirectory();
+    expect(cards()).toHaveLength(0);
+    expect(screen.queryByText("Ops assistant")).not.toBeInTheDocument();
+  });
+
+  it("keeps ordinary agents usable and reports an unreadable catalog", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn();
+    mocks.skills.mockReturnValue({
+      data: undefined,
+      isPending: false,
+      isError: true,
+      refetch,
+    });
     renderDirectory();
     expect(cards()).toHaveLength(1);
     expect(cards()[0]!.tagName).toBe("BUTTON");
     expect(cards()[0]).toHaveTextContent("Ops assistant");
-    expect(screen.queryByText("60 credits")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Could not load Aurora assistants. Retry to see them."),
+    ).toBeVisible();
+    expect(screen.queryByText("0 assistants shown")).not.toBeInTheDocument();
+    expect(screen.queryByText("No assistants yet")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  it("does not claim an empty workspace when only carriers exist and the catalog failed", () => {
+    directory([LYRICS_AGENT]);
+    mocks.skills.mockReturnValue({
+      data: undefined,
+      isPending: false,
+      isError: true,
+    });
+    renderDirectory();
+    expect(cards()).toHaveLength(0);
+    expect(
+      screen.getByText("Could not load Aurora assistants. Retry to see them."),
+    ).toBeVisible();
+    expect(screen.queryByText("No assistants yet")).not.toBeInTheDocument();
+    expect(screen.queryByText("0 assistants shown")).not.toBeInTheDocument();
   });
 
   it.each([
