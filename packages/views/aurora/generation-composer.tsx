@@ -33,6 +33,7 @@ import {
 } from "@multica/ui/components/ui/sheet";
 import { Spinner } from "@multica/ui/components/ui/spinner";
 import { Textarea } from "@multica/ui/components/ui/textarea";
+import { useMutation } from "@tanstack/react-query";
 import {
   isAuroraDegraded,
   isAuroraGenerationTerminal,
@@ -42,9 +43,10 @@ import {
   useAuroraGenerationDetail,
   useCreateAuroraGeneration,
   type AuroraSkill,
+  type AuroraSkillAttachmentRule,
 } from "@multica/core/aurora";
 import { api } from "@multica/core/api";
-import type { Agent } from "@multica/core/types";
+import type { Agent, CreateIssueRequest } from "@multica/core/types";
 import { useFileUpload } from "@multica/core/hooks/use-file-upload";
 import { AppLink } from "../navigation";
 import { useLocale, useT } from "../i18n";
@@ -69,6 +71,17 @@ const DOCUMENT_MIMES = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ]);
+
+// A user-created agent has no skill policy. Its ordinary issue task accepts the
+// common attachment kinds with the same per-file cap the document policy uses.
+const ISSUE_ATTACHMENT_RULES: AuroraSkillAttachmentRule[] = [
+  {
+    kinds: ["image", "document", "audio", "video"],
+    min: 0,
+    max: 4,
+    maxBytes: 25 << 20,
+  },
+];
 
 function acceptForKinds(kinds: string[]): string {
   const tokens: string[] = [];
@@ -117,20 +130,21 @@ interface PendingAttachment {
 }
 
 /**
- * The task drawer: turn one agent's skill into one generation and follow it to
- * its result.
+ * The task drawer: submit one request to one backend agent.
  *
  * The drawer is opened from the directory rather than routed to, so it takes
- * the backend agent it presents and the skill it executes as props, and both
- * are required for it to render. It reports dismissal back up — the directory
- * owns which agent is selected, exactly as the platform owns the URL.
+ * the backend agent it presents as a prop. When the agent carries an Aurora
+ * skill the drawer runs the generation pipeline (credits, artifacts, progress);
+ * when it is a user-created agent it creates an ordinary issue assigned to the
+ * agent and hands the user to that issue. It reports dismissal back up — the
+ * directory owns which agent is selected, exactly as the platform owns the URL.
  * `worksHref` is supplied by the host app for the same reason `paths` is not
  * imported here: the library route belongs to the app that defines it.
  */
 export interface GenerationComposerProps {
-  /** The backend agent this drawer presents. Required with `skill`. */
+  /** The backend agent this drawer presents. Required to render. */
   agent?: Agent | null;
-  /** The skill to run, or null while no drawer is open. */
+  /** The Aurora skill to run, or null for an ordinary agent's issue task. */
   skill: AuroraSkill | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -156,7 +170,7 @@ export function GenerationComposer({
   topUpHref,
   issueHref,
 }: GenerationComposerProps) {
-  if (!agent || !skill) return null;
+  if (!agent) return null;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="aurora-drawer">
@@ -186,6 +200,7 @@ export function GenerationComposer({
 type SubmitOutcome =
   | { kind: "idle" }
   | { kind: "started"; generationId: string }
+  | { kind: "issue_started"; identifier: string }
   | { kind: "failed"; error: unknown }
   /**
    * The create call answered 2xx with a body that could not be read, so the
@@ -205,7 +220,7 @@ function ComposerBody({
   issueHref,
 }: {
   agent: Agent;
-  skill: AuroraSkill;
+  skill: AuroraSkill | null;
   worksHref?: string;
   topUpHref?: string;
   issueHref?: (identifier: string) => string | null;
@@ -214,7 +229,11 @@ function ComposerBody({
   const download = useAuroraAssetDownload();
   const locale = useLocale();
   const create = useCreateAuroraGeneration();
+  const createIssue = useMutation({
+    mutationFn: (data: CreateIssueRequest) => api.createIssue(data),
+  });
   const { upload } = useFileUpload(api);
+  const available = skill ? skill.available : true;
   const [prompt, setPrompt] = useState("");
   const [audience, setAudience] = useState("");
   const [preferences, setPreferences] = useState("");
@@ -238,14 +257,16 @@ function ComposerBody({
 
   // The input policy comes from the parsed catalog response, never a second
   // skill-id switch: the accept filter, the required count, and the per-file
-  // cap all derive from the same rules the server validates against.
-  const attachmentRules = skill.attachments ?? [];
+  // cap all derive from the same rules the server validates against. A
+  // user-created agent has no skill policy, so its issue task gets the generic
+  // common-file rule.
+  const attachmentRules = skill ? skill.attachments ?? [] : ISSUE_ATTACHMENT_RULES;
   const attachmentKinds = Array.from(
     new Set(attachmentRules.flatMap((rule) => rule.kinds)),
   );
   const attachmentKindKey = [...attachmentKinds].sort().join("+");
-  const attachmentLabel =
-    attachmentKindKey === "document"
+  const attachmentLabel = skill
+    ? attachmentKindKey === "document"
       ? t(($) => $.composer.attachments_label_document)
       : attachmentKindKey === "audio"
         ? t(($) => $.composer.attachments_label_audio)
@@ -253,7 +274,8 @@ function ComposerBody({
           ? t(($) => $.composer.attachments_label_video)
           : attachmentKindKey === "audio+video"
             ? t(($) => $.composer.attachments_label_audio_video)
-            : t(($) => $.composer.attachments_label_image);
+            : t(($) => $.composer.attachments_label_image)
+    : t(($) => $.composer.attachments_label_files);
   const accept = acceptForKinds(attachmentKinds);
   // Named from the same tokens the file dialog filters on, so the hint cannot
   // drift from the policy the server enforces.
@@ -286,19 +308,23 @@ function ComposerBody({
   const attachmentsReady =
     !attachmentsBlocked && uploadedAttachmentIds.length >= requiredAttachments;
 
-  // One submission per drawer. A second POST reserves the skill's credits a
-  // second time, and the drawer is only showing one generation's progress — so
-  // the button is spent once the server has accepted the first one. A *failed*
-  // submit stays live, because retrying that costs nothing; an *unreadable* one
-  // does not, because the server may have accepted it (see SubmitOutcome) and
-  // the copy sends the user to the library before the next attempt.
+  const busy = create.isPending || createIssue.isPending;
+  const submitted =
+    outcome.kind === "started" ||
+    outcome.kind === "issue_started" ||
+    outcome.kind === "unreadable";
+
+  // One submission per drawer. A second generation POST reserves the skill's
+  // credits again, and an issue submission would start a second task; either
+  // way the button is spent once the server has accepted the first one. A
+  // *failed* submit stays live, because retrying that costs nothing; an
+  // *unreadable* one does not, because the server may have accepted it.
   const canSubmit =
-    skill.available &&
+    available &&
     trimmedPrompt.length > 0 &&
     attachmentsReady &&
-    !create.isPending &&
-    outcome.kind !== "started" &&
-    outcome.kind !== "unreadable";
+    !busy &&
+    !submitted;
 
   // Pick files, upload each through the existing authenticated upload API, and
   // keep the prompt and every successful selection on all failure paths.
@@ -377,7 +403,7 @@ function ComposerBody({
   function handleFileDrop(event: DragEvent<HTMLButtonElement>) {
     event.preventDefault();
     setDraggingFiles(false);
-    if (!skill.available) return;
+    if (!available) return;
     void uploadFiles(Array.from(event.dataTransfer?.files ?? []));
   }
 
@@ -389,14 +415,40 @@ function ComposerBody({
     event.preventDefault();
     if (!canSubmit) return;
     setOutcome({ kind: "idle" });
+
+    const promptText = [
+      trimmedPrompt,
+      audience.trim() ? `${t(($) => $.composer.audience_field)}: ${audience.trim()}` : "",
+      preferences.trim() ? `${t(($) => $.composer.preferences_field)}: ${preferences.trim()}` : "",
+    ].filter(Boolean).join("\n\n");
+
+    // A user-created agent runs an ordinary issue task: no Aurora credits and
+    // no artifact follow-up, so the drawer hands the user to the issue.
+    if (!skill) {
+      try {
+        const created = await createIssue.mutateAsync({
+          title: issueTitle(trimmedPrompt, agent.name),
+          description: promptText,
+          assignee_type: "agent",
+          assignee_id: agent.id,
+          attachment_ids: uploadedAttachmentIds,
+        });
+        const issueUrl = issueHref?.(created.identifier) ?? null;
+        if (issueUrl) {
+          window.location.assign(issueUrl);
+          return;
+        }
+        setOutcome({ kind: "issue_started", identifier: created.identifier });
+      } catch (error) {
+        setOutcome({ kind: "failed", error });
+      }
+      return;
+    }
+
     try {
       const created = await create.mutateAsync({
         skillId: skill.id,
-        prompt: [
-          trimmedPrompt,
-          audience.trim() ? `${t(($) => $.composer.audience_field)}: ${audience.trim()}` : "",
-          preferences.trim() ? `${t(($) => $.composer.preferences_field)}: ${preferences.trim()}` : "",
-        ].filter(Boolean).join("\n\n"),
+        prompt: promptText,
         attachmentIds: uploadedAttachmentIds,
       });
       // A usable issue identifier means the result belongs on the issue detail,
@@ -441,19 +493,21 @@ function ComposerBody({
           id={agent.id}
           avatarUrl={agent.avatar_url}
           size="lg"
-          available={skill.available}
+          available={available}
         />
         <div>
           <SheetTitle>{agent.name}</SheetTitle>
           <SheetDescription>
-            {t(($) => $.composer.cost, {
-              credits: formatCredits(skill.credits, locale),
-            })}
+            {skill
+              ? t(($) => $.composer.cost, {
+                  credits: formatCredits(skill.credits, locale),
+                })
+              : t(($) => $.composer.issue_description)}
           </SheetDescription>
         </div>
       </SheetHeader>
 
-      {!skill.available ? (
+      {skill && !skill.available ? (
         <Alert>
           <CircleAlert aria-hidden="true" />
           <AlertTitle>{t(($) => $.composer.unavailable_title)}</AlertTitle>
@@ -464,11 +518,31 @@ function ComposerBody({
       ) : null}
 
       {outcome.kind === "failed" ? (
-        <SubmitFailure
-          error={outcome.error}
-          skill={skill}
-          topUpHref={topUpHref}
-        />
+        skill ? (
+          <SubmitFailure
+            error={outcome.error}
+            skill={skill}
+            topUpHref={topUpHref}
+          />
+        ) : (
+          <Alert variant="destructive">
+            <CircleAlert aria-hidden="true" />
+            <AlertDescription>
+              {t(($) => $.composer.issue_create_failed)}
+            </AlertDescription>
+          </Alert>
+        )
+      ) : null}
+
+      {outcome.kind === "issue_started" ? (
+        <Alert>
+          <CircleAlert aria-hidden="true" />
+          <AlertDescription>
+            {t(($) => $.composer.issue_started, {
+              identifier: outcome.identifier,
+            })}
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {description ? (
@@ -478,7 +552,7 @@ function ComposerBody({
         >
           <strong>{t(($) => $.composer.deliverable_title)}</strong>
           <p>{description}</p>
-          {skill.output.length === 1 && skill.output[0] === "text" ? (
+          {skill && skill.output.length === 1 && skill.output[0] === "text" ? (
             <span>{t(($) => $.directory.text_output)}</span>
           ) : null}
         </section>
@@ -497,7 +571,7 @@ function ComposerBody({
             rows={5}
             // The prompt is the whole input, and losing it costs the user their
             // work — so it is kept rather than cleared when the submit fails.
-            disabled={!skill.available}
+            disabled={!available}
           />
         </div>
         {starters.length > 0 ? (
@@ -508,12 +582,7 @@ function ComposerBody({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={
-                  !skill.available ||
-                  create.isPending ||
-                  outcome.kind === "started" ||
-                  outcome.kind === "unreadable"
-                }
+                disabled={!available || busy || submitted}
                 onClick={() => setPrompt(starter.prompt)}
               >
                 <Sparkles aria-hidden="true" />
@@ -530,7 +599,7 @@ function ComposerBody({
             id="aurora-audience"
             value={audience}
             onChange={(event) => setAudience(event.target.value)}
-            disabled={!skill.available}
+            disabled={!available}
             placeholder={t(($) => $.composer.audience_placeholder)}
           />
         </div>
@@ -542,7 +611,7 @@ function ComposerBody({
             id="aurora-preferences"
             value={preferences}
             onChange={(event) => setPreferences(event.target.value)}
-            disabled={!skill.available}
+            disabled={!available}
             placeholder={t(($) => $.composer.preferences_placeholder)}
           />
         </div>
@@ -562,23 +631,23 @@ function ComposerBody({
               accept={accept}
               multiple={maxAttachments > 1}
               tabIndex={-1}
-              disabled={!skill.available}
+              disabled={!available}
               onChange={handleAttachmentsPicked}
             />
             <button
               type="button"
               className="aurora-dropzone"
               data-dragging={draggingFiles ? "" : undefined}
-              disabled={!skill.available}
+              disabled={!available}
               aria-describedby="aurora-attachments-hint"
               onClick={() => fileInputRef.current?.click()}
               onDragEnter={(event) => {
                 event.preventDefault();
-                if (skill.available) setDraggingFiles(true);
+                if (available) setDraggingFiles(true);
               }}
               onDragOver={(event) => {
                 event.preventDefault();
-                if (skill.available) setDraggingFiles(true);
+                if (available) setDraggingFiles(true);
               }}
               onDragLeave={() => setDraggingFiles(false)}
               onDrop={handleFileDrop}
@@ -629,11 +698,13 @@ function ComposerBody({
           </div>
         ) : null}
         <div className="aurora-composer-tools">
-          <Button type="submit" disabled={!canSubmit} aria-busy={create.isPending}>
-            {create.isPending ? <Spinner aria-hidden="true" /> : null}
-            {create.isPending
+          <Button type="submit" disabled={!canSubmit} aria-busy={busy}>
+            {busy ? <Spinner aria-hidden="true" /> : null}
+            {busy
               ? t(($) => $.composer.submitting)
-              : t(($) => $.composer.submit)}
+              : skill
+                ? t(($) => $.composer.submit)
+                : t(($) => $.composer.submit_task)}
           </Button>
         </div>
       </form>
@@ -757,6 +828,16 @@ function ComposerBody({
       ) : null}
     </div>
   );
+}
+
+/** The issue title: the prompt's first non-empty line, capped for the list. */
+function issueTitle(prompt: string, agentName: string): string {
+  const firstLine =
+    prompt
+      .split("\n")
+      .map((line) => line.trim())
+      .find(Boolean) ?? "";
+  return firstLine.slice(0, 120) || agentName;
 }
 
 /**

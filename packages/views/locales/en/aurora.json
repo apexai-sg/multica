@@ -18,7 +18,6 @@
     "ready": "Open assistant",
     "clear_search": "Clear search",
     "text_output": "Written content · Markdown (.md)",
-    "read_only": "View only",
     "guide_label": "Start in three steps",
     "step_choose": "Choose an assistant",
     "step_describe": "Add your details",
@@ -72,7 +71,12 @@
     "preferences_field": "Style & requirements",
     "preferences_label": "Style & requirements (optional)",
     "preferences_placeholder": "For example: friendly tone, 300 words, bilingual",
-    "deliverable_title": "What you will receive"
+    "deliverable_title": "What you will receive",
+    "issue_description": "The assistant runs this request and replies on the issue.",
+    "attachments_label_files": "Files",
+    "submit_task": "Start task",
+    "issue_create_failed": "Could not start the task. Try again.",
+    "issue_started": "Task started on {{identifier}}."
   },
   "works": {
     "title": "My works",

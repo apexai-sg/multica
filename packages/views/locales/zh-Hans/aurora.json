@@ -17,7 +17,6 @@
     "ready": "开始使用",
     "clear_search": "清除搜索",
     "text_output": "文字内容 · Markdown（.md）",
-    "read_only": "仅查看",
     "guide_label": "三步完成创作",
     "step_choose": "选择助手",
     "step_describe": "填写需求",
@@ -71,7 +70,12 @@
     "preferences_field": "风格与要求",
     "preferences_label": "风格与要求（选填）",
     "preferences_placeholder": "例如：自然分享、300字、中英双语",
-    "deliverable_title": "你会得到什么"
+    "deliverable_title": "你会得到什么",
+    "issue_description": "助手会执行这次请求，并在对应 issue 中回复。",
+    "attachments_label_files": "文件",
+    "submit_task": "开始任务",
+    "issue_create_failed": "无法开始任务，请重试。",
+    "issue_started": "任务已在 {{identifier}} 开始。"
   },
   "works": {
     "title": "我的作品",

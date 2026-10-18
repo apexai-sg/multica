@@ -26,6 +26,7 @@ import { AuroraLoadFailed } from "./load-failed";
 import {
   agentSkillChips,
   agentSubmissionSkill,
+  listableAgents,
   matchesAgentQuery,
   orderDirectoryAgents,
 } from "./aurora-agents";
@@ -58,7 +59,8 @@ const EMPTY_SKILLS: AuroraSkill[] = [];
 
 interface SelectedAgent {
   agent: Agent;
-  skill: AuroraSkill;
+  /** The generation contract, or null when the agent runs an ordinary issue. */
+  skill: AuroraSkill | null;
 }
 
 export function SkillDirectory({
@@ -73,10 +75,15 @@ export function SkillDirectory({
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<SelectedAgent | null>(null);
 
-  // Submittable agents first; the backend's order holds inside each group.
-  const ordered = useMemo(
-    () => orderDirectoryAgents(agents, skills),
+  // Generation agents first; the backend's order holds inside each group.
+  // System-generated agents with no current catalogue entry are not listable.
+  const listable = useMemo(
+    () => listableAgents(agents, skills),
     [agents, skills],
+  );
+  const ordered = useMemo(
+    () => orderDirectoryAgents(listable, skills),
+    [listable, skills],
   );
   const visible = useMemo(
     () => ordered.filter((agent) => matchesAgentQuery(agent, query)),
@@ -93,14 +100,11 @@ export function SkillDirectory({
   // A successfully read empty list means no assistant is configured, which is
   // a different fact from "this keyword matched none"; the two get distinct
   // copy rather than telling the user to try another keyword that cannot help.
-  const noAgents = query.trim() === "" && agents.length === 0;
+  const noAgents = query.trim() === "" && listable.length === 0;
 
   return (
     <div className="aurora-page">
-      <DirectoryHero
-        agents={agentsKnown ? ordered : undefined}
-        skills={skills}
-      />
+      <DirectoryHero agents={agentsKnown ? ordered : undefined} />
       <ol
         className="aurora-quick-steps"
         aria-label={t(($) => $.directory.guide_label)}
@@ -190,9 +194,7 @@ export function SkillDirectory({
                 <AgentCard
                   agent={agent}
                   skill={skill}
-                  onSelect={() => {
-                    if (skill) setSelected({ agent, skill });
-                  }}
+                  onSelect={() => setSelected({ agent, skill })}
                 />
               </li>
             );
@@ -215,13 +217,7 @@ export function SkillDirectory({
   );
 }
 
-function DirectoryHero({
-  agents,
-  skills,
-}: {
-  agents: Agent[] | undefined;
-  skills: AuroraSkill[];
-}) {
+function DirectoryHero({ agents }: { agents: Agent[] | undefined }) {
   const { t } = useT("aurora");
   return (
     <section className="aurora-hero">
@@ -246,7 +242,7 @@ function DirectoryHero({
               name={agent.name}
               id={agent.id}
               avatarUrl={agent.avatar_url}
-              available={Boolean(agentSubmissionSkill(agent, skills))}
+              available
             />
           </span>
         ))}
@@ -268,24 +264,22 @@ function AgentCard({
   const locale = useLocale();
   const chips = agentSkillChips(agent);
 
-  const content = (
-    <>
+  return (
+    <button type="button" onClick={onSelect} className="aurora-card">
       <span className="aurora-card-top">
         <AuroraAvatar
           name={agent.name}
           id={agent.id}
           avatarUrl={agent.avatar_url}
           size="lg"
-          available={Boolean(skill)}
+          available
         />
         <span className="aurora-card-name">
           <span className="aurora-card-title">{agent.name}</span>
         </span>
-        {skill ? (
-          <span aria-hidden="true" className="aurora-card-arrow">
-            <ArrowUpRight className="size-4" />
-          </span>
-        ) : null}
+        <span aria-hidden="true" className="aurora-card-arrow">
+          <ArrowUpRight className="size-4" />
+        </span>
       </span>
       {agent.description ? (
         <span className="aurora-card-description">{agent.description}</span>
@@ -303,35 +297,18 @@ function AgentCard({
         </span>
       ) : null}
       <span className="aurora-card-footer">
+        <span className="aurora-card-state">
+          <span aria-hidden="true" className="aurora-dot" />
+          {t(($) => $.directory.ready)}
+        </span>
         {skill ? (
-          <>
-            <span className="aurora-card-state">
-              <span aria-hidden="true" className="aurora-dot" />
-              {t(($) => $.directory.ready)}
-            </span>
-            <strong>
-              {t(($) => $.credits, {
-                credits: formatCredits(skill.credits, locale),
-              })}
-            </strong>
-          </>
-        ) : (
-          <span className="aurora-status-pill aurora-status-pill--muted">
-            {t(($) => $.directory.read_only)}
-          </span>
-        )}
+          <strong>
+            {t(($) => $.credits, {
+              credits: formatCredits(skill.credits, locale),
+            })}
+          </strong>
+        ) : null}
       </span>
-    </>
-  );
-
-  if (!skill) {
-    return (
-      <div className="aurora-card aurora-card--read-only">{content}</div>
-    );
-  }
-  return (
-    <button type="button" onClick={onSelect} className="aurora-card">
-      {content}
     </button>
   );
 }

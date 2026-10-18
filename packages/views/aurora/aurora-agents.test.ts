@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import type { AuroraSkill } from "@multica/core/aurora";
 import type { Agent } from "@multica/core/types";
 import {
+  agentDirectoryMode,
   agentNamesBySkillId,
   agentSkillChips,
   agentSkillId,
   agentSubmissionSkill,
+  listableAgents,
   matchesAgentQuery,
   orderDirectoryAgents,
   visibleAgents,
@@ -188,6 +190,44 @@ describe("orderDirectoryAgents", () => {
     expect(
       orderDirectoryAgents(agents, [skill()]).map((item) => item.id),
     ).toEqual(["a", "b"]);
+  });
+});
+
+describe("agentDirectoryMode", () => {
+  it("runs a current Aurora carrier as a generation", () => {
+    expect(
+      agentDirectoryMode(agent({ system_key: "aurora:lyrics" }), [skill()]),
+    ).toBe("generation");
+  });
+
+  it("runs a user-created agent as an ordinary issue", () => {
+    expect(agentDirectoryMode(agent(), [skill()])).toBe("issue");
+  });
+
+  it("hides every other system agent", () => {
+    expect(agentDirectoryMode(agent({ system_key: "mika" }), [skill()])).toBeNull();
+    expect(
+      agentDirectoryMode(agent({ system_key: "aurora:retired" }), [skill()]),
+    ).toBeNull();
+    expect(
+      agentDirectoryMode(agent({ system_key: "aurora:lyrics" }), [
+        skill({ available: false }),
+      ]),
+    ).toBeNull();
+  });
+});
+
+describe("listableAgents", () => {
+  it("keeps generation and issue agents and drops system-generated ones", () => {
+    const generation = agent({ id: "g", system_key: "aurora:lyrics" });
+    const issue = agent({ id: "i" });
+    const mika = agent({ id: "m", system_key: "mika" });
+    const retired = agent({ id: "r", system_key: "aurora:retired" });
+    expect(
+      listableAgents([generation, issue, mika, retired], [skill()]).map(
+        (item) => item.id,
+      ),
+    ).toEqual(["g", "i"]);
   });
 });
 

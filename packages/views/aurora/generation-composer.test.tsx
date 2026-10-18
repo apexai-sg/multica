@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ApiError } from "@multica/core/api";
 import type { AuroraGenerationDetail, AuroraSkill } from "@multica/core/aurora";
-import type { Agent } from "@multica/core/types";
+import type { Agent, Issue } from "@multica/core/types";
 import { renderWithI18n } from "../test/i18n";
 import { stubNavigationAdapter } from "../test/navigation";
 import { NavigationProvider } from "../navigation";
@@ -16,6 +17,7 @@ import { NavigationProvider } from "../navigation";
 
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
+  createIssue: vi.fn(),
   detail: vi.fn(),
   detailRefetch: vi.fn(),
   balance: vi.fn(),
@@ -44,6 +46,14 @@ vi.mock("@multica/core/aurora", async (importOriginal) => {
     useAuroraGenerationDetail: (id: string) => mocks.detail(id),
     useAuroraBalance: () => mocks.balance(),
   };
+});
+
+vi.mock("@multica/core/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@multica/core/api")>();
+  return {
+    ...actual,
+    api: { createIssue: mocks.createIssue },
+  } as unknown as typeof actual;
 });
 
 import { GenerationComposer } from "./generation-composer";
@@ -144,15 +154,17 @@ function renderComposer(
   props: Partial<Parameters<typeof GenerationComposer>[0]>,
 ) {
   return renderWithI18n(
-    <NavigationProvider value={stubNavigationAdapter()}>
-      <GenerationComposer
-        agent={DEFAULT_AGENT}
-        skill={skill()}
-        open
-        onOpenChange={vi.fn()}
-        {...props}
-      />
-    </NavigationProvider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <NavigationProvider value={stubNavigationAdapter()}>
+        <GenerationComposer
+          agent={DEFAULT_AGENT}
+          skill={skill()}
+          open
+          onOpenChange={vi.fn()}
+          {...props}
+        />
+      </NavigationProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -862,5 +874,62 @@ describe("GenerationComposer", () => {
     // Three starters plus Generate: the blank pairs render no button at all.
     const form = screen.getByLabelText("What should it make?").closest("form");
     expect(within(form!).getAllByRole("button")).toHaveLength(4);
+  });
+
+  it("runs an ordinary agent as an issue task without credits", async () => {
+    const user = userEvent.setup();
+    const assign = vi.fn();
+    const restore = stubLocationAssign(assign);
+    mocks.createIssue.mockResolvedValue({ identifier: "APX-1" } as Issue);
+    renderComposer({
+      skill: null,
+      issueHref: (identifier) => `/acme/issues/${identifier}`,
+    });
+
+    expect(
+      screen.getByText(
+        "The assistant runs this request and replies on the issue.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/credits per generation/),
+    ).not.toBeInTheDocument();
+
+    const submit = screen.getByRole("button", { name: "Start task" });
+    expect(submit).toBeDisabled();
+    await user.type(
+      screen.getByLabelText("What should it make?"),
+      "Plan the offsite",
+    );
+    await user.click(submit);
+
+    expect(mocks.createIssue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Plan the offsite",
+        assignee_type: "agent",
+        assignee_id: DEFAULT_AGENT.id,
+        attachment_ids: [],
+      }),
+    );
+    expect(assign).toHaveBeenCalledWith("/acme/issues/APX-1");
+    expect(mocks.create).not.toHaveBeenCalled();
+
+    restore();
+  });
+
+  it("reports the started issue when the host has no issue route", async () => {
+    const user = userEvent.setup();
+    mocks.createIssue.mockResolvedValue({ identifier: "APX-2" } as Issue);
+    renderComposer({ skill: null });
+
+    await user.type(
+      screen.getByLabelText("What should it make?"),
+      "Plan the offsite",
+    );
+    await user.click(screen.getByRole("button", { name: "Start task" }));
+
+    expect(
+      await screen.findByText("Task started on APX-2."),
+    ).toBeInTheDocument();
   });
 });

@@ -19,7 +19,6 @@
     "ready": "Ouvrir l'assistant",
     "clear_search": "Effacer la recherche",
     "text_output": "Contenu écrit · Markdown (.md)",
-    "read_only": "Lecture seule",
     "guide_label": "Créer en trois étapes",
     "step_choose": "Choisir un assistant",
     "step_describe": "Préciser votre besoin",
@@ -73,7 +72,12 @@
     "preferences_field": "Style et exigences",
     "preferences_label": "Style et exigences (facultatif)",
     "preferences_placeholder": "Exemple : ton chaleureux, 300 mots, bilingue",
-    "deliverable_title": "Ce que vous recevrez"
+    "deliverable_title": "Ce que vous recevrez",
+    "issue_description": "L'assistant exécute cette demande et répond dans l'issue.",
+    "attachments_label_files": "Fichiers",
+    "submit_task": "Lancer la tâche",
+    "issue_create_failed": "Impossible de lancer la tâche. Réessayez.",
+    "issue_started": "Tâche lancée sur {{identifier}}."
   },
   "works": {
     "title": "Mes œuvres",

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { AuroraSkill } from "@multica/core/aurora";
 import type { Agent } from "@multica/core/types";
 import { renderWithI18n } from "../test/i18n";
@@ -100,6 +101,18 @@ const LYRICS_AGENT = agent({
   ],
 });
 
+const MIKA = agent({
+  id: "a-mika",
+  name: "Mika",
+  system_key: "mika",
+});
+
+const RETIRED = agent({
+  id: "a-retired",
+  name: "Retired carrier",
+  system_key: "aurora:retired-skill",
+});
+
 // Archived agents are removed by `useAuroraAgentDirectory` (covered by the
 // `visibleAgents` unit test), so this fixture is the hook's visible output.
 const AGENTS = [OPS, LYRICS_AGENT];
@@ -131,9 +144,11 @@ function catalog(skills: AuroraSkill[] = [LYRICS]) {
 
 function renderDirectory() {
   return renderWithI18n(
-    <NavigationProvider value={stubNavigationAdapter()}>
-      <SkillDirectory />
-    </NavigationProvider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <NavigationProvider value={stubNavigationAdapter()}>
+        <SkillDirectory />
+      </NavigationProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -193,31 +208,47 @@ describe("SkillDirectory", () => {
     expect(cards()[0]).toHaveTextContent("Ops assistant");
   });
 
-  it("opens the composer only for an agent with an Aurora identity", async () => {
+  it("makes every listed agent actionable", async () => {
     const user = userEvent.setup();
     renderDirectory();
     expect(cards()[0]!.tagName).toBe("BUTTON");
-    expect(cards()[1]!.tagName).toBe("DIV");
+    expect(cards()[1]!.tagName).toBe("BUTTON");
 
     await user.click(cards()[0]!);
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Generate" })).toBeDisabled();
+    await user.keyboard("{Escape}");
+
+    await user.click(cards()[1]!);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start task" })).toBeDisabled();
+    expect(screen.queryByText("View only")).not.toBeInTheDocument();
   });
 
-  it("shows no price outside the composer for a read-only agent", () => {
+  it("shows no price for an ordinary agent but keeps it usable", () => {
     renderDirectory();
-    expect(cards()[1]).toHaveTextContent("View only");
     expect(cards()[1]).not.toHaveTextContent(/\d+ credits/);
+    expect(cards()[1]).not.toHaveTextContent("View only");
     expect(cards()[0]).toHaveTextContent("60 credits");
+  });
+
+  it("hides system-generated agents with no current catalog entry", () => {
+    directory([...AGENTS, MIKA, RETIRED]);
+    renderDirectory();
+    expect(cards()).toHaveLength(2);
+    expect(screen.queryByText("Mika")).not.toBeInTheDocument();
+    expect(screen.queryByText("Retired carrier")).not.toBeInTheDocument();
   });
 
   it.each([
     { data: undefined, isPending: true },
     { data: undefined, isPending: false, isError: true },
-  ])("treats an unread catalog (%j) as nothing submittable", (catalogQuery) => {
+  ])("keeps ordinary agents usable when the catalog is unavailable (%j)", (catalogQuery) => {
     mocks.skills.mockReturnValue(catalogQuery);
     renderDirectory();
-    expect(cards()[0]!.tagName).toBe("DIV");
+    expect(cards()).toHaveLength(1);
+    expect(cards()[0]!.tagName).toBe("BUTTON");
+    expect(cards()[0]).toHaveTextContent("Ops assistant");
     expect(screen.queryByText("60 credits")).not.toBeInTheDocument();
   });
 
