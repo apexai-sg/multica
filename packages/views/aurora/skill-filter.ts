@@ -7,6 +7,7 @@
  */
 
 import type { AuroraSkill } from "@multica/core/aurora";
+import { toolSearchText } from "./tool-guidance";
 
 /** The pseudo-category behind the "All" tab; never a catalog value. */
 export const AURORA_CATEGORY_ALL = "all";
@@ -37,7 +38,8 @@ export function filterAuroraSkills(
     if (!needle) return true;
     return (
       skill.name.toLowerCase().includes(needle) ||
-      skill.nameEn.toLowerCase().includes(needle)
+      skill.nameEn.toLowerCase().includes(needle) ||
+      toolSearchText(skill.id).toLowerCase().includes(needle)
     );
   });
 }

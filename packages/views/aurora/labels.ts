@@ -17,6 +17,7 @@
  */
 
 import type { AuroraSkill } from "@multica/core/aurora";
+import { toolGuidance } from "./tool-guidance";
 
 /** Where a generation is, as `aurora.composer.status.*`. */
 export type AuroraGenerationStatusLabel =
@@ -82,13 +83,16 @@ export function ledgerKindLabel(
 /**
  * The name to put on a skill card, for the language the UI is in.
  *
- * The catalog carries exactly two: a Chinese `name` and an English `nameEn`
+ * Known experts use consumer task names from tool-guidance. Unknown entries
+ * preserve the catalog name. The catalog carries a Chinese `name` and English `nameEn`
  * (`aurora/catalog.go`). A Chinese reader gets the Chinese name and every other
  * reader gets the English one, which is the catalog's own convention rather
  * than a translation we could add here. `nameEn` defaults to `""` in the
  * schema, so a Chinese name is still the better answer than an empty label.
  */
 export function skillDisplayName(skill: AuroraSkill, locale: string): string {
+  const guidance = toolGuidance(skill.id, locale);
+  if (guidance) return guidance.name;
   if (locale.startsWith("zh")) return skill.name;
   return skill.nameEn || skill.name;
 }

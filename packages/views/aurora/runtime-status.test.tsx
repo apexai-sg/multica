@@ -143,7 +143,7 @@ describe("RuntimeStatus", () => {
   it("wires the execution header and readable node state into the Aurora panel", async () => {
     renderRuntime();
     const state = await screen.findByText("Online");
-    const page = screen.getByRole("heading", { name: "Execution", level: 1 }).closest(".aurora-page");
+    const page = screen.getByRole("heading", { name: "Service status", level: 1 }).closest(".aurora-page");
     expect(page).not.toBeNull();
     expect(page?.querySelector("header .aurora-eyebrow")).toBeNull();
     const panel = state.closest("section");

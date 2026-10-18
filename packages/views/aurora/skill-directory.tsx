@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowUpRight, LayoutGrid, Search, SearchX, Sparkles } from "lucide-react";
+import { ArrowUpRight, LayoutGrid, Search, SearchX, Sparkles, Image, Film, FileSpreadsheet, Presentation, Clock3 } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
 import {
   InputGroup,
@@ -19,18 +19,29 @@ import { cn } from "@multica/ui/lib/utils";
 import {
   isAuroraDegraded,
   useAuroraSkills,
-  useAuroraRuntime,
   type AuroraSkill,
 } from "@multica/core/aurora";
 import { AuroraAvatar } from "./aurora-avatar";
 import { AuroraPageState } from "./aurora-page-header";
-import { AURORA_RUNTIME_VISUAL } from "./runtime-status";
 import { useLocale, useT } from "../i18n";
 import { GenerationComposer } from "./generation-composer";
 import { formatCredits } from "./format";
 import { auroraCategoryLabel, auroraInputLabel, skillDisplayName } from "./labels";
 import { AuroraLoadFailed } from "./load-failed";
 import { AURORA_CATEGORY_ALL, filterAuroraSkills } from "./skill-filter";
+import { orderTools, RECOMMENDED_TOOL_IDS, toolGuidance } from "./tool-guidance";
+
+const RECOMMENDED = "recommended";
+const PLANNED = [
+  { key: "poster", icon: Image, ids: ["poster"] },
+  { key: "text_image", icon: Image, ids: ["text-image", "text-to-image"] },
+  { key: "image_video", icon: Film, ids: ["image-video", "image-to-video"] },
+  { key: "text_video", icon: Film, ids: ["text-video", "text-to-video"] },
+  { key: "product_image", icon: Image, ids: ["product-image"] },
+  { key: "image_edit", icon: Image, ids: ["image-edit"] },
+  { key: "ppt", icon: Presentation, ids: ["ppt"] },
+  { key: "excel", icon: FileSpreadsheet, ids: ["excel"] },
+] as const;
 
 /**
  * The skill directory: the whole catalog, filtered, and the drawer that runs
@@ -72,7 +83,7 @@ export function SkillDirectory({
   const locale = useLocale();
   const skillsQuery = useAuroraSkills();
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<string>(AURORA_CATEGORY_ALL);
+  const [category, setCategory] = useState<string>(RECOMMENDED);
   const [selected, setSelected] = useState<AuroraSkill | null>(null);
 
   const skills = skillsQuery.data?.value ?? EMPTY_SKILLS;
@@ -86,7 +97,12 @@ export function SkillDirectory({
   );
 
   const visible = useMemo(
-    () => filterAuroraSkills(skills, query, category),
+    () => {
+      const matching = filterAuroraSkills(skills, query, category === RECOMMENDED ? AURORA_CATEGORY_ALL : category);
+      // Search always covers the catalog when the popular tab is selected.
+      const recommended = matching.filter((skill) => RECOMMENDED_TOOL_IDS.includes(skill.id));
+      return orderTools(category === RECOMMENDED && !query.trim() && recommended.length > 0 ? recommended : matching);
+    },
     [skills, query, category],
   );
 
@@ -105,6 +121,11 @@ export function SkillDirectory({
   return (
     <div className="aurora-page">
       <DirectoryHero skills={catalogKnown ? skills : undefined} />
+      <ol className="aurora-quick-steps" aria-label={t(($) => $.directory.guide_label)}>
+        <li><span>1</span>{t(($) => $.directory.step_choose)}</li>
+        <li><span>2</span>{t(($) => $.directory.step_describe)}</li>
+        <li><span>3</span>{t(($) => $.directory.step_download)}</li>
+      </ol>
 
       <div className="aurora-section-head">
         <div>
@@ -126,6 +147,7 @@ export function SkillDirectory({
       <Tabs value={category} onValueChange={setCategory} className="gap-0">
         <div className="aurora-toolbar">
           <TabsList className="aurora-pill-tabs">
+            <TabsTrigger value={RECOMMENDED} className="aurora-pill-tab">{t(($) => $.directory.recommended)}</TabsTrigger>
             <TabsTrigger value={AURORA_CATEGORY_ALL} className="aurora-pill-tab">
               {t(($) => $.directory.categories.all)}
             </TabsTrigger>
@@ -188,6 +210,7 @@ export function SkillDirectory({
                   <SkillCard
                     skill={skill}
                     displayName={skillDisplayName(skill, locale)}
+                    summary={toolGuidance(skill.id, locale)?.summary}
                     credits={formatCredits(skill.credits, locale)}
                     onSelect={() => setSelected(skill)}
                   />
@@ -197,6 +220,22 @@ export function SkillDirectory({
           )}
         </TabsContent>
       </Tabs>
+      <section className="aurora-upcoming" aria-labelledby="aurora-upcoming-title">
+        <div className="aurora-section-head">
+          <div><p className="aurora-eyebrow"><Clock3 aria-hidden="true" className="size-3.5" />{t(($) => $.directory.unavailable)}</p>
+          <h2 id="aurora-upcoming-title">{t(($) => $.directory.upcoming_title)}</h2></div>
+        </div>
+        <p className="aurora-section-note">{t(($) => $.directory.upcoming_description)}</p>
+        <div className="aurora-planned-grid">
+          {PLANNED.filter((item) => !skills.some((skill) => item.ids.some((id) => id === skill.id))).map(({ key, icon: Icon }) => (
+            <div key={key} className="aurora-planned-card">
+              <Icon aria-hidden="true" className="size-5" />
+              <div><strong>{t(($) => $.directory.planned[key].name)}</strong><span>{t(($) => $.directory.planned[key].output)}</span></div>
+              <span className="aurora-status-pill aurora-status-pill--muted">{t(($) => $.directory.unavailable)}</span>
+            </div>
+          ))}
+        </div>
+      </section>
       <GenerationComposer
         skill={selected}
         open={selected !== null}
@@ -214,33 +253,13 @@ export function SkillDirectory({
 function DirectoryHero({ skills }: { skills: AuroraSkill[] | undefined }) {
   const { t } = useT("aurora");
   const locale = useLocale();
-  const runtime = useAuroraRuntime();
-  const state =
-    !runtime.isPending && !runtime.isError && !isAuroraDegraded(runtime.data)
-      ? runtime.data?.value?.state
-      : undefined;
   const runnable = (skills ?? EMPTY_SKILLS).filter((skill) => skill.available);
   return (
     <section className="aurora-hero">
       <div>
-        {state ? (
-          <span className={AURORA_RUNTIME_VISUAL[state].pill}>
-            {t(($) => $.runtime.status[state])}
-          </span>
-        ) : null}
+        <span className="aurora-hero-label">{t(($) => $.directory.hero_tag)}</span>
         <h1>{t(($) => $.directory.hero_title)}</h1>
-        {skills ? (
-          <div className="aurora-hero-stats">
-            <span>
-              <strong>{runnable.length}</strong>{" "}
-              {t(($) => $.directory.stats_runnable, { count: runnable.length })}
-            </span>
-            <span>
-              <strong>{skills.length}</strong>{" "}
-              {t(($) => $.directory.stats_total, { count: skills.length })}
-            </span>
-          </div>
-        ) : null}
+        <p>{t(($) => $.directory.hero_subtitle)}</p>
       </div>
       {/* Decorative: the four runnable skills as tiles. It carries no fact the
           stats above do not, which is why it is hidden from assistive tech. */}
@@ -280,11 +299,13 @@ function DirectoryHero({ skills }: { skills: AuroraSkill[] | undefined }) {
 function SkillCard({
   skill,
   displayName,
+  summary,
   credits,
   onSelect,
 }: {
   skill: AuroraSkill;
   displayName: string;
+  summary?: string;
   credits: string;
   onSelect: () => void;
 }) {
@@ -320,6 +341,10 @@ function SkillCard({
           <ArrowUpRight className="size-4" />
         </span>
       </span>
+      {summary ? <span className="aurora-card-description">{summary}</span> : null}
+      {skill.output.length === 1 && skill.output[0] === "text" ? (
+        <span className="aurora-delivery-note">{t(($) => $.directory.text_output)}</span>
+      ) : null}
       {/* What the skill accepts, from the catalog's own modalities. The
           reference shows three capability tags here. */}
       <span className="aurora-chips">

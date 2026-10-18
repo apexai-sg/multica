@@ -14,9 +14,7 @@ import {
 } from "lucide-react";
 import {
   AuroraAccountDialog,
-  AuroraAccountMenu,
   AuroraAccountPanel,
-  AuroraRuntimeChip,
 } from "@multica/views/aurora";
 import { AppLink, useNavigation } from "@multica/views/navigation";
 import { useT } from "@multica/views/i18n";
@@ -33,9 +31,9 @@ import { auroraRoutes } from "@/lib/routes";
 /**
  * The app's chrome: one navy column, five destinations, and the account.
  *
- * On a wide screen the account card lives behind a top-bar button. At 900px and
- * below it stays in the navigation sheet, where a popover would be trapped by
- * the sheet's focus scope — the ⋯ button opens the account dialog instead.
+ * The account and wallet stay visible in the desktop sidebar. On compact
+ * screens they live in the navigation sheet, with the account dialog nested
+ * inside its focus scope.
  *
  * A destination is a link, never a button — the shell is the only navigator in
  * Aurora, and a plain anchor keeps middle-click, "copy link" and the browser's
@@ -81,7 +79,7 @@ export function AuroraShell({
         // The old opener is removed. Focus the new entry after modal cleanup.
         focusFrame = requestAnimationFrame(() => {
           shellRef.current?.querySelector<HTMLButtonElement>(
-            media.matches ? ".aurora-menu-button" : ".aurora-account-trigger",
+            media.matches ? ".aurora-menu-button" : ".aurora-more-button",
           )?.focus();
         });
       }
@@ -107,7 +105,6 @@ export function AuroraShell({
     { href: routes.history(), icon: History, label: t(($) => $.history.title) },
   ];
   const accountItems = [
-    { href: routes.runtime(), icon: Server, label: t(($) => $.runtime.title) },
     { href: routes.billing(), icon: Coins, label: t(($) => $.billing.title) },
   ];
   const worksHref = routes.works();
@@ -132,7 +129,7 @@ export function AuroraShell({
   const sidebar = (
     <nav
       id="aurora-nav"
-      aria-label="Aurora"
+      aria-label="Apex AI"
       className="aurora-sidebar"
     >
       <div className="aurora-sidebar-top">
@@ -141,7 +138,7 @@ export function AuroraShell({
             A
           </span>
           <span className="aurora-brand-copy">
-            <strong>Aurora</strong>
+            <strong>Apex AI</strong>
             <small>{t(($) => $.shell.brand_tagline)}</small>
           </span>
         </span>
@@ -156,12 +153,7 @@ export function AuroraShell({
         ) : null}
       </div>
 
-      {compact ? (
-        <AuroraAccountPanel
-          creditsHref={routes.billing()}
-          onOpenAccount={() => setAccountOpen(true)}
-        />
-      ) : null}
+
 
       <div className="aurora-nav-groups">
         <div className="aurora-nav-group">
@@ -191,6 +183,10 @@ export function AuroraShell({
       </div>
 
       <div className="aurora-sidebar-footer">
+        <AuroraAccountPanel creditsHref={routes.billing()} onOpenAccount={() => setAccountOpen(true)} />
+        <AppLink href={routes.runtime()} className="aurora-nav-link" aria-current={selected(routes.runtime()) ? "page" : undefined}>
+          <Server aria-hidden="true" /><span>{t(($) => $.runtime.title)}</span>
+        </AppLink>
         <button type="button" className="aurora-nav-link" onClick={logout}>
           <LogOut aria-hidden="true" />
           {tLayout(($) => $.sidebar.log_out)}
@@ -210,6 +206,7 @@ export function AuroraShell({
   return (
     <div ref={shellRef} className="aurora-app">
       {compact ? null : sidebar}
+      {compact ? null : accountDialog}
       <div className="aurora-main">
         <header className="aurora-topbar">
           {/* Scope the modal context to navigation, never to page dialogs. */}
@@ -225,27 +222,16 @@ export function AuroraShell({
             ) : null}
             {/* Keep the popup mounted through its exit lifecycle on resize. */}
             <SheetContent side="left" showCloseButton={false} className="aurora-nav-drawer">
-              <SheetTitle className="sr-only">Aurora</SheetTitle>
+              <SheetTitle className="sr-only">Apex AI</SheetTitle>
               {compact ? sidebar : null}
               {compact ? accountDialog : null}
             </SheetContent>
           </Sheet>
           <span className="aurora-topbar-brand">
-            Aurora <span>AI</span>
+            Apex <span>AI</span>
           </span>
           <div className="aurora-topbar-actions">
-            {/* The runtime state belongs in the chrome: every page here starts a
-                generation, and a node that is offline is the reason the next
-                one will not. */}
-            <AuroraRuntimeChip href={routes.runtime()} />
-            {compact ? null : (
-              <AuroraAccountMenu
-                open={accountOpen}
-                onOpenChange={setAccountOpen}
-                creditsHref={routes.billing()}
-                runtimeHref={routes.runtime()}
-              />
-            )}
+            <span className="aurora-topbar-context">{[...workItems, ...accountItems].find((item) => selected(item.href))?.label ?? t(($) => $.shell.brand_tagline)}</span>
           </div>
         </header>
         <main className="aurora-scroll">{children}</main>
