@@ -220,6 +220,10 @@ describe("GenerationComposer", () => {
       skillId: "content-creation-lyrics-songwriting",
       prompt: expect.stringMatching(/A song about courage[\s\S]*Young children[\s\S]*Simple and warm/),
     }));
+    const prompt = mocks.create.mock.calls[0]![0].prompt as string;
+    expect(prompt).toContain("Audience: Young children");
+    expect(prompt).toContain("Style & requirements: Simple and warm");
+    expect(prompt).not.toContain("(optional)");
   });
 
   it("groups the labelled prompt and submit action in the Aurora drawer", () => {
@@ -311,7 +315,7 @@ describe("GenerationComposer", () => {
 
     expect(await screen.findByText("Not enough credits")).toBeInTheDocument();
     expect(
-      screen.getByText("This skill costs 60 credits and you have 50."),
+      screen.getByText("This tool costs 60 credits and you have 50."),
     ).toBeInTheDocument();
   });
 
@@ -520,7 +524,7 @@ describe("GenerationComposer", () => {
 
     expect(await screen.findByText("Not enough credits")).toBeInTheDocument();
     expect(
-      screen.getByText("This skill costs 60 credits."),
+      screen.getByText("This tool costs 60 credits."),
     ).toBeInTheDocument();
   });
 
@@ -540,7 +544,7 @@ describe("GenerationComposer", () => {
 
     expect(await screen.findByText("Not enough credits")).toBeInTheDocument();
     expect(
-      screen.getByText("This skill costs 60 credits."),
+      screen.getByText("This tool costs 60 credits."),
     ).toBeInTheDocument();
   });
 

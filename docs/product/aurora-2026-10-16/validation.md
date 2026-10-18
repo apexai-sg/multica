@@ -1,28 +1,42 @@
 # Validation and delivery status
 
-Base: main at 14be4ef (full SHA is in the patch package README).
+Base: main at 14be4ef.
+Review checkout: PR #4 head 7d9a5ce1, isolated local baseline db8138e.
 Branch: codex/apex-consumer-workbench.
 
 ## Passed
 
-- Aurora TypeScript: `corepack pnpm --filter @multica/aurora typecheck`.
-- Aurora production build: `corepack pnpm --filter @multica/aurora build`.
-- Changed production code and initial regression tests: scoped ESLint checks in views and Aurora.
-- 279 shared Aurora tests across 18 suites. The broad run initially had four stale title expectations (Credits/Execution); those were updated for the new product labels and all 74 tests in the affected three suites passed on rerun. The other 205 passed in the broad run.
-- 36 app-level tests: sidebar, mobile navigation/focus handling, login branding and theme contracts.
-- Static render of actual production components with fixture account/catalog data, exported as a standalone HTML preview.
-- `git diff --check`.
+This review reran the checks below in the isolated checkout after the dead-key,
+dead-component, comment, formatting and narrow-screen top-bar cleanups.
 
-The build reports two non-blocking optimizer warnings for existing shared `::highlight(multica-find*)` selectors, unrelated to the changed styles.
+| Check | Command | Result |
+| --- | --- | --- |
+| Shared views tests | `cd packages/views && ../../node_modules/.bin/vitest run` | 497 files, 6371 tests, 0 failed (89.79s) |
+| Aurora app tests | `cd apps/aurora && ../../node_modules/.bin/vitest run` | 10 files, 94 tests, 0 failed (2.84s) |
+| Views typecheck | `pnpm --filter @multica/views typecheck` | 0 errors |
+| Aurora typecheck | `pnpm --filter @multica/aurora typecheck` | 0 errors |
+| Views lint | `pnpm --filter @multica/views lint` | 0 errors, 21 pre-existing warnings outside Aurora |
+| Aurora lint | `pnpm --filter @multica/aurora lint` | 0 problems |
+
+- The five `packages/views/locales/{en,fr,ja,ko,zh-Hans}/aurora.json` files parse as JSON.
+- `AuroraAccountMenu`, `aurora-account-trigger`, `aurora-account-menu` and
+  `directory.output_label` have no remaining references, and the account dialog
+  and panel tests still pass.
+- The `modals/issue-limit-upgrade-dialog.test.tsx` timeout seen under high load
+  in earlier runs did not reproduce here (497/497 files passed, no rerun was
+  needed). It is a known flake unrelated to the Aurora changes.
 
 ## Not verified / not performed
 
-- Browser visual QA could not connect to the scratch preview server: ERR_CONNECTION_REFUSED. Do not treat the static preview as a browser-verified screenshot.
+- No browser visual QA was performed in this review; the narrow-screen
+  `max-width: 480px` top-bar change is verified by the stylesheet and unit
+  tests only, not by a browser screenshot.
 - No real model, payment, Docker/Fleet or production calls were made.
 - No production deployment.
-- Initial GitHub writes returned HTTP 403. After the owner added this repository to the GitHub App installation, branch creation and Issues #1, #2 and #3 succeeded.
 
 ## Handoff
 
-The HTML is a static desktop layout preview; its buttons do not execute tasks and its account, quota and credits are fixture data. The runnable application remains the modified monorepo code, using the existing real backend contracts.
-The three adjacent files correspond to published Issues #1, #2 and #3, with the implementation work separated from backend/media and results/billing follow-ups.
+The runnable application remains the modified monorepo code, using the existing
+real backend contracts. The three adjacent files correspond to published Issues
+#1, #2 and #3, with the implementation work separated from backend/media and
+results/billing follow-ups.

@@ -394,8 +394,8 @@ function ComposerBody({
         skillId: skill.id,
         prompt: [
           trimmedPrompt,
-          audience.trim() ? `${t(($) => $.composer.audience_label)}: ${audience.trim()}` : "",
-          preferences.trim() ? `${t(($) => $.composer.preferences_label)}: ${preferences.trim()}` : "",
+          audience.trim() ? `${t(($) => $.composer.audience_field)}: ${audience.trim()}` : "",
+          preferences.trim() ? `${t(($) => $.composer.preferences_field)}: ${preferences.trim()}` : "",
         ].filter(Boolean).join("\n\n"),
         attachmentIds: uploadedAttachmentIds,
       });

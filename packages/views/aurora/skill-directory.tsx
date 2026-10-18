@@ -106,15 +106,15 @@ export function SkillDirectory({
         aria-label={t(($) => $.directory.guide_label)}
       >
         <li>
-          <span>1</span>
+          <span aria-hidden="true">1</span>
           {t(($) => $.directory.step_choose)}
         </li>
         <li>
-          <span>2</span>
+          <span aria-hidden="true">2</span>
           {t(($) => $.directory.step_describe)}
         </li>
         <li>
-          <span>3</span>
+          <span aria-hidden="true">3</span>
           {t(($) => $.directory.step_download)}
         </li>
       </ol>
@@ -230,7 +230,6 @@ function DirectoryHero({
           {t(($) => $.directory.hero_tag)}
         </span>
         <h1>{t(($) => $.directory.hero_title)}</h1>
-        <p>{t(($) => $.directory.hero_subtitle)}</p>
       </div>
       {/* Decorative: the first four agents as tiles. It carries no fact the
           list below does not, so it is hidden from assistive tech. */}
