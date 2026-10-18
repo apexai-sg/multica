@@ -161,7 +161,7 @@ func runPeriodicSweep(ctx context.Context, interval time.Duration, sweep func())
 // hot heartbeat path; the DB is allowed to lag up to runtimeHeartbeatDBFlushInterval).
 // When liveness is unavailable or errors, we fall back to trusting the DB
 // stale window — that is the original behavior.
-func runRuntimeSweeper(ctx context.Context, queries *db.Queries, liveness handler.LivenessStore, taskSvc *service.TaskService, bus *events.Bus, reconnectGrace time.Duration, sandboxReaper *aurora.SandboxReaper) {
+func runRuntimeSweeper(ctx context.Context, queries *db.Queries, liveness handler.LivenessStore, taskSvc *service.TaskService, bus *events.Bus, reconnectGrace time.Duration, sandboxReaper *aurora.SandboxReaper, sandboxManager aurora.WorkspaceSandboxManager) {
 	runPeriodicSweep(ctx, sweepInterval, func() {
 		// These stages retain their existing cadence and ordering. Runtime GC and
 		// delegated-failure recovery run in independent lower-frequency loops.
@@ -172,7 +172,54 @@ func runRuntimeSweeper(ctx context.Context, queries *db.Queries, liveness handle
 		sweepExpiredQueuedTasks(ctx, queries, taskSvc, reconnectGrace)
 		sweepDeferredChatFinalizations(ctx, queries, taskSvc)
 		sweepAuroraSandboxNodes(ctx, sandboxReaper)
+		sweepAuroraSandboxEnsure(ctx, queries, sandboxManager)
 	})
+}
+
+// auroraManagedRuntimeProvider names the managed runtime row the Aurora
+// reconciler keeps online. It mirrors aurora.managedRuntimeProvider, which is
+// unexported because the sandbox lifecycle owns it.
+const auroraManagedRuntimeProvider = "aurora_managed"
+
+// sweepAuroraSandboxEnsure keeps one node online for every workspace that has
+// used Aurora. The managed runtime is seeded lazily on the first generation, so
+// this set is bounded by actual Aurora usage rather than every workspace.
+//
+// Ensure is idempotent and cheap for a healthy node: armOnce takes the
+// per-workspace advisory lock, sees an online row that has not gone stale, and
+// returns without a Fleet call. For a stopped, failed, or stale node it arms a
+// fresh enrollment and calls the Fleet, which is the self-healing path after a
+// host restart, a Fleet restart, or a node whose container disappeared.
+//
+// Duplicate managed-runtime rows per workspace are possible in legacy data;
+// the list is ordered by workspace and creation time, so the first row matches
+// the row GetAuroraManagedRuntime resolves.
+func sweepAuroraSandboxEnsure(ctx context.Context, queries *db.Queries, manager aurora.WorkspaceSandboxManager) {
+	if manager == nil {
+		return
+	}
+	runtimes, err := queries.ListAuroraManagedRuntimes(ctx, auroraManagedRuntimeProvider)
+	if err != nil {
+		slog.Warn("aurora sandbox ensure: list managed runtimes failed", "error", err)
+		return
+	}
+	seen := make(map[string]struct{}, len(runtimes))
+	for _, rt := range runtimes {
+		if !rt.WorkspaceID.Valid {
+			continue
+		}
+		workspaceID := util.UUIDToString(rt.WorkspaceID)
+		if _, duplicate := seen[workspaceID]; duplicate {
+			continue
+		}
+		seen[workspaceID] = struct{}{}
+		if _, err := manager.Ensure(ctx, rt.WorkspaceID, rt.ID); err != nil {
+			slog.Warn("aurora sandbox ensure failed",
+				"workspace_id", workspaceID,
+				"runtime_id", util.UUIDToString(rt.ID),
+				"error", err)
+		}
+	}
 }
 
 // sweepAuroraSandboxNodes advances the managed sandbox fleet by one bounded
@@ -187,11 +234,10 @@ func sweepAuroraSandboxNodes(ctx context.Context, reaper *aurora.SandboxReaper) 
 		slog.Error("aurora sandbox sweep failed", "error", err)
 		return
 	}
-	if stats.StartingFailed > 0 || stats.Draining > 0 || stats.Stopped > 0 || stats.Settled > 0 {
+	if stats.StartingFailed > 0 || stats.Stopped > 0 || stats.Settled > 0 {
 		slog.Info("aurora sandbox sweep",
 			"candidates", stats.Candidates,
 			"starting_failed", stats.StartingFailed,
-			"draining", stats.Draining,
 			"stopped", stats.Stopped,
 			"settled", stats.Settled)
 	}

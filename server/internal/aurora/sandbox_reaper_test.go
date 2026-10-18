@@ -317,7 +317,9 @@ func TestSandboxReaperFailsStartingNodeAfterTwoMinutes(t *testing.T) {
 }
 
 // TestSandboxReaperKeepsIdleNodeBeforeFifteenMinutes pins the idle floor.
-func TestSandboxReaperKeepsIdleNodeBeforeFifteenMinutes(t *testing.T) {
+// TestSandboxReaperKeepsOnlineNode pins the long-lived runtime contract: an
+// online node is not a reap candidate at all.
+func TestSandboxReaperKeepsOnlineNode(t *testing.T) {
 	f := newReaperFixture(t)
 	f.node(t, nodeOptions{state: "online", daemonID: "daemon-busy", backendNodeID: "fleet-1", createdAgo: time.Minute, lastActiveAgo: 5 * time.Minute, startedAgo: time.Minute})
 	fleet := &fakeNodeDeleter{}
@@ -333,48 +335,24 @@ func TestSandboxReaperKeepsIdleNodeBeforeFifteenMinutes(t *testing.T) {
 	}
 }
 
-// TestSandboxReaperStopsIdleNodeAfterFifteenMinutes pins the idle stop.
-func TestSandboxReaperStopsIdleNodeAfterFifteenMinutes(t *testing.T) {
+// TestSandboxReaperNeverStopsAnIdleOnlineNode pins the design change: idle and
+// age are not lifecycle events for the long-lived workspace runtime.
+func TestSandboxReaperNeverStopsAnIdleOnlineNode(t *testing.T) {
 	f := newReaperFixture(t)
-	f.node(t, nodeOptions{state: "online", daemonID: "daemon-idle", backendNodeID: "fleet-idle", createdAgo: time.Hour, lastActiveAgo: 20 * time.Minute, startedAgo: 30 * time.Minute})
+	f.node(t, nodeOptions{state: "online", daemonID: "daemon-idle", backendNodeID: "fleet-idle", createdAgo: 30 * time.Hour, lastActiveAgo: 20 * time.Minute, startedAgo: 30 * time.Hour})
 	fleet := &fakeNodeDeleter{}
 	settler := &recordingSettler{queries: f.queries}
 
 	stats := f.sweep(t, fleet, settler)
 
-	if node := f.nodeState(t); node.State != "stopped" {
-		t.Fatalf("node state = %q, want stopped", node.State)
+	if node := f.nodeState(t); node.State != "online" {
+		t.Fatalf("node state = %q, want online", node.State)
 	}
-	if stats.Stopped != 1 {
-		t.Fatalf("stopped = %d, want 1", stats.Stopped)
-	}
-	if fleet.callCount() != 1 {
-		t.Fatalf("fleet deletes = %d, want 1", fleet.callCount())
-	}
-}
-
-// TestSandboxReaperMarksEightHourNodeDraining pins the hard-lifetime drain
-// entry: the node is not stopped while it may still hold work.
-func TestSandboxReaperMarksEightHourNodeDraining(t *testing.T) {
-	f := newReaperFixture(t)
-	f.node(t, nodeOptions{state: "online", daemonID: "daemon-old", backendNodeID: "fleet-old", createdAgo: 9 * time.Hour, lastActiveAgo: time.Minute, startedAgo: 9 * time.Hour})
-	fleet := &fakeNodeDeleter{}
-	settler := &recordingSettler{queries: f.queries}
-
-	stats := f.sweep(t, fleet, settler)
-
-	node := f.nodeState(t)
-	if node.State != "draining" {
-		t.Fatalf("node state = %q, want draining", node.State)
-	}
-	if !node.DrainStartedAt.Valid {
-		t.Fatal("drain_started_at is not set")
-	}
-	if stats.Draining != 1 || stats.Stopped != 0 {
-		t.Fatalf("stats draining = %d stopped = %d, want 1/0", stats.Draining, stats.Stopped)
+	if stats.Stopped != 0 {
+		t.Fatalf("stopped = %d, want 0", stats.Stopped)
 	}
 	if fleet.callCount() != 0 {
-		t.Fatalf("fleet deletes = %d, want 0 while draining", fleet.callCount())
+		t.Fatalf("fleet deletes = %d, want 0", fleet.callCount())
 	}
 }
 
@@ -401,7 +379,7 @@ func TestSandboxReaperKeepsDrainingNodeWithActiveTask(t *testing.T) {
 }
 
 // TestSandboxReaperFailsTaskAndStopsAfterThirtyMinuteDrain pins the drain
-// deadline: the task is failed with the lifetime reason and the node stops.
+// deadline: the task is failed with the drain reason and the node stops.
 func TestSandboxReaperFailsTaskAndStopsAfterThirtyMinuteDrain(t *testing.T) {
 	f := newReaperFixture(t)
 	f.node(t, nodeOptions{state: "draining", daemonID: "daemon-expired", backendNodeID: "fleet-expired", createdAgo: 10 * time.Hour, lastActiveAgo: time.Minute, startedAgo: 10 * time.Hour, drainAgo: 40 * time.Minute})
@@ -412,8 +390,8 @@ func TestSandboxReaperFailsTaskAndStopsAfterThirtyMinuteDrain(t *testing.T) {
 	f.sweep(t, fleet, settler)
 
 	status, reason := f.taskStatus(t, taskID)
-	if status != "failed" || reason != aurora.SandboxRuntimeLifetimeExceeded {
-		t.Fatalf("task = %q/%q, want failed/%s", status, reason, aurora.SandboxRuntimeLifetimeExceeded)
+	if status != "failed" || reason != aurora.SandboxDrainTimeout {
+		t.Fatalf("task = %q/%q, want failed/%s", status, reason, aurora.SandboxDrainTimeout)
 	}
 	if node := f.nodeState(t); node.State != "stopped" {
 		t.Fatalf("node state = %q, want stopped", node.State)
@@ -428,7 +406,7 @@ func TestSandboxReaperFailsTaskAndStopsAfterThirtyMinuteDrain(t *testing.T) {
 func TestSandboxReaperRevokesTokensAndMarksRuntimeOffline(t *testing.T) {
 	f := newReaperFixture(t)
 	const daemonID = "daemon-revoke"
-	f.node(t, nodeOptions{state: "online", daemonID: daemonID, backendNodeID: "fleet-revoke", createdAgo: time.Hour, lastActiveAgo: 20 * time.Minute, startedAgo: 30 * time.Minute})
+	f.node(t, nodeOptions{state: "draining", daemonID: daemonID, backendNodeID: "fleet-revoke", createdAgo: time.Hour, lastActiveAgo: 20 * time.Minute, startedAgo: 30 * time.Minute, drainAgo: 5 * time.Minute})
 	f.daemonToken(t, daemonID)
 	f.bindRuntime(t, daemonID)
 	fleet := &fakeNodeDeleter{}
@@ -483,7 +461,7 @@ func TestSandboxReaperUsesAuroraFailureSettlementForRefund(t *testing.T) {
 // resolves the container through the controlled node label.
 func TestSandboxReaperAddressesFleetNodeByWorkspaceNodeID(t *testing.T) {
 	f := newReaperFixture(t)
-	node := f.node(t, nodeOptions{state: "online", daemonID: "daemon-id", backendNodeID: "aurora-sbx-0123456789abcdef", createdAgo: time.Hour, lastActiveAgo: 20 * time.Minute, startedAgo: 30 * time.Minute})
+	node := f.node(t, nodeOptions{state: "draining", daemonID: "daemon-id", backendNodeID: "aurora-sbx-0123456789abcdef", createdAgo: time.Hour, lastActiveAgo: 20 * time.Minute, startedAgo: 30 * time.Minute, drainAgo: 5 * time.Minute})
 	fleet := &fakeNodeDeleter{}
 	settler := &recordingSettler{queries: f.queries}
 

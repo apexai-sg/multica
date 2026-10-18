@@ -24,8 +24,13 @@ type fakeProvisioner struct {
 	calls     int
 	lastOwner string
 	last      aurora.FleetEnsureRequest
+	requests  []aurora.FleetEnsureRequest
 	node      aurora.FleetNode
 	err       error
+	// firstErr applies to the first failFirst ensure calls, which lets a test
+	// exercise an identity rejection followed by a successful replacement.
+	firstErr  error
+	failFirst int
 	deletes   []provisionerDelete
 	deleteErr error
 }
@@ -41,6 +46,11 @@ func (f *fakeProvisioner) EnsureWorkspaceNode(_ context.Context, ownerID string,
 	f.calls++
 	f.lastOwner = ownerID
 	f.last = req
+	f.requests = append(f.requests, req)
+	if f.failFirst > 0 {
+		f.failFirst--
+		return aurora.FleetNode{}, f.firstErr
+	}
 	if f.err != nil {
 		return aurora.FleetNode{}, f.err
 	}
@@ -292,6 +302,43 @@ func TestSandboxManagerMarksNodeFailedWhenFleetRejects(t *testing.T) {
 	}
 	if stored.BackendNodeID.Valid {
 		t.Fatalf("failed node kept backend node id %q", stored.BackendNodeID.String)
+	}
+}
+
+// TestSandboxManagerReplacesIdentityWhenFleetRejectsIt pins the identity
+// recovery: a Fleet conflict/forbidden is not retried against the same node
+// forever. The manager deletes the rejected Fleet node and local row, then
+// mints a fresh id and ensures it once.
+func TestSandboxManagerReplacesIdentityWhenFleetRejectsIt(t *testing.T) {
+	pool := auroraTestPool(t)
+	q := db.New(pool)
+	ws, runtimeID := newSandboxNodeWorkspace(t, q, pool)
+	ctx := context.Background()
+
+	fleet := &fakeProvisioner{firstErr: aurora.ErrNodeConflict, failFirst: 1}
+	mgr := aurora.NewSandboxManager(q, pool, fleet, validSandboxImageDigest, nil)
+	node, err := mgr.Ensure(ctx, ws, runtimeID)
+	if err != nil {
+		t.Fatalf("ensure with identity replacement: %v", err)
+	}
+	if fleet.callCount() != 2 {
+		t.Fatalf("fleet ensure calls = %d, want 2 (reject + fresh id)", fleet.callCount())
+	}
+	if len(fleet.requests) != 2 {
+		t.Fatalf("recorded requests = %d, want 2", len(fleet.requests))
+	}
+	if fleet.requests[0].NodeID == fleet.requests[1].NodeID {
+		t.Fatalf("replacement reused node id %q", fleet.requests[0].NodeID)
+	}
+	if len(fleet.deletes) != 1 || fleet.deletes[0].nodeID != fleet.requests[0].NodeID {
+		t.Fatalf("fleet deletes = %+v, want the rejected node %q", fleet.deletes, fleet.requests[0].NodeID)
+	}
+	stored := sandboxNodeByWorkspace(t, pool, ws)
+	if util.UUIDToString(stored.ID) != fleet.requests[1].NodeID {
+		t.Fatalf("stored node id = %s, want the replacement %s", util.UUIDToString(stored.ID), fleet.requests[1].NodeID)
+	}
+	if util.UUIDToString(node.ID) != fleet.requests[1].NodeID {
+		t.Fatalf("returned node id = %s, want the replacement %s", util.UUIDToString(node.ID), fleet.requests[1].NodeID)
 	}
 }
 

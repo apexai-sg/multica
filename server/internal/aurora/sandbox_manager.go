@@ -80,6 +80,12 @@ func newSandboxDaemonID() string {
 // failure marks the node failed with its enrollment cleared rather than leaving
 // a live secret behind.
 func (m *SandboxManager) Ensure(ctx context.Context, workspaceID, runtimeID pgtype.UUID) (db.AuroraSandboxNode, error) {
+	return m.ensure(ctx, workspaceID, runtimeID, true)
+}
+
+// ensure carries the allowReplace guard so an identity replacement retries the
+// Fleet exactly once instead of recursing through a persistent rejection.
+func (m *SandboxManager) ensure(ctx context.Context, workspaceID, runtimeID pgtype.UUID, allowReplace bool) (db.AuroraSandboxNode, error) {
 	if !validImageDigest(m.imageDigest) {
 		return db.AuroraSandboxNode{}, fmt.Errorf("sandbox image %q must end with @sha256: and 64 lowercase hex characters", m.imageDigest)
 	}
@@ -103,6 +109,9 @@ func (m *SandboxManager) Ensure(ctx context.Context, workspaceID, runtimeID pgty
 		Spec:            auroraFleetNodeSpec,
 	})
 	if err != nil {
+		if allowReplace && (errors.Is(err, ErrNodeConflict) || errors.Is(err, ErrNodeForbidden)) {
+			return m.replaceIdentity(ctx, workspaceID, runtimeID, armed, err)
+		}
 		m.markFailed(ctx, workspaceID, armed.node.ID, err)
 		return db.AuroraSandboxNode{}, fmt.Errorf("ensure workspace sandbox: %w", err)
 	}
@@ -118,6 +127,31 @@ func (m *SandboxManager) Ensure(ctx context.Context, workspaceID, runtimeID pgty
 		return db.AuroraSandboxNode{}, fmt.Errorf("record sandbox backend node: %w", err)
 	}
 	return scrubEnrollment(updated), nil
+}
+
+// replaceIdentity recovers from a Fleet-side identity the current namespace can
+// no longer admit. The Fleet delete is idempotent; the local row is removed so
+// the retry mints a fresh node id, which is the documented recovery for a row
+// left under an older Fleet namespace or generation.
+func (m *SandboxManager) replaceIdentity(ctx context.Context, workspaceID, runtimeID pgtype.UUID, armed sandboxArm, cause error) (db.AuroraSandboxNode, error) {
+	slog.Warn("aurora sandbox identity rejected; replacing",
+		"workspace_id", util.UUIDToString(workspaceID),
+		"node_id", util.UUIDToString(armed.node.ID),
+		"error", cause)
+
+	// The Fleet addresses a node by the server-issued id, and a rejected row may
+	// never have recorded a backend id; supply the API id so
+	// deleteFleetWorkspaceNode's backend-id guard does not skip the delete.
+	old := armed.node
+	old.BackendNodeID = pgtype.Text{String: util.UUIDToString(old.ID), Valid: true}
+	if err := deleteFleetWorkspaceNode(ctx, m.queries, m.fleet, old); err != nil {
+		m.markFailed(ctx, workspaceID, old.ID, err)
+		return db.AuroraSandboxNode{}, fmt.Errorf("replace sandbox identity: delete fleet node: %w", err)
+	}
+	if err := m.queries.DeleteAuroraSandboxNodeByWorkspace(ctx, workspaceID); err != nil {
+		return db.AuroraSandboxNode{}, fmt.Errorf("replace sandbox identity: delete local row: %w", err)
+	}
+	return m.ensure(ctx, workspaceID, runtimeID, false)
 }
 
 // HandoffWorkspaceToFleet enqueues the Fleet destroy intent for the workspace's

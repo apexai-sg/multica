@@ -149,19 +149,21 @@ WHERE id = $1
 
 -- name: ListAuroraSandboxNodesForReap :many
 -- Bounded, oldest-first candidate scan for the node reaper. A candidate is a
--- starting node that never completed its grace window, an online or draining
--- node idle past the idle cutoff, or any active node older than the hard
--- lifetime. The three cutoffs stay separate so a queue of not-yet-due idle
--- nodes cannot consume the batch before a stuck starting node is examined.
+-- starting node that never enrolled within its grace window, or a draining node
+-- waiting for teardown. Healthy online nodes are deliberately absent: the
+-- workspace runtime is long-lived and only the starting/draining states need
+-- lifecycle action.
 SELECT * FROM aurora_sandbox_node
-WHERE state IN ('starting', 'online', 'draining')
-  AND (
-    (state = 'starting' AND created_at < sqlc.arg(starting_cutoff))
-    OR (state IN ('online', 'draining') AND last_active_at < sqlc.arg(idle_cutoff))
-    OR created_at < sqlc.arg(hard_cutoff)
-  )
+WHERE (state = 'starting' AND created_at < sqlc.arg(starting_cutoff))
+   OR state = 'draining'
 ORDER BY created_at ASC, id ASC
 LIMIT sqlc.arg(row_limit);
+
+-- name: DeleteAuroraSandboxNodeByWorkspace :exec
+-- Removes the node row after its Fleet identity was rejected. The next Ensure
+-- then creates a fresh row and mints a new node id, which is the recovery for
+-- a Fleet-side identity left under an older namespace or generation.
+DELETE FROM aurora_sandbox_node WHERE workspace_id = $1;
 
 -- name: CountActiveAuroraSandboxTasks :one
 -- Active means the task still holds or awaits the managed runtime: queued work

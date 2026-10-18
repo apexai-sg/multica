@@ -252,6 +252,53 @@ func (q *Queries) ListAuroraExpertAvatars(ctx context.Context, arg ListAuroraExp
 	return items, nil
 }
 
+const listAuroraManagedRuntimes = `-- name: ListAuroraManagedRuntimes :many
+SELECT id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, owner_id, legacy_daemon_id, visibility, profile_id, custom_name FROM agent_runtime
+WHERE provider = $1
+ORDER BY workspace_id ASC, created_at ASC, id ASC
+`
+
+// Every workspace that has a managed Aurora runtime. The reconciler keeps one
+// node online per such workspace; a workspace that never used Aurora has no row
+// and therefore no node to maintain.
+func (q *Queries) ListAuroraManagedRuntimes(ctx context.Context, provider string) ([]AgentRuntime, error) {
+	rows, err := q.db.Query(ctx, listAuroraManagedRuntimes, provider)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AgentRuntime{}
+	for rows.Next() {
+		var i AgentRuntime
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.DaemonID,
+			&i.Name,
+			&i.RuntimeMode,
+			&i.Provider,
+			&i.Status,
+			&i.DeviceInfo,
+			&i.Metadata,
+			&i.LastSeenAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.OwnerID,
+			&i.LegacyDaemonID,
+			&i.Visibility,
+			&i.ProfileID,
+			&i.CustomName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertAuroraSkill = `-- name: UpsertAuroraSkill :one
 INSERT INTO skill (workspace_id, name, description, content, config, created_by)
 VALUES ($1, $2, '', $3, '{}'::jsonb, $4)
