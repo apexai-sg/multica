@@ -4,79 +4,24 @@
   "credits": "{{credits}} 积分",
   "directory": {
     "title": "开始创作",
-    "search_placeholder": "搜索你想做的事，例如：小红书",
-    "load_failed_title": "无法加载功能目录",
-    "load_failed_description": "功能目录暂时不可用。",
-    "empty_title": "没有匹配的功能",
-    "empty_description": "换个关键词或分类试试。",
-    "unavailable": "即将上线",
-    "categories": {
-      "all": "全部功能",
-      "ecommerce": "电商",
-      "content-creation": "故事与写作",
-      "marketing": "推广与文案",
-      "legal": "合同与资料",
-      "media": "视频脚本",
-      "design": "产品与网页",
-      "other": "其他"
-    },
-    "eyebrow": "创作工具",
+    "search_placeholder": "搜索助手，例如：小红书",
+    "load_failed_title": "无法加载助手列表",
+    "empty_title": "没有匹配的助手",
+    "empty_description": "换个关键词试试。",
+    "empty_agents_title": "还没有助手",
+    "empty_agents_description": "在 Multica 后台配置的助手会显示在这里。",
+    "eyebrow": "AI 助手",
     "hero_title": "你今天想做什么？",
-    "visible_count_other": "{{count}} 个功能",
-    "ready": "开始使用",
-    "clear_filters": "查看全部功能",
-    "inputs": {
-      "text": "文本",
-      "image": "图片",
-      "document": "文档",
-      "audio": "音频",
-      "video": "视频",
-      "spreadsheet": "表格",
-      "other": "其他"
-    },
     "hero_tag": "APEX AI · 你的创作助手",
-    "recommended": "常用推荐",
-    "upcoming_title": "图片、视频与办公工具",
-    "upcoming_description": "以下功能正在准备，暂不能提交，也不会扣费。",
-    "guide_label": "三步完成创作",
-    "step_choose": "选择功能",
-    "step_describe": "填写需求",
-    "step_download": "查看与下载",
+    "visible_count_other": "{{count}} 个助手",
+    "ready": "开始使用",
+    "clear_search": "清除搜索",
     "text_output": "文字内容 · Markdown（.md）",
-    "planned": {
-      "poster": {
-        "name": "海报制作",
-        "output": "海报图片"
-      },
-      "text_image": {
-        "name": "文字生成图片",
-        "output": "生成图片"
-      },
-      "image_video": {
-        "name": "图片生成视频",
-        "output": "视频文件"
-      },
-      "text_video": {
-        "name": "文字生成视频",
-        "output": "视频文件"
-      },
-      "product_image": {
-        "name": "商品图制作",
-        "output": "商品图片"
-      },
-      "image_edit": {
-        "name": "图片修改",
-        "output": "修改后的图片"
-      },
-      "ppt": {
-        "name": "PPT 制作",
-        "output": "可编辑演示文稿"
-      },
-      "excel": {
-        "name": "Excel 数据分析",
-        "output": "表格文件"
-      }
-    }
+    "read_only": "仅查看",
+    "guide_label": "三步完成创作",
+    "step_choose": "选择助手",
+    "step_describe": "填写需求",
+    "step_download": "查看与下载"
   },
   "composer": {
     "cost": "每次生成消耗 {{credits}} 积分",
@@ -120,7 +65,6 @@
       "unknown": "未知"
     },
     "progress_unreadable": "无法读取该次生成的进度。",
-    "example": "填入示例",
     "audience_field": "受众",
     "audience_label": "写给谁看？（选填）",
     "audience_placeholder": "例如：带3—8岁孩子的家长",

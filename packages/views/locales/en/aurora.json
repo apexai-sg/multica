@@ -4,80 +4,25 @@
   "credits": "{{credits}} credits",
   "directory": {
     "title": "Start creating",
-    "search_placeholder": "Search a task, e.g. social posts",
-    "load_failed_title": "Could not load the tool directory",
-    "load_failed_description": "The catalog is temporarily unavailable.",
-    "empty_title": "No matching tools",
-    "empty_description": "Try another keyword or category.",
-    "unavailable": "Coming soon",
-    "categories": {
-      "all": "All tools",
-      "ecommerce": "Online store",
-      "content-creation": "Stories & writing",
-      "marketing": "Promotion & copy",
-      "legal": "Contracts & documents",
-      "media": "Video scripts",
-      "design": "Product & web",
-      "other": "Other"
-    },
-    "eyebrow": "AI TOOLS",
+    "search_placeholder": "Search assistants, e.g. social posts",
+    "load_failed_title": "Could not load assistants",
+    "empty_title": "No matching assistants",
+    "empty_description": "Try another keyword.",
+    "empty_agents_title": "No assistants yet",
+    "empty_agents_description": "Assistants configured in Multica appear here.",
+    "eyebrow": "AI ASSISTANTS",
     "hero_title": "What would you like to create?",
-    "visible_count_one": "{{count}} tool shown",
-    "visible_count_other": "{{count}} tools shown",
-    "ready": "Open tool",
-    "clear_filters": "Show all tools",
-    "inputs": {
-      "text": "Text",
-      "image": "Images",
-      "document": "Documents",
-      "audio": "Audio",
-      "video": "Video",
-      "spreadsheet": "Spreadsheets",
-      "other": "Other"
-    },
     "hero_tag": "YOUR EVERYDAY AI TEAM",
-    "recommended": "Popular tasks",
-    "upcoming_title": "Images, video & office tools",
-    "upcoming_description": "Coming soon. These tools cannot be submitted or charged yet.",
-    "guide_label": "Start in three steps",
-    "step_choose": "Choose a tool",
-    "step_describe": "Add your details",
-    "step_download": "Review & download",
+    "visible_count_one": "{{count}} assistant shown",
+    "visible_count_other": "{{count}} assistants shown",
+    "ready": "Open assistant",
+    "clear_search": "Clear search",
     "text_output": "Written content · Markdown (.md)",
-    "planned": {
-      "poster": {
-        "name": "Poster design",
-        "output": "Poster image"
-      },
-      "text_image": {
-        "name": "Text to image",
-        "output": "Generated image"
-      },
-      "image_video": {
-        "name": "Image to video",
-        "output": "Video file"
-      },
-      "text_video": {
-        "name": "Text to video",
-        "output": "Video file"
-      },
-      "product_image": {
-        "name": "Product images",
-        "output": "Product image"
-      },
-      "image_edit": {
-        "name": "Image editing",
-        "output": "Edited image"
-      },
-      "ppt": {
-        "name": "PowerPoint creation",
-        "output": "Editable presentation"
-      },
-      "excel": {
-        "name": "Excel analysis",
-        "output": "Spreadsheet"
-      }
-    }
+    "read_only": "View only",
+    "guide_label": "Start in three steps",
+    "step_choose": "Choose an assistant",
+    "step_describe": "Add your details",
+    "step_download": "Review & download"
   },
   "composer": {
     "cost": "{{credits}} credits per generation",
@@ -121,7 +66,6 @@
       "unknown": "Unknown"
     },
     "progress_unreadable": "Could not read this generation's progress.",
-    "example": "Try an example",
     "audience_field": "Audience",
     "audience_label": "Who is it for? (optional)",
     "audience_placeholder": "For example: parents with young children",

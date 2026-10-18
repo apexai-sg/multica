@@ -4,79 +4,24 @@
   "credits": "{{credits}} 크레딧",
   "directory": {
     "title": "만들기 시작",
-    "search_placeholder": "만들고 싶은 내용 검색",
-    "load_failed_title": "도구 목록을 불러오지 못했습니다",
-    "load_failed_description": "카탈로그를 일시적으로 사용할 수 없습니다.",
-    "empty_title": "일치하는 도구가 없습니다",
-    "empty_description": "다른 키워드나 카테고리를 시도해 보세요.",
-    "unavailable": "출시 예정",
-    "categories": {
-      "all": "모든 도구",
-      "ecommerce": "온라인 스토어",
-      "content-creation": "스토리·글쓰기",
-      "marketing": "홍보·카피",
-      "legal": "계약·자료",
-      "media": "영상 스크립트",
-      "design": "제품·웹",
-      "other": "기타"
-    },
-    "eyebrow": "AI 도구",
+    "search_placeholder": "어시스턴트 검색",
+    "load_failed_title": "어시스턴트 목록을 불러오지 못했습니다",
+    "empty_title": "일치하는 어시스턴트가 없습니다",
+    "empty_description": "다른 키워드를 시도해 보세요.",
+    "empty_agents_title": "아직 어시스턴트가 없습니다",
+    "empty_agents_description": "Multica에서 설정한 어시스턴트가 여기에 표시됩니다.",
+    "eyebrow": "AI 어시스턴트",
     "hero_title": "오늘 무엇을 만들까요?",
-    "visible_count_other": "도구 {{count}}개",
-    "ready": "사용하기",
-    "clear_filters": "모든 도구 보기",
-    "inputs": {
-      "text": "텍스트",
-      "image": "이미지",
-      "document": "문서",
-      "audio": "오디오",
-      "video": "동영상",
-      "spreadsheet": "스프레드시트",
-      "other": "기타"
-    },
     "hero_tag": "일상 속 AI 도우미",
-    "recommended": "추천 도구",
-    "upcoming_title": "이미지·동영상·문서 도구",
-    "upcoming_description": "준비 중입니다. 아직 요청하거나 결제할 수 없습니다.",
-    "guide_label": "세 단계로 만들기",
-    "step_choose": "도구 선택",
-    "step_describe": "요청 입력",
-    "step_download": "확인 및 다운로드",
+    "visible_count_other": "어시스턴트 {{count}}개",
+    "ready": "사용하기",
+    "clear_search": "검색 지우기",
     "text_output": "텍스트 · Markdown (.md)",
-    "planned": {
-      "poster": {
-        "name": "포스터 제작",
-        "output": "포스터 이미지"
-      },
-      "text_image": {
-        "name": "텍스트로 이미지",
-        "output": "생성 이미지"
-      },
-      "image_video": {
-        "name": "이미지로 동영상",
-        "output": "동영상 파일"
-      },
-      "text_video": {
-        "name": "텍스트로 동영상",
-        "output": "동영상 파일"
-      },
-      "product_image": {
-        "name": "상품 이미지",
-        "output": "상품 이미지"
-      },
-      "image_edit": {
-        "name": "이미지 편집",
-        "output": "편집된 이미지"
-      },
-      "ppt": {
-        "name": "PowerPoint 제작",
-        "output": "편집 가능한 발표 자료"
-      },
-      "excel": {
-        "name": "Excel 분석",
-        "output": "스프레드시트"
-      }
-    }
+    "read_only": "보기 전용",
+    "guide_label": "세 단계로 만들기",
+    "step_choose": "어시스턴트 선택",
+    "step_describe": "요청 입력",
+    "step_download": "확인 및 다운로드"
   },
   "composer": {
     "cost": "생성 1회당 {{credits}} 크레딧",
@@ -120,7 +65,6 @@
       "unknown": "알 수 없음"
     },
     "progress_unreadable": "이 생성의 진행 상황을 읽지 못했습니다.",
-    "example": "예시 입력",
     "audience_field": "대상",
     "audience_label": "누구를 위한 내용인가요? (선택)",
     "audience_placeholder": "예: 어린 자녀를 둔 부모",

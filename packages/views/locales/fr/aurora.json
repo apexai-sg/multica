@@ -4,81 +4,26 @@
   "credits": "{{credits}} crédits",
   "directory": {
     "title": "Commencer à créer",
-    "search_placeholder": "Rechercher une tâche",
-    "load_failed_title": "Impossible de charger le catalogue d’outils",
-    "load_failed_description": "Le catalogue est temporairement indisponible.",
-    "empty_title": "Aucun outil correspondant",
-    "empty_description": "Essayez un autre mot-clé ou une autre catégorie.",
-    "unavailable": "Bientôt disponible",
-    "categories": {
-      "all": "Tous les outils",
-      "ecommerce": "Boutique en ligne",
-      "content-creation": "Histoires et écriture",
-      "marketing": "Promotion et rédaction",
-      "legal": "Contrats et documents",
-      "media": "Scripts vidéo",
-      "design": "Produit et web",
-      "other": "Autre"
-    },
-    "eyebrow": "OUTILS IA",
+    "search_placeholder": "Rechercher un assistant",
+    "load_failed_title": "Impossible de charger les assistants",
+    "empty_title": "Aucun assistant correspondant",
+    "empty_description": "Essayez un autre mot-clé.",
+    "empty_agents_title": "Aucun assistant pour le moment",
+    "empty_agents_description": "Les assistants configurés dans Multica apparaissent ici.",
+    "eyebrow": "ASSISTANTS IA",
     "hero_title": "Que souhaitez-vous créer ?",
-    "visible_count_one": "{{count}} outil affiché",
-    "visible_count_many": "{{count}} outils affichés",
-    "visible_count_other": "{{count}} outils affichés",
-    "ready": "Utiliser",
-    "clear_filters": "Afficher tous les outils",
-    "inputs": {
-      "text": "Texte",
-      "image": "Images",
-      "document": "Documents",
-      "audio": "Audio",
-      "video": "Vidéo",
-      "spreadsheet": "Tableurs",
-      "other": "Autre"
-    },
     "hero_tag": "VOTRE ÉQUIPE IA AU QUOTIDIEN",
-    "recommended": "Outils populaires",
-    "upcoming_title": "Images, vidéos et bureautique",
-    "upcoming_description": "Bientôt disponibles. Aucun envoi ni débit possible pour ces outils.",
+    "visible_count_one": "{{count}} assistant affiché",
+    "visible_count_many": "{{count}} assistants affichés",
+    "visible_count_other": "{{count}} assistants affichés",
+    "ready": "Ouvrir l'assistant",
+    "clear_search": "Effacer la recherche",
+    "text_output": "Contenu écrit · Markdown (.md)",
+    "read_only": "Lecture seule",
     "guide_label": "Créer en trois étapes",
-    "step_choose": "Choisir un outil",
-    "step_describe": "Décrire le besoin",
-    "step_download": "Vérifier et télécharger",
-    "text_output": "Texte · Markdown (.md)",
-    "planned": {
-      "poster": {
-        "name": "Création d’affiches",
-        "output": "Image d’affiche"
-      },
-      "text_image": {
-        "name": "Texte vers image",
-        "output": "Image générée"
-      },
-      "image_video": {
-        "name": "Image vers vidéo",
-        "output": "Fichier vidéo"
-      },
-      "text_video": {
-        "name": "Texte vers vidéo",
-        "output": "Fichier vidéo"
-      },
-      "product_image": {
-        "name": "Images de produits",
-        "output": "Image de produit"
-      },
-      "image_edit": {
-        "name": "Retouche d’images",
-        "output": "Image retouchée"
-      },
-      "ppt": {
-        "name": "Création PowerPoint",
-        "output": "Présentation modifiable"
-      },
-      "excel": {
-        "name": "Analyse Excel",
-        "output": "Feuille de calcul"
-      }
-    }
+    "step_choose": "Choisir un assistant",
+    "step_describe": "Préciser votre besoin",
+    "step_download": "Vérifier et télécharger"
   },
   "composer": {
     "cost": "{{credits}} crédits par génération",
@@ -122,7 +67,6 @@
       "unknown": "Inconnu"
     },
     "progress_unreadable": "Impossible de lire la progression de cette génération.",
-    "example": "Essayer un exemple",
     "audience_field": "Public",
     "audience_label": "Pour quel public ? (facultatif)",
     "audience_placeholder": "Exemple : parents de jeunes enfants",

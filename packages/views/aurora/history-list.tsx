@@ -46,6 +46,7 @@ import {
   filterAuroraHistory,
   type AuroraHistoryStatusFilter,
 } from "./history-filter";
+import { useAuroraAgentNames } from "./use-aurora-agent-names";
 
 // Stable references for "not loaded yet", so the derived values below do not
 // see a fresh array on every render. Same reasoning as SkillDirectory.
@@ -103,6 +104,7 @@ export function HistoryList({
     () => skillDisplayNamesById(skills, locale),
     [skills, locale],
   );
+  const agentNames = useAuroraAgentNames();
 
   // A failed or degraded catalog is not "the catalog dropped this entry":
   // without the distinction a failed request stamps "Unknown skill" on every
@@ -161,7 +163,8 @@ export function HistoryList({
                 },
                 ...skills.map((skill) => ({
                   value: skill.id,
-                  label: skillDisplayName(skill, locale),
+                  label:
+                    agentNames.get(skill.id) ?? skillDisplayName(skill, locale),
                 })),
               ]}
               value={skillId}
@@ -181,7 +184,7 @@ export function HistoryList({
                 </SelectItem>
                 {skills.map((skill) => (
                   <SelectItem key={skill.id} value={skill.id}>
-                    {skillDisplayName(skill, locale)}
+                    {agentNames.get(skill.id) ?? skillDisplayName(skill, locale)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -216,6 +219,7 @@ export function HistoryList({
                   key={generation.id}
                   generation={generation}
                   skillName={
+                    agentNames.get(generation.skillId) ??
                     skillNames.get(generation.skillId) ??
                     (catalogLoaded ? t(($) => $.works.skill_unknown) : null)
                   }

@@ -2,8 +2,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuroraSkill } from "@multica/core/aurora";
 import {
-  auroraCategoryLabel,
-  auroraInputLabel,
   generationStatusLabel,
   ledgerKindLabel,
   skillDisplayName,
@@ -26,15 +24,6 @@ function skill(overrides: Partial<AuroraSkill> = {}): AuroraSkill {
     ...overrides,
   };
 }
-
-describe("auroraInputLabel", () => {
-  it.each(["text", "image", "document", "audio", "video", "spreadsheet"])("labels %s", (modality) => {
-    expect(auroraInputLabel(modality)).toBe(modality);
-  });
-  it.each(["hologram", "", "constructor", "toString", "__proto__"])("falls back for %s", (modality) => {
-    expect(auroraInputLabel(modality)).toBe("other");
-  });
-});
 
 describe("generationStatusLabel", () => {
   it("maps each status the server derives from the enqueued task", () => {
@@ -105,26 +94,5 @@ describe("skillDisplayNamesById", () => {
     // this entry" from "the catalog never loaded", so a miss is absent rather
     // than an invented label.
     expect(skillDisplayNamesById([skill()], "en").get("retired")).toBeUndefined();
-  });
-});
-
-describe("auroraCategoryLabel", () => {
-  it("maps the six scenes the catalog ships", () => {
-    expect(auroraCategoryLabel("ecommerce")).toBe("ecommerce");
-    expect(auroraCategoryLabel("content-creation")).toBe("content-creation");
-    expect(auroraCategoryLabel("marketing")).toBe("marketing");
-    expect(auroraCategoryLabel("legal")).toBe("legal");
-    expect(auroraCategoryLabel("media")).toBe("media");
-    expect(auroraCategoryLabel("design")).toBe("design");
-  });
-
-  it("files a category this build has no label for under other", () => {
-    // The schema keeps `category` a plain string, so a newer server's category
-    // still gets a tab — labelled generically rather than by its raw value.
-    expect(auroraCategoryLabel("audio")).toBe("other");
-  });
-
-  it("files a missing category under other", () => {
-    expect(auroraCategoryLabel("")).toBe("other");
   });
 });

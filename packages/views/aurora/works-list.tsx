@@ -36,6 +36,7 @@ import {
 } from "./generation-artifacts";
 import { generationStatusLabel, skillDisplayNamesById } from "./labels";
 import { AuroraLoadFailed } from "./load-failed";
+import { useAuroraAgentNames } from "./use-aurora-agent-names";
 import { useAuroraAssetDownload } from "./use-aurora-asset-download";
 
 /**
@@ -75,14 +76,17 @@ export function WorksList({ generationHref, issueHref }: WorksListProps = {}) {
   const generations = generationsQuery.data?.value ?? [];
   const assets = assetsQuery.data?.value ?? [];
   const skills = skillsQuery.data?.value;
+  const agentNames = useAuroraAgentNames();
 
-  // The catalog is the only place a generation's `skillId` becomes a name. It
-  // is the same query the directory reads, so it is already in the cache when
-  // the user arrives here.
-  const skillNames = useMemo(
-    () => skillDisplayNamesById(skills ?? [], locale),
-    [skills, locale],
-  );
+  // The agent that presented the skill names the row when it exists, because
+  // that is the card the user picked. The catalog's display name is the
+  // fallback, and it is the same query the directory reads, so it is already
+  // in the cache when the user arrives here.
+  const skillNames = useMemo(() => {
+    const names = skillDisplayNamesById(skills ?? [], locale);
+    for (const [skillId, agentName] of agentNames) names.set(skillId, agentName);
+    return names;
+  }, [skills, locale, agentNames]);
 
   // Whether an unresolved `skillId` means "the catalog dropped this entry" or
   // "the catalog never loaded". Without the distinction a failed catalog request

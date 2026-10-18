@@ -4,79 +4,24 @@
   "credits": "{{credits}} クレジット",
   "directory": {
     "title": "作成を始める",
-    "search_placeholder": "作りたい内容を検索",
-    "load_failed_title": "ツール一覧を読み込めませんでした",
-    "load_failed_description": "カタログを一時的に利用できません。",
-    "empty_title": "一致するツールがありません",
-    "empty_description": "別のキーワードやカテゴリをお試しください。",
-    "unavailable": "近日公開",
-    "categories": {
-      "all": "すべてのツール",
-      "ecommerce": "ネットショップ",
-      "content-creation": "ストーリー・文章",
-      "marketing": "プロモーション・コピー",
-      "legal": "契約・資料",
-      "media": "動画スクリプト",
-      "design": "プロダクト・Web",
-      "other": "その他"
-    },
-    "eyebrow": "AI ツール",
+    "search_placeholder": "アシスタントを検索",
+    "load_failed_title": "アシスタント一覧を読み込めませんでした",
+    "empty_title": "一致するアシスタントがありません",
+    "empty_description": "別のキーワードをお試しください。",
+    "empty_agents_title": "アシスタントはまだありません",
+    "empty_agents_description": "Multica で設定したアシスタントがここに表示されます。",
+    "eyebrow": "AI アシスタント",
     "hero_title": "今日は何を作りますか？",
-    "visible_count_other": "{{count}} 個のツール",
-    "ready": "使ってみる",
-    "clear_filters": "すべてのツールを表示",
-    "inputs": {
-      "text": "テキスト",
-      "image": "画像",
-      "document": "ドキュメント",
-      "audio": "音声",
-      "video": "動画",
-      "spreadsheet": "表計算",
-      "other": "その他"
-    },
     "hero_tag": "毎日の AI アシスタント",
-    "recommended": "おすすめ",
-    "upcoming_title": "画像・動画・オフィスツール",
-    "upcoming_description": "準備中のため、まだ送信や課金はできません。",
-    "guide_label": "3ステップで作成",
-    "step_choose": "ツールを選択",
-    "step_describe": "内容を入力",
-    "step_download": "確認・ダウンロード",
+    "visible_count_other": "アシスタント {{count}} 件",
+    "ready": "使ってみる",
+    "clear_search": "検索をクリア",
     "text_output": "文章 · Markdown（.md）",
-    "planned": {
-      "poster": {
-        "name": "ポスター作成",
-        "output": "ポスター画像"
-      },
-      "text_image": {
-        "name": "文章から画像",
-        "output": "生成画像"
-      },
-      "image_video": {
-        "name": "画像から動画",
-        "output": "動画ファイル"
-      },
-      "text_video": {
-        "name": "文章から動画",
-        "output": "動画ファイル"
-      },
-      "product_image": {
-        "name": "商品画像",
-        "output": "商品画像"
-      },
-      "image_edit": {
-        "name": "画像編集",
-        "output": "編集済み画像"
-      },
-      "ppt": {
-        "name": "PowerPoint 作成",
-        "output": "編集可能なプレゼン"
-      },
-      "excel": {
-        "name": "Excel 分析",
-        "output": "表計算ファイル"
-      }
-    }
+    "read_only": "閲覧のみ",
+    "guide_label": "3ステップで作成",
+    "step_choose": "アシスタントを選択",
+    "step_describe": "内容を入力",
+    "step_download": "確認・ダウンロード"
   },
   "composer": {
     "cost": "1 回の生成に {{credits}} クレジット",
@@ -120,7 +65,6 @@
       "unknown": "不明"
     },
     "progress_unreadable": "この生成の進行状況を読み取れませんでした。",
-    "example": "例を入力",
     "audience_field": "対象",
     "audience_label": "誰に向けた内容ですか？（任意）",
     "audience_placeholder": "例：小さな子どもがいる保護者",

@@ -57,34 +57,37 @@ const translatedLocales = Object.keys(RESOURCES).filter(
 
 describe("Aurora directory plural families", () => {
   it.each([
-    ["en", 0, "0 tools shown"],
-    ["en", 1, "1 tool shown"],
-    ["en", 3, "3 tools shown"],
-    ["zh-Hans", 0, "0 个功能"],
-    ["zh-Hans", 1, "1 个功能"],
-    ["zh-Hans", 3, "3 个功能"],
-    ["ja", 0, "0 個のツール"],
-    ["ja", 1, "1 個のツール"],
-    ["ja", 3, "3 個のツール"],
-    ["ko", 0, "도구 0개"],
-    ["ko", 1, "도구 1개"],
-    ["ko", 3, "도구 3개"],
-    ["fr", 0, "0 outil affiché"],
-    ["fr", 1, "1 outil affiché"],
-    ["fr", 3, "3 outils affichés"],
-    ["fr", 1000000, "1000000 outils affichés"],
+    ["en", 0, "0 assistants shown"],
+    ["en", 1, "1 assistant shown"],
+    ["en", 3, "3 assistants shown"],
+    ["zh-Hans", 0, "0 个助手"],
+    ["zh-Hans", 1, "1 个助手"],
+    ["zh-Hans", 3, "3 个助手"],
+    ["ja", 0, "アシスタント 0 件"],
+    ["ja", 1, "アシスタント 1 件"],
+    ["ja", 3, "アシスタント 3 件"],
+    ["ko", 0, "어시스턴트 0개"],
+    ["ko", 1, "어시스턴트 1개"],
+    ["ko", 3, "어시스턴트 3개"],
+    ["fr", 0, "0 assistant affiché"],
+    ["fr", 1, "1 assistant affiché"],
+    ["fr", 3, "3 assistants affichés"],
+    ["fr", 1000000, "1000000 assistants affichés"],
   ] as const)("renders %s count %i without fallback or duplicated numerals", async (locale, count, visible) => {
     const i18n = createInstance();
     await i18n.init({ lng: locale, fallbackLng: false, resources: RESOURCES });
     expect(i18n.t(($) => $.directory.visible_count, { ns: "aurora", count })).toBe(visible);
   });
-  const base = "directory.visible_count";
+  const families = ["visible_count"];
   const categories = { en: ["one", "other"], "zh-Hans": ["other"], ja: ["other"], ko: ["other"], fr: ["many", "one", "other"] };
   for (const [locale, suffixes] of Object.entries(categories)) {
     it(`${locale} supplies exactly its grammatical count forms`, () => {
       const keys = flattenKeys(RESOURCES[locale as keyof typeof RESOURCES].aurora);
-      expect(keys.filter((key) => key === base || key.startsWith(base + "_")).sort())
-        .toEqual(suffixes.map((suffix) => base + "_" + suffix).sort());
+      for (const family of families) {
+        const base = `directory.${family}`;
+        expect(keys.filter((key) => key === base || key.startsWith(base + "_")).sort())
+          .toEqual(suffixes.map((suffix) => base + "_" + suffix).sort());
+      }
     });
   }
 });

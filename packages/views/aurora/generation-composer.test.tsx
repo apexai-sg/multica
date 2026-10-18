@@ -3,6 +3,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ApiError } from "@multica/core/api";
 import type { AuroraGenerationDetail, AuroraSkill } from "@multica/core/aurora";
+import type { Agent } from "@multica/core/types";
 import { renderWithI18n } from "../test/i18n";
 import { stubNavigationAdapter } from "../test/navigation";
 import { NavigationProvider } from "../navigation";
@@ -66,6 +67,42 @@ function skill(overrides: Partial<AuroraSkill> = {}): AuroraSkill {
   };
 }
 
+function agent(overrides: Partial<Agent> = {}): Agent {
+  return {
+    id: "agent-lyrics",
+    workspace_id: "ws-1",
+    runtime_id: "rt-1",
+    name: "Write lyrics",
+    description: "Short lyrics for songs.",
+    instructions: "",
+    avatar_url: null,
+    runtime_mode: "local",
+    runtime_config: {},
+    max_concurrent_tasks: 1,
+    owner_id: "user-1",
+    archived_at: null,
+    custom_args: [],
+    visibility: "private",
+    permission_mode: "private",
+    invocation_targets: [],
+    model: "claude",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    status: "idle",
+    skills: [{ id: "s-lyrics", name: "歌词创作", description: "", enabled: true }],
+    archived_by: null,
+    conversation_starters: [
+      {
+        label: "Try an example",
+        prompt: "A warm song about a family trip to Singapore",
+      },
+    ],
+    ...overrides,
+  };
+}
+
+const DEFAULT_AGENT = agent();
+
 const IMAGE_RULE = { kinds: ["image"], min: 0, max: 4, maxBytes: 25 << 20 };
 const REQUIRED_IMAGE_RULE = {
   kinds: ["image"],
@@ -109,6 +146,7 @@ function renderComposer(
   return renderWithI18n(
     <NavigationProvider value={stubNavigationAdapter()}>
       <GenerationComposer
+        agent={DEFAULT_AGENT}
         skill={skill()}
         open
         onOpenChange={vi.fn()}
@@ -174,15 +212,17 @@ describe("GenerationComposer", () => {
     mocks.create.mockResolvedValue(payload(detail()));
     renderComposer({});
     await user.type(screen.getByLabelText("What should it make?"), "A song about courage");
-    expect(screen.getByRole("button", { name: "Try an example" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Try an example" })).toBeEnabled();
     await user.type(screen.getByLabelText("Who is it for? (optional)"), "Young children");
     await user.type(screen.getByLabelText("Style & requirements (optional)"), "Simple and warm");
     await user.click(screen.getByRole("button", { name: "Generate" }));
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
       skillId: "content-creation-lyrics-songwriting",
-      prompt: expect.stringMatching(/A song about courage[\s\S]*Audience: Young children[\s\S]*Style & requirements: Simple and warm/),
+      prompt: expect.stringMatching(/A song about courage[\s\S]*Young children[\s\S]*Simple and warm/),
     }));
     const prompt = mocks.create.mock.calls[0]![0].prompt as string;
+    expect(prompt).toContain("Audience: Young children");
+    expect(prompt).toContain("Style & requirements: Simple and warm");
     expect(prompt).not.toContain("(optional)");
   });
 
@@ -198,7 +238,6 @@ describe("GenerationComposer", () => {
       "aria-hidden",
       "true",
     );
-    expect(screen.getByText("Stories & writing")).toHaveClass("aurora-drawer-head-category");
     const field = screen.getByLabelText("What should it make?");
     // The field carries its own surface and focus ring now; the panel is a flat
     // card rather than one large focusable box.
@@ -758,5 +797,70 @@ describe("GenerationComposer", () => {
     } finally {
       restore();
     }
+  });
+
+  it("renders the agent's own description and conversation starters", () => {
+    renderComposer({});
+    expect(screen.getByText("Short lyrics for songs.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Try an example" }),
+    ).toBeInTheDocument();
+  });
+
+  it("omits the deliverable and examples when the agent has neither", () => {
+    renderComposer({
+      agent: agent({ description: "", conversation_starters: [] }),
+    });
+    expect(
+      screen.queryByText("What you will receive"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Try an example" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("replaces the draft when a starter is clicked", async () => {
+    const user = userEvent.setup();
+    renderComposer({});
+
+    const prompt = screen.getByLabelText("What should it make?");
+    await user.type(prompt, "my own draft");
+
+    const starter = screen.getByRole("button", { name: "Try an example" });
+    expect(starter).toBeEnabled();
+    await user.click(starter);
+
+    expect(prompt).toHaveValue(
+      "A warm song about a family trip to Singapore",
+    );
+    expect(screen.getByRole("button", { name: "Generate" })).toBeEnabled();
+  });
+
+  it("shows at most three starters, skipping blank labels and prompts", () => {
+    renderComposer({
+      agent: agent({
+        conversation_starters: [
+          { label: "   ", prompt: "Ignored blank label" },
+          { label: "Blank prompt", prompt: "   " },
+          { label: "First", prompt: "Prompt one" },
+          { label: "Second", prompt: "Prompt two" },
+          { label: "Third", prompt: "Prompt three" },
+          { label: "Fourth", prompt: "Prompt four" },
+        ],
+      }),
+    });
+
+    expect(screen.getByRole("button", { name: "First" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Second" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Third" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Fourth" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Blank prompt" }),
+    ).not.toBeInTheDocument();
+    // Three starters plus Generate: the blank pairs render no button at all.
+    const form = screen.getByLabelText("What should it make?").closest("form");
+    expect(within(form!).getAllByRole("button")).toHaveLength(4);
   });
 });
