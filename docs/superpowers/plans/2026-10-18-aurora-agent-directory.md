@@ -64,6 +64,7 @@ Expected: all suites pass. If the baseline is already red, record the failing su
 | `packages/views/aurora/labels.ts` | Catalog name fallback only; remove hardcoded display helpers |
 | `packages/views/aurora/aurora.css` | Neutral hover/cursor for read-only cards |
 | `packages/views/locales/*/aurora.json` | Agent-oriented directory copy; remove obsolete keys |
+| `packages/views/locales/parity.test.ts` | Plural-family expectations for the new copy |
 | `packages/views/aurora/tool-guidance.ts` | Deleted: the hardcoded name/summary/example tables |
 
 ---
@@ -420,6 +421,7 @@ git commit -m "feat(aurora): add backend-agent directory rules"
 - Modify: `packages/views/locales/fr/aurora.json`
 - Modify: `packages/views/locales/ja/aurora.json`
 - Modify: `packages/views/locales/ko/aurora.json`
+- Modify: `packages/views/locales/parity.test.ts` (the plural-family expectations)
 
 **Interfaces:**
 - Consumes: Task 1 helpers.
@@ -1261,16 +1263,71 @@ In `packages/views/locales/ko/aurora.json`, replace the whole `directory` object
 }
 ```
 
-- [ ] **Step 11: Run the directory tests and the typecheck**
+- [ ] **Step 11: Update the locale parity test**
+
+`packages/views/locales/parity.test.ts` still asserts the pre-agent copy and the
+`stats_runnable` / `stats_total` families this task removes. Its typed `$`
+references would also fail typecheck once those keys leave the English bundle.
+
+Replace the whole `describe("Aurora directory plural families", ...)` block
+(from `describe("Aurora directory plural families", () => {` through its
+closing `});` that sits immediately before `describe("locale bundle parity"`)
+with:
+
+```ts
+describe("Aurora directory plural families", () => {
+  it.each([
+    ["en", 0, "0 assistants shown"],
+    ["en", 1, "1 assistant shown"],
+    ["en", 3, "3 assistants shown"],
+    ["zh-Hans", 0, "0 个助手"],
+    ["zh-Hans", 1, "1 个助手"],
+    ["zh-Hans", 3, "3 个助手"],
+    ["ja", 0, "アシスタント 0 件"],
+    ["ja", 1, "アシスタント 1 件"],
+    ["ja", 3, "アシスタント 3 件"],
+    ["ko", 0, "어시스턴트 0개"],
+    ["ko", 1, "어시스턴트 1개"],
+    ["ko", 3, "어시스턴트 3개"],
+    ["fr", 0, "0 assistant affiché"],
+    ["fr", 1, "1 assistant affiché"],
+    ["fr", 3, "3 assistants affichés"],
+    ["fr", 1000000, "1000000 assistants affichés"],
+  ] as const)("renders %s count %i without fallback or duplicated numerals", async (locale, count, visible) => {
+    const i18n = createInstance();
+    await i18n.init({ lng: locale, fallbackLng: false, resources: RESOURCES });
+    expect(i18n.t(($) => $.directory.visible_count, { ns: "aurora", count })).toBe(visible);
+  });
+  const families = ["visible_count"];
+  const categories = { en: ["one", "other"], "zh-Hans": ["other"], ja: ["other"], ko: ["other"], fr: ["many", "one", "other"] };
+  for (const [locale, suffixes] of Object.entries(categories)) {
+    it(`${locale} supplies exactly its grammatical count forms`, () => {
+      const keys = flattenKeys(RESOURCES[locale as keyof typeof RESOURCES].aurora);
+      for (const family of families) {
+        const base = `directory.${family}`;
+        expect(keys.filter((key) => key === base || key.startsWith(base + "_")).sort())
+          .toEqual(suffixes.map((suffix) => base + "_" + suffix).sort());
+      }
+    });
+  }
+});
+```
+
+- [ ] **Step 12: Run the directory and locale tests, then the typecheck**
 
 Run:
 ```bash
-pnpm -C packages/views exec vitest run aurora/skill-directory.test.tsx aurora/labels.test.ts
+pnpm -C packages/views exec vitest run \
+  aurora/skill-directory.test.tsx \
+  aurora/labels.test.ts \
+  locales/parity.test.ts
 pnpm --filter @multica/views typecheck
 ```
-Expected: the directory tests pass. Typecheck may still pass because the composer still uses the old helpers; it must.
+Expected: all pass. The parity suite is red on the base branch because the
+consumer-workbench copy changed without this test; this step is what makes it
+green again.
 
-- [ ] **Step 12: Commit**
+- [ ] **Step 13: Commit**
 
 ```bash
 git add packages/views/aurora/use-aurora-agent-directory.ts \
@@ -1281,7 +1338,8 @@ git add packages/views/aurora/use-aurora-agent-directory.ts \
   packages/views/locales/zh-Hans/aurora.json \
   packages/views/locales/fr/aurora.json \
   packages/views/locales/ja/aurora.json \
-  packages/views/locales/ko/aurora.json
+  packages/views/locales/ko/aurora.json \
+  packages/views/locales/parity.test.ts
 git commit -m "feat(aurora): drive the directory from backend agents"
 ```
 
