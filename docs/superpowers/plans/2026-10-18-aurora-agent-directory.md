@@ -1807,7 +1807,7 @@ In `packages/views/aurora/aurora.css`, delete the rules whose TSX users are now 
 
 Keep `.aurora-card--read-only`, `.aurora-pill-tab*`, and every selector the current components still use.
 
-- [ ] **Step 5: Prove no reference survives**
+- [ ] **Step 6: Prove no reference survives**
 
 Run:
 ```bash
@@ -1815,7 +1815,7 @@ grep -rn "toolGuidance\|RECOMMENDED_TOOL_IDS\|orderTools\|auroraCategoryLabel\|a
 ```
 Expected: no output.
 
-- [ ] **Step 6: Run the views tests and typecheck**
+- [ ] **Step 7: Run the views tests and typecheck**
 
 Run:
 ```bash
@@ -1824,7 +1824,7 @@ pnpm --filter @multica/views typecheck
 ```
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -A packages/views/aurora packages/views/locales
