@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronRight, LogOut } from "lucide-react";
+import { ChevronRight, LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   isAuroraDegraded,
@@ -14,12 +14,6 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@multica/ui/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTitle,
-  PopoverTrigger,
-} from "@multica/ui/components/ui/popover";
 import { AppLink } from "../navigation";
 import { useLocale, useT } from "../i18n";
 import { useLogout } from "../auth";
@@ -28,8 +22,8 @@ import { formatMicroCredits } from "./format";
 import { subscriptionTierLabel } from "./labels";
 
 /**
- * The account, on the surfaces that show it: the compact sidebar panel, the
- * dialog behind that panel's ⋯ button, and the desktop top-bar menu.
+ * The account, on the surfaces that show it: the compact sidebar panel and the
+ * dialog behind that panel's ⋯ button.
  *
  * They share one identity and one wallet read. An unread wallet prints an
  * unknown marker, never a zero that could send the reader to checkout
@@ -260,87 +254,5 @@ export function AuroraAccountDialog({
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/**
- * Desktop personal center. The trigger stays in the top bar; the card that
- * used to sit in the sidebar opens under it, without a modal overlay.
- *
- * Compact keeps the sidebar panel and dialog instead: a popover inside the
- * navigation sheet is trapped by that sheet's focus scope.
- */
-export function AuroraAccountMenu({
-  open,
-  onOpenChange,
-  creditsHref,
-  runtimeHref,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  creditsHref: string;
-  runtimeHref: string;
-}) {
-  const { t } = useT("aurora");
-  const { t: tLayout } = useT("layout");
-  const logout = useLogout();
-  const { name, tierName, balanceText, quota } = useAccountSnapshot();
-  const title = name || t(($) => $.shell.account_menu);
-
-  return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger
-        type="button"
-        className="aurora-account-trigger"
-        aria-label={t(($) => $.shell.account_menu)}
-      >
-        <span className="aurora-user-avatar" aria-hidden="true">
-          {avatarInitial(name)}
-        </span>
-        <span className="aurora-account-trigger-name">{name}</span>
-        <span className="aurora-account-trigger-credits" aria-hidden="true">
-          {balanceText}
-        </span>
-        <ChevronDown aria-hidden="true" className="size-3.5 shrink-0" />
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        sideOffset={8}
-        className="aurora-account-menu w-[280px] max-w-[calc(100vw-24px)] gap-0 p-4"
-      >
-        <div className="aurora-user-row">
-          <AccountIdentity
-            name={name}
-            tierName={tierName}
-            title={<PopoverTitle>{title}</PopoverTitle>}
-          />
-        </div>
-        <AccountWallet
-          creditsHref={creditsHref}
-          balanceText={balanceText}
-          quota={quota}
-        />
-        <div className="aurora-account-menu-links">
-          <AppLink href={runtimeHref}>
-            {t(($) => $.runtime.title)}
-            <ChevronRight aria-hidden="true" className="size-4" />
-          </AppLink>
-          <AppLink href={creditsHref}>
-            {t(($) => $.billing.title)}
-            <ChevronRight aria-hidden="true" className="size-4" />
-          </AppLink>
-          <button
-            type="button"
-            onClick={() => {
-              onOpenChange(false);
-              logout();
-            }}
-          >
-            {tLayout(($) => $.sidebar.log_out)}
-            <LogOut aria-hidden="true" className="size-4" />
-          </button>
-        </div>
-      </PopoverContent>
-    </Popover>
   );
 }

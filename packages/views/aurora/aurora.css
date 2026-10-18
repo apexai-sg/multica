@@ -465,54 +465,6 @@
   gap: 8px;
 }
 
-.aurora-account-trigger {
-  display: inline-flex;
-  min-width: 40px;
-  min-height: 40px;
-  max-width: 240px;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 10px 4px 4px;
-  border: 1px solid var(--aurora-line);
-  border-radius: var(--aurora-r-full);
-  color: var(--aurora-charcoal);
-  background: var(--aurora-card);
-  cursor: pointer;
-}
-
-.aurora-account-trigger:hover {
-  border-color: var(--aurora-line-strong);
-}
-
-.aurora-account-trigger .aurora-user-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--aurora-r-full);
-  font-size: var(--text-micro);
-}
-
-.aurora-account-trigger-name {
-  min-width: 0;
-  overflow: hidden;
-  font-size: var(--text-label);
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.aurora-account-trigger-credits {
-  flex: 0 0 auto;
-  color: var(--aurora-muted);
-  font-size: var(--text-micro);
-  font-variant-numeric: tabular-nums;
-}
-
-.aurora-account-trigger-credits::before {
-  content: "·";
-  margin-right: 8px;
-  color: var(--aurora-soft-muted);
-}
-
 /* Only the navigable chip needs a touch target; hero badges stay compact. */
 a.aurora-status-chip[href] {
   min-width: 40px;
@@ -711,14 +663,6 @@ a.aurora-status-chip[href] {
   line-height: 1.12;
 }
 
-.aurora-hero p {
-  max-width: 560px;
-  margin: 0;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: var(--text-body-lg);
-  line-height: 1.6;
-}
-
 .aurora-mini-label {
   display: inline-flex;
   align-items: center;
@@ -754,9 +698,6 @@ a.aurora-status-chip[href] {
 .aurora-mini-label--running::before {
   background: var(--aurora-violet);
 }
-
-
-
 
 .aurora-hero-orbit {
   position: relative;
@@ -1703,85 +1644,6 @@ a.aurora-status-chip[href] {
   background: var(--aurora-paper);
 }
 
-/* The desktop account card, portalled under the top-bar trigger. The sidebar
-   panel's type is painted for navy; this surface is paper, so those colors
-   are restated here rather than inherited. */
-.aurora-account-menu {
-  border: 1px solid var(--aurora-line);
-  border-radius: var(--aurora-r-lg);
-  color: var(--aurora-charcoal);
-  background: var(--aurora-card);
-  box-shadow: var(--aurora-shadow-modal);
-}
-
-.aurora-account-menu .aurora-user-copy span,
-.aurora-account-menu .aurora-token-row span {
-  color: var(--aurora-muted);
-}
-
-.aurora-account-menu .aurora-user-copy strong,
-.aurora-account-menu [data-slot="popover-title"],
-.aurora-account-menu .aurora-token-row strong {
-  color: var(--aurora-charcoal);
-}
-
-.aurora-account-menu [data-slot="popover-title"] {
-  overflow: hidden;
-  font-size: var(--text-body);
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.aurora-account-menu .aurora-meter {
-  background: var(--aurora-line);
-}
-
-.aurora-account-menu .aurora-recharge-button {
-  margin-top: 4px;
-  border-color: var(--aurora-line-strong);
-  color: var(--aurora-charcoal);
-}
-
-.aurora-account-menu .aurora-recharge-button:hover {
-  background: var(--aurora-paper);
-}
-
-.aurora-account-menu-links {
-  display: flex;
-  flex-direction: column;
-  margin: 12px -8px 0;
-  border-top: 1px solid var(--aurora-line-soft);
-}
-
-.aurora-account-menu-links a,
-.aurora-account-menu-links button {
-  display: flex;
-  width: 100%;
-  min-height: 40px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 8px;
-  border: 0;
-  border-bottom: 1px solid var(--aurora-line-soft);
-  color: var(--aurora-charcoal);
-  background: transparent;
-  font-size: var(--text-body);
-  text-align: left;
-  cursor: pointer;
-}
-
-.aurora-account-menu-links a:last-child,
-.aurora-account-menu-links button:last-child {
-  border-bottom: 0;
-}
-
-.aurora-account-menu-links a:hover,
-.aurora-account-menu-links button:hover {
-  background: var(--aurora-paper);
-}
-
 .aurora-plans {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1953,7 +1815,6 @@ a.aurora-status-chip[href] {
     display: none;
   }
 
-
   .aurora-page-head {
     align-items: flex-start;
   }
@@ -2025,6 +1886,7 @@ a.aurora-status-chip[href] {
   font-weight: 600;
   letter-spacing: 0.08em;
 }
+
 .aurora-quick-steps {
   display: flex;
   flex-wrap: wrap;
@@ -2034,55 +1896,158 @@ a.aurora-status-chip[href] {
   color: var(--aurora-slate);
   font-size: var(--text-label);
 }
-.aurora-quick-steps li { display: flex; align-items: center; gap: 8px; }
-.aurora-quick-steps li > span {
-  display: grid; place-items: center;
-  width: 24px; height: 24px;
-  border-radius: var(--aurora-r-full);
-  background: var(--aurora-tint-lavender); color: var(--aurora-violet-deep);
-  font-weight: 600;
-}
-.aurora-card-grid > li { min-width: 0; }
-.aurora-card-grid .aurora-card { height: 100%; }
-.aurora-card-description {
-  display: block; margin-top: 16px;
-  color: var(--aurora-slate); font-size: var(--text-body);
-  line-height: 1.65; min-height: 3.3em;
-}
-.aurora-delivery-note {
-  margin-top: 12px; color: var(--aurora-violet-deep);
-  font-size: var(--text-label); font-weight: 500;
-}
-.aurora-section-note {
-  margin: -4px 0 20px; color: var(--aurora-slate); font-size: var(--text-body);
-}
-.aurora-planned-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.aurora-planned-card {
-  display: flex; align-items: center; gap: 12px; min-width: 0;
-  padding: 18px; background: var(--aurora-surface);
-  border: 1px dashed var(--aurora-line-strong); border-radius: var(--aurora-r-lg);
-  color: var(--aurora-slate);
-}
-.aurora-planned-card > svg { flex-shrink: 0; color: var(--aurora-violet-deep); }
-.aurora-planned-card > div { flex: 1; min-width: 0; }
-.aurora-planned-card strong { display: block; color: var(--aurora-ink); font-size: var(--text-body); }
-.aurora-planned-card div > span { display: block; font-size: var(--text-label); margin-top: 4px; }
-.aurora-planned-card > .aurora-status-pill { flex-shrink: 0; }
-.aurora-deliverable {
-  padding: 18px; border-radius: var(--aurora-r-lg);
-  background: var(--aurora-tint-lavender); color: var(--aurora-violet-deep);
-  font-size: var(--text-body);
-}
-.aurora-deliverable p { margin: 8px 0; line-height: 1.6; }
-.aurora-deliverable > span { font-size: var(--text-label); }
-.aurora-sidebar-footer .aurora-user-panel { margin: 20px 0 12px; }
-.aurora-topbar-context { color: var(--aurora-slate); font-size: var(--text-label); }
-.aurora-pill-tabs { max-width: 100%; overflow-x: auto; justify-content: flex-start; }
-@media (max-width: 600px) {
-  .aurora-planned-grid { grid-template-columns: minmax(0, 1fr); }
-  .aurora-quick-steps { gap: 12px; justify-content: space-between; }
-  .aurora-planned-card { padding: 14px; }
-  .aurora-topbar-context { max-width: 45vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.aurora-quick-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.aurora-upcoming { margin-top: 48px; }
+.aurora-quick-steps li > span {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--aurora-r-full);
+  background: var(--aurora-tint-lavender);
+  color: var(--aurora-violet-deep);
+  font-weight: 600;
+}
+
+.aurora-card-grid > li {
+  min-width: 0;
+}
+
+.aurora-card-grid .aurora-card {
+  height: 100%;
+}
+
+.aurora-card-description {
+  display: block;
+  margin-top: 16px;
+  color: var(--aurora-slate);
+  font-size: var(--text-body);
+  line-height: 1.65;
+  min-height: 3.3em;
+}
+
+.aurora-delivery-note {
+  margin-top: 12px;
+  color: var(--aurora-violet-deep);
+  font-size: var(--text-label);
+  font-weight: 500;
+}
+
+.aurora-section-note {
+  margin: -4px 0 20px;
+  color: var(--aurora-slate);
+  font-size: var(--text-body);
+}
+
+.aurora-planned-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.aurora-planned-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 18px;
+  background: var(--aurora-surface);
+  border: 1px dashed var(--aurora-line-strong);
+  border-radius: var(--aurora-r-lg);
+  color: var(--aurora-slate);
+}
+
+.aurora-planned-card > svg {
+  flex-shrink: 0;
+  color: var(--aurora-violet-deep);
+}
+
+.aurora-planned-card > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.aurora-planned-card strong {
+  display: block;
+  color: var(--aurora-ink);
+  font-size: var(--text-body);
+}
+
+.aurora-planned-card div > span {
+  display: block;
+  font-size: var(--text-label);
+  margin-top: 4px;
+}
+
+.aurora-planned-card > .aurora-status-pill {
+  flex-shrink: 0;
+}
+
+.aurora-deliverable {
+  padding: 18px;
+  border-radius: var(--aurora-r-lg);
+  background: var(--aurora-tint-lavender);
+  color: var(--aurora-violet-deep);
+  font-size: var(--text-body);
+}
+
+.aurora-deliverable p {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+.aurora-deliverable > span {
+  font-size: var(--text-label);
+}
+
+.aurora-sidebar-footer .aurora-user-panel {
+  margin: 20px 0 12px;
+}
+
+.aurora-topbar-context {
+  color: var(--aurora-slate);
+  font-size: var(--text-label);
+}
+
+.aurora-pill-tabs {
+  max-width: 100%;
+  overflow-x: auto;
+  justify-content: flex-start;
+}
+
+@media (max-width: 600px) {
+  .aurora-planned-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .aurora-quick-steps {
+    gap: 12px;
+    justify-content: space-between;
+  }
+
+  .aurora-planned-card {
+    padding: 14px;
+  }
+
+  .aurora-topbar-context {
+    max-width: 45vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .aurora-topbar-context {
+    display: none;
+  }
+}
+
+.aurora-upcoming {
+  margin-top: 48px;
+}

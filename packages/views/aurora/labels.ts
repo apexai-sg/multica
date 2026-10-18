@@ -83,12 +83,12 @@ export function ledgerKindLabel(
 /**
  * The name to put on a skill card, for the language the UI is in.
  *
- * Known experts use consumer task names from tool-guidance. Unknown entries
- * preserve the catalog name. The catalog carries a Chinese `name` and English `nameEn`
- * (`aurora/catalog.go`). A Chinese reader gets the Chinese name and every other
- * reader gets the English one, which is the catalog's own convention rather
- * than a translation we could add here. `nameEn` defaults to `""` in the
- * schema, so a Chinese name is still the better answer than an empty label.
+ * A known expert uses its consumer task name from tool-guidance. An entry
+ * without guidance falls back to the catalog's own names: the Chinese `name`
+ * for a Chinese reader, otherwise `nameEn` (`aurora/catalog.go`). That is the
+ * catalog's convention rather than a translation we could add here. `nameEn`
+ * defaults to `""` in the schema, so an empty English name falls back to the
+ * Chinese one rather than rendering an empty label.
  */
 export function skillDisplayName(skill: AuroraSkill, locale: string): string {
   const guidance = toolGuidance(skill.id, locale);
