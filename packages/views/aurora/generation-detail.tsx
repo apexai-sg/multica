@@ -34,6 +34,7 @@ import {
 } from "./generation-artifacts";
 import { generationStatusLabel, skillDisplayName } from "./labels";
 import { AuroraLoadFailed } from "./load-failed";
+import { useAuroraAgentNames } from "./use-aurora-agent-names";
 
 // Stable reference for "the catalog has not loaded yet", so the skill lookup
 // below does not rebuild its array on every render.
@@ -166,18 +167,22 @@ function GenerationFields({
   const skillsQuery = useAuroraSkills();
 
   const skills = skillsQuery.data?.value ?? EMPTY_SKILLS;
+  const agentNames = useAuroraAgentNames();
   const catalogLoaded =
     skillsQuery.data !== undefined && !isAuroraDegraded(skillsQuery.data);
   const skill = skills.find((entry) => entry.id === generation.skillId);
-  // The detail read carries only the skill id. Prefer the catalog's display
-  // name; fall back to the id itself when the catalog has not loaded, because a
-  // raw id is still a fact, and to the shared unknown label only when the
-  // catalog answered and did not list it.
-  const skillName = skill
-    ? skillDisplayName(skill, locale)
-    : catalogLoaded
-      ? t(($) => $.works.skill_unknown)
-      : generation.skillId;
+  // The detail read carries only the skill id. Prefer the presenting agent's
+  // backend name, then the catalog's display name; fall back to the id itself
+  // when the catalog has not loaded, because a raw id is still a fact, and to
+  // the shared unknown label only when the catalog answered and did not list
+  // it.
+  const skillName =
+    agentNames.get(generation.skillId) ??
+    (skill
+      ? skillDisplayName(skill, locale)
+      : catalogLoaded
+        ? t(($) => $.works.skill_unknown)
+        : generation.skillId);
 
   const assets = generation.assets ?? [];
   const elapsed = elapsedMs(generation.createdAt, assets);

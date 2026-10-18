@@ -21,6 +21,8 @@ const mocks = vi.hoisted(() => ({
   detail: vi.fn(),
 }));
 
+const agentNames = vi.hoisted(() => ({ current: new Map<string, string>() }));
+
 vi.mock("@multica/core/aurora", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@multica/core/aurora")>();
   return {
@@ -30,6 +32,10 @@ vi.mock("@multica/core/aurora", async (importOriginal) => {
     useAuroraGenerationDetail: (id: string) => mocks.detail(id),
   };
 });
+
+vi.mock("./use-aurora-agent-names", () => ({
+  useAuroraAgentNames: () => agentNames.current,
+}));
 
 import { MAX_GENERATION_THUMBNAILS } from "./generation-artifacts";
 import { HistoryList } from "./history-list";
@@ -117,6 +123,7 @@ function renderHistory() {
 describe("HistoryList", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    agentNames.current = new Map();
     install([generation()], { "gen-1": [asset()] });
   });
 
@@ -134,6 +141,14 @@ describe("HistoryList", () => {
       "dateTime",
       "2026-09-23T00:00:00Z",
     );
+  });
+
+  it("prefers the backend agent's name over the catalog name", () => {
+    agentNames.current = new Map([["poster", "Poster helper"]]);
+    install([generation()]);
+    renderHistory();
+    expect(screen.getByText("Poster helper")).toBeInTheDocument();
+    expect(screen.queryByText("Poster")).not.toBeInTheDocument();
   });
 
   it("keeps the order it was given, which is newest first", () => {

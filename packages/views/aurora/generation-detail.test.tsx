@@ -13,6 +13,8 @@ import { stubNavigationAdapter } from "../test/navigation";
 
 const mocks = vi.hoisted(() => ({ detail: vi.fn(), skills: vi.fn() }));
 
+const agentNames = vi.hoisted(() => ({ current: new Map<string, string>() }));
+
 // The copy path is a UI concern here; jsdom has no clipboard and no
 // execCommand, so the real util would report failure on every run.
 vi.mock("@multica/ui/lib/clipboard", () => ({
@@ -27,6 +29,10 @@ vi.mock("@multica/core/aurora", async (importOriginal) => {
     useAuroraSkills: () => mocks.skills(),
   };
 });
+
+vi.mock("./use-aurora-agent-names", () => ({
+  useAuroraAgentNames: () => agentNames.current,
+}));
 
 import { copyText } from "@multica/ui/lib/clipboard";
 import { GenerationDetail } from "./generation-detail";
@@ -121,6 +127,7 @@ describe("GenerationDetail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(copyText).mockReset().mockResolvedValue(true);
+    agentNames.current = new Map();
     mocks.detail.mockReturnValue(read(detail()));
     mocks.skills.mockReturnValue(read([POSTER]));
   });
@@ -140,6 +147,13 @@ describe("GenerationDetail", () => {
     });
     expect(back).toHaveAttribute("href", "/acme/works");
     expect(back).toHaveClass("min-h-10", "min-w-10");
+  });
+
+  it("prefers the backend agent's name over the catalog name", () => {
+    agentNames.current = new Map([["poster", "Poster helper"]]);
+    renderDetail();
+    expect(screen.getByText("Poster helper")).toBeInTheDocument();
+    expect(screen.queryByText("Poster")).not.toBeInTheDocument();
   });
 
   it("groups labelled process facts in a responsive panel with a full-width prompt", () => {

@@ -39,6 +39,12 @@ vi.mock("@multica/core/aurora", async (importOriginal) => {
   };
 });
 
+const agentNames = vi.hoisted(() => ({ current: new Map<string, string>() }));
+
+vi.mock("./use-aurora-agent-names", () => ({
+  useAuroraAgentNames: () => agentNames.current,
+}));
+
 vi.mock("@multica/core/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@multica/core/api")>();
   return {
@@ -127,6 +133,7 @@ function read<T>(value: T, degraded = false) {
 describe("WorksList", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    agentNames.current = new Map();
     mocks.generations.mockReturnValue(read([generation()]));
     mocks.assets.mockReturnValue(read([asset()]));
     mocks.skills.mockReturnValue(read([POSTER]));
@@ -194,6 +201,13 @@ describe("WorksList", () => {
     expect(screen.getByText("Poster")).toBeInTheDocument();
     expect(screen.getByText("Done")).toBeInTheDocument();
     expect(screen.getByText("76 credits")).toBeInTheDocument();
+  });
+
+  it("prefers the backend agent's name over the catalog name", () => {
+    agentNames.current = new Map([["poster", "Poster helper"]]);
+    renderWorks();
+    expect(screen.getByText("Poster helper")).toBeInTheDocument();
+    expect(screen.queryByText("Poster")).not.toBeInTheDocument();
   });
 
   it("does not price a generation that was refunded", () => {
