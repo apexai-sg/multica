@@ -33,7 +33,6 @@ import {
 } from "@multica/ui/components/ui/sheet";
 import { Spinner } from "@multica/ui/components/ui/spinner";
 import { Textarea } from "@multica/ui/components/ui/textarea";
-import { useMutation } from "@tanstack/react-query";
 import {
   isAuroraDegraded,
   isAuroraGenerationTerminal,
@@ -46,7 +45,9 @@ import {
   type AuroraSkillAttachmentRule,
 } from "@multica/core/aurora";
 import { ApiError, api } from "@multica/core/api";
-import type { Agent, CreateIssueRequest } from "@multica/core/types";
+import { MAX_FILE_SIZE } from "@multica/core/constants/upload";
+import { useCreateIssue } from "@multica/core/issues/mutations";
+import type { Agent } from "@multica/core/types";
 import { useFileUpload } from "@multica/core/hooks/use-file-upload";
 import { AppLink } from "../navigation";
 import { useLocale, useT } from "../i18n";
@@ -80,7 +81,7 @@ const ISSUE_ATTACHMENT_RULES: AuroraSkillAttachmentRule[] = [
     kinds: ["image", "document", "audio", "video"],
     min: 0,
     max: 4,
-    maxBytes: 25 << 20,
+    maxBytes: MAX_FILE_SIZE,
   },
 ];
 
@@ -244,9 +245,7 @@ function ComposerBody({
   const download = useAuroraAssetDownload();
   const locale = useLocale();
   const create = useCreateAuroraGeneration();
-  const createIssue = useMutation({
-    mutationFn: (data: CreateIssueRequest) => api.createIssue(data),
-  });
+  const createIssue = useCreateIssue();
   const { upload } = useFileUpload(api);
   const available = skill ? skill.available : true;
   const [prompt, setPrompt] = useState("");
@@ -324,12 +323,27 @@ function ComposerBody({
     !attachmentsBlocked && uploadedAttachmentIds.length >= requiredAttachments;
 
   const busy = create.isPending || createIssue.isPending;
-  const submitted =
-    outcome.kind === "navigating" ||
-    outcome.kind === "started" ||
-    outcome.kind === "issue_started" ||
-    outcome.kind === "issue_ambiguous" ||
-    outcome.kind === "unreadable";
+
+  function attachmentStatusLabel(item: PendingAttachment): string {
+    if (item.status === "uploading") {
+      return t(($) => $.composer.attachment_uploading);
+    }
+    if (item.status === "uploaded") {
+      return t(($) => $.composer.attachment_uploaded);
+    }
+    switch (item.failure) {
+      case "too_many":
+        return t(($) => $.composer.attachment_limit);
+      case "unsupported":
+        return t(($) => $.composer.attachment_unsupported);
+      case "too_large":
+        return t(($) => $.composer.attachment_too_large);
+      default:
+        return t(($) => $.composer.attachment_upload_failed);
+    }
+  }
+  // Total over the outcome union: every terminal state spends the button.
+  const submitted = outcome.kind !== "idle" && outcome.kind !== "failed";
 
   // One submission per drawer. A second generation POST reserves the skill's
   // credits again, and an issue submission would start a second task; either
@@ -450,21 +464,19 @@ function ComposerBody({
     if (!canSubmit) return;
     setOutcome({ kind: "idle" });
 
-    // The audience/style fields belong to the generation form; an ordinary
-    // task carries just the prompt.
-    const promptText = skill
-      ? [
-          trimmedPrompt,
-          audience.trim()
-            ? `${t(($) => $.composer.audience_field)}: ${audience.trim()}`
-            : "",
-          preferences.trim()
-            ? `${t(($) => $.composer.preferences_field)}: ${preferences.trim()}`
-            : "",
-        ]
-          .filter(Boolean)
-          .join("\n\n")
-      : trimmedPrompt;
+    // The audience/style inputs only render in generation mode, so their
+    // state is empty for an ordinary task and the same join serves both.
+    const promptText = [
+      trimmedPrompt,
+      audience.trim()
+        ? `${t(($) => $.composer.audience_field)}: ${audience.trim()}`
+        : "",
+      preferences.trim()
+        ? `${t(($) => $.composer.preferences_field)}: ${preferences.trim()}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
 
     // A user-created agent runs an ordinary issue task: no Aurora credits and
     // no artifact follow-up, so the drawer hands the user to the issue.
@@ -575,7 +587,7 @@ function ComposerBody({
         </div>
       </SheetHeader>
 
-      {skill && !skill.available ? (
+      {!available ? (
         <Alert>
           <CircleAlert aria-hidden="true" />
           <AlertTitle>{t(($) => $.composer.unavailable_title)}</AlertTitle>
@@ -763,17 +775,7 @@ function ComposerBody({
                       {formatFileSize(item.size)}
                     </span>
                     <span className="aurora-attachment-meta">
-                      {item.status === "uploading"
-                        ? t(($) => $.composer.attachment_uploading)
-                        : item.status === "uploaded"
-                          ? t(($) => $.composer.attachment_uploaded)
-                          : item.failure === "too_many"
-                            ? t(($) => $.composer.attachment_limit)
-                            : item.failure === "unsupported"
-                            ? t(($) => $.composer.attachment_unsupported)
-                            : item.failure === "too_large"
-                              ? t(($) => $.composer.attachment_too_large)
-                              : t(($) => $.composer.attachment_upload_failed)}
+                      {attachmentStatusLabel(item)}
                     </span>
                     <Button
                       type="button"

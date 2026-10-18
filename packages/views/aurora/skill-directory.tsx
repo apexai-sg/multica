@@ -26,7 +26,6 @@ import {
   useAuroraSkills,
   type AuroraSkill,
 } from "@multica/core/aurora";
-import type { Agent } from "@multica/core/types";
 import { AuroraAvatar } from "./aurora-avatar";
 import { AuroraPageState } from "./aurora-page-header";
 import { useLocale, useT } from "../i18n";
@@ -35,10 +34,9 @@ import { formatCredits } from "./format";
 import { AuroraLoadFailed } from "./load-failed";
 import {
   agentSkillChips,
-  agentSubmissionSkill,
-  listableAgents,
+  directoryEntries,
   matchesAgentQuery,
-  orderDirectoryAgents,
+  type DirectoryEntry,
 } from "./aurora-agents";
 import { useAuroraAgentDirectory } from "./use-aurora-agent-directory";
 
@@ -70,11 +68,7 @@ const GRID_CLASS = "aurora-card-grid";
 // are not handed a fresh array on every render.
 const EMPTY_SKILLS: AuroraSkill[] = [];
 
-interface SelectedAgent {
-  agent: Agent;
-  /** The generation contract, or null when the agent runs an ordinary issue. */
-  skill: AuroraSkill | null;
-}
+type SelectedAgent = DirectoryEntry;
 
 export function SkillDirectory({
   worksHref,
@@ -88,19 +82,15 @@ export function SkillDirectory({
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<SelectedAgent | null>(null);
 
-  // Generation agents first; the backend's order holds inside each group.
-  // System-generated agents with no current catalogue entry are not listable.
-  const listable = useMemo(
-    () => listableAgents(agents, skills),
+  // One classification pass: generation entries first, then issue entries.
+  // System-generated agents with no current catalogue entry are omitted.
+  const entries = useMemo(
+    () => directoryEntries(agents, skills),
     [agents, skills],
   );
-  const ordered = useMemo(
-    () => orderDirectoryAgents(listable, skills),
-    [listable, skills],
-  );
   const visible = useMemo(
-    () => ordered.filter((agent) => matchesAgentQuery(agent, query)),
-    [ordered, query],
+    () => entries.filter((entry) => matchesAgentQuery(entry.agent, query)),
+    [entries, query],
   );
 
   // A failed refetch over a list this screen already read is a stale list, not
@@ -116,16 +106,14 @@ export function SkillDirectory({
   const catalogDegraded = isAuroraDegraded(skillsQuery.data);
   const catalogUnreadable =
     catalogDegraded || (skillsQuery.isError && skillsQuery.data === undefined);
-  const catalogKnown = !skillsQuery.isPending && !catalogUnreadable;
   // A successfully read empty list means no assistant is configured, which is
   // a different fact from "this keyword matched none"; the two get distinct
   // copy rather than telling the user to try another keyword that cannot help.
-  const noAgents =
-    query.trim() === "" && listable.length === 0 && catalogKnown;
+  const noAgents = query.trim() === "" && entries.length === 0;
 
   return (
     <div className="aurora-page">
-      <DirectoryHero agents={agentsKnown ? ordered : undefined} />
+      <DirectoryHero entries={agentsKnown ? entries : undefined} />
       <ol
         className="aurora-quick-steps"
         aria-label={t(($) => $.directory.guide_label)}
@@ -229,24 +217,19 @@ export function SkillDirectory({
         )
       ) : (
         <ul className={GRID_CLASS}>
-          {visible.map((agent) => {
-            const skill = agentSubmissionSkill(agent, skills);
-            return (
-              <li key={agent.id}>
-                <AgentCard
-                  agent={agent}
-                  skill={skill}
-                  onSelect={() => setSelected({ agent, skill })}
-                />
-              </li>
-            );
-          })}
+          {visible.map((entry) => (
+            <li key={entry.agent.id}>
+              <AgentCard entry={entry} onSelect={() => setSelected(entry)} />
+            </li>
+          ))}
         </ul>
       )}
 
       <GenerationComposer
         agent={selected?.agent ?? null}
-        skill={selected?.skill ?? null}
+        skill={
+          selected?.mode === "generation" ? selected.skill : null
+        }
         open={selected !== null}
         onOpenChange={(open) => {
           if (!open) setSelected(null);
@@ -259,7 +242,11 @@ export function SkillDirectory({
   );
 }
 
-function DirectoryHero({ agents }: { agents: Agent[] | undefined }) {
+function DirectoryHero({
+  entries,
+}: {
+  entries: DirectoryEntry[] | undefined;
+}) {
   const { t } = useT("aurora");
   return (
     <section className="aurora-hero">
@@ -275,15 +262,15 @@ function DirectoryHero({ agents }: { agents: Agent[] | undefined }) {
         <div className="aurora-hero-center">
           <Sparkles className="size-6" />
         </div>
-        {(agents ?? []).slice(0, 4).map((agent, index) => (
+        {(entries ?? []).slice(0, 4).map((entry, index) => (
           <span
-            key={agent.id}
+            key={entry.agent.id}
             className={"aurora-orbit-avatar aurora-orbit-avatar--" + (index + 1)}
           >
             <AuroraAvatar
-              name={agent.name}
-              id={agent.id}
-              avatarUrl={agent.avatar_url}
+              name={entry.agent.name}
+              id={entry.agent.id}
+              avatarUrl={entry.agent.avatar_url}
               available
             />
           </span>
@@ -294,16 +281,16 @@ function DirectoryHero({ agents }: { agents: Agent[] | undefined }) {
 }
 
 function AgentCard({
-  agent,
-  skill,
+  entry,
   onSelect,
 }: {
-  agent: Agent;
-  skill: AuroraSkill | null;
+  entry: DirectoryEntry;
   onSelect: () => void;
 }) {
   const { t } = useT("aurora");
   const locale = useLocale();
+  const { agent } = entry;
+  const skill = entry.mode === "generation" ? entry.skill : null;
   const chips = agentSkillChips(agent);
 
   return (

@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   directory: vi.fn(),
   skills: vi.fn(),
   create: vi.fn(),
+  createIssue: vi.fn(),
   detail: vi.fn(),
   balance: vi.fn(),
 }));
@@ -36,6 +37,13 @@ vi.mock("@multica/core/aurora", async (importOriginal) => {
 
 vi.mock("@multica/core/workspace/avatar-url", () => ({
   resolvePublicFileUrl: (url: string | null | undefined) => url ?? null,
+}));
+
+vi.mock("@multica/core/issues/mutations", () => ({
+  useCreateIssue: () => ({
+    mutateAsync: mocks.createIssue,
+    isPending: false,
+  }),
 }));
 
 import { SkillDirectory } from "./skill-directory";
