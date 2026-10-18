@@ -66,6 +66,7 @@ Expected: all suites pass. If the baseline is already red, record the failing su
 | `packages/views/locales/*/aurora.json` | Agent-oriented directory copy; remove obsolete keys |
 | `packages/views/locales/parity.test.ts` | Plural-family expectations for the new copy |
 | `packages/views/aurora/tool-guidance.ts` | Deleted: the hardcoded name/summary/example tables |
+| `packages/views/aurora/skill-filter.ts` | Deleted: the old catalog filter, dead once the directory moved to agents |
 
 ---
 
@@ -1725,6 +1726,8 @@ git commit -m "feat(aurora): render agent identity and starters in the composer"
 **Files:**
 - Delete: `packages/views/aurora/tool-guidance.ts`
 - Delete: `packages/views/aurora/tool-guidance.test.ts`
+- Delete: `packages/views/aurora/skill-filter.ts` (its only production consumer was the old directory; it imports `toolSearchText` from `tool-guidance`)
+- Delete: `packages/views/aurora/skill-filter.test.ts`
 - Modify: `packages/views/aurora/labels.ts`
 - Modify: `packages/views/aurora/labels.test.ts`
 - Modify: `packages/views/aurora/aurora.css` (delete the selectors the old markup used)
@@ -1737,8 +1740,15 @@ git commit -m "feat(aurora): render agent identity and starters in the composer"
 
 Run:
 ```bash
-git rm packages/views/aurora/tool-guidance.ts packages/views/aurora/tool-guidance.test.ts
+git rm packages/views/aurora/tool-guidance.ts \
+  packages/views/aurora/tool-guidance.test.ts \
+  packages/views/aurora/skill-filter.ts \
+  packages/views/aurora/skill-filter.test.ts
 ```
+
+`skill-filter.ts` is dead after Task 2: the new directory searches agents directly, and
+`skill-filter.ts` is its only production consumer. It imports `toolSearchText` from
+`tool-guidance.ts`, so leaving it behind would break the build when the table is deleted.
 
 - [ ] **Step 2: Simplify the catalog name helper**
 
@@ -1811,7 +1821,8 @@ Keep `.aurora-card--read-only`, `.aurora-pill-tab*`, and every selector the curr
 
 Run:
 ```bash
-grep -rn "toolGuidance\|RECOMMENDED_TOOL_IDS\|orderTools\|auroraCategoryLabel\|auroraInputLabel\|directory\.categories\|directory\.planned" packages/views apps/aurora
+grep -rn "toolGuidance\|RECOMMENDED_TOOL_IDS\|orderTools\|toolSearchText\|filterAuroraSkills\|AURORA_CATEGORY_ALL\|auroraCategoryLabel\|auroraInputLabel\|directory\.categories\|directory\.planned" \
+  packages/views apps/aurora --include="*.ts" --include="*.tsx" --include="*.json"
 ```
 Expected: no output.
 
