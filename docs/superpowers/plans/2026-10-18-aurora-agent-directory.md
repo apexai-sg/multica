@@ -1727,6 +1727,7 @@ git commit -m "feat(aurora): render agent identity and starters in the composer"
 - Delete: `packages/views/aurora/tool-guidance.test.ts`
 - Modify: `packages/views/aurora/labels.ts`
 - Modify: `packages/views/aurora/labels.test.ts`
+- Modify: `packages/views/aurora/aurora.css` (delete the selectors the old markup used)
 - Modify: all five `packages/views/locales/*/aurora.json` files
 
 **Interfaces:**
@@ -1791,9 +1792,20 @@ survived because code still read them at that point:
 - `directory.categories` — the composer's category line used it until Task 3.
 - `composer.example` — the composer's single example button used it until Task 3.
 
-In every file under `packages/views/locales/{en,zh-Hans,fr,ja,ko}/aurora.json`, delete the whole `directory.categories` object and the `composer.example` line.
+In every file under `packages/views/locales/{en,zh-Hans,fr,ja,ko}/aurora.json`, delete the whole `directory.categories` object, the `composer.example` line, and the dead `directory.load_failed_description` line (no component reads it; `AuroraLoadFailed` takes only a title).
 
 Keep `directory.text_output`, `directory.ready`, and every key the components still read.
+
+- [ ] **Step 5: Delete the CSS selectors the old markup used**
+
+In `packages/views/aurora/aurora.css`, delete the rules whose TSX users are now gone:
+
+- `.aurora-card--featured`
+- `.aurora-card--unavailable`
+- `.aurora-card-category`
+- `.aurora-upcoming` (and its nested `.aurora-planned-grid`, `.aurora-planned-card` rules)
+
+Keep `.aurora-card--read-only`, `.aurora-pill-tab*`, and every selector the current components still use.
 
 - [ ] **Step 5: Prove no reference survives**
 
