@@ -48,13 +48,12 @@ vi.mock("@multica/core/aurora", async (importOriginal) => {
   };
 });
 
-vi.mock("@multica/core/api", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@multica/core/api")>();
-  return {
-    ...actual,
-    api: { createIssue: mocks.createIssue },
-  } as unknown as typeof actual;
-});
+vi.mock("@multica/core/issues/mutations", () => ({
+  useCreateIssue: () => ({
+    mutateAsync: mocks.createIssue,
+    isPending: false,
+  }),
+}));
 
 import { GenerationComposer } from "./generation-composer";
 

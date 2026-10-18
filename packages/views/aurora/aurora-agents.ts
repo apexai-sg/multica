@@ -34,33 +34,40 @@ export function agentSubmissionSkill(
 }
 
 /**
- * How the directory may use an agent, or null when it must not list it.
+ * One agent the directory can run, classified once.
  *
- * - A current Aurora carrier runs the generation pipeline.
- * - A user-created agent (empty system key) runs an ordinary issue task.
- * - Every other system agent (Mika, a retired carrier) is hidden: it is
- *   system-generated and either has no Aurora artifact contract or no current
- *   catalog entry, so neither path can run it safely.
+ * A current Aurora carrier runs the generation pipeline; a user-created agent
+ * (empty system key) runs an ordinary issue task. Every other system agent
+ * (Mika, a retired carrier) is omitted: it is system-generated and either has
+ * no Aurora artifact contract or no current catalog entry.
  */
-export type AgentDirectoryMode = "generation" | "issue";
+export type DirectoryEntry =
+  | { mode: "generation"; agent: Agent; skill: AuroraSkill }
+  | { mode: "issue"; agent: Agent };
 
-export function agentDirectoryMode(
-  agent: Agent,
-  catalog: AuroraSkill[],
-): AgentDirectoryMode | null {
-  const systemKey = (agent.system_key ?? "").trim();
-  if (!systemKey) return "issue";
-  return agentSubmissionSkill(agent, catalog) ? "generation" : null;
-}
-
-/** The agents the directory lists, in backend order. */
-export function listableAgents(
+/**
+ * The directory's one classification pass, generation entries first.
+ *
+ * Backend order holds inside each group, so the grid never reorders agents the
+ * backend returned in a deliberate order. The catalog is consulted once per
+ * agent here; callers read the decision from the entry instead of re-deriving
+ * it in a filter, a comparator, and again in a card.
+ */
+export function directoryEntries(
   agents: Agent[],
   catalog: AuroraSkill[],
-): Agent[] {
-  return agents.filter(
-    (agent) => agentDirectoryMode(agent, catalog) !== null,
-  );
+): DirectoryEntry[] {
+  const generation: DirectoryEntry[] = [];
+  const issue: DirectoryEntry[] = [];
+  for (const agent of agents) {
+    const skill = agentSubmissionSkill(agent, catalog);
+    if (skill) {
+      generation.push({ mode: "generation", agent, skill });
+    } else if (!(agent.system_key ?? "").trim()) {
+      issue.push({ mode: "issue", agent });
+    }
+  }
+  return [...generation, ...issue];
 }
 
 /** Whether the agent matches the directory's one search box. */
@@ -80,23 +87,6 @@ export function matchesAgentQuery(agent: Agent, query: string): boolean {
     ]),
   ];
   return fields.some((field) => field.toLowerCase().includes(needle));
-}
-
-/**
- * Backend order, with the agents that can submit first.
- *
- * Array.prototype.sort is stable in every runtime this repository targets, so
- * the backend's creation order survives inside each group.
- */
-export function orderDirectoryAgents(
-  agents: Agent[],
-  catalog: AuroraSkill[],
-): Agent[] {
-  return [...agents].sort((a, b) => {
-    const rank = (agent: Agent) =>
-      agentDirectoryMode(agent, catalog) === "generation" ? 1 : 0;
-    return rank(b) - rank(a);
-  });
 }
 
 /** skillId -> agent name, for surfaces that hold a generation's skill id. */

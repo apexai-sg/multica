@@ -3,14 +3,12 @@ import { describe, expect, it } from "vitest";
 import type { AuroraSkill } from "@multica/core/aurora";
 import type { Agent } from "@multica/core/types";
 import {
-  agentDirectoryMode,
   agentNamesBySkillId,
   agentSkillChips,
   agentSkillId,
   agentSubmissionSkill,
-  listableAgents,
+  directoryEntries,
   matchesAgentQuery,
-  orderDirectoryAgents,
   visibleAgents,
 } from "./aurora-agents";
 
@@ -164,70 +162,38 @@ describe("matchesAgentQuery", () => {
   });
 });
 
-describe("orderDirectoryAgents", () => {
-  it("moves submittable agents first and preserves backend order inside each group", () => {
+describe("directoryEntries", () => {
+  it("classifies generation and issue agents and preserves backend order in each group", () => {
     const first = agent({ id: "a", name: "First" });
-    const second = agent({
-      id: "b",
-      name: "Second",
-      system_key: "aurora:lyrics",
-    });
+    const second = agent({ id: "b", system_key: "aurora:lyrics" });
     const third = agent({ id: "c", name: "Third" });
-    const fourth = agent({
-      id: "d",
-      name: "Fourth",
-      system_key: "aurora:lyrics",
-    });
-    expect(
-      orderDirectoryAgents([first, second, third, fourth], [skill()]).map(
-        (item) => item.id,
-      ),
-    ).toEqual(["b", "d", "a", "c"]);
+    const fourth = agent({ id: "d", system_key: "aurora:lyrics" });
+    const entries = directoryEntries([first, second, third, fourth], [skill()]);
+    expect(entries.map((entry) => entry.agent.id)).toEqual([
+      "b",
+      "d",
+      "a",
+      "c",
+    ]);
+    expect(entries.map((entry) => entry.mode)).toEqual([
+      "generation",
+      "generation",
+      "issue",
+      "issue",
+    ]);
   });
 
-  it("leaves the order alone when nothing is submittable", () => {
-    const agents = [agent({ id: "a" }), agent({ id: "b" })];
-    expect(
-      orderDirectoryAgents(agents, [skill()]).map((item) => item.id),
-    ).toEqual(["a", "b"]);
-  });
-});
-
-describe("agentDirectoryMode", () => {
-  it("runs a current Aurora carrier as a generation", () => {
-    expect(
-      agentDirectoryMode(agent({ system_key: "aurora:lyrics" }), [skill()]),
-    ).toBe("generation");
-  });
-
-  it("runs a user-created agent as an ordinary issue", () => {
-    expect(agentDirectoryMode(agent(), [skill()])).toBe("issue");
-  });
-
-  it("hides every other system agent", () => {
-    expect(agentDirectoryMode(agent({ system_key: "mika" }), [skill()])).toBeNull();
-    expect(
-      agentDirectoryMode(agent({ system_key: "aurora:retired" }), [skill()]),
-    ).toBeNull();
-    expect(
-      agentDirectoryMode(agent({ system_key: "aurora:lyrics" }), [
-        skill({ available: false }),
-      ]),
-    ).toBeNull();
-  });
-});
-
-describe("listableAgents", () => {
-  it("keeps generation and issue agents and drops system-generated ones", () => {
+  it("hides every system agent that is not a current carrier", () => {
     const generation = agent({ id: "g", system_key: "aurora:lyrics" });
     const issue = agent({ id: "i" });
     const mika = agent({ id: "m", system_key: "mika" });
     const retired = agent({ id: "r", system_key: "aurora:retired" });
-    expect(
-      listableAgents([generation, issue, mika, retired], [skill()]).map(
-        (item) => item.id,
-      ),
-    ).toEqual(["g", "i"]);
+    const unavailable = agent({ id: "u", system_key: "aurora:lyrics" });
+    const entries = directoryEntries(
+      [generation, issue, mika, retired, unavailable],
+      [skill({ available: false })],
+    );
+    expect(entries.map((entry) => entry.agent.id)).toEqual(["i"]);
   });
 });
 
