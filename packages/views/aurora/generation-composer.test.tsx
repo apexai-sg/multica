@@ -3,6 +3,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ApiError } from "@multica/core/api";
 import type { AuroraGenerationDetail, AuroraSkill } from "@multica/core/aurora";
+import type { Agent } from "@multica/core/types";
 import { renderWithI18n } from "../test/i18n";
 import { stubNavigationAdapter } from "../test/navigation";
 import { NavigationProvider } from "../navigation";
@@ -66,6 +67,42 @@ function skill(overrides: Partial<AuroraSkill> = {}): AuroraSkill {
   };
 }
 
+function agent(overrides: Partial<Agent> = {}): Agent {
+  return {
+    id: "agent-lyrics",
+    workspace_id: "ws-1",
+    runtime_id: "rt-1",
+    name: "Write lyrics",
+    description: "Short lyrics for songs.",
+    instructions: "",
+    avatar_url: null,
+    runtime_mode: "local",
+    runtime_config: {},
+    max_concurrent_tasks: 1,
+    owner_id: "user-1",
+    archived_at: null,
+    custom_args: [],
+    visibility: "private",
+    permission_mode: "private",
+    invocation_targets: [],
+    model: "claude",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    status: "idle",
+    skills: [{ id: "s-lyrics", name: "歌词创作", description: "", enabled: true }],
+    archived_by: null,
+    conversation_starters: [
+      {
+        label: "Try an example",
+        prompt: "A warm song about a family trip to Singapore",
+      },
+    ],
+    ...overrides,
+  };
+}
+
+const DEFAULT_AGENT = agent();
+
 const IMAGE_RULE = { kinds: ["image"], min: 0, max: 4, maxBytes: 25 << 20 };
 const REQUIRED_IMAGE_RULE = {
   kinds: ["image"],
@@ -109,6 +146,7 @@ function renderComposer(
   return renderWithI18n(
     <NavigationProvider value={stubNavigationAdapter()}>
       <GenerationComposer
+        agent={DEFAULT_AGENT}
         skill={skill()}
         open
         onOpenChange={vi.fn()}
@@ -196,7 +234,6 @@ describe("GenerationComposer", () => {
       "aria-hidden",
       "true",
     );
-    expect(screen.getByText("Content creation")).toHaveClass("aurora-drawer-head-category");
     const field = screen.getByLabelText("What should it make?");
     // The field carries its own surface and focus ring now; the panel is a flat
     // card rather than one large focusable box.
@@ -756,5 +793,25 @@ describe("GenerationComposer", () => {
     } finally {
       restore();
     }
+  });
+
+  it("renders the agent's own description and conversation starters", () => {
+    renderComposer({});
+    expect(screen.getByText("Short lyrics for songs.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Try an example" }),
+    ).toBeInTheDocument();
+  });
+
+  it("omits the deliverable and examples when the agent has neither", () => {
+    renderComposer({
+      agent: agent({ description: "", conversation_starters: [] }),
+    });
+    expect(
+      screen.queryByText("What you will receive"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Try an example" }),
+    ).not.toBeInTheDocument();
   });
 });

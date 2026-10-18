@@ -23,7 +23,6 @@ import {
 } from "@multica/ui/components/ui/alert";
 import { Button } from "@multica/ui/components/ui/button";
 import { Input } from "@multica/ui/components/ui/input";
-import { toolGuidance } from "./tool-guidance";
 import { Label } from "@multica/ui/components/ui/label";
 import {
   Sheet,
@@ -45,15 +44,12 @@ import {
   type AuroraSkill,
 } from "@multica/core/aurora";
 import { api } from "@multica/core/api";
+import type { Agent } from "@multica/core/types";
 import { useFileUpload } from "@multica/core/hooks/use-file-upload";
 import { AppLink } from "../navigation";
 import { useLocale, useT } from "../i18n";
 import { formatCredits, formatMicroCredits } from "./format";
-import {
-  auroraCategoryLabel,
-  generationStatusLabel,
-  skillDisplayName,
-} from "./labels";
+import { generationStatusLabel } from "./labels";
 import { AuroraAvatar } from "./aurora-avatar";
 import { GENERATION_STATUS_PILL } from "./generation-artifacts";
 import { useAuroraAssetDownload } from "./use-aurora-asset-download";
@@ -131,6 +127,8 @@ interface PendingAttachment {
  * the library route belongs to the app that defines it.
  */
 export interface GenerationComposerProps {
+  /** The backend agent this drawer presents. Required with `skill`. */
+  agent?: Agent | null;
   /** The skill to run, or null while no drawer is open. */
   skill: AuroraSkill | null;
   open: boolean;
@@ -149,6 +147,7 @@ export interface GenerationComposerProps {
 }
 
 export function GenerationComposer({
+  agent,
   skill,
   open,
   onOpenChange,
@@ -156,15 +155,16 @@ export function GenerationComposer({
   topUpHref,
   issueHref,
 }: GenerationComposerProps) {
-  if (!skill) return null;
+  if (!agent || !skill) return null;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="aurora-drawer">
-        {/* Keyed on the skill so switching skills remounts the body: the draft,
-            the in-flight generation and any failure all belong to the skill
-            that was open, and none of them should survive into another's. */}
+        {/* Keyed on the agent so switching agents remounts the body: the
+            draft, the in-flight generation and any failure all belong to the
+            agent that was open. */}
         <ComposerBody
-          key={skill.id}
+          key={agent.id}
+          agent={agent}
           skill={skill}
           worksHref={worksHref}
           topUpHref={topUpHref}
@@ -197,11 +197,13 @@ type SubmitOutcome =
   | { kind: "unreadable" };
 
 function ComposerBody({
+  agent,
   skill,
   worksHref,
   topUpHref,
   issueHref,
 }: {
+  agent: Agent;
   skill: AuroraSkill;
   worksHref?: string;
   topUpHref?: string;
@@ -215,7 +217,10 @@ function ComposerBody({
   const [prompt, setPrompt] = useState("");
   const [audience, setAudience] = useState("");
   const [preferences, setPreferences] = useState("");
-  const guidance = toolGuidance(skill.id, locale);
+  const starters = (agent.conversation_starters ?? [])
+    .filter((starter) => starter.label.trim() && starter.prompt.trim())
+    .slice(0, 3);
+  const description = agent.description.trim();
   const [outcome, setOutcome] = useState<SubmitOutcome>({ kind: "idle" });
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const nextAttachmentKey = useRef(0);
@@ -431,19 +436,14 @@ function ComposerBody({
     <div className="flex flex-col gap-5">
       <SheetHeader className="aurora-drawer-head flex-row">
         <AuroraAvatar
-          name={skillDisplayName(skill, locale)}
-          id={skill.id}
-          avatarUrl={skill.avatarUrl}
+          name={agent.name}
+          id={agent.id}
+          avatarUrl={agent.avatar_url}
           size="lg"
           available={skill.available}
         />
         <div>
-          <span className="aurora-drawer-head-category">
-            {t(
-              ($) => $.directory.categories[auroraCategoryLabel(skill.category)],
-            )}
-          </span>
-          <SheetTitle>{skillDisplayName(skill, locale)}</SheetTitle>
+          <SheetTitle>{agent.name}</SheetTitle>
           <SheetDescription>
             {t(($) => $.composer.cost, {
               credits: formatCredits(skill.credits, locale),
@@ -470,11 +470,16 @@ function ComposerBody({
         />
       ) : null}
 
-      {guidance ? (
-        <section className="aurora-deliverable" aria-label={t(($) => $.composer.deliverable_title)}>
+      {description ? (
+        <section
+          className="aurora-deliverable"
+          aria-label={t(($) => $.composer.deliverable_title)}
+        >
           <strong>{t(($) => $.composer.deliverable_title)}</strong>
-          <p>{guidance.summary}</p>
-          {skill.output.length === 1 && skill.output[0] === "text" ? <span>{t(($) => $.directory.text_output)}</span> : null}
+          <p>{description}</p>
+          {skill.output.length === 1 && skill.output[0] === "text" ? (
+            <span>{t(($) => $.directory.text_output)}</span>
+          ) : null}
         </section>
       ) : null}
       <form className="aurora-composer" onSubmit={handleSubmit}>
@@ -487,32 +492,60 @@ function ComposerBody({
             className="aurora-textarea"
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            placeholder={guidance?.example ?? t(($) => $.composer.prompt_placeholder)}
+            placeholder={t(($) => $.composer.prompt_placeholder)}
             rows={5}
             // The prompt is the whole input, and losing it costs the user their
             // work — so it is kept rather than cleared when the submit fails.
             disabled={!skill.available}
           />
         </div>
-        {guidance ? (
-          <>
-            <Button type="button" variant="outline" size="sm"
-              disabled={!skill.available || prompt.trim().length > 0 || create.isPending || outcome.kind === "started" || outcome.kind === "unreadable"}
-              onClick={() => setPrompt(guidance.example)}>
-              <Sparkles aria-hidden="true" />{t(($) => $.composer.example)}
-            </Button>
-            <div className="aurora-field">
-              <Label htmlFor="aurora-audience">{t(($) => $.composer.audience_label)}</Label>
-              <Input id="aurora-audience" value={audience} onChange={(event) => setAudience(event.target.value)}
-                disabled={!skill.available} placeholder={t(($) => $.composer.audience_placeholder)} />
-            </div>
-            <div className="aurora-field">
-              <Label htmlFor="aurora-preferences">{t(($) => $.composer.preferences_label)}</Label>
-              <Input id="aurora-preferences" value={preferences} onChange={(event) => setPreferences(event.target.value)}
-                disabled={!skill.available} placeholder={t(($) => $.composer.preferences_placeholder)} />
-            </div>
-          </>
+        {starters.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {starters.map((starter, index) => (
+              <Button
+                key={`${starter.label}-${index}`}
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={
+                  !skill.available ||
+                  prompt.trim().length > 0 ||
+                  create.isPending ||
+                  outcome.kind === "started" ||
+                  outcome.kind === "unreadable"
+                }
+                onClick={() => setPrompt(starter.prompt)}
+              >
+                <Sparkles aria-hidden="true" />
+                {starter.label}
+              </Button>
+            ))}
+          </div>
         ) : null}
+        <div className="aurora-field">
+          <Label htmlFor="aurora-audience">
+            {t(($) => $.composer.audience_label)}
+          </Label>
+          <Input
+            id="aurora-audience"
+            value={audience}
+            onChange={(event) => setAudience(event.target.value)}
+            disabled={!skill.available}
+            placeholder={t(($) => $.composer.audience_placeholder)}
+          />
+        </div>
+        <div className="aurora-field">
+          <Label htmlFor="aurora-preferences">
+            {t(($) => $.composer.preferences_label)}
+          </Label>
+          <Input
+            id="aurora-preferences"
+            value={preferences}
+            onChange={(event) => setPreferences(event.target.value)}
+            disabled={!skill.available}
+            placeholder={t(($) => $.composer.preferences_placeholder)}
+          />
+        </div>
         {attachmentRules.length > 0 ? (
           <div className="aurora-field">
             <Label className="aurora-field-label" htmlFor="aurora-attachments">

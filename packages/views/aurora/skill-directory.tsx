@@ -189,6 +189,7 @@ export function SkillDirectory({
       )}
 
       <GenerationComposer
+        agent={selected?.agent ?? null}
         skill={selected?.skill ?? null}
         open={selected !== null}
         onOpenChange={(open) => {
