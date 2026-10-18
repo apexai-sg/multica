@@ -987,6 +987,16 @@ a.aurora-status-chip[href] {
   color: var(--aurora-soft-muted);
 }
 
+.aurora-card--read-only {
+  cursor: default;
+}
+
+.aurora-card--read-only:hover {
+  border-color: var(--aurora-line);
+  box-shadow: none;
+  transform: none;
+}
+
 .aurora-card-top {
   display: flex;
   align-items: center;

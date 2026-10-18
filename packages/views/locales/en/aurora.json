@@ -4,12 +4,25 @@
   "credits": "{{credits}} credits",
   "directory": {
     "title": "Start creating",
-    "search_placeholder": "Search a task, e.g. social posts",
-    "load_failed_title": "Could not load the skill directory",
-    "load_failed_description": "The catalog is temporarily unavailable.",
-    "empty_title": "No matching skills",
-    "empty_description": "Try another keyword or category.",
-    "unavailable": "Coming soon",
+    "search_placeholder": "Search assistants, e.g. social posts",
+    "load_failed_title": "Could not load assistants",
+    "load_failed_description": "The agent list is temporarily unavailable.",
+    "empty_title": "No matching assistants",
+    "empty_description": "Try another keyword.",
+    "eyebrow": "AI ASSISTANTS",
+    "hero_title": "What would you like to create?",
+    "hero_subtitle": "Pick an assistant. Add your details. Get a result you can use.",
+    "hero_tag": "YOUR EVERYDAY AI TEAM",
+    "visible_count_one": "{{count}} assistant shown",
+    "visible_count_other": "{{count}} assistants shown",
+    "ready": "Open assistant",
+    "clear_search": "Clear search",
+    "text_output": "Written content · Markdown (.md)",
+    "read_only": "View only",
+    "guide_label": "Start in three steps",
+    "step_choose": "Choose an assistant",
+    "step_describe": "Add your details",
+    "step_download": "Review & download",
     "categories": {
       "all": "All tools",
       "ecommerce": "E-commerce",
@@ -19,70 +32,6 @@
       "media": "Media",
       "design": "Design",
       "other": "Other"
-    },
-    "eyebrow": "AI TOOLS",
-    "hero_title": "What would you like to create?",
-    "stats_runnable_one": "skill runnable",
-    "stats_runnable_other": "skills runnable",
-    "stats_total_one": "skill in the catalog",
-    "stats_total_other": "skills in the catalog",
-    "visible_count_one": "{{count}} tools shown",
-    "visible_count_other": "{{count}} tools shown",
-    "ready": "Open tool",
-    "clear_filters": "All tools",
-    "inputs": {
-      "text": "Text",
-      "image": "Images",
-      "document": "Documents",
-      "audio": "Audio",
-      "video": "Video",
-      "spreadsheet": "Spreadsheets",
-      "other": "Other"
-    },
-    "hero_subtitle": "Pick a task. Add your details. Get a result you can use.",
-    "hero_tag": "YOUR EVERYDAY AI TEAM",
-    "recommended": "Popular tasks",
-    "upcoming_title": "Images, video & office tools",
-    "upcoming_description": "Coming soon. These tools cannot be submitted or charged yet.",
-    "guide_label": "Start in three steps",
-    "step_choose": "Choose a tool",
-    "step_describe": "Add your details",
-    "step_download": "Review & download",
-    "output_label": "Deliverable",
-    "text_output": "Written content · Markdown (.md)",
-    "planned": {
-      "poster": {
-        "name": "Poster design",
-        "output": "Poster image"
-      },
-      "text_image": {
-        "name": "Text to image",
-        "output": "Generated image"
-      },
-      "image_video": {
-        "name": "Image to video",
-        "output": "Video file"
-      },
-      "text_video": {
-        "name": "Text to video",
-        "output": "Video file"
-      },
-      "product_image": {
-        "name": "Product images",
-        "output": "Product image"
-      },
-      "image_edit": {
-        "name": "Image editing",
-        "output": "Edited image"
-      },
-      "ppt": {
-        "name": "PowerPoint creation",
-        "output": "Editable presentation"
-      },
-      "excel": {
-        "name": "Excel analysis",
-        "output": "Spreadsheet"
-      }
     }
   },
   "composer": {

@@ -4,12 +4,24 @@
   "credits": "{{credits}} クレジット",
   "directory": {
     "title": "作成を始める",
-    "search_placeholder": "作りたい内容を検索",
-    "load_failed_title": "スキル一覧を読み込めませんでした",
-    "load_failed_description": "カタログを一時的に利用できません。",
-    "empty_title": "一致するスキルがありません",
-    "empty_description": "別のキーワードやカテゴリをお試しください。",
-    "unavailable": "近日公開",
+    "search_placeholder": "アシスタントを検索",
+    "load_failed_title": "アシスタント一覧を読み込めませんでした",
+    "load_failed_description": "アシスタント一覧を一時的に利用できません。",
+    "empty_title": "一致するアシスタントがありません",
+    "empty_description": "別のキーワードをお試しください。",
+    "eyebrow": "AI アシスタント",
+    "hero_title": "今日は何を作りますか？",
+    "hero_subtitle": "アシスタントを選び、内容を入力して、成果物を受け取りましょう。",
+    "hero_tag": "毎日の AI アシスタント",
+    "visible_count_other": "アシスタント {{count}} 件",
+    "ready": "使ってみる",
+    "clear_search": "検索をクリア",
+    "text_output": "文章 · Markdown（.md）",
+    "read_only": "閲覧のみ",
+    "guide_label": "3ステップで作成",
+    "step_choose": "アシスタントを選択",
+    "step_describe": "内容を入力",
+    "step_download": "確認・ダウンロード",
     "categories": {
       "all": "すべてのツール",
       "ecommerce": "EC",
@@ -19,67 +31,6 @@
       "media": "メディア",
       "design": "デザイン",
       "other": "その他"
-    },
-    "eyebrow": "AI ツール",
-    "hero_title": "今日は何を作りますか？",
-    "stats_runnable_other": "件が実行可能",
-    "stats_total_other": "件のスキル",
-    "visible_count_other": "{{count}} 個のツール",
-    "ready": "使ってみる",
-    "clear_filters": "すべてのツール",
-    "inputs": {
-      "text": "テキスト",
-      "image": "画像",
-      "document": "ドキュメント",
-      "audio": "音声",
-      "video": "動画",
-      "spreadsheet": "表計算",
-      "other": "その他"
-    },
-    "hero_subtitle": "ツールを選び、内容を入力して、成果物を受け取りましょう。",
-    "hero_tag": "毎日の AI アシスタント",
-    "recommended": "おすすめ",
-    "upcoming_title": "画像・動画・オフィスツール",
-    "upcoming_description": "準備中のため、まだ送信や課金はできません。",
-    "guide_label": "3ステップで作成",
-    "step_choose": "ツールを選択",
-    "step_describe": "内容を入力",
-    "step_download": "確認・ダウンロード",
-    "output_label": "成果物",
-    "text_output": "文章 · Markdown（.md）",
-    "planned": {
-      "poster": {
-        "name": "ポスター作成",
-        "output": "ポスター画像"
-      },
-      "text_image": {
-        "name": "文章から画像",
-        "output": "生成画像"
-      },
-      "image_video": {
-        "name": "画像から動画",
-        "output": "動画ファイル"
-      },
-      "text_video": {
-        "name": "文章から動画",
-        "output": "動画ファイル"
-      },
-      "product_image": {
-        "name": "商品画像",
-        "output": "商品画像"
-      },
-      "image_edit": {
-        "name": "画像編集",
-        "output": "編集済み画像"
-      },
-      "ppt": {
-        "name": "PowerPoint 作成",
-        "output": "編集可能なプレゼン"
-      },
-      "excel": {
-        "name": "Excel 分析",
-        "output": "表計算ファイル"
-      }
     }
   },
   "composer": {
