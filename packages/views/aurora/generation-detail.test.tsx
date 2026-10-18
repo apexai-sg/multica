@@ -157,7 +157,7 @@ describe("GenerationDetail", () => {
       "Status",
       "Created",
       "Elapsed",
-      "Skill",
+      "Tool",
       "Credits reserved",
       "Credits charged",
       "Prompt",

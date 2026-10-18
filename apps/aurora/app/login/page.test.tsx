@@ -32,9 +32,9 @@ beforeEach(() => { vi.clearAllMocks(); searchParams.delete("next"); queryClient.
 
 it("provides Aurora's light-surface brand and existing tagline to the shared login", () => {
   renderWithI18n(<Page />);
-  const name = screen.getByText("Aurora");
+  const name = screen.getByText("Apex AI");
   expect(name.closest(".aurora-brand")).toHaveClass("aurora-brand--on-light");
-  expect(screen.getByText("AI STUDIO")).toBeVisible();
+  expect(screen.getByText("CREATE SOMETHING USEFUL")).toBeVisible();
   expect(screen.getByText("A")).toHaveAttribute("aria-hidden", "true");
 });
 it("preserves the login success destination", async () => {

@@ -3,33 +3,29 @@
   "cancel": "Cancel",
   "credits": "{{credits}} credits",
   "directory": {
-    "title": "Create",
-    "search_placeholder": "Search skills",
-    "load_failed_title": "Could not load the skill directory",
+    "title": "Start creating",
+    "search_placeholder": "Search a task, e.g. social posts",
+    "load_failed_title": "Could not load the tool directory",
     "load_failed_description": "The catalog is temporarily unavailable.",
-    "empty_title": "No matching skills",
+    "empty_title": "No matching tools",
     "empty_description": "Try another keyword or category.",
     "unavailable": "Coming soon",
     "categories": {
-      "all": "All",
-      "ecommerce": "E-commerce",
-      "content-creation": "Content creation",
-      "marketing": "Marketing",
-      "legal": "Legal",
-      "media": "Media",
-      "design": "Design",
+      "all": "All tools",
+      "ecommerce": "Online store",
+      "content-creation": "Stories & writing",
+      "marketing": "Promotion & copy",
+      "legal": "Contracts & documents",
+      "media": "Video scripts",
+      "design": "Product & web",
       "other": "Other"
     },
     "eyebrow": "AI TOOLS",
-    "hero_title": "Pick a skill. Aurora runs it.",
-    "stats_runnable_one": "skill runnable",
-    "stats_runnable_other": "skills runnable",
-    "stats_total_one": "skill in the catalog",
-    "stats_total_other": "skills in the catalog",
-    "visible_count_one": "{{count}} skill available",
-    "visible_count_other": "{{count}} skills available",
-    "ready": "Ready",
-    "clear_filters": "Show all skills",
+    "hero_title": "What would you like to create?",
+    "visible_count_one": "{{count}} tool shown",
+    "visible_count_other": "{{count}} tools shown",
+    "ready": "Open tool",
+    "clear_filters": "Show all tools",
     "inputs": {
       "text": "Text",
       "image": "Images",
@@ -38,6 +34,49 @@
       "video": "Video",
       "spreadsheet": "Spreadsheets",
       "other": "Other"
+    },
+    "hero_tag": "YOUR EVERYDAY AI TEAM",
+    "recommended": "Popular tasks",
+    "upcoming_title": "Images, video & office tools",
+    "upcoming_description": "Coming soon. These tools cannot be submitted or charged yet.",
+    "guide_label": "Start in three steps",
+    "step_choose": "Choose a tool",
+    "step_describe": "Add your details",
+    "step_download": "Review & download",
+    "text_output": "Written content · Markdown (.md)",
+    "planned": {
+      "poster": {
+        "name": "Poster design",
+        "output": "Poster image"
+      },
+      "text_image": {
+        "name": "Text to image",
+        "output": "Generated image"
+      },
+      "image_video": {
+        "name": "Image to video",
+        "output": "Video file"
+      },
+      "text_video": {
+        "name": "Text to video",
+        "output": "Video file"
+      },
+      "product_image": {
+        "name": "Product images",
+        "output": "Product image"
+      },
+      "image_edit": {
+        "name": "Image editing",
+        "output": "Edited image"
+      },
+      "ppt": {
+        "name": "PowerPoint creation",
+        "output": "Editable presentation"
+      },
+      "excel": {
+        "name": "Excel analysis",
+        "output": "Spreadsheet"
+      }
     }
   },
   "composer": {
@@ -60,10 +99,10 @@
     "submit": "Generate",
     "submitting": "Starting…",
     "unavailable_title": "Not available yet",
-    "unavailable_description": "This skill is still being built. It opens here when it launches.",
+    "unavailable_description": "This tool is still being built. It opens here when it launches.",
     "insufficient_title": "Not enough credits",
-    "insufficient_description": "This skill costs {{cost}} credits and you have {{balance}}.",
-    "insufficient_cost_only": "This skill costs {{cost}} credits.",
+    "insufficient_description": "This tool costs {{cost}} credits and you have {{balance}}.",
+    "insufficient_cost_only": "This tool costs {{cost}} credits.",
     "rate_limited_title": "Limit reached",
     "rate_limited_description": "You have used this month's generations, or have too many still running. Try again later.",
     "create_failed": "Could not start the generation. Try again.",
@@ -81,13 +120,21 @@
       "needs_input": "Waiting for your reply",
       "unknown": "Unknown"
     },
-    "progress_unreadable": "Could not read this generation's progress."
+    "progress_unreadable": "Could not read this generation's progress.",
+    "example": "Try an example",
+    "audience_field": "Audience",
+    "audience_label": "Who is it for? (optional)",
+    "audience_placeholder": "For example: parents with young children",
+    "preferences_field": "Style & requirements",
+    "preferences_label": "Style & requirements (optional)",
+    "preferences_placeholder": "For example: friendly tone, 300 words, bilingual",
+    "deliverable_title": "What you will receive"
   },
   "works": {
     "title": "My works",
     "generations_title": "Generations",
     "generations_empty_title": "No generations yet",
-    "generations_empty_description": "Pick a skill in Create to make your first one.",
+    "generations_empty_description": "Pick a tool in Start creating to make your first one.",
     "assets_title": "Library",
     "assets_empty_title": "No content yet",
     "assets_empty_description": "Finished generations put their files here.",
@@ -100,7 +147,7 @@
     "delete_description": "The file is removed from storage and cannot be recovered.",
     "delete_confirm": "Delete file",
     "no_prompt": "No prompt",
-    "skill_unknown": "Unknown skill",
+    "skill_unknown": "Unknown tool",
     "eyebrow": "CREATIONS"
   },
   "history": {
@@ -109,10 +156,10 @@
     "empty_title": "No generations yet",
     "empty_description": "Finished generations and their results appear here.",
     "no_match_title": "Nothing matches these filters",
-    "no_match_description": "Try another status or skill.",
+    "no_match_description": "Try another status or tool.",
     "status_all": "All",
-    "skill_label": "Skill",
-    "skill_all": "All skills",
+    "skill_label": "Tool",
+    "skill_all": "All tools",
     "preview_label": "Preview {{format}}",
     "preview_description": "The full-size file this generation produced.",
     "open_in_new_tab": "Open in new tab"
@@ -127,7 +174,7 @@
     "status_label": "Status",
     "created_label": "Created",
     "elapsed_label": "Elapsed",
-    "skill_label": "Skill",
+    "skill_label": "Tool",
     "prompt_label": "Prompt",
     "credits_reserved_label": "Credits reserved",
     "credits_charged_label": "Credits charged",
@@ -145,7 +192,7 @@
     "eyebrow": "GENERATION"
   },
   "billing": {
-    "title": "Credits",
+    "title": "Credits & top-up",
     "balance_title": "Available credits",
     "top_up": "Top up",
     "transactions_title": "Activity",
@@ -214,7 +261,7 @@
     }
   },
   "runtime": {
-    "title": "Execution",
+    "title": "Service status",
     "status": {
       "offline": "Offline",
       "unconfigured": "Not set up",
@@ -233,7 +280,7 @@
     "generations_empty": "Nothing is running."
   },
   "shell": {
-    "brand_tagline": "AI STUDIO",
+    "brand_tagline": "CREATE SOMETHING USEFUL",
     "menu_open": "Open menu",
     "menu_close": "Close menu",
     "account_menu": "Account",

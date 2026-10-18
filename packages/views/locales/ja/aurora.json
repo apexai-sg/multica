@@ -3,30 +3,28 @@
   "cancel": "キャンセル",
   "credits": "{{credits}} クレジット",
   "directory": {
-    "title": "作成",
-    "search_placeholder": "スキルを検索",
-    "load_failed_title": "スキル一覧を読み込めませんでした",
+    "title": "作成を始める",
+    "search_placeholder": "作りたい内容を検索",
+    "load_failed_title": "ツール一覧を読み込めませんでした",
     "load_failed_description": "カタログを一時的に利用できません。",
-    "empty_title": "一致するスキルがありません",
+    "empty_title": "一致するツールがありません",
     "empty_description": "別のキーワードやカテゴリをお試しください。",
     "unavailable": "近日公開",
     "categories": {
-      "all": "すべて",
-      "ecommerce": "EC",
-      "content-creation": "コンテンツ制作",
-      "marketing": "マーケティング",
-      "legal": "法務",
-      "media": "メディア",
-      "design": "デザイン",
+      "all": "すべてのツール",
+      "ecommerce": "ネットショップ",
+      "content-creation": "ストーリー・文章",
+      "marketing": "プロモーション・コピー",
+      "legal": "契約・資料",
+      "media": "動画スクリプト",
+      "design": "プロダクト・Web",
       "other": "その他"
     },
     "eyebrow": "AI ツール",
-    "hero_title": "スキルを選ぶだけ。実行は Aurora が行います。",
-    "stats_runnable_other": "件が実行可能",
-    "stats_total_other": "件のスキル",
-    "visible_count_other": "{{count}} 件が利用可能",
-    "ready": "実行可能",
-    "clear_filters": "すべてのスキルを表示",
+    "hero_title": "今日は何を作りますか？",
+    "visible_count_other": "{{count}} 個のツール",
+    "ready": "使ってみる",
+    "clear_filters": "すべてのツールを表示",
     "inputs": {
       "text": "テキスト",
       "image": "画像",
@@ -35,6 +33,49 @@
       "video": "動画",
       "spreadsheet": "表計算",
       "other": "その他"
+    },
+    "hero_tag": "毎日の AI アシスタント",
+    "recommended": "おすすめ",
+    "upcoming_title": "画像・動画・オフィスツール",
+    "upcoming_description": "準備中のため、まだ送信や課金はできません。",
+    "guide_label": "3ステップで作成",
+    "step_choose": "ツールを選択",
+    "step_describe": "内容を入力",
+    "step_download": "確認・ダウンロード",
+    "text_output": "文章 · Markdown（.md）",
+    "planned": {
+      "poster": {
+        "name": "ポスター作成",
+        "output": "ポスター画像"
+      },
+      "text_image": {
+        "name": "文章から画像",
+        "output": "生成画像"
+      },
+      "image_video": {
+        "name": "画像から動画",
+        "output": "動画ファイル"
+      },
+      "text_video": {
+        "name": "文章から動画",
+        "output": "動画ファイル"
+      },
+      "product_image": {
+        "name": "商品画像",
+        "output": "商品画像"
+      },
+      "image_edit": {
+        "name": "画像編集",
+        "output": "編集済み画像"
+      },
+      "ppt": {
+        "name": "PowerPoint 作成",
+        "output": "編集可能なプレゼン"
+      },
+      "excel": {
+        "name": "Excel 分析",
+        "output": "表計算ファイル"
+      }
     }
   },
   "composer": {
@@ -57,10 +98,10 @@
     "submit": "生成する",
     "submitting": "開始しています…",
     "unavailable_title": "まだ利用できません",
-    "unavailable_description": "このスキルは現在開発中です。公開後にここから利用できます。",
+    "unavailable_description": "このツールは現在開発中です。公開後にここから利用できます。",
     "insufficient_title": "クレジットが足りません",
-    "insufficient_description": "このスキルには {{cost}} クレジットが必要ですが、残高は {{balance}} です。",
-    "insufficient_cost_only": "このスキルには {{cost}} クレジットが必要です。",
+    "insufficient_description": "このツールには {{cost}} クレジットが必要ですが、残高は {{balance}} です。",
+    "insufficient_cost_only": "このツールには {{cost}} クレジットが必要です。",
     "rate_limited_title": "上限に達しました",
     "rate_limited_description": "今月の生成回数を使い切ったか、実行中の生成が多すぎます。しばらくしてからお試しください。",
     "create_failed": "生成を開始できませんでした。再試行してください。",
@@ -78,13 +119,21 @@
       "needs_input": "返信を待っています",
       "unknown": "不明"
     },
-    "progress_unreadable": "この生成の進行状況を読み取れませんでした。"
+    "progress_unreadable": "この生成の進行状況を読み取れませんでした。",
+    "example": "例を入力",
+    "audience_field": "対象",
+    "audience_label": "誰に向けた内容ですか？（任意）",
+    "audience_placeholder": "例：小さな子どもがいる保護者",
+    "preferences_field": "文体・条件",
+    "preferences_label": "文体・条件（任意）",
+    "preferences_placeholder": "例：親しみやすく、300語、二言語",
+    "deliverable_title": "受け取れる内容"
   },
   "works": {
     "title": "作品",
     "generations_title": "生成履歴",
     "generations_empty_title": "生成履歴がありません",
-    "generations_empty_description": "「作成」でスキルを選んで始めましょう。",
+    "generations_empty_description": "「作成を始める」でツールを選んで始めましょう。",
     "assets_title": "ライブラリ",
     "assets_empty_title": "作品がありません",
     "assets_empty_description": "生成が完了するとファイルがここに並びます。",
@@ -97,7 +146,7 @@
     "delete_description": "ファイルはストレージから削除され、復元できません。",
     "delete_confirm": "ファイルを削除",
     "no_prompt": "プロンプトなし",
-    "skill_unknown": "不明なスキル",
+    "skill_unknown": "不明なツール",
     "eyebrow": "作品"
   },
   "history": {
@@ -106,10 +155,10 @@
     "empty_title": "生成履歴がありません",
     "empty_description": "完了した生成とその結果がここに並びます。",
     "no_match_title": "条件に一致する生成がありません",
-    "no_match_description": "別のステータスやスキルを選んでください。",
+    "no_match_description": "別のステータスやツールを選んでください。",
     "status_all": "すべて",
-    "skill_label": "スキル",
-    "skill_all": "すべてのスキル",
+    "skill_label": "ツール",
+    "skill_all": "すべてのツール",
     "preview_label": "{{format}} をプレビュー",
     "preview_description": "この生成が作成した原寸ファイルです。",
     "open_in_new_tab": "新しいタブで開く"
@@ -124,7 +173,7 @@
     "status_label": "ステータス",
     "created_label": "作成日時",
     "elapsed_label": "所要時間",
-    "skill_label": "スキル",
+    "skill_label": "ツール",
     "prompt_label": "プロンプト",
     "credits_reserved_label": "予約クレジット",
     "credits_charged_label": "課金クレジット",
@@ -142,7 +191,7 @@
     "eyebrow": "生成"
   },
   "billing": {
-    "title": "クレジット",
+    "title": "クレジット・チャージ",
     "balance_title": "利用可能なクレジット",
     "top_up": "チャージ",
     "transactions_title": "利用履歴",
@@ -211,7 +260,7 @@
     }
   },
   "runtime": {
-    "title": "実行",
+    "title": "サービス状況",
     "status": {
       "offline": "オフライン",
       "unconfigured": "未設定",
@@ -230,7 +279,7 @@
     "generations_empty": "実行中の生成はありません。"
   },
   "shell": {
-    "brand_tagline": "AI STUDIO",
+    "brand_tagline": "役に立つものを作ろう",
     "menu_open": "メニューを開く",
     "menu_close": "メニューを閉じる",
     "account_menu": "アカウント",

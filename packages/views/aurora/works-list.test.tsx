@@ -217,7 +217,7 @@ describe("WorksList", () => {
 
     renderWorks();
 
-    expect(screen.getByText("Unknown skill")).toBeInTheDocument();
+    expect(screen.getByText("Unknown tool")).toBeInTheDocument();
   });
 
   it("downloads every asset through the authenticated endpoint, not a bare link", async () => {
@@ -326,7 +326,7 @@ describe("WorksList", () => {
   });
 
   it("stays silent about unknown skills when the catalog itself could not be read", async () => {
-    // A failed catalog request used to stamp "Unknown skill" on every row — a
+    // A failed catalog request used to stamp "Unknown tool" on every row — a
     // screenful of claims the client had no basis for. It is only unknown when
     // the catalog answered and did not list it.
     mocks.skills.mockReturnValue({
@@ -337,7 +337,7 @@ describe("WorksList", () => {
 
     renderWorks();
 
-    expect(screen.queryByText("Unknown skill")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unknown tool")).not.toBeInTheDocument();
     expect(screen.getByText("a launch poster")).toBeInTheDocument();
   });
 
@@ -348,7 +348,7 @@ describe("WorksList", () => {
 
     renderWorks();
 
-    expect(screen.queryByText("Unknown skill")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unknown tool")).not.toBeInTheDocument();
     expect(screen.getByText("a launch poster")).toBeInTheDocument();
   });
 
