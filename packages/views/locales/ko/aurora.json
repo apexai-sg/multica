@@ -17,7 +17,6 @@
     "ready": "사용하기",
     "clear_search": "검색 지우기",
     "text_output": "텍스트 · Markdown (.md)",
-    "read_only": "보기 전용",
     "guide_label": "세 단계로 만들기",
     "step_choose": "어시스턴트 선택",
     "step_describe": "요청 입력",
@@ -71,7 +70,12 @@
     "preferences_field": "문체 및 요구 사항",
     "preferences_label": "문체 및 요구 사항 (선택)",
     "preferences_placeholder": "예: 친근한 문체, 300단어, 두 언어",
-    "deliverable_title": "제공되는 결과물"
+    "deliverable_title": "제공되는 결과물",
+    "issue_description": "어시스턴트가 이 요청을 실행하고 issue에 답변합니다.",
+    "attachments_label_files": "파일",
+    "submit_task": "작업 시작",
+    "issue_create_failed": "작업을 시작하지 못했습니다. 다시 시도해 주세요.",
+    "issue_started": "{{identifier}}에서 작업을 시작했습니다."
   },
   "works": {
     "title": "내 작품",

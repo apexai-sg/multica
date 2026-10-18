@@ -919,16 +919,6 @@ a.aurora-status-chip[href] {
   transform: translateY(-2px);
 }
 
-.aurora-card--read-only {
-  cursor: default;
-}
-
-.aurora-card--read-only:hover {
-  border-color: var(--aurora-line);
-  box-shadow: none;
-  transform: none;
-}
-
 .aurora-card-top {
   display: flex;
   align-items: center;

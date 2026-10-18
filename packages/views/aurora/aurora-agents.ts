@@ -33,6 +33,36 @@ export function agentSubmissionSkill(
   return entry && entry.available ? entry : null;
 }
 
+/**
+ * How the directory may use an agent, or null when it must not list it.
+ *
+ * - A current Aurora carrier runs the generation pipeline.
+ * - A user-created agent (empty system key) runs an ordinary issue task.
+ * - Every other system agent (Mika, a retired carrier) is hidden: it is
+ *   system-generated and either has no Aurora artifact contract or no current
+ *   catalog entry, so neither path can run it safely.
+ */
+export type AgentDirectoryMode = "generation" | "issue";
+
+export function agentDirectoryMode(
+  agent: Agent,
+  catalog: AuroraSkill[],
+): AgentDirectoryMode | null {
+  const systemKey = (agent.system_key ?? "").trim();
+  if (!systemKey) return "issue";
+  return agentSubmissionSkill(agent, catalog) ? "generation" : null;
+}
+
+/** The agents the directory lists, in backend order. */
+export function listableAgents(
+  agents: Agent[],
+  catalog: AuroraSkill[],
+): Agent[] {
+  return agents.filter(
+    (agent) => agentDirectoryMode(agent, catalog) !== null,
+  );
+}
+
 /** Whether the agent matches the directory's one search box. */
 export function matchesAgentQuery(agent: Agent, query: string): boolean {
   const needle = query.trim().toLowerCase();
@@ -64,7 +94,7 @@ export function orderDirectoryAgents(
 ): Agent[] {
   return [...agents].sort((a, b) => {
     const rank = (agent: Agent) =>
-      agentSubmissionSkill(agent, catalog) ? 1 : 0;
+      agentDirectoryMode(agent, catalog) === "generation" ? 1 : 0;
     return rank(b) - rank(a);
   });
 }
