@@ -83,7 +83,13 @@ export function SkillDirectory({
     [ordered, query],
   );
 
-  const agentsKnown = !agentsQuery.isPending && !agentsQuery.isError;
+  // A failed refetch over a list this screen already read is a stale list, not
+  // an unreadable one: keep rendering it. Only a failure with no data behind it
+  // takes the load-failed state, which is what AuroraLoadFailed documents for
+  // every other surface.
+  const agentsRead = agentsQuery.data !== undefined;
+  const loadFailed = agentsQuery.isError && !agentsRead;
+  const agentsKnown = !agentsQuery.isPending && agentsRead;
 
   return (
     <div className="aurora-page">
@@ -141,7 +147,7 @@ export function SkillDirectory({
 
       {agentsQuery.isPending ? (
         <DirectorySkeleton />
-      ) : agentsQuery.isError ? (
+      ) : loadFailed ? (
         <AuroraLoadFailed
           title={t(($) => $.directory.load_failed_title)}
           onRetry={() => void agentsQuery.refetch()}

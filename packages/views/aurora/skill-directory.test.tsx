@@ -110,7 +110,15 @@ function directory(
 ) {
   mocks.directory.mockReturnValue({
     agents,
-    query: { isPending: false, isError: false, refetch: vi.fn(), ...query },
+    query: {
+      // A successful read is the default; a first-load failure passes
+      // `data: undefined` explicitly.
+      data: agents,
+      isPending: false,
+      isError: false,
+      refetch: vi.fn(),
+      ...query,
+    },
   });
 }
 
@@ -209,8 +217,8 @@ describe("SkillDirectory", () => {
   });
 
   it.each([
-    { isPending: true },
-    { isPending: false, isError: true, refetch: vi.fn() },
+    { isPending: true, data: undefined },
+    { isPending: false, isError: true, refetch: vi.fn(), data: undefined },
   ])("does not present an unread agent list as zero assistants", (query) => {
     directory([], query);
     renderDirectory();
@@ -227,10 +235,19 @@ describe("SkillDirectory", () => {
   it("offers retry for a failed agent list", async () => {
     const user = userEvent.setup();
     const refetch = vi.fn();
-    directory([], { isPending: false, isError: true, refetch });
+    directory([], { isPending: false, isError: true, refetch, data: undefined });
     renderDirectory();
     await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the last readable list when a background refetch fails", () => {
+    directory(AGENTS, { isError: true });
+    renderDirectory();
+    expect(cards()).toHaveLength(2);
+    expect(
+      screen.queryByRole("button", { name: "Try again" }),
+    ).not.toBeInTheDocument();
   });
 
   it("clears the search from the empty state", async () => {
