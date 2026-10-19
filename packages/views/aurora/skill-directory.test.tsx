@@ -216,6 +216,40 @@ describe("SkillDirectory", () => {
     expect(cards()[0]).toHaveTextContent("Ops assistant");
   });
 
+  it("filters by declared outputs while keeping ordinary agents discoverable", async () => {
+    const user = userEvent.setup();
+    renderDirectory();
+    expect(screen.queryByRole("button", { name: "Image tools" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Writing tools" }));
+    expect(cards()).toHaveLength(1);
+    expect(cards()[0]).toHaveTextContent("Lyrics helper");
+    await user.type(screen.getByRole("searchbox"), "Runbooks");
+    expect(cards()).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: "AI assistants", exact: true }));
+    expect(cards()).toHaveLength(1);
+    expect(cards()[0]).toHaveTextContent("Ops assistant");
+    await user.clear(screen.getByRole("searchbox"));
+    await user.click(screen.getByRole("button", { name: "All tools" }));
+    expect(cards()).toHaveLength(2);
+  });
+
+  it("returns to all tools when a refetch removes the selected output", async () => {
+    const user = userEvent.setup();
+    const view = renderDirectory();
+    await user.click(screen.getByRole("button", { name: "Writing tools" }));
+    directory([OPS]);
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <NavigationProvider value={stubNavigationAdapter()}>
+          <SkillDirectory />
+        </NavigationProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole("button", { name: "All tools" })).toHaveAttribute("aria-pressed", "true");
+    expect(cards()).toHaveLength(1);
+    expect(cards()[0]).toHaveTextContent("Ops assistant");
+  });
+
   it("makes every listed agent actionable", async () => {
     const user = userEvent.setup();
     renderDirectory();

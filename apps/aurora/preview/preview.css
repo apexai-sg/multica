@@ -1,0 +1,12 @@
+:root { --font-geist-sans: -apple-system; }
+body { margin: 0; }
+.design-preview { height: 100svh; display: flex; flex-direction: column; }
+.design-preview .aurora-app { flex: 1; height: auto; min-height: 0; }
+.design-preview-notice {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  color: var(--aurora-violet-deep);
+  background: var(--aurora-tint-lavender);
+  font: 12px/1.6 var(--font-sans);
+  text-align: center;
+}
