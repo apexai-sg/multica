@@ -24,6 +24,9 @@ const examples = [
   { name: "办公助手", description: "整理资料、梳理思路、起草邮件，把重复的小事交给你的 AI 助手。", output: null, credits: 0, skills: ["资料整理", "邮件起草", "工作计划"], starter: "帮我安排本周的工作重点", prompt: "帮我梳理本周的工作计划，按优先级列出事项、时间安排和预期成果。" },
 ];
 
+export const FACE_SWAP_AGENT_ID = "preview-face-swap";
+export const FACE_SWAP_PATH = "/preview/tools/face-swap";
+
 export const agents: Agent[] = examples.map((example, index) => ({
   id: `preview-agent-${index}`, workspace_id: workspace.id, runtime_id: "preview-runtime",
   name: example.name, description: example.description, instructions: "",
@@ -36,12 +39,30 @@ export const agents: Agent[] = examples.map((example, index) => ({
   conversation_starters: [{ label: example.starter, prompt: example.prompt }],
 }));
 
+// This fixture is a local interaction study, not an executable catalog entry.
+agents.unshift({
+  ...agents[1]!,
+  id: FACE_SWAP_AGENT_ID,
+  name: "图片／视频换脸",
+  description: "上传原视频或图片，再选择一张人脸照片，预览双框换脸工作台。",
+  system_key: "aurora:preview-face-swap",
+  skills: [
+    { id: "preview-video-face", name: "视频换脸", description: "", enabled: true },
+    { id: "preview-image-face", name: "图片换脸", description: "", enabled: true },
+  ],
+  conversation_starters: [{ label: "打开全屏工作台", prompt: "打开图片／视频换脸的全屏工作台" }],
+});
+
 const responses: Record<string, unknown> = {
-  "/api/aurora/skills": { skills: examples.flatMap((example, index) => example.output ? [{
+  "/api/aurora/skills": { skills: [{
+    id: "preview-face-swap", name: "图片／视频换脸", name_en: "Face swap",
+    category: "video", credits: 0, input: ["video", "image"], output: ["video", "image"],
+    available: true, featured: false,
+  }, ...examples.flatMap((example, index) => example.output ? [{
     id: `preview-tool-${index}`, name: example.name, name_en: example.name,
     category: example.output, credits: example.credits, input: ["text"],
     output: [example.output], available: true, featured: false,
-  }] : []) },
+  }] : [])] },
   "/api/aurora/runtime": { workspaceId: workspace.id, node: null, runtimeId: null, state: "unconfigured" },
   "/api/aurora/billing/balance": { availableMicro: 1200000000 },
   "/api/aurora/billing/subscription": { subscription: { tier: "free", limits: { generationsPerMonth: 10, concurrency: 1 }, usage: { generationsUsedThisMonth: 0, activeGenerations: 0 } } },

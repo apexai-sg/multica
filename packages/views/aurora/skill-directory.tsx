@@ -47,11 +47,12 @@ import { useAuroraAgentDirectory } from "./use-aurora-agent-directory";
  * mode applies, so a catalog that could not be read is reported rather than
  * mistaken for "no assistants".
  *
- * The directory owns which agent's drawer is open. That stays component state
- * rather than a URL so a half-written prompt does not survive a refresh as a
- * linkable address.
+ * By default the directory owns the selected drawer. A host can supply
+ * onSelect to open its own tool page while retaining this classification.
  */
 export interface SkillDirectoryProps {
+  /** Let the host open a tool page instead of the built-in drawer. */
+  onSelect?: (entry: DirectoryEntry) => void;
   /** The app's library route, offered on a finished generation. */
   worksHref?: string;
   /** The app's checkout route, offered when a generation costs more than the wallet holds. */
@@ -84,6 +85,7 @@ function matchesOutput(entry: DirectoryEntry, filter: OutputFilter) {
 }
 
 export function SkillDirectory({
+  onSelect,
   worksHref,
   topUpHref,
   issueHref,
@@ -275,7 +277,10 @@ export function SkillDirectory({
         <ul className={GRID_CLASS}>
           {visible.map((entry) => (
             <li key={entry.agent.id}>
-              <AgentCard entry={entry} onSelect={() => setSelected(entry)} />
+              <AgentCard entry={entry} onSelect={() => {
+                if (onSelect) onSelect(entry);
+                else setSelected(entry);
+              }} />
             </li>
           ))}
         </ul>

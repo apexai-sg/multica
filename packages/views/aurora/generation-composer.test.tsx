@@ -219,10 +219,14 @@ describe("GenerationComposer", () => {
     });
   });
 
-  it("adds optional guidance to the original prompt and keeps the expert ID", async () => {
+  it.each(["sheet", "page"] as const)("keeps prompt guidance and expert ID in the %s presentation", async (presentation) => {
     const user = userEvent.setup();
     mocks.create.mockResolvedValue(payload(detail()));
-    renderComposer({});
+    renderComposer({ presentation });
+    if (presentation === "page") {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Write lyrics", level: 1 })).toBeVisible();
+    }
     await user.type(screen.getByLabelText("What should it make?"), "A song about courage");
     expect(screen.getByRole("button", { name: "Try an example" })).toBeEnabled();
     await user.type(screen.getByLabelText("Who is it for? (optional)"), "Young children");

@@ -46,7 +46,7 @@ vi.mock("@multica/core/issues/mutations", () => ({
   }),
 }));
 
-import { SkillDirectory } from "./skill-directory";
+import { SkillDirectory, type SkillDirectoryProps } from "./skill-directory";
 
 function agent(overrides: Partial<Agent> = {}): Agent {
   return {
@@ -150,11 +150,11 @@ function catalog(skills: AuroraSkill[] = [LYRICS]) {
   });
 }
 
-function renderDirectory() {
+function renderDirectory(props: SkillDirectoryProps = {}) {
   return renderWithI18n(
     <QueryClientProvider client={new QueryClient()}>
       <NavigationProvider value={stubNavigationAdapter()}>
-        <SkillDirectory />
+        <SkillDirectory {...props} />
       </NavigationProvider>
     </QueryClientProvider>,
   );
@@ -176,6 +176,19 @@ describe("SkillDirectory", () => {
       data: { value: { availableMicro: 0 }, degraded: false },
       isPending: false,
     });
+  });
+
+  it("lets the host open classified tools without also opening a drawer", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderDirectory({ onSelect });
+    await user.click(screen.getByRole("button", { name: /Lyrics helper/ }));
+    expect(onSelect).toHaveBeenLastCalledWith({ mode: "generation", agent: LYRICS_AGENT, skill: LYRICS });
+    await user.click(screen.getByRole("button", { name: /Ops assistant/ }));
+    expect(onSelect).toHaveBeenLastCalledWith({ mode: "issue", agent: OPS });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.createIssue).not.toHaveBeenCalled();
   });
 
   it("lists backend agents with their own name, description, avatar, and skills", () => {
