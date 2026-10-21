@@ -1,70 +1,13 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   ArrowRight, Check, Download, Film, ImagePlus, Info, Link2,
   Play, ScanFace, Sparkles, Upload, X,
 } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
 
+import { fileSize, useLocalFile as useLocalMedia } from "./local-file";
+
 type MediaKind = "video" | "image";
-type LocalMedia = { file: File; url: string };
-const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
-
-function fileSize(bytes: number) {
-  return bytes < 1024 * 1024
-    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
-    : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function useLocalMedia(kind: MediaKind, onChange: () => void) {
-  const [media, setMedia] = useState<LocalMedia | null>(null);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    return () => {
-      if (media) URL.revokeObjectURL(media.url);
-    };
-  }, [media]);
-
-  function pick(files: File[]) {
-    if (files.length === 0) return;
-    onChange();
-    if (files.length !== 1) {
-      setError("每个方框只能放一个文件，请重新选择。");
-      return;
-    }
-    const file = files[0]!;
-    const supported = kind === "video" ? VIDEO_TYPES : IMAGE_TYPES;
-    const extension = kind === "video" ? /\.(mp4|webm|mov)$/i : /\.(jpe?g|png|webp)$/i;
-    if (!(supported.has(file.type) || (!file.type && extension.test(file.name)))) {
-      setError(kind === "video" ? "请选择 MP4、MOV 或 WebM 视频。" : "请选择 JPG、PNG 或 WebP 图片。");
-      return;
-    }
-    const limitMB = kind === "video" ? 200 : 20;
-    if (file.size === 0 || file.size > limitMB * 1024 * 1024) {
-      setError(file.size === 0 ? "这个文件为空，请重新选择。" : `预览支持 ${limitMB} MB 以内的文件。`);
-      return;
-    }
-    setMedia({ file, url: URL.createObjectURL(file) });
-    setError("");
-  }
-
-  function remove() {
-    setMedia(null);
-    setError("");
-    onChange();
-  }
-
-  return {
-    media, error, pick, remove,
-    fail: () => {
-      setError(kind === "video"
-        ? "浏览器无法播放这个视频，请尝试 MP4 或 WebM 文件。"
-        : "无法读取这张图片，请换一张 JPG 或 PNG 图片。");
-      onChange();
-    },
-  };
-}
 
 type MediaSlot = ReturnType<typeof useLocalMedia>;
 
