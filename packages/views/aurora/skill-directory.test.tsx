@@ -238,7 +238,7 @@ describe("SkillDirectory", () => {
     expect(cards()[0]).toHaveTextContent("Lyrics helper");
     await user.type(screen.getByRole("searchbox"), "Runbooks");
     expect(cards()).toHaveLength(0);
-    await user.click(screen.getByRole("button", { name: "AI assistants", exact: true }));
+    await user.click(screen.getByRole("button", { name: "AI assistants" }));
     expect(cards()).toHaveLength(1);
     expect(cards()[0]).toHaveTextContent("Ops assistant");
     await user.clear(screen.getByRole("searchbox"));
