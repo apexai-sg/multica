@@ -46,7 +46,7 @@ vi.mock("@multica/core/issues/mutations", () => ({
   }),
 }));
 
-import { SkillDirectory } from "./skill-directory";
+import { SkillDirectory, type SkillDirectoryProps } from "./skill-directory";
 
 function agent(overrides: Partial<Agent> = {}): Agent {
   return {
@@ -150,11 +150,11 @@ function catalog(skills: AuroraSkill[] = [LYRICS]) {
   });
 }
 
-function renderDirectory() {
+function renderDirectory(props: SkillDirectoryProps = {}) {
   return renderWithI18n(
     <QueryClientProvider client={new QueryClient()}>
       <NavigationProvider value={stubNavigationAdapter()}>
-        <SkillDirectory />
+        <SkillDirectory {...props} />
       </NavigationProvider>
     </QueryClientProvider>,
   );
@@ -176,6 +176,19 @@ describe("SkillDirectory", () => {
       data: { value: { availableMicro: 0 }, degraded: false },
       isPending: false,
     });
+  });
+
+  it("lets the host open classified tools without also opening a drawer", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderDirectory({ onSelect });
+    await user.click(screen.getByRole("button", { name: /Lyrics helper/ }));
+    expect(onSelect).toHaveBeenLastCalledWith({ mode: "generation", agent: LYRICS_AGENT, skill: LYRICS });
+    await user.click(screen.getByRole("button", { name: /Ops assistant/ }));
+    expect(onSelect).toHaveBeenLastCalledWith({ mode: "issue", agent: OPS });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.createIssue).not.toHaveBeenCalled();
   });
 
   it("lists backend agents with their own name, description, avatar, and skills", () => {
@@ -212,6 +225,40 @@ describe("SkillDirectory", () => {
     expect(cards()[0]).toHaveTextContent("Lyrics helper");
     await user.clear(search);
     await user.type(search, "operations questions");
+    expect(cards()).toHaveLength(1);
+    expect(cards()[0]).toHaveTextContent("Ops assistant");
+  });
+
+  it("filters by declared outputs while keeping ordinary agents discoverable", async () => {
+    const user = userEvent.setup();
+    renderDirectory();
+    expect(screen.queryByRole("button", { name: "Image tools" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Writing tools" }));
+    expect(cards()).toHaveLength(1);
+    expect(cards()[0]).toHaveTextContent("Lyrics helper");
+    await user.type(screen.getByRole("searchbox"), "Runbooks");
+    expect(cards()).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: "AI assistants" }));
+    expect(cards()).toHaveLength(1);
+    expect(cards()[0]).toHaveTextContent("Ops assistant");
+    await user.clear(screen.getByRole("searchbox"));
+    await user.click(screen.getByRole("button", { name: "All tools" }));
+    expect(cards()).toHaveLength(2);
+  });
+
+  it("returns to all tools when a refetch removes the selected output", async () => {
+    const user = userEvent.setup();
+    const view = renderDirectory();
+    await user.click(screen.getByRole("button", { name: "Writing tools" }));
+    directory([OPS]);
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <NavigationProvider value={stubNavigationAdapter()}>
+          <SkillDirectory />
+        </NavigationProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole("button", { name: "All tools" })).toHaveAttribute("aria-pressed", "true");
     expect(cards()).toHaveLength(1);
     expect(cards()[0]).toHaveTextContent("Ops assistant");
   });

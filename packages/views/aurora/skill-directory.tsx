@@ -47,11 +47,12 @@ import { useAuroraAgentDirectory } from "./use-aurora-agent-directory";
  * mode applies, so a catalog that could not be read is reported rather than
  * mistaken for "no assistants".
  *
- * The directory owns which agent's drawer is open. That stays component state
- * rather than a URL so a half-written prompt does not survive a refresh as a
- * linkable address.
+ * By default the directory owns the selected drawer. A host can supply
+ * onSelect to open its own tool page while retaining this classification.
  */
 export interface SkillDirectoryProps {
+  /** Let the host open a tool page instead of the built-in drawer. */
+  onSelect?: (entry: DirectoryEntry) => void;
   /** The app's library route, offered on a finished generation. */
   worksHref?: string;
   /** The app's checkout route, offered when a generation costs more than the wallet holds. */
@@ -69,8 +70,22 @@ const GRID_CLASS = "aurora-card-grid";
 const EMPTY_SKILLS: AuroraSkill[] = [];
 
 type SelectedAgent = DirectoryEntry;
+type OutputFilter =
+  | "all" | "image" | "video" | "text" | "audio" | "assistant" | "other";
+
+function matchesOutput(entry: DirectoryEntry, filter: OutputFilter) {
+  if (filter === "all") return true;
+  if (entry.mode === "issue") return filter === "assistant";
+  if (filter === "other") {
+    return !entry.skill.output.some((kind) =>
+      ["image", "video", "text", "audio"].includes(kind),
+    );
+  }
+  return entry.skill.output.includes(filter);
+}
 
 export function SkillDirectory({
+  onSelect,
   worksHref,
   topUpHref,
   issueHref,
@@ -80,6 +95,7 @@ export function SkillDirectory({
   const skillsQuery = useAuroraSkills();
   const skills = skillsQuery.data?.value ?? EMPTY_SKILLS;
   const [query, setQuery] = useState("");
+  const [output, setOutput] = useState<OutputFilter>("all");
   const [selected, setSelected] = useState<SelectedAgent | null>(null);
 
   // One classification pass: generation entries first, then issue entries.
@@ -88,9 +104,27 @@ export function SkillDirectory({
     () => directoryEntries(agents, skills),
     [agents, skills],
   );
+  const filterOptions: { value: OutputFilter; label: string }[] = [
+    { value: "all", label: t(($) => $.directory.filter_all) },
+    { value: "image", label: t(($) => $.directory.filter_image) },
+    { value: "video", label: t(($) => $.directory.filter_video) },
+    { value: "text", label: t(($) => $.directory.filter_text) },
+    { value: "audio", label: t(($) => $.directory.filter_audio) },
+    { value: "assistant", label: t(($) => $.directory.filter_assistant) },
+    { value: "other", label: t(($) => $.directory.filter_misc) },
+  ];
+  const filters = filterOptions.filter(
+    (filter) => filter.value === "all" ||
+      entries.some((entry) => matchesOutput(entry, filter.value)),
+  );
+  // A refreshed catalog can remove a category while it is selected.
+  const activeOutput = filters.some((filter) => filter.value === output)
+    ? output : "all";
   const visible = useMemo(
-    () => entries.filter((entry) => matchesAgentQuery(entry.agent, query)),
-    [entries, query],
+    () => entries.filter((entry) =>
+      matchesAgentQuery(entry.agent, query) && matchesOutput(entry, activeOutput),
+    ),
+    [entries, query, activeOutput],
   );
 
   // A failed refetch over a list this screen already read is a stale list, not
@@ -113,7 +147,10 @@ export function SkillDirectory({
 
   return (
     <div className="aurora-page">
-      <DirectoryHero entries={agentsKnown ? entries : undefined} />
+      <DirectoryHero
+        entries={agentsKnown && !skillsQuery.isPending && !catalogUnreadable
+          ? entries : undefined}
+      />
       <ol
         className="aurora-quick-steps"
         aria-label={t(($) => $.directory.guide_label)}
@@ -138,7 +175,7 @@ export function SkillDirectory({
             <LayoutGrid aria-hidden="true" className="size-3.5" />
             {t(($) => $.directory.eyebrow)}
           </p>
-          <h2>{t(($) => $.directory.title)}</h2>
+          <h2>{t(($) => $.directory.section_title)}</h2>
         </div>
         {agentsKnown && !catalogUnreadable ? (
           <span>
@@ -148,6 +185,24 @@ export function SkillDirectory({
       </div>
 
       <div className="aurora-toolbar">
+        <div
+          className="aurora-directory-filters"
+          role="group"
+          aria-label={t(($) => $.directory.filter_label)}
+        >
+          {filters.map((filter) => (
+            <Button
+              key={filter.value}
+              type="button"
+              variant="outline"
+              className="aurora-directory-filter"
+              aria-pressed={activeOutput === filter.value}
+              onClick={() => setOutput(filter.value)}
+            >
+              {filter.label}
+            </Button>
+          ))}
+        </div>
         <InputGroup className="w-full max-w-[280px] bg-card">
           <InputGroupAddon>
             <Search aria-hidden="true" />
@@ -203,11 +258,14 @@ export function SkillDirectory({
                 : t(($) => $.directory.empty_description)
             }
             actions={
-              query ? (
+              query || activeOutput !== "all" ? (
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setQuery("")}
+                  onClick={() => {
+                    setQuery("");
+                    setOutput("all");
+                  }}
                 >
                   {t(($) => $.directory.clear_search)}
                 </Button>
@@ -219,7 +277,10 @@ export function SkillDirectory({
         <ul className={GRID_CLASS}>
           {visible.map((entry) => (
             <li key={entry.agent.id}>
-              <AgentCard entry={entry} onSelect={() => setSelected(entry)} />
+              <AgentCard entry={entry} onSelect={() => {
+                if (onSelect) onSelect(entry);
+                else setSelected(entry);
+              }} />
             </li>
           ))}
         </ul>
@@ -248,13 +309,32 @@ function DirectoryHero({
   entries: DirectoryEntry[] | undefined;
 }) {
   const { t } = useT("aurora");
+  const skillCount = new Set(entries?.flatMap(({ agent }) =>
+    agentSkillChips(agent).map((skill) => skill.id),
+  )).size;
   return (
     <section className="aurora-hero">
       <div>
         <span className="aurora-hero-label">
           {t(($) => $.directory.hero_tag)}
         </span>
-        <h1>{t(($) => $.directory.hero_title)}</h1>
+        <h1>
+          {t(($) => $.directory.hero_title)}
+          <span>{t(($) => $.directory.hero_highlight)}</span>
+        </h1>
+        <p className="aurora-hero-description">
+          {t(($) => $.directory.hero_description)}
+        </p>
+        {entries ? (
+          <div className="aurora-hero-stats">
+            <span>
+              <strong>{entries.length}</strong>{t(($) => $.directory.tools_label)}
+            </span>
+            <span>
+              <strong>{skillCount}</strong>{t(($) => $.directory.skills_label)}
+            </span>
+          </div>
+        ) : null}
       </div>
       {/* Decorative: the first four agents as tiles. It carries no fact the
           list below does not, so it is hidden from assistive tech. */}
@@ -292,6 +372,9 @@ function AgentCard({
   const { agent } = entry;
   const skill = entry.mode === "generation" ? entry.skill : null;
   const chips = agentSkillChips(agent);
+  const starter = agent.conversation_starters?.find(
+    (item) => item.label.trim() && item.prompt.trim(),
+  );
 
   return (
     <button type="button" onClick={onSelect} className="aurora-card">
@@ -304,7 +387,15 @@ function AgentCard({
           available
         />
         <span className="aurora-card-name">
+          <span className="aurora-card-kind">
+            {skill ? t(($) => $.directory.tool_label) : t(($) => $.directory.filter_assistant)}
+          </span>
           <span className="aurora-card-title">{agent.name}</span>
+          {chips.length > 0 ? (
+            <span className="aurora-card-meta">
+              {t(($) => $.directory.skill_count, { count: chips.length })}
+            </span>
+          ) : null}
         </span>
         <span aria-hidden="true" className="aurora-card-arrow">
           <ArrowUpRight className="size-4" />
@@ -313,16 +404,22 @@ function AgentCard({
       {agent.description ? (
         <span className="aurora-card-description">{agent.description}</span>
       ) : null}
-      {skill && skill.output.length === 1 && skill.output[0] === "text" ? (
-        <span className="aurora-delivery-note">
-          {t(($) => $.directory.text_output)}
-        </span>
-      ) : null}
       {chips.length > 0 ? (
         <span className="aurora-chips">
           {chips.map((chip) => (
             <span key={chip.id}>{chip.name}</span>
           ))}
+        </span>
+      ) : null}
+      {starter ? (
+        <span className="aurora-card-example">
+          <Sparkles aria-hidden="true" className="size-3.5" />
+          <span>{t(($) => $.directory.example_label)} <strong>{starter.label}</strong></span>
+        </span>
+      ) : null}
+      {skill && skill.output.length === 1 && skill.output[0] === "text" ? (
+        <span className="aurora-delivery-note">
+          {t(($) => $.directory.text_output)}
         </span>
       ) : null}
       <span className="aurora-card-footer">
@@ -348,7 +445,7 @@ function DirectorySkeleton() {
     <ul className={GRID_CLASS}>
       {Array.from({ length: 8 }, (_, index) => (
         <li key={index}>
-          <Skeleton className="h-20 w-full rounded-xl" />
+          <Skeleton className="h-80 w-full rounded-3xl" />
         </li>
       ))}
     </ul>

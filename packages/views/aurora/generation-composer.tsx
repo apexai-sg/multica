@@ -148,6 +148,8 @@ interface PendingAttachment {
  * imported here: the library route belongs to the app that defines it.
  */
 export interface GenerationComposerProps {
+  /** The host owns navigation around a page presentation. */
+  presentation?: "sheet" | "page";
   /** The backend agent this drawer presents. Required to render. */
   agent?: Agent | null;
   /** The Aurora skill to run, or null for an ordinary agent's issue task. */
@@ -169,6 +171,7 @@ export interface GenerationComposerProps {
 }
 
 export function GenerationComposer({
+  presentation = "sheet",
   agent,
   skill,
   open,
@@ -178,6 +181,22 @@ export function GenerationComposer({
   issueHref,
 }: GenerationComposerProps) {
   if (!agent) return null;
+  if (presentation === "page") {
+    if (!open) return null;
+    return (
+      <div className="aurora-composer-page">
+        <ComposerBody
+          key={agent.id}
+          agent={agent}
+          skill={skill}
+          worksHref={worksHref}
+          topUpHref={topUpHref}
+          issueHref={issueHref}
+          presentation="page"
+        />
+      </div>
+    );
+  }
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="aurora-drawer">
@@ -229,12 +248,14 @@ type SubmitOutcome =
   | { kind: "unreadable" };
 
 function ComposerBody({
+  presentation = "sheet",
   agent,
   skill,
   worksHref,
   topUpHref,
   issueHref,
 }: {
+  presentation?: "sheet" | "page";
   agent: Agent;
   skill: AuroraSkill | null;
   worksHref?: string;
@@ -564,10 +585,13 @@ function ComposerBody({
   const showResult =
     assets.length > 0 ||
     (generation ? generationStatusLabel(generation.status) === "completed" : false);
+  const Header = presentation === "page" ? "header" : SheetHeader;
+  const Title = presentation === "page" ? "h1" : SheetTitle;
+  const Description = presentation === "page" ? "p" : SheetDescription;
 
   return (
     <div className="flex flex-col gap-5">
-      <SheetHeader className="aurora-drawer-head flex-row">
+      <Header className="aurora-drawer-head flex-row">
         <AuroraAvatar
           name={agent.name}
           id={agent.id}
@@ -576,16 +600,16 @@ function ComposerBody({
           available={available}
         />
         <div>
-          <SheetTitle>{agent.name}</SheetTitle>
-          <SheetDescription>
+          <Title>{agent.name}</Title>
+          <Description>
             {skill
               ? t(($) => $.composer.cost, {
                   credits: formatCredits(skill.credits, locale),
                 })
               : t(($) => $.composer.issue_description)}
-          </SheetDescription>
+          </Description>
         </div>
-      </SheetHeader>
+      </Header>
 
       {!available ? (
         <Alert>
