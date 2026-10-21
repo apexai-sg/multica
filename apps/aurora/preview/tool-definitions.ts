@@ -34,6 +34,13 @@ export type PreviewTool = {
 // This registry is a visual proposal only. It is not a provider capability catalog.
 export const previewTools: PreviewTool[] = [
   {
+    id: "face-swap", name: "图片／视频换脸", category: "video", avatar: 2,
+    description: "放入原视频或图片，再放入一张人脸照片，制作新的图片或视频。",
+    tagline: "两份素材，一个新作品。", chips: ["视频换脸", "图片换脸", "双框上传"],
+    fields: [], action: "生成换脸视频",
+    result: { kind: "video", title: "生成结果", description: "预览并下载新作品。", items: ["视频", "图片"] },
+  },
+  {
     id: "video-transcript", name: "视频文案提取", category: "video", added: true, avatar: 3,
     description: "上传视频，把人物说的话和画面里的文字分别提取出来，方便复制和整理。",
     tagline: "把视频里的声音和文字，变成可编辑的文案。",
@@ -48,11 +55,17 @@ export const previewTools: PreviewTool[] = [
     result: { kind: "transcript", title: "提取结果", description: "口播和画面文字分开查看，可编辑、复制或导出。", items: ["人物说话", "画面文字"] },
   },
   {
-    id: "face-swap", name: "图片／视频换脸", category: "video", avatar: 2,
-    description: "放入原视频或图片，再放入一张人脸照片，制作新的图片或视频。",
-    tagline: "两份素材，一个新作品。", chips: ["视频换脸", "图片换脸", "双框上传"],
-    fields: [], action: "生成换脸视频",
-    result: { kind: "video", title: "生成结果", description: "预览并下载新作品。", items: ["视频", "图片"] },
+    id: "product-images", name: "商品图制作", category: "image", added: true, avatar: 1,
+    description: "上传商品照片，制作白底主图、生活场景图和促销展示图。",
+    tagline: "一张产品照片，变成一组好看的商品图。", chips: ["电商主图", "场景搭建", "产品展示"],
+    upload: { kind: "image", title: "上传产品照片", hint: "优先选择主体完整、清晰的产品图" },
+    source: { label: "产品卖点或画面要求", placeholder: "例如护肤精华，放在有晨光的梳妆台上…", example: "一瓶植物精华，保留原有包装与文字，放在自然晨光下的浅色台面上，周围点缀绿叶。", optional: true },
+    fields: [
+      { id: "scene", label: "展示场景", options: ["纯色背景", "家居生活", "自然户外", "摄影棚"] },
+      { id: "ratio", label: "图片比例", options: ["1:1 方形", "3:4 竖版", "16:9 横版"] },
+      { id: "count", label: "方案数量", options: ["4 张", "1 张"] },
+    ],
+    action: "制作商品图", result: { kind: "image", title: "商品图方案", description: "查看不同场景，选择适合店铺和社交平台的图片。", items: ["白底主图", "场景方案", "图片下载"] },
   },
   {
     id: "poster", legacyAgentId: "preview-agent-0", name: "海报制作", category: "image", avatar: 1,
@@ -92,19 +105,6 @@ export const previewTools: PreviewTool[] = [
       { id: "strength", label: "调整程度", options: ["自然", "明显"] },
     ],
     action: "开始精修", result: { kind: "image", title: "修图前后", description: "对照原图与修图效果，再选择下载。", items: ["原图", "精修结果", "对比查看"] },
-  },
-  {
-    id: "product-images", name: "商品图制作", category: "image", added: true, avatar: 1,
-    description: "上传商品照片，制作白底主图、生活场景图和促销展示图。",
-    tagline: "一张产品照片，变成一组好看的商品图。", chips: ["电商主图", "场景搭建", "产品展示"],
-    upload: { kind: "image", title: "上传产品照片", hint: "优先选择主体完整、清晰的产品图" },
-    source: { label: "产品卖点或画面要求", placeholder: "例如护肤精华，放在有晨光的梳妆台上…", example: "一瓶植物精华，保留原有包装与文字，放在自然晨光下的浅色台面上，周围点缀绿叶。", optional: true },
-    fields: [
-      { id: "scene", label: "展示场景", options: ["纯色背景", "家居生活", "自然户外", "摄影棚"] },
-      { id: "ratio", label: "图片比例", options: ["1:1 方形", "3:4 竖版", "16:9 横版"] },
-      { id: "count", label: "方案数量", options: ["4 张", "1 张"] },
-    ],
-    action: "制作商品图", result: { kind: "image", title: "商品图方案", description: "查看不同场景，选择适合店铺和社交平台的图片。", items: ["白底主图", "场景方案", "图片下载"] },
   },
   {
     id: "portraits", name: "人像写真", category: "image", added: true, avatar: 5,
