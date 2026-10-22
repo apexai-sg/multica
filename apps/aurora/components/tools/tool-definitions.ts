@@ -14,9 +14,8 @@ export type ToolField = {
   options: string[];
 };
 
-export type PreviewTool = {
+export type ToolDefinition = {
   id: string;
-  legacyAgentId?: string;
   name: string;
   category: ToolCategory;
   added?: boolean;
@@ -31,8 +30,8 @@ export type PreviewTool = {
   result: { kind: ResultKind; title: string; description: string; items: string[] };
 };
 
-// This registry is a visual proposal only. It is not a provider capability catalog.
-export const previewTools: PreviewTool[] = [
+// These approved workspaces define the UI, not backend capabilities or provider contracts.
+export const apexTools: ToolDefinition[] = [
   {
     id: "face-swap", name: "图片／视频换脸", category: "video", avatar: 2,
     description: "放入原视频或图片，再放入一张人脸照片，制作新的图片或视频。",
@@ -68,7 +67,7 @@ export const previewTools: PreviewTool[] = [
     action: "制作商品图", result: { kind: "image", title: "商品图方案", description: "查看不同场景，选择适合店铺和社交平台的图片。", items: ["白底主图", "场景方案", "图片下载"] },
   },
   {
-    id: "poster", legacyAgentId: "preview-agent-0", name: "海报制作", category: "image", avatar: 1,
+    id: "poster", name: "海报制作", category: "image", avatar: 1,
     description: "输入主题、文案和尺寸，制作活动、促销、招聘和朋友圈海报。",
     tagline: "让一张海报，把你的重点讲清楚。", chips: ["中文排版", "品牌海报", "多尺寸"],
     source: { label: "海报内容", placeholder: "写下主题、标题、活动时间和想要的风格…", example: "咖啡店秋季新品海报。标题：把秋天装进杯子里。副标题：桂花拿铁，温暖上市。整体暖色调，适合朋友圈。" },
@@ -81,7 +80,7 @@ export const previewTools: PreviewTool[] = [
     action: "制作海报", result: { kind: "image", title: "海报预览", description: "在这里挑选方案，查看大图并下载。", items: ["海报方案", "大图预览", "图片下载"] },
   },
   {
-    id: "rednote-images", legacyAgentId: "preview-agent-1", name: "小红书图片", category: "image", avatar: 2,
+    id: "rednote-images", name: "小红书图片", category: "image", avatar: 2,
     description: "把主题和资料排成封面、攻略长图和整套笔记配图。",
     tagline: "从吸引眼球的封面，到一整套内容配图。", chips: ["笔记封面", "攻略长图", "整套配图"],
     source: { label: "笔记主题和内容", placeholder: "例如旅行攻略、美食推荐、产品介绍…", example: "新加坡三天两夜亲子游：动物园、滨海湾花园、圣淘沙。适合带 3—8 岁孩子的家庭。做一张封面和五张攻略配图。" },
@@ -119,7 +118,7 @@ export const previewTools: PreviewTool[] = [
     action: "制作人像写真", result: { kind: "image", title: "写真相册", description: "选出喜欢的照片，查看大图并下载。", items: ["写真方案", "头像裁切", "照片下载"] },
   },
   {
-    id: "short-video", legacyAgentId: "preview-agent-2", name: "短视频制作", category: "video", avatar: 3,
+    id: "short-video", name: "短视频制作", category: "video", avatar: 3,
     description: "描述一个想法，制作产品介绍、品牌展示和社交平台短片。",
     tagline: "把脑海里的故事，变成一段短片。", chips: ["视频脚本", "产品短片", "社交视频"],
     source: { label: "你想拍什么", placeholder: "描述主题、场景、人物和想表达的内容…", example: "制作一段咖啡店新品短片：晨光落在木桌上，特写手冲咖啡，最后出现标题「今天，从一杯好咖啡开始」。" },
@@ -207,7 +206,7 @@ export const previewTools: PreviewTool[] = [
     action: "开始阅读", result: { kind: "document", title: "阅读结果", description: "回答旁保留引用页码，方便回到原文核对。", items: ["内容摘要", "问答", "引用页码"] },
   },
   {
-    id: "copywriting", legacyAgentId: "preview-agent-3", name: "文案创作", category: "writing", avatar: 4,
+    id: "copywriting", name: "文案创作", category: "writing", avatar: 4,
     description: "写产品介绍、活动文案和社交内容，让想法有合适的表达。",
     tagline: "把想说的话，写得更动人。", chips: ["社交内容", "品牌文案", "中英双语"],
     source: { label: "文案主题和要求", placeholder: "写什么、发给谁、有哪些必须提到的内容…", example: "写一篇新加坡周末散步路线的小红书文案，推荐植物园和周边咖啡店，口吻像朋友分享，约 300 字。" },
@@ -219,7 +218,7 @@ export const previewTools: PreviewTool[] = [
     action: "创作文案", result: { kind: "document", title: "文案草稿", description: "选择喜欢的版本，继续修改或复制使用。", items: ["标题", "正文", "话题标签"] },
   },
   {
-    id: "voiceover", legacyAgentId: "preview-agent-4", name: "音频配音", category: "audio", avatar: 5,
+    id: "voiceover", name: "音频配音", category: "audio", avatar: 5,
     description: "把文字变成自然的语音，为视频、课程和产品介绍配音。",
     tagline: "让每一句文案，都有合适的声音。", chips: ["中文配音", "英文配音", "语速调整"],
     source: { label: "配音文案", placeholder: "输入希望朗读的文字…", example: "一杯好咖啡，开启美好的一天。欢迎来到我们的咖啡小店，让今天的忙碌慢下来。" },
@@ -257,8 +256,4 @@ export const previewTools: PreviewTool[] = [
   },
 ];
 
-export const toolPath = (tool: PreviewTool) => `/preview/tools/${tool.id}`;
-export const toolAgentId = (tool: PreviewTool) => tool.legacyAgentId ?? `preview-${tool.id}`;
-export const findPreviewTool = (path: string) => previewTools.find((tool) =>
-  path === toolPath(tool) || path === `/preview/tools/${toolAgentId(tool)}`,
-);
+export const findTool = (id: string) => apexTools.find((tool) => tool.id === id);

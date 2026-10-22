@@ -16,6 +16,10 @@ describe("auroraRoutes", () => {
   it("builds this app's five destinations under the workspace slug", () => {
     const routes = auroraRoutes("acme");
     expect(routes.skills()).toBe("/acme/skills");
+    expect(routes.catalog()).toBe("/acme/skills/connected");
+    expect(routes.tools()).toBe("/acme/tools");
+    expect(routes.tool("face-swap")).toBe("/acme/tools/face-swap");
+    expect(routes.tool("a/b")).toBe("/acme/tools/a%2Fb");
     expect(routes.works()).toBe("/acme/works");
     expect(routes.work("gen-1")).toBe("/acme/works/gen-1");
     expect(routes.history()).toBe("/acme/history");

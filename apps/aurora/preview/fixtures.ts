@@ -1,5 +1,6 @@
 import { ApiClient } from "@multica/core/api";
-import { previewTools, toolAgentId } from "./tool-definitions";
+import { apexTools } from "../components/tools/tool-definitions";
+import { toolAgentId } from "./tool-paths";
 import type { Agent, StorageAdapter, User, Workspace } from "@multica/core/types";
 
 const time = "2026-10-19T00:00:00Z";
@@ -19,7 +20,7 @@ export const FACE_SWAP_AGENT_ID = "preview-face-swap";
 export const FACE_SWAP_PATH = "/preview/tools/face-swap";
 
 // These are visual fixtures, not a list of deployed capabilities or prices.
-export const agents: Agent[] = previewTools.map((tool) => ({
+export const agents: Agent[] = apexTools.map((tool) => ({
   id: toolAgentId(tool), workspace_id: workspace.id, runtime_id: "preview-runtime",
   name: tool.name, description: tool.description, instructions: "",
   avatar_url: `/avatars/person-${tool.avatar}.svg`, runtime_mode: "local", runtime_config: {},
@@ -32,7 +33,7 @@ export const agents: Agent[] = previewTools.map((tool) => ({
 }));
 
 const responses: Record<string, unknown> = {
-  "/api/aurora/skills": { skills: previewTools.map((tool) => ({
+  "/api/aurora/skills": { skills: apexTools.map((tool) => ({
     id: `preview-${tool.id}`, name: tool.name, name_en: tool.name,
     category: tool.category, credits: 0,
     input: tool.upload ? [tool.upload.kind === "video" ? "video" : tool.upload.kind === "image" ? "image" : "file"] : ["text"],

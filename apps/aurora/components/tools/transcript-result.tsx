@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Copy, Download, FileText, MessageSquareText, ScanText, Sparkles } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";

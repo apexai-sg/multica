@@ -11,7 +11,7 @@ import { useT } from "@multica/views/i18n";
 import { useWorkspaceSeen } from "@multica/views/workspace/use-workspace-seen";
 import { Sparkles } from "lucide-react";
 import { workspaceSlugFromPathname } from "@multica/core/workspace/workspace-slug-from-pathname";
-import { AuroraShell } from "@/components/aurora-shell";
+import { WorkspaceChrome } from "@/components/workspace-chrome";
 import { WorkspaceUnavailable } from "@/components/workspace-unavailable";
 
 /**
@@ -118,7 +118,7 @@ export default function WorkspaceLayout({
 
   return (
     <WorkspaceSlugProvider slug={workspaceSlug}>
-      <AuroraShell slug={workspaceSlug}>{children}</AuroraShell>
+      <WorkspaceChrome slug={workspaceSlug} userName={user?.name}>{children}</WorkspaceChrome>
     </WorkspaceSlugProvider>
   );
 }

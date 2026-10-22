@@ -9,16 +9,13 @@ import { workspaceKeys } from "@multica/core/workspace/queries";
 import { NavigationProvider, type NavigationAdapter } from "@multica/views/navigation";
 import { RESOURCES } from "@multica/views/locales";
 import { TooltipProvider } from "@multica/ui/components/ui/tooltip";
-import { AuroraShell } from "../components/aurora-shell";
+import { WorkspaceChrome } from "../components/workspace-chrome";
+import { ToolWorkspace } from "../components/tools/tool-workspace";
+import { WorkspaceToolDirectory } from "../components/tools/workspace-tool-directory";
 import { createPreviewApi, storage, user, workspace } from "./fixtures";
-import { FaceSwapPreview } from "./face-swap";
-import { ToolFrame } from "./tool-frame";
-import { PreviewDirectory, type DirectorySelection } from "./tool-directory";
-import { ToolWorkbench } from "./tool-workbench";
-import { findPreviewTool } from "./tool-definitions";
+import { findPreviewTool } from "./tool-paths";
 import "../app/globals.css";
 import "./preview.css";
-import "./tool-workbench.css";
 
 const api = createPreviewApi();
 setApiInstance(api);
@@ -41,12 +38,13 @@ function Preview() {
 }
 
 const DEFAULT_NOTICE = "设计预览 · 仅展示页面和交互，尚未连接实际处理功能";
-const currentPath = () => location.pathname === "/" ? "/preview/skills" : location.pathname;
+const currentPath = () => (location.pathname === "/" ? "/preview/skills" : location.pathname) + location.search;
 
 function PreviewContent() {
-  const [pathname, setPathname] = useState(currentPath);
+  const [locationPath, setPathname] = useState(currentPath);
+  const pathname = locationPath.split("?")[0]!;
+  const searchParams = new URLSearchParams(locationPath.split("?")[1]);
   const [notice, setNotice] = useState(DEFAULT_NOTICE);
-  const [selection, setSelection] = useState<DirectorySelection>({ category: "all", query: "" });
   const tool = findPreviewTool(pathname);
   const toolOpen = !!tool;
   const explain = () => setNotice("当前为设计预览。账户、积分和作品库为示例；工具页面可以试选素材和调整设置。");
@@ -62,7 +60,8 @@ function PreviewContent() {
   }, [tool]);
 
   function navigate(path: string, replace = false) {
-    if (path !== "/preview/skills" && !findPreviewTool(path)) {
+    const destination = path.split("?")[0]!;
+    if (destination !== "/preview/skills" && !findPreviewTool(destination)) {
       explain();
       return;
     }
@@ -74,7 +73,7 @@ function PreviewContent() {
   }
 
   const navigation: NavigationAdapter = {
-    pathname, searchParams: new URLSearchParams(), hash: "",
+    pathname, searchParams, hash: "",
     push: (path) => navigate(path), replace: (path) => navigate(path, true),
     back: () => navigate("/preview/skills"),
     getShareableUrl: (path) => `${location.origin}${path}`,
@@ -99,15 +98,9 @@ function PreviewContent() {
             }
           }}>
           <div className="design-preview-notice" role="status">{notice}</div>
-          {tool ? (
-            <ToolFrame>
-              {tool.id === "face-swap" ? <FaceSwapPreview /> : <ToolWorkbench key={tool.id} tool={tool} />}
-            </ToolFrame>
-          ) : (
-            <AuroraShell slug={workspace.slug}>
-              <PreviewDirectory selection={selection} onChange={setSelection} />
-            </AuroraShell>
-          )}
+          <WorkspaceChrome slug={workspace.slug} userName={user.name}>
+            {tool ? <ToolWorkspace key={tool.id} tool={tool} /> : <WorkspaceToolDirectory slug={workspace.slug} />}
+          </WorkspaceChrome>
         </div>
       </TooltipProvider>
     </NavigationProvider>

@@ -136,7 +136,11 @@ function classesUsedIn(root: string): Set<string> {
   return used;
 }
 
-const declared = declaredClasses(css);
+const workspaceCss = readFileSync(
+  resolve(repoRoot, "apps/aurora/components/tools/tool-workbench.css"),
+  "utf8",
+);
+const declared = declaredClasses(`${css}\n${workspaceCss}`);
 
 describe("aurora design layer", () => {
   it("gives the native runtime navigation chip a 40px target without enlarging badges", () => {
@@ -220,6 +224,7 @@ describe("aurora design layer", () => {
 
   it("imports the stylesheet from the app's globals", () => {
     expect(globals).toContain("packages/views/aurora/aurora.css");
+    expect(globals).toContain("components/tools/tool-workbench.css");
   });
 
   it("declares every --aurora variable it reads", () => {

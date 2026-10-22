@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { previewTools } from "./tool-definitions";
+import { apexTools } from "./tool-definitions";
 import { ToolWorkbench } from "./tool-workbench";
 
 const NativeURL = URL;
@@ -24,7 +24,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 describe("tool workspace preview boundaries", () => {
   it("never treats sample transcription as an uploaded video's result", async () => {
     const user = userEvent.setup();
-    const tool = previewTools.find((item) => item.id === "video-transcript")!;
+    const tool = apexTools.find((item) => item.id === "video-transcript")!;
     const view = render(<ToolWorkbench tool={tool} />);
     const extract = screen.getByRole("button", { name: "提取文案" });
     expect(extract).toBeDisabled();
@@ -46,7 +46,7 @@ describe("tool workspace preview boundaries", () => {
 
   it("requires both a sheet and a question, accepts replacements, and clears stale status", async () => {
     const user = userEvent.setup();
-    const tool = previewTools.find((item) => item.id === "spreadsheet")!;
+    const tool = apexTools.find((item) => item.id === "spreadsheet")!;
     render(<ToolWorkbench tool={tool} />);
     const process = screen.getByRole("button", { name: "处理表格" });
     await user.click(screen.getByRole("button", { name: "填入示例文案" }));

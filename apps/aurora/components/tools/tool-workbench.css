@@ -1,5 +1,7 @@
+.aurora-composer-page { width: 100%; min-width: 0; }
 .apex-tool-page {
-  min-height: 100svh;
+  height: 100svh;
+  overflow-y: auto;
   color: var(--aurora-ink);
   background: var(--aurora-paper);
   font-size: var(--text-body);
@@ -397,3 +399,7 @@
   .apex-directory-heading p { align-self: start; }
   .apex-settings-tag { display: none; }
 }
+
+.apex-directory-links { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; }
+.apex-directory-links > a { display: inline-flex; align-items: center; gap: 4px; color: var(--aurora-violet-deep); font-size: var(--text-caption); }
+.apex-directory-links > a > svg { width: 14px; height: 14px; }

@@ -4,6 +4,7 @@
 @import "../../../packages/ui/styles/tokens.css";
 @import "../../../packages/ui/styles/base.css";
 @import "../../../packages/views/aurora/aurora.css";
+@import "../components/tools/tool-workbench.css";
 
 @custom-variant dark (&:is(.dark *));
 
