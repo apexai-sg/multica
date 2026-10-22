@@ -69,7 +69,7 @@ function renderAccount() {
 beforeEach(() => {
   logout.mockReset();
   installReads();
-  auth.user = { id: "u1", name: " Hannah Han ", email: "hannah@apex.ai", avatar_url: null, onboarded_at: null, onboarding_questionnaire: {}, starter_content_state: null, language: null, profile_description: "", timezone: null, created_at: "", updated_at: "" };
+  auth.user = { id: "u1", name: " Hannah Han ", email: "hannah@apex.ai", avatar_url: null, onboarded_at: null, onboarding_questionnaire: {}, language: null, profile_description: "", timezone: null, created_at: "", updated_at: "" };
 });
 afterEach(() => {
   cleanup();

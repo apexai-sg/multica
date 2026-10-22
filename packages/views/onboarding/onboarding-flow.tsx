@@ -385,10 +385,6 @@ export function OnboardingFlow({
         );
         return;
       }
-      useWelcomeStore.getState().set({
-        workspaceId: existingWorkspace.id,
-        choice: "skip",
-      });
       onComplete(existingWorkspace, { kind: "issue", issueId });
     },
     [existingWorkspace, answers, bootstrapMika, i18n.language, onComplete, t, user.id],

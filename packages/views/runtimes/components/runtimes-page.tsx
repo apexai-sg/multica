@@ -317,15 +317,27 @@ export function RuntimesPage({
           label: t(($) => $.page.learn_more),
         }}
         actions={
-          <AddRuntimeMenu
-            isDesktop={isDesktop}
-            localMachineName={localMachineName ?? localMachine?.title ?? null}
-            qoder={qoder}
-            cloudRuntimeEnabled={showCloudEntry}
-            onAddMachine={() => setShowConnectDialog(true)}
-            onQoder={openQoder}
-            onCloudRuntime={() => setShowCloudRuntimeDialog(true)}
-          />
+          <div className="flex items-center gap-2">
+            {showCloudEntry ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowCloudRuntimeDialog(true)}
+              >
+                <Cloud aria-hidden="true" className="size-3.5" />
+                {t(($) => $.cloud_runtime.action)}
+              </Button>
+            ) : null}
+            <AddRuntimeMenu
+              isDesktop={isDesktop}
+              localMachineName={localMachineName ?? localMachine?.title ?? null}
+              qoder={qoder}
+              cloudRuntimeEnabled={false}
+              onAddMachine={() => setShowConnectDialog(true)}
+              onQoder={openQoder}
+              onCloudRuntime={() => setShowCloudRuntimeDialog(true)}
+            />
+          </div>
         }
       />
 
