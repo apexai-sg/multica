@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -983,7 +984,29 @@ func seedSnapshotIndex(gitRoot, path string) bool {
 	if !filepath.IsAbs(src) {
 		src = filepath.Join(gitRoot, src)
 	}
-	return copyFile(src, path) == nil
+	in, err := os.Open(src)
+	if err != nil {
+		return false
+	}
+	defer in.Close()
+	info, err := in.Stat()
+	if err != nil {
+		return false
+	}
+	out, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		return false
+	}
+	_, copyErr := io.Copy(out, in)
+	closeErr := out.Close()
+	// Git compares file timestamps with the index timestamp to identify racy
+	// same-size edits. Giving the copy a fresh mtime would turn those edits
+	// into apparently clean stat-cache hits, silently omitting user drafts.
+	if copyErr != nil || closeErr != nil || os.Chtimes(path, info.ModTime(), info.ModTime()) != nil {
+		_ = os.Remove(path)
+		return false
+	}
+	return true
 }
 
 // snapshotExcludes keeps the daemon's own sidecars out of the user's snapshot.

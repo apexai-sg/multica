@@ -13,7 +13,7 @@ const { logout } = vi.hoisted(() => ({ logout: vi.fn() }));
 vi.mock("@multica/views/auth", () => ({ useLogout: () => logout }));
 // Shared data matrices live in views; the app verifies wiring and responsiveness.
 vi.mock("@multica/core/auth", () => {
-  const state = { user: { id: "u1", name: "Hannah Han", email: "hannah@apex.ai", avatar_url: null, onboarded_at: null, onboarding_questionnaire: {}, starter_content_state: null, language: null, profile_description: "", timezone: null, created_at: "", updated_at: "" } };
+  const state = { user: { id: "u1", name: "Hannah Han", email: "hannah@apex.ai", avatar_url: null, onboarded_at: null, onboarding_questionnaire: {}, language: null, profile_description: "", timezone: null, created_at: "", updated_at: "" } };
   return { useAuthStore: Object.assign((selector: (value: typeof state) => unknown) => selector(state), { getState: () => state }) };
 });
 vi.mock("@multica/core/aurora", async (importOriginal) => ({

@@ -5,7 +5,7 @@ import {
   type NavigationAdapter,
 } from "@multica/views/navigation";
 import { useAuthStore } from "@multica/core/auth";
-import { isReservedSlug, paths } from "@multica/core/paths";
+import { workspaceSlugForPath, paths } from "@multica/core/paths";
 import {
   useTabStore,
   getActiveTab,
@@ -22,17 +22,6 @@ function requireRuntimeAppUrl(scope: string): string {
     );
   }
   return runtimeConfig.config.appUrl;
-}
-
-/**
- * Extract the leading workspace slug from a path, or null if the path isn't
- * workspace-scoped (root, login, any reserved prefix).
- */
-function extractWorkspaceSlug(path: string): string | null {
-  const first = path.split("/").filter(Boolean)[0] ?? "";
-  if (!first) return null;
-  if (isReservedSlug(first)) return null;
-  return first;
 }
 
 /**
@@ -60,7 +49,7 @@ function tryRouteToOverlay(path: string): boolean {
     overlay.open({ type: "invitations" });
     return true;
   }
-  if (path.startsWith("/invite/")) {
+  if (path.startsWith("/invite/") && !workspaceSlugForPath(path)) {
     let id = "";
     try {
       id = decodeURIComponent(path.slice("/invite/".length));
@@ -92,7 +81,7 @@ function tryRouteToOverlay(path: string): boolean {
  * has none. Any deeper path opens exactly that path.
  */
 function tryRouteToOtherWorkspace(path: string): boolean {
-  const targetSlug = extractWorkspaceSlug(path);
+  const targetSlug = workspaceSlugForPath(path);
   if (!targetSlug) return false;
   const { activeWorkspaceSlug, switchWorkspace } = useTabStore.getState();
   if (targetSlug === activeWorkspaceSlug) return false;
@@ -118,7 +107,7 @@ export function routeContentLinkPath(
   disposition: LinkClickIntent = "push",
 ): void {
   const store = useTabStore.getState();
-  const slug = extractWorkspaceSlug(path);
+  const slug = workspaceSlugForPath(path);
   if (slug && slug !== store.activeWorkspaceSlug) {
     store.switchWorkspace(slug, path);
     return;
@@ -242,7 +231,7 @@ export function DesktopNavigationProvider({
         // defaults to background tab (browser cmd+click semantics); callers
         // that represent an explicit "Open in new tab" CTA pass
         // `activate: true` to bring the new tab to the foreground.
-        const slug = extractWorkspaceSlug(path);
+        const slug = workspaceSlugForPath(path);
         const store = useTabStore.getState();
         if (slug && slug !== store.activeWorkspaceSlug) {
           store.switchWorkspace(slug, path);

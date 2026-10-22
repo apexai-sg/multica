@@ -11,7 +11,7 @@ export const workspace: Workspace = {
 export const user: User = {
   id: "preview-user", name: "Hannah", email: "preview@example.test",
   avatar_url: null, onboarded_at: time, onboarding_questionnaire: {},
-  starter_content_state: "imported", language: "zh-Hans", profile_description: "",
+  language: "zh-Hans", profile_description: "",
   timezone: "Asia/Singapore", created_at: time, updated_at: time,
 };
 
