@@ -91,7 +91,7 @@ export function LocalFileCard({ kind, title, hint, optional, slot }: {
                 ) : <div className="apex-document-file"><Icon aria-hidden="true" /><strong>{slot.media.file.name}</strong><span>文件已选择</span></div>}
             </div>
             <div className="apex-file-bar">
-              <div className="apex-file-name"><strong title={slot.media.file.name}>{slot.media.file.name}</strong><span>{fileSize(slot.media.file.size)} · 仅在本机预览</span></div>
+              <div className="apex-file-name"><strong title={slot.media.file.name}>{slot.media.file.name}</strong><span>{fileSize(slot.media.file.size)} · 提交时上传为任务附件</span></div>
               <Button type="button" size="sm" variant="outline" onClick={() => input.current?.click()}>替换</Button>
               <Button type="button" size="icon-sm" variant="ghost" aria-label="移除文件" onClick={slot.remove}><X aria-hidden="true" /></Button>
             </div>
