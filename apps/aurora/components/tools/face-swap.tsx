@@ -1,3 +1,5 @@
+"use client";
+
 import { useId, useRef, useState } from "react";
 import {
   ArrowRight, Check, Download, Film, ImagePlus, Info, Link2,
@@ -101,7 +103,7 @@ function UploadCard({
   );
 }
 
-export function FaceSwapPreview() {
+export function FaceSwapWorkbench() {
   const [mode, setMode] = useState<MediaKind>("video");
   const [reviewed, setReviewed] = useState(false);
   const clearResult = () => setReviewed(false);

@@ -45,7 +45,16 @@ function NavigationProviderInner({
 
   const adapter: NavigationAdapter = {
     push: router.push,
-    replace: router.replace,
+    replace: (path) => {
+      // Next synchronizes native history changes with useSearchParams. Client
+      // filters can update immediately without an RSC round trip or scroll reset.
+      const target = new URL(path, window.location.href);
+      if (target.origin === window.location.origin && target.pathname === pathname) {
+        window.history.replaceState(null, "", path);
+      } else {
+        router.replace(path);
+      }
+    },
     back: router.back,
     forward: router.forward,
     canGoBack: canGoBackInApp,

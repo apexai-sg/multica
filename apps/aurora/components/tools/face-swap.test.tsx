@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { FaceSwapPreview } from "./face-swap";
+import { FaceSwapWorkbench } from "./face-swap";
 
 const NativeURL = URL;
 let urlNumber = 0;
@@ -33,7 +33,7 @@ const photo = (name = "face.png") => new File(["photo"], name, { type: "image/pn
 describe("face swap design preview", () => {
   it("requires both inputs and never submits or presents a fake generated output", async () => {
     const user = userEvent.setup();
-    render(<FaceSwapPreview />);
+    render(<FaceSwapWorkbench />);
     const generate = screen.getByRole("button", { name: "生成换脸视频" });
     expect(generate).toBeDisabled();
     await user.upload(screen.getByLabelText("选择原视频文件"), video());
@@ -48,7 +48,7 @@ describe("face swap design preview", () => {
 
   it("retains a source per mode and releases local media when removed or unmounted", async () => {
     const user = userEvent.setup();
-    const view = render(<FaceSwapPreview />);
+    const view = render(<FaceSwapWorkbench />);
     await user.upload(screen.getByLabelText("选择原视频文件"), video());
     await user.upload(screen.getByLabelText("选择人脸照片文件"), photo());
     await user.click(screen.getByRole("button", { name: "图片换脸" }));
@@ -70,7 +70,7 @@ describe("face swap design preview", () => {
 
   it("rejects invalid dropped files and unreadable images, then recovers on replacement", async () => {
     const user = userEvent.setup();
-    render(<FaceSwapPreview />);
+    render(<FaceSwapWorkbench />);
     fireEvent.drop(screen.getByRole("region", { name: /上传原视频/ }), {
       dataTransfer: { files: [photo()] },
     });

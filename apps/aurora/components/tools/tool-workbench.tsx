@@ -1,14 +1,16 @@
+"use client";
+
 import { useRef, useState } from "react";
 import { ArrowRight, Check, FileText, Film, Globe, ImagePlus, Monitor, Play, Presentation, Sheet, Smartphone, Sparkles, Volume2 } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
 import { Textarea } from "@multica/ui/components/ui/textarea";
 import { LocalFileCard, useLocalFile } from "./local-file";
 import { TranscriptResult } from "./transcript-result";
-import { toolCategories, type PreviewTool } from "./tool-definitions";
+import { toolCategories, type ToolDefinition } from "./tool-definitions";
 
 const resultIcons = { image: ImagePlus, video: Film, slides: Presentation, table: Sheet, document: FileText, audio: Volume2, website: Globe, transcript: FileText };
 
-export function ToolWorkbench({ tool }: { tool: PreviewTool }) {
+export function ToolWorkbench({ tool }: { tool: ToolDefinition }) {
   const [source, setSource] = useState("");
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(tool.fields.map((field) => [field.id, field.options[0] ?? ""])));
   const [reviewed, setReviewed] = useState(false);
@@ -71,7 +73,7 @@ export function ToolWorkbench({ tool }: { tool: PreviewTool }) {
   </main>;
 }
 
-function ResultPreview({ tool }: { tool: PreviewTool }) {
+function ResultPreview({ tool }: { tool: ToolDefinition }) {
   const [screen, setScreen] = useState("desktop");
   const Icon = resultIcons[tool.result.kind];
   return <section className={`apex-output-panel apex-output-panel--${tool.result.kind}`} aria-labelledby="output-title">

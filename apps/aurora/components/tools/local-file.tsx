@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, FileText, Film, ImagePlus, Sheet, Upload, X } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";

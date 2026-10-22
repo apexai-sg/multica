@@ -47,10 +47,6 @@ COPY packages/ packages/
 # Re-link after source overlay (fixes any symlinks overwritten by COPY)
 RUN pnpm install --frozen-lockfile --offline
 
-# Aurora ships no public/ directory today; create it so the runtime COPY below
-# has a stable source path and adding assets later needs no Dockerfile change.
-RUN mkdir -p apps/aurora/public
-
 ENV STANDALONE=true
 
 # Build the Aurora app (standalone output for minimal runtime)

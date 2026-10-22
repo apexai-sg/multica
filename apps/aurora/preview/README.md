@@ -2,8 +2,9 @@
 
 Run `pnpm --filter @multica/aurora preview` and open http://127.0.0.1:4311.
 
-This entry point renders the production Aurora shell, theme and avatars with an
-app-local proposed tool directory and workspaces. It contains 18 visual tool
+This local harness renders the same app-local directory, full-screen workspaces,
+styles and bundled portraits as the production Next.js routes. Components live in
+`../components/tools/`; portraits live in `../public/avatars/`. It contains 18 visual tool
 proposals: six retained tools plus the owner's 12 new selections. The generic
 office card is replaced by concrete office tools. Cards open full-page workspaces;
 search and category selections survive returning to the directory. The banner
@@ -11,7 +12,7 @@ identifies the design as a preview, not connected processing. Account/balance da
 in the existing shell is also a fixture, not a live balance. Proposed tool cards
 do not advertise prices or service availability.
 
-The single registry, `tool-definitions.ts`, supplies names, categories, upload
+The single registry, `../components/tools/tool-definitions.ts`, supplies names, categories, upload
 requirements, examples, settings and result layouts. It also feeds the fixture API.
 Its choices are design proposals, not provider contracts. Existing preview links
 for the five original generic tools and the face-swap page still resolve.
@@ -40,10 +41,13 @@ OCR, video analysis or other inference is performed. Local export content and UR
 cleanup are tested; download delivery still depends on the host browser.
 
 The fixture API rejects every unhandled operation and has no network fallback.
-No login, database, Docker, provider key, or production endpoint is used. The preview
-is separate from Next.js routes and does not ship in the production app. The earlier
-shared directory/composer optional navigation/page props retain their production
-defaults. Integration into production routes is a separate step after visual approval.
+This harness uses no real login, database, Docker, provider key, or production
+endpoint. Fixture API, sample account/balance and Vite routing remain preview-only.
+The approved UI now ships at `/{workspaceSlug}/skills` and
+`/{workspaceSlug}/tools/{toolId}` under the existing production auth/workspace
+guards. The prior backend-driven catalog remains at
+`/{workspaceSlug}/skills/connected`. See [deployment handoff](../DEPLOYMENT_HANDOFF.md)
+for the build, acceptance checks and backend work still needed.
 
 ## Design handoff
 
@@ -75,5 +79,6 @@ OCR segments rather than mixing them into a single transcript. Current preview
 limits are 200 MB/video, 20 MB/image and 30 MB/document. They are not final limits.
 
 Checks: `pnpm --filter @multica/aurora typecheck`,
-`pnpm --filter @multica/aurora exec eslint preview`, and
-`pnpm --filter @multica/aurora exec vitest run preview`.
+`pnpm --filter @multica/aurora exec eslint components/tools preview`,
+`pnpm --filter @multica/aurora exec vitest run`, and
+`pnpm --filter @multica/aurora build`.
