@@ -766,6 +766,7 @@ func main() {
 	// Queued work now expires on the same runtime-liveness signal as in-flight
 	// work, so there is no separate queue TTL to tune: a busy runtime keeps its
 	// backlog, and a departed one retires everything it owned at once.
+	go h.RunQoderConnections(sweepCtx, pool, "http://localhost:"+port)
 	go runRuntimeSweeper(sweepCtx, queries, liveness, taskSvc, bus, runtimeReconnectGrace, newSandboxReaper(pool, queries, taskSvc))
 	// Aurora's monthly credit settlement. It shares the credit service the
 	// handler bills through, so the grants it writes and the balance the API

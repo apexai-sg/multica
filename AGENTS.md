@@ -128,6 +128,7 @@ Workspace-scoped queries filter by `workspace_id`; membership gates access and `
 
 - `origin` (`eanfs/multica`) is the primary repository, not a fork; default PR, issue, merge, and push operations to it. `upstream` (`multica-ai/multica`) is only the upstream source; target it only when explicitly requested. Set `gh repo set-default origin` and use `--repo eanfs/multica` for GitHub operations. Unqualified PR/issue numbers refer to `origin`; use fully qualified internal links such as `pr://eanfs/multica/9` to avoid upstream resolution.
 - Keep changes scoped; reuse existing patterns. Code comments are English.
+- Use names, types, and tests to express behavior. Keep comments for non-obvious rationale and constraints; remove superseded plans and incident narratives when updating code. Preserve tool directives and mixed-version contracts.
 - Do not add internal compatibility shims, dual writes, fallback paths, or legacy adapters unless requested. This does not relax API response compatibility above.
 - New global pre-workspace routes use a single word or `/{noun}/{verb}`, not hyphenated root names. Update `server/internal/handler/reserved_slugs.json`, run `pnpm generate:reserved-slugs`, and commit `packages/core/paths/reserved-slugs.ts` when changing reserved slugs.
 - Use atomic conventional commits and the repository PR template. For releases, follow [.github/RELEASING.md](.github/RELEASING.md); default to a patch bump unless specified otherwise.

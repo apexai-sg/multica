@@ -36,6 +36,10 @@
     "./issue-statuses/queries": "./issue-statuses/queries.ts",
     "./issue-statuses/hooks": "./issue-statuses/hooks.ts",
     "./issue-statuses/mutations": "./issue-statuses/mutations.ts",
+    "./issue-workflows": "./issue-workflows/index.ts",
+    "./issue-workflows/queries": "./issue-workflows/queries.ts",
+    "./issue-workflows/hooks": "./issue-workflows/hooks.ts",
+    "./issue-workflows/mutations": "./issue-workflows/mutations.ts",
     "./issues": "./issues/index.ts",
     "./issues/batch": "./issues/batch.ts",
     "./issues/canonical-id": "./issues/canonical-id.ts",
@@ -171,7 +175,8 @@
     "./autopilots/stores": "./autopilots/stores/index.ts",
     "./aurora": "./aurora/index.ts",
     "./aurora/mutations": "./aurora/mutations.ts",
-    "./aurora/queries": "./aurora/queries.ts"
+    "./aurora/queries": "./aurora/queries.ts",
+    "./runtimes/qoder": "./runtimes/qoder.ts"
   },
   "dependencies": {
     "@formatjs/intl-localematcher": "catalog:",

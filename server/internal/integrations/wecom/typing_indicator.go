@@ -1,46 +1,14 @@
 package wecom
 
-// typing_indicator.go — WeCom's answer to "the bot heard you".
+// WeCom uses an open reply stream as its typing indicator. Every terminal path
+// must seal a live bubble with visible text, including failure, cancellation,
+// and a flush that produced no task. Normal answers close from outbound.go;
+// OnSettled handles the no-task case.
 //
-// Slack stamps 👀 on the user's message, Feishu a typing badge. WeCom has
-// neither: the smart-bot protocol publishes no reaction, no read receipt and
-// no typing signal at all. What it does have is the streaming message, so the
-// same engine.TypingNotifier interface means something different here — the
-// indicator IS the reply, opened early and filled in later. Two consequences
-// follow from that, and both shape this file:
-//
-//   - The bubble MUST be closed. A reaction that never clears is untidy; a
-//     stream that never finishes is a spinner sitting in the user's chat for
-//     good. So every way a turn can end — answered, failed, cancelled, never
-//     started — writes a closing frame carrying visible text into the bubble
-//     while there is one.
-//   - OnSettled is not the normal ending. As on the other platforms the Router
-//     only calls it when the flush produced no task run; the answer closes the
-//     bubble from the chat-done subscriber in outbound.go, which is the only
-//     place that has the answer to close it with.
-//
-// WHICH RUN A BUBBLE IS WAITING FOR COMES OFF THE BUS. The engine tells this
-// notifier that a message was ingested and nothing else — not which messages
-// the debouncer collected together, not the task the flush created — so the run
-// announces itself instead, on the task:queued every enqueue path already
-// publishes (Register, handleTaskQueued). A bubble pairs with the run queued
-// for its session while it was the one waiting, and from that binding every
-// later ending matches by task id. The alternative was for the engine to carry
-// two more facts through the Router for one platform's benefit.
-//
-// The bubble is a CACHE and nothing more (stream_store.go). A closer that
-// finds one writes into it; one that does not says its words as an ordinary
-// message where the words are worth saying — a failed run's notice — and stays
-// silent where they are not. Nothing is owed on the strength of a bubble that
-// is gone.
-//
-// TWO FRAMES PER ROUND, and no more: the opening one that paints the spinner,
-// and the closing one that replaces it with the answer. The stream's own
-// ten-minute window is counted from the opening frame and is not extended by
-// anything written in between (streamMaxAge), so a run that outlives it loses
-// its bubble and answers as an ordinary message — one message, whole. Filling
-// the bubble in while the run is going, and carrying a long run over onto a
-// fresh stream, are a separate layer on top of this one.
+// Pair pending bubbles with task:queued events, then match later events by task
+// ID. Missing or expired cache handles fall back to addressed messages where
+// needed. Each round sends opening and closing frames only; the stream lifetime
+// runs from opening and is not extended by intermediate writes.
 
 import (
 	"context"

@@ -1741,6 +1741,51 @@ func TestCaptureUserSnapshotExcludesMulticaSidecars(t *testing.T) {
 	}
 }
 
+// Git must rehash a same-size edit when its timestamp equals the index's.
+// A private index with a newer timestamp would incorrectly make it look clean.
+func TestCaptureUserSnapshotPreservesRacyIndexTimestamp(t *testing.T) {
+	repo := newTestRepo(t)
+	gitRun(t, repo, "config", "core.trustctime", "false")
+	gitRun(t, repo, "config", "core.checkStat", "minimal")
+	path := filepath.Join(repo, "tracked.txt")
+	stamp := time.Now().Add(-time.Minute).Truncate(time.Second)
+	if err := os.Chtimes(path, stamp, stamp); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, repo, "update-index", "--refresh")
+	indexPath := filepath.Join(repo, ".git", "index")
+	if err := os.Chtimes(indexPath, stamp, stamp); err != nil {
+		t.Fatal(err)
+	}
+	indexBefore, err := os.ReadFile(indexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, path, "modified\n") // Same byte length as "original\n".
+	if err := os.Chtimes(path, stamp, stamp); err != nil {
+		t.Fatal(err)
+	}
+	head := gitRun(t, repo, "rev-parse", "HEAD")
+	snapshot, err := captureUserSnapshot(repo, t.TempDir(), head, worktreeTestLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := gitRun(t, repo, "show", snapshot+":tracked.txt"); got != "modified" {
+		t.Fatalf("same-size uncommitted edit was omitted from snapshot: %q", got)
+	}
+	indexAfter, err := os.ReadFile(indexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(indexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(indexBefore) != string(indexAfter) || !info.ModTime().Equal(stamp) {
+		t.Fatal("snapshot changed the user's live index")
+	}
+}
+
 // The record is what proves a branch is this conversation's: an owner AND the
 // tip it was written at.
 func TestBranchRecordRoundTrips(t *testing.T) {
