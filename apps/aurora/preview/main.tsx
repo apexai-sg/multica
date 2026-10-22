@@ -99,7 +99,7 @@ function PreviewContent() {
           }}>
           <div className="design-preview-notice" role="status">{notice}</div>
           <WorkspaceChrome slug={workspace.slug} userName={user.name}>
-            {tool ? <ToolWorkspace key={tool.id} tool={tool} /> : <WorkspaceToolDirectory slug={workspace.slug} />}
+            {tool ? <ToolWorkspace key={tool.id} tool={tool} slug={workspace.slug} /> : <WorkspaceToolDirectory slug={workspace.slug} />}
           </WorkspaceChrome>
         </div>
       </TooltipProvider>

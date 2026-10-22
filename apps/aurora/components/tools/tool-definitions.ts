@@ -27,6 +27,8 @@ export type ToolDefinition = {
   source?: { label: string; placeholder: string; example: string; optional?: boolean };
   fields: ToolField[];
   action: string;
+  /** Backend agent (`system_key`) that runs this tool as an issue task. */
+  agentKey?: string;
   result: { kind: ResultKind; title: string; description: string; items: string[] };
 };
 
@@ -40,7 +42,7 @@ export const apexTools: ToolDefinition[] = [
     result: { kind: "video", title: "生成结果", description: "预览并下载新作品。", items: ["视频", "图片"] },
   },
   {
-    id: "video-transcript", name: "视频文案提取", category: "video", added: true, avatar: 3,
+    id: "video-transcript", agentKey: "aurora:transcription", name: "视频文案提取", category: "video", added: true, avatar: 3,
     description: "上传视频，把人物说的话和画面里的文字分别提取出来，方便复制和整理。",
     tagline: "把视频里的声音和文字，变成可编辑的文案。",
     chips: ["口播转文字", "画面文字", "时间点定位"],
@@ -54,7 +56,7 @@ export const apexTools: ToolDefinition[] = [
     result: { kind: "transcript", title: "提取结果", description: "口播和画面文字分开查看，可编辑、复制或导出。", items: ["人物说话", "画面文字"] },
   },
   {
-    id: "product-images", name: "商品图制作", category: "image", added: true, avatar: 1,
+    id: "product-images", agentKey: "aurora:product-image", name: "商品图制作", category: "image", added: true, avatar: 1,
     description: "上传商品照片，制作白底主图、生活场景图和促销展示图。",
     tagline: "一张产品照片，变成一组好看的商品图。", chips: ["电商主图", "场景搭建", "产品展示"],
     upload: { kind: "image", title: "上传产品照片", hint: "优先选择主体完整、清晰的产品图" },
@@ -67,7 +69,7 @@ export const apexTools: ToolDefinition[] = [
     action: "制作商品图", result: { kind: "image", title: "商品图方案", description: "查看不同场景，选择适合店铺和社交平台的图片。", items: ["白底主图", "场景方案", "图片下载"] },
   },
   {
-    id: "poster", name: "海报制作", category: "image", avatar: 1,
+    id: "poster", agentKey: "aurora:poster", name: "海报制作", category: "image", avatar: 1,
     description: "输入主题、文案和尺寸，制作活动、促销、招聘和朋友圈海报。",
     tagline: "让一张海报，把你的重点讲清楚。", chips: ["中文排版", "品牌海报", "多尺寸"],
     source: { label: "海报内容", placeholder: "写下主题、标题、活动时间和想要的风格…", example: "咖啡店秋季新品海报。标题：把秋天装进杯子里。副标题：桂花拿铁，温暖上市。整体暖色调，适合朋友圈。" },
@@ -80,7 +82,7 @@ export const apexTools: ToolDefinition[] = [
     action: "制作海报", result: { kind: "image", title: "海报预览", description: "在这里挑选方案，查看大图并下载。", items: ["海报方案", "大图预览", "图片下载"] },
   },
   {
-    id: "rednote-images", name: "小红书图片", category: "image", avatar: 2,
+    id: "rednote-images", agentKey: "aurora:xhs-image", name: "小红书图片", category: "image", avatar: 2,
     description: "把主题和资料排成封面、攻略长图和整套笔记配图。",
     tagline: "从吸引眼球的封面，到一整套内容配图。", chips: ["笔记封面", "攻略长图", "整套配图"],
     source: { label: "笔记主题和内容", placeholder: "例如旅行攻略、美食推荐、产品介绍…", example: "新加坡三天两夜亲子游：动物园、滨海湾花园、圣淘沙。适合带 3—8 岁孩子的家庭。做一张封面和五张攻略配图。" },
@@ -93,7 +95,7 @@ export const apexTools: ToolDefinition[] = [
     action: "制作笔记配图", result: { kind: "image", title: "笔记配图", description: "按封面、内页顺序查看整组图片。", items: ["封面", "内容页", "整组下载"] },
   },
   {
-    id: "image-retouch", name: "图片精修", category: "image", added: true, avatar: 4,
+    id: "image-retouch", agentKey: "aurora:image-edit", name: "图片精修", category: "image", added: true, avatar: 4,
     description: "给图片换背景、去杂物、调光线，让普通照片更干净好看。",
     tagline: "保留你喜欢的，修好不满意的。", chips: ["抠图换背景", "去除杂物", "清晰修复"],
     upload: { kind: "image", title: "上传要修改的图片", hint: "产品、人像或生活照片都可以" },
@@ -106,7 +108,7 @@ export const apexTools: ToolDefinition[] = [
     action: "开始精修", result: { kind: "image", title: "修图前后", description: "对照原图与修图效果，再选择下载。", items: ["原图", "精修结果", "对比查看"] },
   },
   {
-    id: "portraits", name: "人像写真", category: "image", added: true, avatar: 5,
+    id: "portraits", agentKey: "aurora:id-photo", name: "人像写真", category: "image", added: true, avatar: 5,
     description: "用一张清晰的人像照片，制作职业照、个人形象照和风格写真。",
     tagline: "换一种风格，记录更好的自己。", chips: ["职业形象", "社交头像", "风格写真"],
     upload: { kind: "image", title: "上传人像照片", hint: "清晰、无遮挡的正面照片更合适" },
@@ -118,7 +120,7 @@ export const apexTools: ToolDefinition[] = [
     action: "制作人像写真", result: { kind: "image", title: "写真相册", description: "选出喜欢的照片，查看大图并下载。", items: ["写真方案", "头像裁切", "照片下载"] },
   },
   {
-    id: "short-video", name: "短视频制作", category: "video", avatar: 3,
+    id: "short-video", agentKey: "aurora:text-video", name: "短视频制作", category: "video", avatar: 3,
     description: "描述一个想法，制作产品介绍、品牌展示和社交平台短片。",
     tagline: "把脑海里的故事，变成一段短片。", chips: ["视频脚本", "产品短片", "社交视频"],
     source: { label: "你想拍什么", placeholder: "描述主题、场景、人物和想表达的内容…", example: "制作一段咖啡店新品短片：晨光落在木桌上，特写手冲咖啡，最后出现标题「今天，从一杯好咖啡开始」。" },
@@ -131,7 +133,7 @@ export const apexTools: ToolDefinition[] = [
     action: "制作短视频", result: { kind: "video", title: "短视频预览", description: "播放成片，查看脚本并下载视频。", items: ["成片", "视频脚本", "视频下载"] },
   },
   {
-    id: "video-edit", name: "视频剪辑", category: "video", added: true, avatar: 6,
+    id: "video-edit", agentKey: "aurora:video-captions", name: "视频剪辑", category: "video", added: true, avatar: 6,
     description: "上传原视频，提炼精彩片段、调整节奏，并加上字幕。",
     tagline: "把长素材，剪成想看的精彩片段。", chips: ["精彩片段", "自动字幕", "节奏调整"],
     upload: { kind: "video", title: "上传原视频", hint: "课程、活动记录、口播或产品视频" },
@@ -144,7 +146,7 @@ export const apexTools: ToolDefinition[] = [
     action: "开始剪辑", result: { kind: "video", title: "剪辑结果", description: "按片段预览剪辑效果，并下载成片。", items: ["成片预览", "片段时间线", "字幕文件"] },
   },
   {
-    id: "avatar-video", name: "数字人口播", category: "video", added: true, avatar: 2,
+    id: "avatar-video", agentKey: "aurora:avatar-video", name: "数字人口播", category: "video", added: true, avatar: 2,
     description: "输入一段文案，让数字人替你讲产品、做介绍或录课程。",
     tagline: "写好文案，让你的数字人开口。", chips: ["产品讲解", "课程口播", "人物形象"],
     source: { label: "口播文案", placeholder: "输入希望数字人说的话…", example: "大家好，欢迎来到 Apex AI。选一个你需要的工具，放入素材，就可以开始创作。今天我们一起试试商品图制作。" },
@@ -170,7 +172,7 @@ export const apexTools: ToolDefinition[] = [
     action: "翻译视频", result: { kind: "video", title: "翻译视频预览", description: "对照原文、译文和视频，确认后导出。", items: ["翻译视频", "对照文案", "字幕文件"] },
   },
   {
-    id: "presentation", name: "PPT 制作", category: "office", added: true, avatar: 1,
+    id: "presentation", agentKey: "aurora:ppt", name: "PPT 制作", category: "office", added: true, avatar: 1,
     description: "输入主题和资料，整理演示大纲，排成汇报或介绍用的 PPT。",
     tagline: "从一个主题，到一份讲得清楚的演示。", chips: ["内容大纲", "自动排版", "逐页预览"],
     source: { label: "演示主题和资料", placeholder: "要讲什么、给谁看、希望听众记住什么…", example: "给团队介绍 Apex AI 工具平台。包含用户痛点、核心工具、使用流程、产品优势和下一步计划，适合 10 分钟分享。" },
@@ -182,7 +184,7 @@ export const apexTools: ToolDefinition[] = [
     action: "制作 PPT", result: { kind: "slides", title: "演示文稿", description: "左侧查看目录，右侧预览每一页，完成后导出 PPT。", items: ["演示大纲", "逐页预览", "PPT 导出"] },
   },
   {
-    id: "spreadsheet", name: "Excel 助手", category: "office", added: true, avatar: 6,
+    id: "spreadsheet", agentKey: "aurora:excel", name: "Excel 助手", category: "office", added: true, avatar: 6,
     description: "上传表格，整理数据、解释公式、汇总重点或制作图表。",
     tagline: "把复杂表格，变成看得懂的结果。", chips: ["数据整理", "公式帮助", "图表汇总"],
     upload: { kind: "sheet", title: "上传 Excel 或 CSV", hint: "选择要整理、分析的表格" },
@@ -194,7 +196,7 @@ export const apexTools: ToolDefinition[] = [
     action: "处理表格", result: { kind: "table", title: "表格处理结果", description: "查看整理后的表格、分析说明和图表。", items: ["结果表格", "图表", "处理说明"] },
   },
   {
-    id: "pdf-reader", name: "PDF 阅读助手", category: "office", added: true, avatar: 3,
+    id: "pdf-reader", agentKey: "aurora:document-summary", name: "PDF 阅读助手", category: "office", added: true, avatar: 3,
     description: "上传 PDF，快速读懂重点，针对内容提问并定位引用页码。",
     tagline: "长文档的重点，一眼就能找到。", chips: ["重点摘要", "文档问答", "页码引用"],
     upload: { kind: "pdf", title: "上传 PDF", hint: "报告、说明书、课程资料或论文" },
@@ -206,7 +208,7 @@ export const apexTools: ToolDefinition[] = [
     action: "开始阅读", result: { kind: "document", title: "阅读结果", description: "回答旁保留引用页码，方便回到原文核对。", items: ["内容摘要", "问答", "引用页码"] },
   },
   {
-    id: "copywriting", name: "文案创作", category: "writing", avatar: 4,
+    id: "copywriting", agentKey: "aurora:xhs-copy", name: "文案创作", category: "writing", avatar: 4,
     description: "写产品介绍、活动文案和社交内容，让想法有合适的表达。",
     tagline: "把想说的话，写得更动人。", chips: ["社交内容", "品牌文案", "中英双语"],
     source: { label: "文案主题和要求", placeholder: "写什么、发给谁、有哪些必须提到的内容…", example: "写一篇新加坡周末散步路线的小红书文案，推荐植物园和周边咖啡店，口吻像朋友分享，约 300 字。" },
@@ -242,7 +244,7 @@ export const apexTools: ToolDefinition[] = [
     action: "设计网站", result: { kind: "website", title: "网站方案", description: "切换电脑和手机视图，查看页面布局。", items: ["电脑端", "手机端", "页面说明"] },
   },
   {
-    id: "resume", name: "简历优化", category: "office", added: true, avatar: 5,
+    id: "resume", agentKey: "aurora:resume", name: "简历优化", category: "office", added: true, avatar: 5,
     description: "结合目标岗位，整理简历结构、突出经历亮点并优化表达。",
     tagline: "让你的经历，更准确地被看见。", chips: ["岗位匹配", "经历润色", "简历排版"],
     upload: { kind: "resume", title: "上传现有简历", hint: "支持 PDF 或 Word 简历" },
