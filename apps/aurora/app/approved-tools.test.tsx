@@ -9,6 +9,15 @@ import { WorkspaceChrome } from "../components/workspace-chrome";
 import { apexTools } from "../components/tools/tool-definitions";
 
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NEXT_NOT_FOUND"); } }));
+vi.mock("../components/tools/use-tool-submission", () => ({
+  useToolSubmission: () => ({
+    submit: vi.fn(),
+    pending: false,
+    error: null,
+    canSubmit: true,
+    agent: { id: "agent-1" },
+  }),
+}));
 vi.mock("../components/aurora-shell", () => ({
   AuroraShell: ({ children }: { children: ReactNode }) => <><aside aria-label="工作区导航" /><main>{children}</main></>,
 }));

@@ -12,8 +12,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ToolPage({ params }: Props) {
-  const { toolId } = await params;
+  const { workspaceSlug, toolId } = await params;
   const tool = findTool(toolId);
   if (!tool) notFound();
-  return <ToolWorkspace key={tool.id} tool={tool} />;
+  return <ToolWorkspace key={tool.id} tool={tool} slug={workspaceSlug} />;
 }

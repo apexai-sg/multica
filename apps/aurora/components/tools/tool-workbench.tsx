@@ -1,25 +1,26 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { ArrowRight, Check, FileText, Film, Globe, ImagePlus, Monitor, Play, Presentation, Sheet, Smartphone, Sparkles, Volume2 } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
+import { Spinner } from "@multica/ui/components/ui/spinner";
 import { Textarea } from "@multica/ui/components/ui/textarea";
 import { LocalFileCard, useLocalFile } from "./local-file";
 import { TranscriptResult } from "./transcript-result";
 import { toolCategories, type ToolDefinition } from "./tool-definitions";
+import { useToolSubmission } from "./use-tool-submission";
 
 const resultIcons = { image: ImagePlus, video: Film, slides: Presentation, table: Sheet, document: FileText, audio: Volume2, website: Globe, transcript: FileText };
 
-export function ToolWorkbench({ tool }: { tool: ToolDefinition }) {
+export function ToolWorkbench({ tool, slug }: { tool: ToolDefinition; slug: string }) {
   const [source, setSource] = useState("");
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(tool.fields.map((field) => [field.id, field.options[0] ?? ""])));
-  const [reviewed, setReviewed] = useState(false);
   const [resultVersion, setResultVersion] = useState(0);
-  const result = useRef<HTMLDivElement>(null);
-  const clearResult = () => { setReviewed(false); setResultVersion((value) => value + 1); };
+  const clearResult = () => { setResultVersion((value) => value + 1); };
   const file = useLocalFile(tool.upload?.kind ?? "image", clearResult);
   const ready = (!tool.upload || tool.upload.optional || !!file.media) && !file.error &&
     (!tool.source || tool.source.optional || !!source.trim());
+  const submission = useToolSubmission(tool, slug);
   const Icon = resultIcons[tool.result.kind];
 
   return <main className="apex-face-workbench apex-config-workbench" onDragOver={(event) => event.preventDefault()} onDrop={(event) => event.preventDefault()}>
@@ -59,14 +60,18 @@ export function ToolWorkbench({ tool }: { tool: ToolDefinition }) {
       </section>
     </div>
     <div className="apex-generate-area">
-      <Button type="button" size="lg" className="apex-generate-button" disabled={!ready} aria-describedby="tool-preview-note" onClick={() => {
-        setReviewed(true);
-        result.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "nearest" });
-      }}><Sparkles aria-hidden="true" />{tool.action}<ArrowRight aria-hidden="true" /></Button>
-      <p id="tool-preview-note">{ready ? "素材和设置已准备好" : "请先补充必填素材或文案"}<span>·</span>当前仅预览交互，不处理真实内容</p>
+      <Button type="button" size="lg" className="apex-generate-button" disabled={!ready || !submission.canSubmit} aria-describedby="tool-preview-note" onClick={() => {
+        void submission.submit({ source, values, files: file.media ? [file.media.file] : [] });
+      }}>
+        {submission.pending ? <Spinner aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+        {submission.pending ? "提交中…" : tool.action}
+        {submission.pending ? null : <ArrowRight aria-hidden="true" />}
+      </Button>
+      <p id="tool-preview-note">{ready ? "素材和设置已准备好" : "请先补充必填素材或文案"}<span>·</span>提交后由 AI 在任务详情页执行并返回结果</p>
+      {submission.error ? <p className="apex-upload-error" role="alert">{submission.error}</p> : null}
     </div>
-    <div ref={result}>
-      {reviewed ? <p className="apex-review-status" role="status"><Check aria-hidden="true" />{tool.result.kind === "transcript" ? "视频已准备好。当前仅供确认页面，尚未提取视频内容。" : "内容和设置已准备好。当前为页面预览，尚未生成作品。"}</p> : null}
+    <div>
+      <p className="apex-sample-note">提交后会自动打开该任务的问题详情页；AI 的执行结果以评论和附件的形式显示在那里。若无法生成真实媒体文件，结果中会说明限制并给出方案。</p>
       {tool.result.kind === "transcript" ? <TranscriptResult key={resultVersion} /> : <ResultPreview tool={tool} />}
     </div>
     <footer className="apex-workbench-footer">APEX AI <span>让创作，简单一点。</span></footer>

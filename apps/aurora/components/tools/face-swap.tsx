@@ -6,8 +6,11 @@ import {
   Play, ScanFace, Sparkles, Upload, X,
 } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
+import { Spinner } from "@multica/ui/components/ui/spinner";
 
 import { fileSize, useLocalFile as useLocalMedia } from "./local-file";
+import { findTool } from "./tool-definitions";
+import { useToolSubmission } from "./use-tool-submission";
 
 type MediaKind = "video" | "image";
 
@@ -103,17 +106,16 @@ function UploadCard({
   );
 }
 
-export function FaceSwapWorkbench() {
+export function FaceSwapWorkbench({ slug }: { slug: string }) {
   const [mode, setMode] = useState<MediaKind>("video");
-  const [reviewed, setReviewed] = useState(false);
-  const clearResult = () => setReviewed(false);
+  const clearResult = () => undefined;
   const video = useLocalMedia("video", clearResult);
   const picture = useLocalMedia("image", clearResult);
   const face = useLocalMedia("image", clearResult);
   const source = mode === "video" ? video : picture;
   const ready = !!(source.media && face.media && !source.error && !face.error);
   const noun = mode === "video" ? "视频" : "图片";
-  const result = useRef<HTMLElement>(null);
+  const submission = useToolSubmission(findTool("face-swap")!, slug);
 
   return (
     <main className="apex-face-workbench" onDragOver={(event) => event.preventDefault()} onDrop={(event) => event.preventDefault()}>
@@ -155,35 +157,39 @@ export function FaceSwapWorkbench() {
       </div>
 
       <div className="apex-generate-area">
-        <Button type="button" size="lg" className="apex-generate-button" disabled={!ready}
+        <Button type="button" size="lg" className="apex-generate-button" disabled={!ready || !submission.canSubmit}
           aria-describedby="apex-generation-note"
           onClick={() => {
-            setReviewed(true);
-            result.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "nearest" });
+            const files = [source.media?.file, face.media?.file].filter((item): item is File => !!item);
+            void submission.submit({
+              values: { 换脸类型: mode === "video" ? "视频换脸" : "图片换脸" },
+              files,
+            });
           }}>
-          <Sparkles aria-hidden="true" />生成换脸{noun}<ArrowRight aria-hidden="true" />
+          {submission.pending ? <Spinner aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+          {submission.pending ? "提交中…" : `生成换脸${noun}`}
+          {submission.pending ? null : <ArrowRight aria-hidden="true" />}
         </Button>
         <p id="apex-generation-note">
           <Info aria-hidden="true" />
           {ready ? "素材已就绪" : `请先选择原${noun}和人脸照片`}
-          <span>·</span>交互预览，暂未接入换脸服务
+          <span>·</span>提交后由 AI 在任务详情页执行并返回结果
         </p>
+        {submission.error ? <p className="apex-upload-error" role="alert">{submission.error}</p> : null}
       </div>
 
-      <section ref={result} className="apex-result-panel" aria-labelledby="apex-result-title">
+      <section className="apex-result-panel" aria-labelledby="apex-result-title">
         <div className="apex-result-screen">
           <span className="apex-result-type">{noun}预览</span>
           <span className="apex-result-play" aria-hidden="true">{mode === "video" ? <Play /> : <ImagePlus />}</span>
-          <p>{reviewed ? "等待接入换脸服务" : "你的新作品，将在这里出现"}</p>
+          <p>提交后，结果会显示在任务详情页</p>
           <div className="apex-result-rail" aria-hidden="true"><span /><span /></div>
         </div>
         <div className="apex-result-copy">
           <span className="apex-result-eyebrow">YOUR CREATION</span>
           <h2 id="apex-result-title">生成结果</h2>
           <p role="status" aria-live="polite">
-            {reviewed
-              ? `两份素材已准备好。当前为页面预览，尚未生成换脸${noun}。`
-              : `生成完成后，可在这里预览并下载${noun}。`}
+            提交后会自动打开该任务的问题详情页；AI 的执行结果以评论和附件的形式显示在那里。若无法生成真实换脸{noun}，结果中会说明限制并给出方案。
           </p>
           <Button type="button" variant="outline" size="lg" disabled aria-describedby="apex-result-title">
             <Download aria-hidden="true" />下载{noun}

@@ -3,12 +3,24 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FaceSwapWorkbench } from "./face-swap";
 
+const submit = vi.hoisted(() => vi.fn());
+vi.mock("./use-tool-submission", () => ({
+  useToolSubmission: () => ({
+    submit,
+    pending: false,
+    error: null,
+    canSubmit: true,
+    agent: { id: "agent" },
+  }),
+}));
+
 const NativeURL = URL;
 let urlNumber = 0;
 const revoke = vi.fn();
 const fetch = vi.fn();
 
 beforeEach(() => {
+  submit.mockClear();
   revoke.mockClear();
   fetch.mockClear();
   vi.stubGlobal("fetch", fetch);
@@ -33,7 +45,7 @@ const photo = (name = "face.png") => new File(["photo"], name, { type: "image/pn
 describe("face swap design preview", () => {
   it("requires both inputs and never submits or presents a fake generated output", async () => {
     const user = userEvent.setup();
-    render(<FaceSwapWorkbench />);
+    render(<FaceSwapWorkbench slug="preview" />);
     const generate = screen.getByRole("button", { name: "生成换脸视频" });
     expect(generate).toBeDisabled();
     await user.upload(screen.getByLabelText("选择原视频文件"), video());
@@ -41,14 +53,14 @@ describe("face swap design preview", () => {
     await user.upload(screen.getByLabelText("选择人脸照片文件"), photo());
     expect(generate).toBeEnabled();
     await user.click(generate);
-    expect(screen.getByRole("status")).toHaveTextContent("尚未生成换脸视频");
+    expect(submit).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "下载视频" })).toBeDisabled();
     expect(fetch).not.toHaveBeenCalled();
   });
 
   it("retains a source per mode and releases local media when removed or unmounted", async () => {
     const user = userEvent.setup();
-    const view = render(<FaceSwapWorkbench />);
+    const view = render(<FaceSwapWorkbench slug="preview" />);
     await user.upload(screen.getByLabelText("选择原视频文件"), video());
     await user.upload(screen.getByLabelText("选择人脸照片文件"), photo());
     await user.click(screen.getByRole("button", { name: "图片换脸" }));
@@ -70,7 +82,7 @@ describe("face swap design preview", () => {
 
   it("rejects invalid dropped files and unreadable images, then recovers on replacement", async () => {
     const user = userEvent.setup();
-    render(<FaceSwapWorkbench />);
+    render(<FaceSwapWorkbench slug="preview" />);
     fireEvent.drop(screen.getByRole("region", { name: /上传原视频/ }), {
       dataTransfer: { files: [photo()] },
     });
