@@ -12,11 +12,21 @@ const mocks = vi.hoisted(() => ({
   uploadFile: vi.fn(),
   createIssue: vi.fn(),
   listAgents: vi.fn(),
+  listMembers: vi.fn(),
 }));
 
 vi.mock("@multica/core/hooks", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@multica/core/hooks")>()),
   useWorkspaceId: () => "ws-1",
+}));
+
+vi.mock("@multica/core/auth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@multica/core/auth")>()),
+  useAuthStore: Object.assign(
+    (selector: (state: { user: { id: string } }) => unknown) =>
+      selector({ user: { id: "u-admin" } }),
+    { getState: () => ({ user: { id: "u-admin" } }) },
+  ),
 }));
 
 vi.mock("@multica/core/api", async (importOriginal) => {
@@ -29,6 +39,10 @@ vi.mock("@multica/core/api", async (importOriginal) => {
 
 const tool = apexTools.find((candidate) => candidate.id === "poster")!;
 
+// A shared workspace agent, assignable by any member of `ws-1`. Visibility is
+// not incidental to these tests: the hook only offers agents the viewer may
+// actually assign, so the fixture must carry a grant rather than lean on an
+// undefined `permission_mode`.
 const agent = (overrides: Partial<Agent> = {}): Agent =>
   ({
     id: "agent-1",
@@ -37,6 +51,9 @@ const agent = (overrides: Partial<Agent> = {}): Agent =>
     archived_at: null,
     runtime_id: "runtime-1",
     runtime_bound: true,
+    owner_id: null,
+    permission_mode: "public_to",
+    invocation_targets: [{ target_type: "workspace", target_id: "ws-1" }],
     ...overrides,
   }) as Agent;
 
@@ -78,6 +95,8 @@ beforeEach(() => {
   mocks.createIssue.mockReset();
   mocks.listAgents.mockReset();
   mocks.listAgents.mockResolvedValue([agent()]);
+  mocks.listMembers.mockReset();
+  mocks.listMembers.mockResolvedValue([{ user_id: "u-admin", role: "admin" }]);
   mocks.uploadFile.mockResolvedValue({ id: "att-1" });
   mocks.createIssue.mockResolvedValue(issue());
   push.mockReset();
@@ -252,6 +271,33 @@ describe("useToolSubmission", () => {
     const { result } = await render();
 
     expect(result.current.agent?.id).toBe("bound");
+  });
+
+  it("skips another member's private agent, which the list shows to admins but the assign gate refuses", async () => {
+    mocks.listMembers.mockResolvedValue([{ user_id: "u-admin", role: "admin" }]);
+    mocks.listAgents.mockResolvedValue([
+      agent({ id: "private", owner_id: "u-other", permission_mode: "private" }),
+      agent({
+        id: "shared",
+        system_key: "mika",
+        permission_mode: "public_to",
+        invocation_targets: [{ target_type: "workspace", target_id: "ws-1" }],
+      }),
+    ]);
+    const { result } = await render();
+
+    expect(result.current.agent?.id).toBe("shared");
+  });
+
+  it("reports no-agent when the only visible agent is not assignable", async () => {
+    mocks.listMembers.mockResolvedValue([{ user_id: "u-admin", role: "admin" }]);
+    mocks.listAgents.mockResolvedValue([
+      agent({ id: "private", owner_id: "u-other", permission_mode: "private" }),
+    ]);
+    const { result } = await render();
+
+    expect(result.current.status).toBe("no-agent");
+    expect(result.current.canSubmit).toBe(false);
   });
 
   it("reports that every assistant lost its runtime", async () => {
