@@ -103,6 +103,15 @@ describe("tool workspace preview boundaries", () => {
     expect(screen.getByText(/工作区还没有可用的助手/)).toBeVisible();
   });
 
+  it("names a tool the server has no expert for", () => {
+    Object.assign(submission, { canSubmit: false, status: "no-expert" });
+    const tool = apexTools.find((item) => item.id === "poster")!;
+    render(<ToolWorkbench tool={tool} slug="preview" />);
+
+    expect(screen.getByRole("button", { name: "制作海报" })).toBeDisabled();
+    expect(screen.getByText(/该工具尚未配置执行专家/)).toBeVisible();
+  });
+
   it("shows an assistant-list failure with a way to reload it", async () => {
     Object.assign(submission, { canSubmit: false, status: "error" });
     const user = userEvent.setup();
