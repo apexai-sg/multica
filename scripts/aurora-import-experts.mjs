@@ -34,8 +34,11 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const BRIEFS_ROOT = "server/internal/aurora/experts";
 const SKILLS_ROOT = "aurora-experts";
+const LOCAL_INDEX_ROOT = "server/internal/aurora/experts-local";
 const BRIEFS_ABS = join(REPO_ROOT, BRIEFS_ROOT);
 const SKILLS_ABS = join(REPO_ROOT, SKILLS_ROOT);
+const LOCAL_INDEX_ABS = join(REPO_ROOT, LOCAL_INDEX_ROOT, "index.json");
+const WORKFLOW_SUFFIX = "/workflow.md";
 
 // The six SkillHub scenes the 2026-10-14 sync installed. tech-test-automation
 // is the pre-existing seventh template and is deliberately not imported.
@@ -178,6 +181,56 @@ function sortedEntries(dir) {
       .map((entry) => entry.name)
       .sort(),
   );
+}
+
+// isManagedBrief reports whether the generator owns one brief. Briefs for
+// locally authored experts stay hand-written in the checkout, so --check must
+// not compare them: a deliberate edit is not snapshot drift.
+export function isManagedBrief(relPath, localSlugs) {
+  if (!relPath.endsWith(WORKFLOW_SUFFIX)) {
+    return false;
+  }
+  return !localSlugs.has(relPath.slice(0, -WORKFLOW_SUFFIX.length));
+}
+
+// readLocalIndex returns the hand-written expert entries. A missing file means
+// a snapshot-only run, which is what the tests below exercise.
+async function readLocalIndex(localIndexPath) {
+  if (!localIndexPath || !existsSync(localIndexPath)) {
+    return [];
+  }
+  const parsed = JSON.parse(await readFile(localIndexPath, "utf8"));
+  return Array.isArray(parsed.experts) ? parsed.experts : [];
+}
+
+// localExpert converts one experts-local entry into the upstream expert shape
+// so renderIndex carries both. A local expert has no vendored persona, no
+// vendored workflow and no sub-skills: the brief is written by hand and is
+// never generated.
+function localExpert(entry) {
+  const slug = entry.slug || "";
+  if (!slug) {
+    die("a locally authored expert has no slug");
+  }
+  return {
+    slug,
+    nameZh: entry.name_zh || slug,
+    nameEn: entry.name_en || slug,
+    scene: entry.scene || sceneOf(slug, ""),
+    descriptionZh: entry.description_zh || "",
+    descriptionEn: entry.description_en || "",
+    persona: "",
+    workflow: "",
+    subskills: [],
+    missingSubskills: entry.missing_subskills || [],
+    quickPrompts: (entry.quick_prompts || []).map((prompt) => ({
+      labelZh: prompt.label_zh || "",
+      labelEn: prompt.label_en || "",
+      promptZh: prompt.prompt_zh || "",
+      promptEn: prompt.prompt_en || "",
+    })),
+    local: true,
+  };
 }
 
 async function listFiles(dir, prefix) {
@@ -356,7 +409,9 @@ function renderIndex(experts) {
 
 // buildLibrary turns a snapshot directory into the complete managed file set,
 // keyed by repo-relative path. It is pure so --check and the tests can use it.
-export async function buildLibrary(sourceDir) {
+// Local experts are merged into the index only: their briefs and skill trees
+// are not part of the managed set.
+export async function buildLibrary(sourceDir, localIndexPath = LOCAL_INDEX_ABS) {
   const desired = new Map();
   const experts = [];
 
@@ -447,14 +502,23 @@ export async function buildLibrary(sourceDir) {
     desired.set(BRIEFS_ROOT + "/" + slug + "/workflow.md", renderBrief(expert));
   }
 
+  for (const entry of await readLocalIndex(localIndexPath)) {
+    experts.push(localExpert(entry));
+  }
   experts.sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
+
   const seen = new Set();
+  const slugs = new Set();
   const dirs = new Set();
   for (const expert of experts) {
     if (seen.has(expert.nameZh)) {
       die("duplicate expert display name " + expert.nameZh);
     }
     seen.add(expert.nameZh);
+    if (slugs.has(expert.slug)) {
+      die("duplicate expert slug " + expert.slug);
+    }
+    slugs.add(expert.slug);
     for (const sub of expert.subskills) {
       const dir = expert.slug + "/" + sub.name;
       if (dirs.has(dir)) {
@@ -472,7 +536,6 @@ export async function buildLibrary(sourceDir) {
 export function validateBriefs(experts) {
   const problems = [];
   for (const expert of experts) {
-    const brief = renderBrief(expert);
     if (expert.quickPrompts.length === 0) {
       problems.push(expert.slug + " has no quick prompts to offer as agent starters");
     }
@@ -482,6 +545,12 @@ export function validateBriefs(experts) {
     ) {
       problems.push(expert.slug + " has an empty quick prompt label or prompt");
     }
+    // A local expert's brief is hand-written, not rendered from a persona and
+    // a workflow; its section contract is asserted by the Go workflow tests.
+    if (expert.local) {
+      continue;
+    }
+    const brief = renderBrief(expert);
     for (const sub of expert.subskills) {
       if (sub.name !== sanitizeSkillDir(sub.name) || sub.name.includes("--")) {
         problems.push(expert.slug + " sub-skill " + sub.slug + " is not a sanitizeSkillName fixed point");
@@ -539,9 +608,10 @@ export function importPlan(files) {
 
 async function currentFiles() {
   const out = new Map();
+  const localSlugs = new Set((await readLocalIndex(LOCAL_INDEX_ABS)).map((entry) => entry.slug));
   if (existsSync(BRIEFS_ABS)) {
     for (const file of await listFiles(BRIEFS_ABS, "")) {
-      const managed = file.path === "index.json" || file.path.endsWith("/workflow.md");
+      const managed = file.path === "index.json" || isManagedBrief(file.path, localSlugs);
       if (managed) {
         out.set(BRIEFS_ROOT + "/" + file.path, await readText(file.full));
       }
@@ -661,6 +731,11 @@ async function main() {
     die(problems.join(NL));
   }
   for (const expert of experts) {
+    // A local expert's brief is hand-written; regenerating the snapshot tree
+    // must not delete it.
+    if (expert.local) {
+      continue;
+    }
     await rm(join(BRIEFS_ABS, expert.slug), { recursive: true, force: true });
     await rm(join(SKILLS_ABS, expert.slug), { recursive: true, force: true });
   }

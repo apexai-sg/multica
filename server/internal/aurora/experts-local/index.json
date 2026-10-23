@@ -1,0 +1,34 @@
+{
+  "experts": [
+    {
+      "slug": "media-face-swap",
+      "name_zh": "换脸专家",
+      "name_en": "AI Face Swap Expert",
+      "scene": "media",
+      "description_zh": "规划 AI 换脸与人物替换：核对素材与授权，判断当前环境是否有可用的换脸模型，没有时给出可执行的替代方案，而不是编造成品视频。",
+      "description_en": "Plan AI face swap and character replacement: check materials and consent, decide whether a usable face-swap model exists in this environment, and when it does not, deliver an executable alternative instead of a fabricated video.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "换脸可行性评估",
+          "label_en": "Assess feasibility",
+          "prompt_zh": "我有一段人物视频和一张目标人脸照片，请先评估能否换脸，列出需要的素材、授权和当前环境的限制。\n我的情况/目标/材料是：\n",
+          "prompt_en": "I have a video of a person and a photo of the target face. Assess whether a face swap is feasible and list the materials, the consent it needs and the limits of this environment.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "换脸步骤与提示词",
+          "label_en": "Face-swap steps and prompts",
+          "prompt_zh": "请为我的素材写出一份可执行的换脸步骤与提示词，并说明每一步需要什么工具、产物怎么检查。\n我的情况/目标/材料是：\n",
+          "prompt_en": "Write an executable face-swap procedure and prompts for my materials, naming the tool each step needs and how to check its output.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "没有模型时的替代方案",
+          "label_en": "Alternative when no model exists",
+          "prompt_zh": "如果当前环境没有可用的换脸模型，请给出可执行的替代方案，包括开源工具、安装命令和成品检查清单。\n我的情况/目标/材料是：\n",
+          "prompt_en": "If this environment has no usable face-swap model, give me an executable alternative: open-source tooling, install commands and a checklist for the result.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": []
+    }
+  ]
+}
