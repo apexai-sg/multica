@@ -197,7 +197,7 @@ export function createKoDict(
         {
           question: "Multica는 어떤 코딩 에이전트를 지원하나요?",
           answer:
-            "Multica는 Antigravity, Claude Code, CodeBuddy, CodeArts, Codex, Copilot, Cursor, DeepSeek Harness, DevEco Code, Dim, Grok, Hermes, Kimi, Kiro CLI, MiniMax Code, Muse Code, Oh-My-Pi, OpenClaw, OpenCode, Pi, Qoder, Qoder CN, Qwen Code, QwenPaw, Reasonix, Trae CLI, ZeroClaw 등 27개 코딩 도구를 기본 지원합니다. 데몬이 이미 설치된 CLI를 자동으로 찾아 각각 런타임으로 등록합니다. 소스 코드가 공개되어 있으므로 직접 백엔드를 추가할 수도 있습니다. 셀프 호스팅에서는 QCA PAT와 기존 QCA 에이전트를 사용하여 태스크 실행용 관리형 원격 런타임으로 Qoder Cloud Agent를 설정할 수 있습니다.",
+            "Multica는 Antigravity, Claude Code, CodeBuddy, CodeArts, Codex, Copilot, Cursor, DeepSeek Harness, DevEco Code, Dim, Grok, Hermes, Kimi, Kiro CLI, MiniMax Code, Muse Code, Oh-My-Pi, OpenClaw, OpenCode, Pi, Qoder, Qoder CN, Qwen Code, QwenPaw, Reasonix, Trae CLI, ZeroClaw 등 27개 코딩 도구를 기본 지원합니다. 데몬이 이미 설치된 CLI를 자동으로 찾아 각각 런타임으로 등록합니다. 소스 코드가 공개되어 있으므로 직접 백엔드를 추가할 수도 있습니다. 셀프 호스팅에서는 QCA PAT와 기존 QCA 에이전트를 사용하여 태스크 실행용 관리형 원격 런타임으로 Qoder Cloud Agents를 설정할 수 있습니다.",
         },
         {
           question: "셀프 호스팅만 가능한가요, 클라우드 버전도 있나요?",
@@ -3418,10 +3418,10 @@ export function createKoDict(
     },
     privacy: {
       title: "개인정보 처리방침",
-      lastUpdated: "최종 업데이트: 2026년 9월 24일",
+      lastUpdated: "최종 업데이트: 2026년 10월 22일",
       intro: [
         "이 개인정보 처리방침은 Index Labs (Hong Kong) Limited(이하 “Multica” 또는 “저희”)가 여러분이 multica.ai를 방문하거나, 저희에게 문의하거나, 호스팅 서비스인 Multica Cloud(웹, 데스크톱, 모바일 앱 포함)를 이용할 때 개인정보를 어떻게 수집, 이용, 공유하는지 설명합니다.",
-        "이 방침은 여러분이 직접 호스팅하는 Multica에는 적용되지 않습니다. 셀프 호스팅 배포의 데이터는 운영자가 관리하며, 어떤 AI 제공자, 연동 서비스, 분석 도구를 쓰는지는 운영자의 설정에 따라 달라집니다. 셀프 호스팅 서버가 저희에게 보내는 것은 하루 한 번의 사용 현황 스냅샷뿐입니다. 여기에는 같은 서버의 스냅샷을 서로 연결하기 위한 무작위 배포 ID, 서버 버전, 워크스페이스·멤버·에이전트·연결된 데몬의 대략적인 수, 그날 시작·완료·실패·취소된 실행 수가 담깁니다. 이름, 이메일 주소, 콘텐츠는 포함되지 않습니다. DO_NOT_TRACK=1로 설정하면 이 스냅샷을 끌 수 있습니다.",
+        "이 방침은 여러분이 직접 호스팅하는 Multica에는 적용되지 않습니다. 셀프 호스팅 배포의 데이터는 운영자가 관리하며, 어떤 AI 제공자, 연동 서비스, 분석 도구를 쓰는지는 운영자의 설정에 따라 달라집니다. 셀프 호스팅 서버가 저희에게 보내는 것은 하루 한 번의 사용 현황 스냅샷뿐입니다. 여기에는 같은 서버의 스냅샷을 서로 연결하기 위한 무작위 배포 ID, 서버 버전, 워크스페이스·멤버·에이전트·연결된 데몬의 대략적인 수, 그날 시작·완료·실패·취소된 실행 수, 그리고 지난 1·7·28일 동안 웹 또는 데스크톱 앱을 연 멤버 수와 직접 에이전트 실행을 시작한 멤버 수의 대략적인 값이 담깁니다. 이름, 이메일 주소, 콘텐츠는 포함되지 않습니다. DO_NOT_TRACK=1로 설정하면 이 스냅샷을 끌 수 있습니다.",
         "이 방침은 영어 원문을 기준으로 합니다. 한국어 번역본과 영어 원문의 내용이 다를 경우 영어 원문이 우선합니다.",
       ],
       sections: [
