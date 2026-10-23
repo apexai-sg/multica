@@ -3325,7 +3325,7 @@ func auroraClaimFixture(t *testing.T) (db.AgentTaskQueue, db.AgentRuntime, strin
 	if err := testHandler.Credit.Grant(ctx, user, ws, 1_000_000_000, aurora.LedgerKindAdjustment, creditRef("seed")); err != nil {
 		t.Fatalf("Grant: %v", err)
 	}
-	if err := testHandler.ensureAuroraExpertSeed(ctx, ws, user, "ecommerce-bidding-strategy"); err != nil {
+	if err := testHandler.ensureAuroraExpertSeed(ctx, ws, "ecommerce-bidding-strategy"); err != nil {
 		t.Fatalf("ensure aurora system agents: %v", err)
 	}
 	agent, err := testHandler.Queries.GetAgentBySystemKey(ctx, db.GetAgentBySystemKeyParams{
@@ -3726,5 +3726,74 @@ func TestEnsureAuroraCatalogSeedDoesNotResurrectArchivedCarrier(t *testing.T) {
 	if n := dbfx.Count(t, `SELECT count(*) FROM agent WHERE workspace_id = $1 AND system_key LIKE 'aurora:%'`,
 		workspaceID); n != 33 {
 		t.Fatalf("carriers = %d, want 33", n)
+	}
+}
+
+// TestAuroraCarrierIsAssignableByANonOwnerMember pins the two properties that
+// make an expert carrier usable by the whole workspace without ever belonging
+// to an ordinary member: it is public_to with a workspace invocation target,
+// and both the carrier and the managed runtime stay owned by the workspace
+// owner no matter who triggers the seed.
+//
+// The second seed deliberately runs through the generation path, which used to
+// stamp the calling member's id onto owner_id via AdoptAuroraSystemAgent — and
+// the daemon claim path refuses to deliver to a private runtime whose owner
+// differs from the agent's.
+func TestAuroraCarrierIsAssignableByANonOwnerMember(t *testing.T) {
+	if testHandler == nil || testPool == nil {
+		t.Skip("database not available")
+	}
+
+	workspaceID := dbfx.Workspace(t, "Aurora carrier perms", "aurora-carrier-perms-"+uuid.NewString())
+	dbfx.Member(t, workspaceID, testUserID, "owner")
+	memberID := dbfx.User(t, "Aurora carrier member", "aurora-carrier-member-"+uuid.NewString()+"@test.invalid")
+	dbfx.Member(t, workspaceID, memberID, "member")
+	// agent, agent_runtime, skill and member all cascade from the workspace.
+	// agent_invocation_target has no foreign keys by design (migration 130), so
+	// the grants the seed writes are removed explicitly.
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = testPool.Exec(ctx,
+			`DELETE FROM agent_invocation_target WHERE agent_id IN (SELECT id FROM agent WHERE workspace_id = $1)`, workspaceID)
+		_, _ = testPool.Exec(ctx, `DELETE FROM workspace WHERE id = $1`, workspaceID)
+	})
+
+	const slug = "media-face-swap"
+	systemKey := aurora.SystemKey(slug)
+	ctx := context.Background()
+
+	// The owner opens the directory first, which seeds every carrier.
+	if err := testHandler.ensureAuroraCatalogSeed(ctx, parseUUID(workspaceID)); err != nil {
+		t.Fatalf("owner seed: %v", err)
+	}
+
+	// A plain member opens the directory, then triggers the generation-path
+	// seed for one expert. Neither may end up owning the carrier.
+	req := newRequestAs(memberID, http.MethodGet, "/api/aurora/skills", nil)
+	req.Header.Set("X-Workspace-ID", workspaceID)
+	testutil.Call(t, testHandler.ListAuroraSkills, req).Want(http.StatusOK)
+	if err := testHandler.ensureAuroraExpertSeed(ctx, parseUUID(workspaceID), slug); err != nil {
+		t.Fatalf("member seed: %v", err)
+	}
+
+	var carrierOwner, runtimeOwner, permissionMode string
+	dbfx.QueryRow(t,
+		`SELECT owner_id::text, permission_mode FROM agent WHERE workspace_id = $1 AND system_key = $2`,
+		workspaceID, systemKey).Scan(&carrierOwner, &permissionMode)
+	dbfx.QueryRow(t,
+		`SELECT owner_id::text FROM agent_runtime WHERE workspace_id = $1 AND provider = 'aurora_managed'`,
+		workspaceID).Scan(&runtimeOwner)
+	if carrierOwner != testUserID || runtimeOwner != testUserID {
+		t.Fatalf("carrier/runtime owners = %s / %s, want the workspace owner %s", carrierOwner, runtimeOwner, testUserID)
+	}
+	if permissionMode != "public_to" {
+		t.Fatalf("carrier permission_mode = %q, want public_to", permissionMode)
+	}
+	// One workspace grant per carrier: every member may invoke it.
+	if n := dbfx.Count(t,
+		`SELECT count(*) FROM agent_invocation_target it JOIN agent a ON a.id = it.agent_id
+		 WHERE a.workspace_id = $1 AND a.system_key = $2 AND it.target_type = 'workspace' AND it.target_id = $1`,
+		workspaceID, systemKey); n != 1 {
+		t.Fatalf("workspace invocation targets = %d, want 1", n)
 	}
 }

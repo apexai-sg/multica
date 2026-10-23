@@ -240,7 +240,7 @@ func (h *Handler) CreateAuroraGeneration(w http.ResponseWriter, r *http.Request)
 	// node may be created for a request entitlement later rejects; the idle
 	// reaper removes it. That trade-off avoids reserving credits for
 	// infrastructure that could not start.
-	if err := h.ensureAuroraExpertSeed(r.Context(), workspaceID, userUUID, entry.ID); err != nil {
+	if err := h.ensureAuroraExpertSeed(r.Context(), workspaceID, entry.ID); err != nil {
 		slog.Error("failed to prepare aurora workspace", "workspace_id", uuidToString(workspaceID), "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create generation")
 		return
@@ -617,7 +617,13 @@ func auroraMissingCatalogExperts(ctx context.Context, q *db.Queries, workspaceID
 // aurora.EnsureAuroraExpert has no ON CONFLICT arbiter (its NULL daemon_id sits
 // outside migration 121's partial unique index), so this lock — not the queries
 // — is what makes two concurrent first seeds produce one runtime row.
-func (h *Handler) ensureAuroraExpertSeed(ctx context.Context, workspaceID, ownerID pgtype.UUID, skillID string) error {
+//
+// It resolves the owner itself rather than taking the request's actor: this
+// path runs for whoever creates the generation, and the carrier and its managed
+// runtime must belong to the workspace owner for any member to invoke them
+// afterwards. Task 10's tool-run endpoint seeds through here for the same
+// reason.
+func (h *Handler) ensureAuroraExpertSeed(ctx context.Context, workspaceID pgtype.UUID, skillID string) error {
 	tx, err := h.TxStarter.Begin(ctx)
 	if err != nil {
 		return err
@@ -626,7 +632,12 @@ func (h *Handler) ensureAuroraExpertSeed(ctx context.Context, workspaceID, owner
 	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", "aurora:"+uuidToString(workspaceID)); err != nil {
 		return err
 	}
-	if err := aurora.EnsureAuroraExpert(ctx, h.Queries.WithTx(tx), workspaceID, ownerID, skillID); err != nil {
+	q := h.Queries.WithTx(tx)
+	ownerID, err := q.GetWorkspaceOwnerUserID(ctx, workspaceID)
+	if err != nil {
+		return fmt.Errorf("get workspace owner: %w", err)
+	}
+	if err := aurora.EnsureAuroraExpert(ctx, q, workspaceID, ownerID, skillID); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

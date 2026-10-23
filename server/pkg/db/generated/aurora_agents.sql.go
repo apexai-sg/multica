@@ -21,7 +21,7 @@ SET owner_id = $1,
     instructions = $5,
     runtime_mode = 'cloud',
     visibility = 'workspace',
-    permission_mode = 'private',
+    permission_mode = 'public_to',
     archived_at = NULL,
     archived_by = NULL,
     updated_at = now()
@@ -55,6 +55,10 @@ type AdoptAuroraSystemAgentParams struct {
 // the older, unbound one: the workspace shows duplicate Aurora agents and a
 // generation binds to a carrier with no runtime. Adopting the earliest row keeps
 // the seed's identity identical to the one that lookup resolves.
+//
+// owner_id is the workspace owner, never the caller: the handler resolves it
+// once per seed (GetWorkspaceOwnerUserID), so a member's generation cannot take
+// the carrier from the owner. permission_mode mirrors UpsertAuroraSystemAgent.
 func (q *Queries) AdoptAuroraSystemAgent(ctx context.Context, arg AdoptAuroraSystemAgentParams) (Agent, error) {
 	row := q.db.QueryRow(ctx, adoptAuroraSystemAgent,
 		arg.OwnerID,
@@ -388,7 +392,7 @@ INSERT INTO agent (
     workspace_id, owner_id, runtime_id, kind, system_key, name, instructions,
     conversation_starters, runtime_mode, visibility, permission_mode, runtime_config
 ) VALUES (
-    $1, $2, $3, 'user', $4, $5, $6, $7, 'cloud', 'workspace', 'private', '{}'::jsonb
+    $1, $2, $3, 'user', $4, $5, $6, $7, 'cloud', 'workspace', 'public_to', '{}'::jsonb
 )
 ON CONFLICT (workspace_id, owner_id, runtime_id, system_key) WHERE system_key IS NOT NULL
 DO UPDATE SET name = EXCLUDED.name, instructions = EXCLUDED.instructions,
@@ -409,6 +413,11 @@ type UpsertAuroraSystemAgentParams struct {
 
 // Like Mika's CreateSystemUserAgent, this product-defined agent is deliberately
 // kind='user': members can see it, chat with it and assign issues to it.
+//
+// permission_mode is 'public_to' because the carrier belongs to the workspace
+// owner, not to whoever runs a generation: 'private' would let only that owner
+// invoke it. The agent_invocation_target('workspace') row that makes public_to
+// mean "every member" is written by aurora.ensureExpert.
 // Idempotency rides
 // migration 172's partial unique index on
 // (workspace_id, owner_id, runtime_id, system_key) WHERE system_key IS NOT

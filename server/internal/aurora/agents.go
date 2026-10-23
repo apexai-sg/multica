@@ -101,12 +101,14 @@ func ManagedRuntimeID(ctx context.Context, q *db.Queries, workspaceID pgtype.UUI
 // It is idempotent, so generation creation can call it for every request without
 // counting rows first.
 //
-// ownerID must be a real user id (agent.owner_id references "user"): the
-// caller passes the workspace owner. No transaction is taken here on purpose:
-// each statement is independently idempotent, so a partially-applied seed
-// converges on retry. The handler still serialises concurrent first seeds
-// behind a per-workspace advisory lock, because ensureManagedRuntime's
-// lookup-then-insert has no ON CONFLICT arbiter.
+// ownerID must be a real user id (agent.owner_id references "user"): every
+// caller passes the workspace owner, never the request's actor, so the carrier
+// and the managed runtime keep one stable owner (the daemon claim path refuses
+// to deliver to a private runtime whose owner differs from the agent's). No
+// transaction is taken here on purpose: each statement is independently
+// idempotent, so a partially-applied seed converges on retry. The handler still
+// serialises concurrent first seeds behind a per-workspace advisory lock,
+// because ensureManagedRuntime's lookup-then-insert has no ON CONFLICT arbiter.
 func EnsureAuroraExpert(ctx context.Context, q *db.Queries, workspaceID, ownerID pgtype.UUID, skillID string) error {
 	runtimeID, err := ensureManagedRuntime(ctx, q, workspaceID, ownerID)
 	if err != nil {
@@ -185,6 +187,18 @@ func ensureExpert(ctx context.Context, q *db.Queries, workspaceID, ownerID, runt
 	}
 	if err != nil {
 		return fmt.Errorf("upsert agent %q: %w", skillID, err)
+	}
+	// The carrier is public_to, so its allow-list is what decides who may invoke
+	// it: one workspace target admits every member. target_id holds the
+	// workspace id (migration 130) rather than NULL, so the unique
+	// (agent_id, target_type, target_id) index dedups re-seeds instead of
+	// stacking a row per generation.
+	if err := q.CreateAgentInvocationTarget(ctx, db.CreateAgentInvocationTargetParams{
+		AgentID:    agent.ID,
+		TargetType: "workspace",
+		TargetID:   workspaceID,
+	}); err != nil {
+		return fmt.Errorf("grant workspace invocation of %q: %w", skillID, err)
 	}
 	if err := detachExpertSubskills(ctx, q, agent.ID, primary.ID, expert); err != nil {
 		return err
