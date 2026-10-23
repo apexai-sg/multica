@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/multica-ai/multica/server/internal/aurora"
 	"github.com/multica-ai/multica/server/internal/testutil"
 )
 
@@ -32,13 +33,13 @@ func TestListAuroraToolsReturnsEveryMapping(t *testing.T) {
 	}
 }
 
-// auroraToolWorkspace creates a workspace owned by testUserID plus an ordinary
-// member, and seeds every carrier. Returns (workspaceID, memberUserID).
+// auroraEmptyToolWorkspace creates a workspace owned by testUserID plus an
+// ordinary member, with no Aurora rows. Returns (workspaceID, memberUserID).
 //
-// The rows a run creates — issues, carriers, skills, the managed runtime — are
-// removed before the fixture's own workspace delete, because this schema has no
-// cascading deletes (AGENTS.md, "Database and Migration Rules").
-func auroraToolWorkspace(t *testing.T) (string, string) {
+// The rows a read or a run creates — issues, carriers, skills, the managed
+// runtime — are removed before the fixture's own workspace delete, because this
+// schema has no cascading deletes (AGENTS.md, "Database and Migration Rules").
+func auroraEmptyToolWorkspace(t *testing.T) (string, string) {
 	t.Helper()
 	ws := dbfx.Workspace(t, "aurora tools", "aurora-tools-"+uuid.NewString())
 	t.Cleanup(func() {
@@ -57,6 +58,13 @@ func auroraToolWorkspace(t *testing.T) (string, string) {
 	dbfx.Member(t, ws, testUserID, "owner")
 	member := dbfx.User(t, "aurora tool member", "aurora-tool-"+uuid.NewString()+"@test.invalid")
 	dbfx.Member(t, ws, member, "member")
+	return ws, member
+}
+
+// auroraToolWorkspace is auroraEmptyToolWorkspace with every carrier seeded.
+func auroraToolWorkspace(t *testing.T) (string, string) {
+	t.Helper()
+	ws, member := auroraEmptyToolWorkspace(t)
 	if err := testHandler.ensureAuroraCatalogSeed(context.Background(), parseUUID(ws)); err != nil {
 		t.Fatal(err)
 	}
@@ -100,8 +108,45 @@ func TestCreateAuroraToolRunRejectsAnUnknownTool(t *testing.T) {
 }
 
 func TestCreateAuroraToolRunRejectsForeignAttachments(t *testing.T) {
-	ws, member := auroraToolWorkspace(t)
+	// Deliberately unseeded: the rejection must also write nothing, so a random
+	// attachment id cannot provision the 33 carriers and a managed runtime (which
+	// the sandbox sweeper would then keep alive).
+	ws, member := auroraEmptyToolWorkspace(t)
 	postToolRun(t, ws, member, "poster", map[string]any{"attachment_ids": []string{uuid.NewString()}}).Want(http.StatusBadRequest)
+	if n := dbfx.Count(t, `SELECT count(*) FROM agent WHERE workspace_id=$1`, ws); n != 0 {
+		t.Fatalf("carriers after a rejected attachment = %d, want 0", n)
+	}
+}
+
+// TestListAuroraToolsSeedsTheWorkspaceCarriers pins the first-entry path the
+// tool pages actually take: the dashboard's tool grid is static, so a fresh
+// workspace reaches GET /api/aurora/tools without ever loading the skill
+// catalog. If this read did not seed, the submission pre-check would find no
+// aurora:<slug> carrier and every tool page would stay disabled.
+func TestListAuroraToolsSeedsTheWorkspaceCarriers(t *testing.T) {
+	ws, _ := auroraEmptyToolWorkspace(t)
+	req := newRequest(http.MethodGet, "/api/aurora/tools", nil)
+	req.Header.Set("X-Workspace-ID", ws)
+	testutil.Call(t, testHandler.ListAuroraTools, req).Want(http.StatusOK)
+
+	if n := dbfx.Count(t, `SELECT count(*) FROM agent WHERE workspace_id=$1 AND system_key LIKE 'aurora:%'`, ws); n != len(aurora.Catalog()) {
+		t.Fatalf("carriers = %d, want %d", n, len(aurora.Catalog()))
+	}
+}
+
+// TestEveryToolHasADisplayName keeps the server's title/description names in
+// step with the tool ids: a missing name would silently title the issue with the
+// raw id.
+func TestEveryToolHasADisplayName(t *testing.T) {
+	ids := aurora.ToolIDs()
+	for _, id := range ids {
+		if auroraToolNames[id] == "" {
+			t.Errorf("tool %q has no display name", id)
+		}
+	}
+	if len(auroraToolNames) != len(ids) {
+		t.Errorf("display names = %d, tools = %d", len(auroraToolNames), len(ids))
+	}
 }
 
 func TestCreateAuroraToolRunRefusesWhenTheRuntimeIsUnavailable(t *testing.T) {

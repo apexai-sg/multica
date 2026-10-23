@@ -106,7 +106,10 @@ catalog 由 24 变 33。`experts_catalog.go` 为每个新 slug 补分类、积�
 
 ## 6. 首次进入 Aurora 的种子
 
-- 触发点：`GET /api/aurora/skills`（进入 Aurora 的第一个请求）与 `POST /api/aurora/tools/{toolId}/runs`（防御性）。
+- 触发点：`GET /api/aurora/tools`、`GET /api/aurora/skills` 与 `POST /api/aurora/tools/{toolId}/runs`（防御性）。
+  （2026-10-23 修订：原设计只列了 `/skills` 与 run 端点，但首页工具宫格是前端静态数据，新工作区会
+  在从未加载技能目录的情况下直接进入工具页；改由工具页必读的 `GET /api/aurora/tools` 承担 seed，
+  前端把 agent 列表的读取排在该请求之后，避免「列表早于 seed」的竞态。）
 - 守卫：取 `aurora:<workspace>` advisory lock，统计该工作区存活的 `aurora:%` carrier 数；小于 `len(Catalog())` 才调用 `EnsureSystemAgents`，避免每个 GET 重复做近百次 upsert。
 - 一次性成本：1 条托管运行时 + 33 条 agent + 33 条主 skill 行。
 - **不在创建工作区时 seed**：carrier 必须绑定托管运行时，而 `sweepAuroraSandboxEnsure` 会为每个有托管运行时的工作区常驻保活一个 sandbox 容器。建工作区即 seed 会让从不使用 Aurora 的工作区也常驻容器。首次进入 Aurora 意味着这个工作区确实在用，成本才归位。
@@ -145,7 +148,9 @@ catalog 由 24 变 33。`experts_catalog.go` 为每个新 slug 补分类、积�
 6. 服务端构造标题与描述（工具名、需求、设置、素材、媒体限制说明），`IssueService.Create` 指派 carrier。
 7. 返回 `{identifier, issue_id, expert: {slug, name}}`。
 
-描述模板移到服务端，单一所有者；客户端不再拼 prompt。附件 id 必须先校验属于本工作区。
+描述模板移到服务端，单一所有者；客户端不再拼 prompt。附件 id 必须先校验属于本工作区，
+且该校验排在 seed 之前：seed 会创建 33 个 carrier、33 条 skill 与一条托管运行时，而运行时正是
+sandbox sweeper 常驻保活的依据，被 400 拒绝的请求不应付出这个代价。
 
 ### 8.2 前端
 

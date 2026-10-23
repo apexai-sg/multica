@@ -20,27 +20,27 @@ import (
 )
 
 // auroraToolNames is the display name each tool page submits under. The server
-// owns these strings because it builds the issue title and description; the
-// client's registry (`tool-definitions.ts`) is the UI copy of the same names and
-// the two are held to the same id set by the handler's mapping test.
+// owns these strings because it builds the issue title and description, and they
+// must match the name on the button the person clicked (`tool-definitions.ts`);
+// `TestEveryToolHasADisplayName` holds the two id sets together.
 var auroraToolNames = map[string]string{
 	"face-swap":        "图片／视频换脸",
 	"video-transcript": "视频文案提取",
 	"product-images":   "商品图制作",
 	"poster":           "海报制作",
-	"rednote-images":   "小红书配图",
+	"rednote-images":   "小红书图片",
 	"image-retouch":    "图片精修",
-	"portraits":        "写真生成",
-	"short-video":      "短视频创作",
+	"portraits":        "人像写真",
+	"short-video":      "短视频制作",
 	"video-edit":       "视频剪辑",
 	"avatar-video":     "数字人口播",
 	"video-translate":  "视频翻译",
-	"presentation":     "演示文稿",
-	"spreadsheet":      "表格处理",
-	"pdf-reader":       "文档阅读",
-	"copywriting":      "文案撰写",
-	"voiceover":        "配音制作",
-	"website":          "网站搭建",
+	"presentation":     "PPT 制作",
+	"spreadsheet":      "Excel 助手",
+	"pdf-reader":       "PDF 阅读助手",
+	"copywriting":      "文案创作",
+	"voiceover":        "音频配音",
+	"website":          "网站设计助手",
 	"resume":           "简历优化",
 }
 
@@ -78,10 +78,23 @@ type auroraToolExpert struct {
 // ListAuroraTools returns the tool → expert directory in the client's display
 // order. The router requires authentication and workspace membership.
 //
-// This is the read side of the mapping CreateAuroraToolRun resolves; nothing in
-// it is workspace-specific, so the payload is the constant table plus each
-// expert's catalog name.
+// This is the read side of the mapping CreateAuroraToolRun resolves; the payload
+// itself is the constant table plus each expert's catalog name.
+//
+// The read also seeds the workspace's carriers. The dashboard's tool grid is
+// static client data, so a new workspace reaches a tool page without ever
+// fetching the skill catalog — and the submission pre-check needs the mapped
+// carrier to exist already. Seeding here is what makes the first tool page
+// usable; the client reads the agent list only after this response, so the
+// carriers are committed before that list is queried. A failure is logged and
+// swallowed for the same reason ListAuroraSkills swallows it: the mapping is a
+// constant, and a 500 would take the tool directory down over decoration.
 func (h *Handler) ListAuroraTools(w http.ResponseWriter, r *http.Request) {
+	if workspaceID, err := util.ParseUUID(h.resolveWorkspaceID(r)); err == nil {
+		if err := h.ensureAuroraCatalogSeed(r.Context(), workspaceID); err != nil {
+			slog.Warn("aurora catalog seed", "workspace_id", util.UUIDToString(workspaceID), "error", err)
+		}
+	}
 	toolIDs := aurora.ToolIDs()
 	tools := make([]auroraToolExpert, 0, len(toolIDs))
 	for _, id := range toolIDs {
@@ -117,10 +130,12 @@ const auroraToolMediaNote = "请完成这个任务，把生成内容作为评论
 // assigned to the tool's mapped expert.
 //
 // The order is fixed and each step exists to keep a refusal free of side
-// effects: membership, then the mapping (409, no seeding), then the seed and
-// carrier lookup, then the attachment check (400, no issue), then the runtime
-// (503, no issue). An unknown tool, a foreign attachment and an unreachable
-// runtime each leave the workspace exactly as it was.
+// effects: membership, the mapping (409), the attachment check (400), then the
+// seed and carrier lookup, then the runtime (503), then the issue. Everything a
+// caller can be refused for is decided before the first write — an unknown tool,
+// a foreign attachment and an unreachable runtime each leave the workspace
+// exactly as it was, and in particular do not provision a managed runtime that
+// the sandbox sweeper would then keep alive.
 //
 // The issue is an ordinary one — deliberately without
 // SkipAssignedAgentEnqueue — so the carrier's assigned-agent path enqueues the
@@ -171,9 +186,28 @@ func (h *Handler) CreateAuroraToolRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Seeding is defensive on this path: the client loads the directory (and so
-	// the carriers) before it can submit, but a workspace seeded by an older
-	// build still converges here.
+	// Attachment validation runs before anything is written: the seed creates 33
+	// carriers, 33 skills and a managed runtime, and the runtime is exactly what
+	// the sandbox sweeper keeps a container alive for. A rejected file must not
+	// pay that.
+	attachmentIDs, ok := parseAuroraAttachmentIDs(w, req.AttachmentIDs)
+	if !ok {
+		return
+	}
+	if err := h.validateAuroraToolAttachments(r.Context(), workspaceID, attachmentIDs); err != nil {
+		var invalid auroraInputError
+		if errors.As(err, &invalid) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		slog.Error("failed to validate tool attachments", "workspace_id", util.UUIDToString(workspaceID), "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to validate attachments")
+		return
+	}
+
+	// Seeding is defensive on this path: the tool directory read seeds too, and
+	// the client pre-checks the carrier before submitting, but a workspace seeded
+	// by an older build still converges here.
 	if err := h.ensureAuroraCatalogSeed(r.Context(), workspaceID); err != nil {
 		slog.Error("failed to seed aurora catalog", "workspace_id", util.UUIDToString(workspaceID), "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to prepare tool run")
@@ -191,21 +225,6 @@ func (h *Handler) CreateAuroraToolRun(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("aurora tool carrier missing", "workspace_id", util.UUIDToString(workspaceID), "expert", slug, "error", err)
 		writeError(w, http.StatusInternalServerError, "tool executor unavailable")
-		return
-	}
-
-	attachmentIDs, ok := parseAuroraAttachmentIDs(w, req.AttachmentIDs)
-	if !ok {
-		return
-	}
-	if err := h.validateAuroraToolAttachments(r.Context(), workspaceID, attachmentIDs); err != nil {
-		var invalid auroraInputError
-		if errors.As(err, &invalid) {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		slog.Error("failed to validate tool attachments", "workspace_id", util.UUIDToString(workspaceID), "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to validate attachments")
 		return
 	}
 
