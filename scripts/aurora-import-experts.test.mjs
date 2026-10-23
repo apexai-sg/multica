@@ -8,6 +8,7 @@ import {
   buildLibrary,
   importExperts,
   importPlan,
+  isManagedBrief,
   isProvenancePath,
   namespacedSlug,
   parseFrontmatter,
@@ -25,6 +26,10 @@ function scaffold() {
     mkdirSync(dirname(full), { recursive: true });
     writeFileSync(full, content);
   };
+
+  // The snapshot tests are about the upstream tree only. An explicit empty
+  // local index keeps the repository's hand-written experts out of them.
+  write("local-index.json", JSON.stringify({ experts: [] }));
 
   write(
     "skillhub-skillset-ecommerce-demo-a/manifest.json",
@@ -93,7 +98,7 @@ test("buildLibrary keeps the six scenes, folds the slug prefix and namespaces su
   const dir = scaffold();
   t.after(() => rmSync(dir, { recursive: true, force: true }));
 
-  const { experts, files } = await buildLibrary(dir);
+  const { experts, files } = await buildLibrary(dir, join(dir, "local-index.json"));
   assert.deepEqual(
     experts.map((expert) => expert.slug),
     ["ecommerce-demo-a", "legal-demo-b"],
@@ -167,8 +172,8 @@ test("buildLibrary is deterministic", async (t) => {
   const dir = scaffold();
   t.after(() => rmSync(dir, { recursive: true, force: true }));
 
-  const first = await buildLibrary(dir);
-  const second = await buildLibrary(dir);
+  const first = await buildLibrary(dir, join(dir, "local-index.json"));
+  const second = await buildLibrary(dir, join(dir, "local-index.json"));
   assert.deepEqual([...first.files.keys()], [...second.files.keys()]);
   for (const [path, content] of first.files) {
     assert.equal(second.files.get(path), content, path + " differs between runs");
@@ -179,7 +184,7 @@ test("the generated brief satisfies the Aurora workflow contract", async (t) => 
   const dir = scaffold();
   t.after(() => rmSync(dir, { recursive: true, force: true }));
 
-  const { experts } = await buildLibrary(dir);
+  const { experts } = await buildLibrary(dir, join(dir, "local-index.json"));
   assert.deepEqual(validateBriefs(experts), []);
 
   const brief = renderBrief(experts[0]);
@@ -202,7 +207,7 @@ test("validateBriefs rejects a broker-shaped token", async (t) => {
   const dir = scaffold();
   t.after(() => rmSync(dir, { recursive: true, force: true }));
 
-  const { experts } = await buildLibrary(dir);
+  const { experts } = await buildLibrary(dir, join(dir, "local-index.json"));
   const broken = structuredClone(experts);
   broken[0].workflow = "call aurora.seedream_generate now";
   const problems = validateBriefs(broken);
@@ -234,7 +239,7 @@ test("importExperts copies every non-provenance file and keeps directory names",
     rmSync(dest, { recursive: true, force: true });
   });
 
-  const { files } = await buildLibrary(dir);
+  const { files } = await buildLibrary(dir, join(dir, "local-index.json"));
   const source = mkdtempSync(join(tmpdir(), "aurora-skills-"));
   t.after(() => rmSync(source, { recursive: true, force: true }));
   const { mkdirSync: mkdir, writeFileSync: write } = await import("node:fs");
@@ -259,4 +264,48 @@ test("importExperts copies every non-provenance file and keeps directory names",
   assert.equal(statSync(script).mode & 0o111, 0o111);
   const notes = join(dest, "ecommerce-demo-a/ecommerce-demo-a-alpha/references/notes.md");
   assert.equal(statSync(notes).mode & 0o111, 0);
+});
+
+test("merges locally authored experts into the generated index", async (t) => {
+  const dir = scaffold();
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const local = join(dir, "local.json");
+  writeFileSync(
+    local,
+    JSON.stringify({
+      experts: [
+        {
+          slug: "media-demo-local",
+          name_zh: "本地演示",
+          name_en: "Local Demo",
+          scene: "media",
+          description_zh: "本地",
+          description_en: "Local",
+          quick_prompts: [{ label_zh: "开始", label_en: "Start", prompt_zh: "开始", prompt_en: "Start" }],
+        },
+      ],
+    }),
+  );
+
+  const { files } = await buildLibrary(dir, local);
+  const index = JSON.parse(files.get("server/internal/aurora/experts/index.json"));
+  assert.ok(index.experts.some((e) => e.slug === "media-demo-local"));
+  assert.ok(index.experts.some((e) => e.slug === "ecommerce-demo-a"));
+
+  const merged = index.experts.find((e) => e.slug === "media-demo-local");
+  assert.deepEqual(merged.missing_subskills, []);
+  assert.deepEqual(merged.subskills, []);
+  assert.deepEqual(merged.quick_prompts, [
+    { label_zh: "开始", label_en: "Start", prompt_zh: "开始", prompt_en: "Start" },
+  ]);
+  assert.equal(
+    files.has("server/internal/aurora/experts/media-demo-local/workflow.md"),
+    false,
+    "a hand-written brief is not generated",
+  );
+});
+
+test("a locally authored brief is not compared by --check", () => {
+  assert.equal(isManagedBrief("media-demo-local/workflow.md", new Set(["media-demo-local"])), false);
+  assert.equal(isManagedBrief("ecommerce-demo-a/workflow.md", new Set(["media-demo-local"])), true);
 });

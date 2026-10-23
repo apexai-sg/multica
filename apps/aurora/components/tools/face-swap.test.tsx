@@ -128,6 +128,17 @@ describe("face swap design preview", () => {
     expect(screen.getByText(/工作区的助手尚未连接运行环境/)).toBeVisible();
   });
 
+  it("names a tool the server has no expert for", async () => {
+    const user = userEvent.setup();
+    Object.assign(submission, { canSubmit: false, status: "no-expert" });
+    render(<FaceSwapWorkbench slug="preview" />);
+    await user.upload(screen.getByLabelText("选择原视频文件"), video());
+    await user.upload(screen.getByLabelText("选择人脸照片文件"), photo());
+
+    expect(screen.getByRole("button", { name: "生成换脸视频" })).toBeDisabled();
+    expect(screen.getByText(/该工具尚未配置执行专家/)).toBeVisible();
+  });
+
   it("shows a submission error and the created issue when the detail page cannot open", async () => {
     Object.assign(submission, {
       error: "任务已创建（MUL-42），但打开详情页失败，请到任务列表查看。",

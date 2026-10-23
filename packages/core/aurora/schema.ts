@@ -78,6 +78,45 @@ export const auroraSkillsSchema = z.object({
   skills: z.array(auroraSkillSchema),
 });
 
+/**
+ * One tool page's executor: the id the client submits and the catalog expert
+ * the server resolves it to. The client never infers the executor from names —
+ * this is the server's mapping, served.
+ */
+export const auroraToolExecutorSchema = z
+  .object({
+    id: z.string(),
+    expert_slug: z.string(),
+    expert_name: z.string(),
+  })
+  .transform(({ expert_slug, expert_name, ...tool }) => ({
+    ...tool,
+    expertSlug: expert_slug,
+    expertName: expert_name,
+  }));
+export type AuroraToolExecutor = z.infer<typeof auroraToolExecutorSchema>;
+
+export const auroraToolsSchema = z.object({
+  tools: z.array(auroraToolExecutorSchema).default([]),
+});
+
+/**
+ * The issue a tool run created. `identifier` is required: it is the only
+ * handle the client can navigate with, and a placeholder would send the reader
+ * to an issue that does not exist.
+ */
+export const auroraToolRunSchema = z
+  .object({
+    identifier: z.string(),
+    issue_id: z.string(),
+    expert: z.object({
+      slug: z.string(),
+      name: z.string(),
+    }),
+  })
+  .transform(({ issue_id, ...run }) => ({ ...run, issueId: issue_id }));
+export type AuroraToolRun = z.infer<typeof auroraToolRunSchema>;
+
 export const auroraGenerationSchema = z.object({
   id: z.string(),
   skillId: z.string(),

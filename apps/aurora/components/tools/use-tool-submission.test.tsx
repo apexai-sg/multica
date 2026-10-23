@@ -3,17 +3,20 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NavigationProvider, type NavigationAdapter } from "@multica/views/navigation";
-import type { Agent, Issue } from "@multica/core/types";
+import type { Agent } from "@multica/core/types";
 
 import { apexTools } from "./tool-definitions";
 import { useToolSubmission } from "./use-tool-submission";
 
 const mocks = vi.hoisted(() => ({
   uploadFile: vi.fn(),
-  createIssue: vi.fn(),
   listAgents: vi.fn(),
   listMembers: vi.fn(),
+  listTools: vi.fn(),
+  createToolRun: vi.fn(),
 }));
+
+const toolsResult = (tools: unknown[]) => ({ value: tools, degraded: false });
 
 vi.mock("@multica/core/hooks", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@multica/core/hooks")>()),
@@ -37,12 +40,33 @@ vi.mock("@multica/core/api", async (importOriginal) => {
   };
 });
 
+// The real options object closes over the real listAuroraTools, so replacing
+// only the client would still read through it. The query function is replaced
+// too, and wraps the fixture in the ParseResult shape auroraToolsOptions
+// resolves to.
+vi.mock("@multica/core/aurora", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@multica/core/aurora")>()),
+  auroraToolsOptions: (wsId: string) => ({
+    queryKey: ["aurora", wsId, "tools"],
+    queryFn: async () => {
+      const result = await mocks.listTools(wsId);
+      // A bare array is the ordinary fixture; a ParseResult lets a test choose
+      // the degraded path.
+      return Array.isArray(result) ? toolsResult(result) : result;
+    },
+  }),
+  createAuroraToolRun: mocks.createToolRun,
+}));
+
 const tool = apexTools.find((candidate) => candidate.id === "poster")!;
 
-// A shared workspace agent, assignable by any member of `ws-1`. Visibility is
-// not incidental to these tests: the hook only offers agents the viewer may
-// actually assign, so the fixture must carry a grant rather than lean on an
-// undefined `permission_mode`.
+const mapping = (id: string, expertSlug: string, expertName = "广告文案专家") => ({
+  id,
+  expertSlug,
+  expertName,
+});
+
+// A shared workspace agent, assignable by any member of `ws-1`.
 const agent = (overrides: Partial<Agent> = {}): Agent =>
   ({
     id: "agent-1",
@@ -57,7 +81,8 @@ const agent = (overrides: Partial<Agent> = {}): Agent =>
     ...overrides,
   }) as Agent;
 
-const issue = (identifier = "MUL-42"): Issue => ({ identifier }) as Issue;
+const carrier = (systemKey: string, overrides: Partial<Agent> = {}) =>
+  agent({ system_key: systemKey, ...overrides });
 
 const file = (name: string) => new File(["bytes"], name, { type: "image/png" });
 
@@ -92,13 +117,24 @@ async function render(subject = tool) {
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_WEB_ORIGIN", "");
   mocks.uploadFile.mockReset();
-  mocks.createIssue.mockReset();
+  mocks.uploadFile.mockResolvedValue({ id: "att-1" });
   mocks.listAgents.mockReset();
-  mocks.listAgents.mockResolvedValue([agent()]);
+  mocks.listAgents.mockResolvedValue([
+    carrier("aurora:marketing-ad-copywriting"),
+  ]);
   mocks.listMembers.mockReset();
   mocks.listMembers.mockResolvedValue([{ user_id: "u-admin", role: "admin" }]);
-  mocks.uploadFile.mockResolvedValue({ id: "att-1" });
-  mocks.createIssue.mockResolvedValue(issue());
+  mocks.listTools.mockReset();
+  mocks.listTools.mockResolvedValue([
+    mapping("poster", "marketing-ad-copywriting"),
+    mapping("copywriting", "marketing-ad-copywriting"),
+  ]);
+  mocks.createToolRun.mockReset();
+  mocks.createToolRun.mockResolvedValue({
+    identifier: "MUL-42",
+    issueId: "i-1",
+    expert: { slug: "marketing-ad-copywriting", name: "广告文案专家" },
+  });
   push.mockReset();
 });
 
@@ -107,52 +143,107 @@ afterEach(() => {
 });
 
 describe("useToolSubmission", () => {
-  it("opens the issue it created, assigned to the workspace assistant", async () => {
+  it("submits through the tool-run endpoint with the uploaded attachment ids", async () => {
     const { result } = await render();
 
     await act(async () => {
-      await result.current.submit({ source: "秋季新品海报", files: [file("product.png")] });
+      await result.current.submit({ source: "海报", files: [file("p.png")] });
     });
 
-    expect(mocks.createIssue).toHaveBeenCalledWith(
+    expect(mocks.createToolRun).toHaveBeenCalledWith(
+      "poster",
       expect.objectContaining({
-        title: expect.stringContaining("海报制作"),
-        description: expect.stringContaining("秋季新品海报"),
-        assignee_type: "agent",
-        assignee_id: "agent-1",
-        attachment_ids: ["att-1"],
-        allow_duplicate: true,
+        source: "海报",
+        fileNames: ["p.png"],
+        attachmentIds: ["att-1"],
       }),
     );
     expect(push).toHaveBeenCalledWith("/acme/issues/MUL-42");
   });
 
-  it("lists every uploaded file as an attachment, in the order the user chose them", async () => {
-    mocks.uploadFile.mockResolvedValueOnce({ id: "att-1" }).mockResolvedValueOnce({ id: "att-2" });
+  it("reports no-expert for a tool the server does not map", async () => {
+    mocks.listTools.mockResolvedValue([
+      mapping("other", "x", "X"),
+    ]);
     const { result } = await render();
 
+    expect(result.current.status).toBe("no-expert");
+    expect(result.current.canSubmit).toBe(false);
+
     await act(async () => {
-      await result.current.submit({ files: [file("scope.png"), file("face.png")] });
+      await result.current.submit({ source: "海报" });
     });
 
-    expect(mocks.createIssue.mock.calls[0]![0].attachment_ids).toEqual(["att-1", "att-2"]);
+    expect(mocks.createToolRun).not.toHaveBeenCalled();
   });
 
-  it("writes the tool, the requirement, the settings and the media limitation into the description", async () => {
+  it("reports an unreadable tool directory as an error, not as a missing executor", async () => {
+    // A degraded body parses to an empty directory; calling that "no-expert"
+    // would claim the server is unconfigured and offer no reload.
+    mocks.listTools.mockResolvedValue({ value: [], degraded: true });
     const { result } = await render();
 
-    await act(async () => {
-      await result.current.submit({ source: "  做一张秋季海报  ", values: { ratio: "1:1" } });
-    });
-
-    const description: string = mocks.createIssue.mock.calls[0]![0].description;
-    expect(description).toContain("海报制作");
-    expect(description).toContain("做一张秋季海报");
-    expect(description).toContain("ratio: 1:1");
-    expect(description).toContain("无法生成真实媒体文件");
+    expect(result.current.status).toBe("error");
+    expect(result.current.canSubmit).toBe(false);
   });
 
-  it("stays locked after the issue exists so a second click cannot create another one", async () => {
+  it("reads the agent list only after the tool directory has answered", async () => {
+    // The tools read is what seeds the carriers; reading agents in parallel
+    // would resolve "no-agent" from a list that predates the seed.
+    let releaseTools!: (tools: unknown[]) => void;
+    mocks.listTools.mockReturnValueOnce(
+      new Promise((resolve) => {
+        releaseTools = resolve;
+      }),
+    );
+    const view = renderHook(() => useToolSubmission(tool, "acme"), { wrapper });
+
+    expect(view.result.current.status).toBe("loading");
+    expect(mocks.listAgents).not.toHaveBeenCalled();
+
+    await act(async () => {
+      releaseTools([mapping("poster", "marketing-ad-copywriting")]);
+    });
+
+    await waitFor(() => expect(view.result.current.status).toBe("ready"));
+    expect(mocks.listAgents).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the button disabled when the mapped carrier has no runtime", async () => {
+    mocks.listAgents.mockResolvedValue([
+      carrier("aurora:marketing-ad-copywriting", {
+        runtime_bound: false,
+        runtime_id: "",
+      }),
+    ]);
+    const { result } = await render();
+
+    expect(result.current.status).toBe("no-runtime");
+    expect(result.current.canSubmit).toBe(false);
+  });
+
+  it("reports no-agent when the mapped carrier is not in the assignable list", async () => {
+    mocks.listAgents.mockResolvedValue([carrier("aurora:media-voiceover")]);
+    const { result } = await render();
+
+    expect(result.current.status).toBe("no-agent");
+  });
+
+  it("skips another member's private carrier, which the list shows to admins but the assign gate refuses", async () => {
+    mocks.listMembers.mockResolvedValue([{ user_id: "u-admin", role: "admin" }]);
+    mocks.listAgents.mockResolvedValue([
+      carrier("aurora:marketing-ad-copywriting", {
+        owner_id: "u-other",
+        permission_mode: "private",
+        invocation_targets: [],
+      }),
+    ]);
+    const { result } = await render();
+
+    expect(result.current.status).toBe("no-agent");
+  });
+
+  it("stays locked after the run exists so a second click cannot create another one", async () => {
     const { result } = await render();
 
     await act(async () => {
@@ -160,18 +251,18 @@ describe("useToolSubmission", () => {
     });
 
     // The route has not replaced this page yet; re-enabling here would let the
-    // user create a duplicate issue and run the agent twice.
+    // user create a duplicate issue and run the expert twice.
     expect(result.current.pending).toBe(true);
 
     await act(async () => {
       await result.current.submit({ source: "海报" });
     });
 
-    expect(mocks.createIssue).toHaveBeenCalledTimes(1);
+    expect(mocks.createToolRun).toHaveBeenCalledTimes(1);
     expect(push).toHaveBeenCalledTimes(1);
   });
 
-  it("reports a failed upload without creating an issue or navigating", async () => {
+  it("reports a failed upload without creating a run or navigating", async () => {
     mocks.uploadFile.mockRejectedValueOnce(new Error("File exceeds 100 MB limit"));
     const { result } = await render();
 
@@ -179,14 +270,16 @@ describe("useToolSubmission", () => {
       await result.current.submit({ files: [file("clip.mp4")] });
     });
 
-    expect(mocks.createIssue).not.toHaveBeenCalled();
+    expect(mocks.createToolRun).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
     expect(result.current.error).toBe("File exceeds 100 MB limit");
     expect(result.current.pending).toBe(false);
   });
 
-  it("reports a failed issue creation and releases the button", async () => {
-    mocks.createIssue.mockRejectedValueOnce(new Error("workspace has reached its issue limit"));
+  it("reports a failed run creation and releases the button", async () => {
+    mocks.createToolRun.mockRejectedValueOnce(
+      new Error("workspace has reached its issue limit"),
+    );
     const { result } = await render();
 
     await act(async () => {
@@ -200,7 +293,11 @@ describe("useToolSubmission", () => {
   });
 
   it("surfaces the issue instead of guessing a link when the identifier has no PREFIX-N shape", async () => {
-    mocks.createIssue.mockResolvedValueOnce(issue("#42"));
+    mocks.createToolRun.mockResolvedValueOnce({
+      identifier: "#42",
+      issueId: "i-1",
+      expert: { slug: "marketing-ad-copywriting", name: "广告文案专家" },
+    });
     const { result } = await render();
 
     await act(async () => {
@@ -213,7 +310,7 @@ describe("useToolSubmission", () => {
   });
 
   it("clears the previous error when the user submits again", async () => {
-    mocks.createIssue.mockRejectedValueOnce(new Error("boom"));
+    mocks.createToolRun.mockRejectedValueOnce(new Error("boom"));
     const { result } = await render();
 
     await act(async () => {
@@ -228,90 +325,8 @@ describe("useToolSubmission", () => {
     expect(result.current.error).toBeNull();
   });
 
-  it("reports that the workspace has no assistant instead of ignoring the click", async () => {
-    mocks.listAgents.mockResolvedValue([]);
-    const { result } = await render();
-
-    expect(result.current.status).toBe("no-agent");
-    expect(result.current.canSubmit).toBe(false);
-
-    await act(async () => {
-      await result.current.submit({ source: "海报" });
-    });
-
-    expect(result.current.error).not.toBeNull();
-    expect(mocks.createIssue).not.toHaveBeenCalled();
-  });
-
-  it("prefers the workspace assistant over the oldest agent", async () => {
-    mocks.listAgents.mockResolvedValue([
-      agent({ id: "old-agent", name: "Older", system_key: undefined }),
-      agent({ id: "mika-agent", name: "Mika", system_key: "mika" }),
-    ]);
-    const { result } = await render();
-
-    expect(result.current.agent?.id).toBe("mika-agent");
-  });
-
-  it("never assigns work to an archived assistant", async () => {
-    mocks.listAgents.mockResolvedValue([
-      agent({ id: "archived", archived_at: "2026-09-01T00:00:00Z" }),
-      agent({ id: "live", system_key: undefined }),
-    ]);
-    const { result } = await render();
-
-    expect(result.current.agent?.id).toBe("live");
-  });
-
-  it("skips an assistant whose runtime was deleted, because the issue would never run", async () => {
-    mocks.listAgents.mockResolvedValue([
-      agent({ id: "unbound", system_key: "mika", runtime_id: "", runtime_bound: false }),
-      agent({ id: "bound", system_key: undefined }),
-    ]);
-    const { result } = await render();
-
-    expect(result.current.agent?.id).toBe("bound");
-  });
-
-  it("skips another member's private agent, which the list shows to admins but the assign gate refuses", async () => {
-    mocks.listMembers.mockResolvedValue([{ user_id: "u-admin", role: "admin" }]);
-    mocks.listAgents.mockResolvedValue([
-      agent({ id: "private", owner_id: "u-other", permission_mode: "private" }),
-      agent({
-        id: "shared",
-        system_key: "mika",
-        permission_mode: "public_to",
-        invocation_targets: [{ target_type: "workspace", target_id: "ws-1" }],
-      }),
-    ]);
-    const { result } = await render();
-
-    expect(result.current.agent?.id).toBe("shared");
-  });
-
-  it("reports no-agent when the only visible agent is not assignable", async () => {
-    mocks.listMembers.mockResolvedValue([{ user_id: "u-admin", role: "admin" }]);
-    mocks.listAgents.mockResolvedValue([
-      agent({ id: "private", owner_id: "u-other", permission_mode: "private" }),
-    ]);
-    const { result } = await render();
-
-    expect(result.current.status).toBe("no-agent");
-    expect(result.current.canSubmit).toBe(false);
-  });
-
-  it("reports that every assistant lost its runtime", async () => {
-    mocks.listAgents.mockResolvedValue([
-      agent({ id: "unbound", runtime_id: "", runtime_bound: false }),
-    ]);
-    const { result } = await render();
-
-    expect(result.current.status).toBe("no-runtime");
-    expect(result.current.canSubmit).toBe(false);
-  });
-
-  it("reports an assistant-list failure and reloads it on demand", async () => {
-    mocks.listAgents.mockRejectedValueOnce(new Error("503"));
+  it("reports an unreadable tool directory as an error and reloads all three lists on demand", async () => {
+    mocks.listTools.mockRejectedValueOnce(new Error("503"));
     const { result } = await render();
 
     expect(result.current.status).toBe("error");
@@ -321,11 +336,12 @@ describe("useToolSubmission", () => {
     });
 
     await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(mocks.listTools).toHaveBeenCalledTimes(2);
     expect(mocks.listAgents).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps the status loading until the assistant list answers", async () => {
-    mocks.listAgents.mockReturnValue(new Promise(() => undefined));
+  it("keeps the status loading until the tool directory answers", async () => {
+    mocks.listTools.mockReturnValue(new Promise(() => undefined));
     const view = renderHook(() => useToolSubmission(tool, "acme"), { wrapper });
 
     expect(view.result.current.status).toBe("loading");
@@ -334,7 +350,11 @@ describe("useToolSubmission", () => {
 
   it("does not start a second submission while one is still uploading", async () => {
     let release!: (value: { id: string }) => void;
-    mocks.uploadFile.mockReturnValueOnce(new Promise((resolve) => { release = resolve; }));
+    mocks.uploadFile.mockReturnValueOnce(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
     const { result } = await render();
 
     let first!: Promise<void>;
@@ -348,13 +368,13 @@ describe("useToolSubmission", () => {
     });
 
     expect(mocks.uploadFile).toHaveBeenCalledTimes(1);
-    expect(mocks.createIssue).not.toHaveBeenCalled();
+    expect(mocks.createToolRun).not.toHaveBeenCalled();
 
     await act(async () => {
       release({ id: "att-1" });
       await first;
     });
-    expect(mocks.createIssue).toHaveBeenCalledTimes(1);
+    expect(mocks.createToolRun).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -367,5 +387,15 @@ describe("apexTools", () => {
       "agentKey" in (candidate as unknown as Record<string, unknown>),
     );
     expect(keyed).toEqual([]);
+  });
+
+  it("keeps the shipped tool ids in step with the server mapping", () => {
+    // The same 18-id list is asserted by TestEveryShippedToolHasACatalogExpert.
+    expect(apexTools.map((t) => t.id).sort()).toEqual([
+      "avatar-video", "copywriting", "face-swap", "image-retouch", "pdf-reader",
+      "portraits", "poster", "presentation", "product-images", "rednote-images",
+      "resume", "short-video", "spreadsheet", "video-edit", "video-transcript",
+      "video-translate", "voiceover", "website",
+    ]);
   });
 });

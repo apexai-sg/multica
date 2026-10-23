@@ -16,6 +16,7 @@ var expertIDs = []string{
 	"content-creation-screenwriting",
 	"design-prd-writing",
 	"design-ui-prototype",
+	"design-website-build",
 	"ecommerce-bidding-strategy",
 	"ecommerce-pricing-analysis",
 	"ecommerce-product-copywriting",
@@ -31,13 +32,21 @@ var expertIDs = []string{
 	"marketing-event-planning",
 	"marketing-social-media-operation",
 	"marketing-user-growth",
+	"media-face-swap",
+	"media-image-retouch",
+	"media-portrait-studio",
 	"media-script-breakdown",
 	"media-short-video-copy",
 	"media-storyboard-design",
 	"media-video-editing",
+	"media-video-translation",
+	"media-voiceover",
+	"office-document-reading",
+	"office-resume-optimization",
+	"office-spreadsheet-analysis",
 }
 
-func TestCatalogHasTwentyFourExpertsAndUniqueIDs(t *testing.T) {
+func TestCatalogHasThirtyThreeExpertsAndUniqueIDs(t *testing.T) {
 	cat := aurora.Catalog()
 	if len(cat) != len(expertIDs) {
 		t.Fatalf("expected %d experts, got %d", len(expertIDs), len(cat))
@@ -112,6 +121,7 @@ func TestCatalogCreditPrices(t *testing.T) {
 		"content-creation-screenwriting":      60,
 		"design-prd-writing":                  90,
 		"design-ui-prototype":                 90,
+		"design-website-build":                90,
 		"ecommerce-bidding-strategy":          80,
 		"ecommerce-pricing-analysis":          80,
 		"ecommerce-product-copywriting":       80,
@@ -127,10 +137,18 @@ func TestCatalogCreditPrices(t *testing.T) {
 		"marketing-event-planning":            80,
 		"marketing-social-media-operation":    80,
 		"marketing-user-growth":               80,
+		"media-face-swap":                     120,
+		"media-image-retouch":                 120,
+		"media-portrait-studio":               120,
 		"media-script-breakdown":              120,
 		"media-short-video-copy":              120,
 		"media-storyboard-design":             120,
 		"media-video-editing":                 120,
+		"media-video-translation":             120,
+		"media-voiceover":                     120,
+		"office-document-reading":             60,
+		"office-resume-optimization":          60,
+		"office-spreadsheet-analysis":         60,
 	}
 	cat := aurora.Catalog()
 	if len(cat) != len(want) {

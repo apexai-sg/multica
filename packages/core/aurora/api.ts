@@ -15,6 +15,8 @@ import {
   auroraSkillsSchema,
   auroraSubscriptionResponseSchema,
   auroraSubscriptionSchema,
+  auroraToolRunSchema,
+  auroraToolsSchema,
   auroraTopupsSchema,
   auroraTransactionsSchema,
   type AuroraAsset,
@@ -25,6 +27,8 @@ import {
   type AuroraGenerationDetail,
   type AuroraSkill,
   type AuroraSubscription,
+  type AuroraToolExecutor,
+  type AuroraToolRun,
   type AuroraTopup,
   type AuroraTransaction,
 } from "./schema";
@@ -34,6 +38,7 @@ import {
   type AuroraListParams,
   type CreateAuroraCheckoutRequest,
   type CreateAuroraGenerationRequest,
+  type CreateAuroraToolRunRequest,
   type CreateAuroraTopupCheckoutRequest,
 } from "./types";
 
@@ -62,6 +67,7 @@ import {
  */
 
 const AURORA_SKILLS_PATH = "/api/aurora/skills";
+const AURORA_TOOLS_PATH = "/api/aurora/tools";
 const AURORA_GENERATIONS_PATH = "/api/aurora/generations";
 const AURORA_ASSETS_PATH = "/api/aurora/assets";
 const AURORA_RUNTIME_PATH = "/api/aurora/runtime";
@@ -76,6 +82,8 @@ const AURORA_TOPUP_CHECKOUT_PATH = "/api/aurora/billing/topup/checkout";
 // two cannot drift. The detail route carries its `{id}` placeholder rather than
 // a value, so a log line groups every generation read instead of one per id.
 const SKILLS_ENDPOINT = `GET ${AURORA_SKILLS_PATH}`;
+const TOOLS_ENDPOINT = `GET ${AURORA_TOOLS_PATH}`;
+const CREATE_TOOL_RUN_ENDPOINT = `POST ${AURORA_TOOLS_PATH}/{toolId}/runs`;
 const GENERATIONS_ENDPOINT = `GET ${AURORA_GENERATIONS_PATH}`;
 const GENERATION_ENDPOINT = `GET ${AURORA_GENERATIONS_PATH}/{id}`;
 const CREATE_GENERATION_ENDPOINT = `POST ${AURORA_GENERATIONS_PATH}`;
@@ -124,6 +132,42 @@ export function parseAuroraSkills(
     { endpoint: SKILLS_ENDPOINT },
   );
   return { value: parsed.value.skills, degraded: parsed.degraded };
+}
+
+/**
+ * The tool → expert directory, or an empty one when the body is unreadable.
+ *
+ * Empty is the safe fallback: the tool page reads a missing entry as "no
+ * executor configured" and disables submission, so a degraded read never lets
+ * the client fall back to guessing an agent.
+ */
+export function parseAuroraTools(
+  data: unknown,
+): ParseResult<AuroraToolExecutor[]> {
+  const parsed = parseWithFallbackResult<{ tools: AuroraToolExecutor[] }>(
+    data,
+    auroraToolsSchema,
+    { tools: [] },
+    { endpoint: TOOLS_ENDPOINT },
+  );
+  return { value: parsed.value.tools, degraded: parsed.degraded };
+}
+
+/**
+ * The issue a tool run created.
+ *
+ * A malformed body throws rather than degrading: the issue may already exist,
+ * and a placeholder would leave the caller with neither a link nor an error.
+ */
+export function parseAuroraToolRun(data: unknown): AuroraToolRun {
+  const parsed = parseWithFallback<AuroraToolRun | null>(
+    data,
+    auroraToolRunSchema,
+    null,
+    { endpoint: CREATE_TOOL_RUN_ENDPOINT },
+  );
+  if (!parsed) throw new Error("invalid tool run response");
+  return parsed;
 }
 
 /**
@@ -305,6 +349,39 @@ function parseCheckoutUrl(data: unknown, endpoint: string): string {
 /** The catalog, including the phase-2 skills that cannot be run yet. */
 export async function listAuroraSkills(): Promise<ParseResult<AuroraSkill[]>> {
   return parseAuroraSkills(await api.requestJson(AURORA_SKILLS_PATH));
+}
+
+/** Every tool page and the expert the server resolves it to. */
+export async function listAuroraTools(): Promise<
+  ParseResult<AuroraToolExecutor[]>
+> {
+  return parseAuroraTools(await api.requestJson(AURORA_TOOLS_PATH));
+}
+
+/**
+ * Creates a tool run: the server seeds the mapped expert, checks the runtime,
+ * and opens an issue assigned to that expert.
+ *
+ * Throws `ApiError` 409 `tool_executor_unmapped` for a tool with no mapping and
+ * 503 `aurora_runtime_unavailable` when the workspace has no usable sandbox —
+ * in both cases the server created no issue. A malformed success body also
+ * throws (see parseAuroraToolRun).
+ */
+export async function createAuroraToolRun(
+  toolId: string,
+  request: CreateAuroraToolRunRequest,
+): Promise<AuroraToolRun> {
+  const body: Record<string, unknown> = {};
+  if (request.source !== undefined) body.source = request.source;
+  if (request.values) body.values = request.values;
+  if (request.fileNames?.length) body.file_names = request.fileNames;
+  if (request.attachmentIds?.length) body.attachment_ids = request.attachmentIds;
+
+  const raw = await api.requestJson(
+    `${AURORA_TOOLS_PATH}/${encodeURIComponent(toolId)}/runs`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+  return parseAuroraToolRun(raw);
 }
 
 /**

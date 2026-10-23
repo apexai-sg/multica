@@ -6,6 +6,7 @@ import {
   auroraAssetDownloadPath,
   createAuroraCheckout,
   createAuroraGeneration,
+  createAuroraToolRun,
   createAuroraTopupCheckout,
   deleteAuroraAsset,
   getAuroraRuntime,
@@ -19,6 +20,7 @@ import {
   listAuroraAssets,
   listAuroraGenerations,
   listAuroraSkills,
+  listAuroraTools,
   listAuroraTopups,
   parseAuroraAssets,
   parseAuroraBalance,
@@ -31,6 +33,7 @@ import {
   parseAuroraSubscription,
   parseAuroraTopupCheckout,
   parseAuroraTopups,
+  parseAuroraTools,
   parseAuroraTransactions,
 } from "./api";
 
@@ -644,5 +647,88 @@ describe("error classification", () => {
     expect(
       isAuroraPaymentsUnavailableError(new ApiError("boom", 409, "Conflict")),
     ).toBe(false);
+  });
+});
+
+describe("parseAuroraTools", () => {
+  it("maps the tools response onto camelCase executors", () => {
+    expect(
+      parseAuroraTools({
+        tools: [
+          {
+            id: "poster",
+            expert_slug: "marketing-ad-copywriting",
+            expert_name: "广告文案专家",
+          },
+        ],
+      }),
+    ).toEqual({
+      value: [
+        {
+          id: "poster",
+          expertSlug: "marketing-ad-copywriting",
+          expertName: "广告文案专家",
+        },
+      ],
+      degraded: false,
+    });
+  });
+
+  it("degrades an unreadable directory to an empty list", () => {
+    // The tool page renders "no executor" from the absence of a mapping, so an
+    // empty directory is the safe fallback — it never guesses an agent.
+    expect(parseAuroraTools({ tools: "not-an-array" })).toEqual({
+      value: [],
+      degraded: true,
+    });
+  });
+});
+
+describe("createAuroraToolRun", () => {
+  it("posts the run body and returns the created issue", async () => {
+    const requests = installFakeClient({
+      identifier: "MUL-42",
+      issue_id: "i-1",
+      expert: { slug: "s", name: "n" },
+    });
+
+    await expect(
+      createAuroraToolRun("poster", { source: "x", attachmentIds: ["a-1"] }),
+    ).resolves.toEqual({
+      identifier: "MUL-42",
+      issueId: "i-1",
+      expert: { slug: "s", name: "n" },
+    });
+
+    expect(requests[0]?.path).toBe("/api/aurora/tools/poster/runs");
+    expect(requests[0]?.init?.method).toBe("POST");
+    // The server's wire shape is snake_case (spec §8.1); the client's request
+    // object is camelCase and maps here.
+    expect(JSON.parse(String(requests[0]?.init?.body))).toEqual({
+      source: "x",
+      attachment_ids: ["a-1"],
+    });
+  });
+
+  it("throws on a malformed run response instead of degrading", async () => {
+    // The issue may already exist, so a malformed body must surface as an
+    // error — silently returning a placeholder would hide a created run.
+    installFakeClient({ identifier: 42 });
+
+    await expect(
+      createAuroraToolRun("poster", { source: "x" }),
+    ).rejects.toThrow();
+  });
+});
+
+describe("listAuroraTools", () => {
+  it("reads the directory from the tools endpoint", async () => {
+    const requests = installFakeClient({ tools: [] });
+
+    await expect(listAuroraTools()).resolves.toEqual({
+      value: [],
+      degraded: false,
+    });
+    expect(requests[0]?.path).toBe("/api/aurora/tools");
   });
 });

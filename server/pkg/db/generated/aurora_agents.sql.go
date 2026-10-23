@@ -21,7 +21,7 @@ SET owner_id = $1,
     instructions = $5,
     runtime_mode = 'cloud',
     visibility = 'workspace',
-    permission_mode = 'private',
+    permission_mode = 'public_to',
     archived_at = NULL,
     archived_by = NULL,
     updated_at = now()
@@ -55,6 +55,10 @@ type AdoptAuroraSystemAgentParams struct {
 // the older, unbound one: the workspace shows duplicate Aurora agents and a
 // generation binds to a carrier with no runtime. Adopting the earliest row keeps
 // the seed's identity identical to the one that lookup resolves.
+//
+// owner_id is the workspace owner, never the caller: the handler resolves it
+// once per seed (GetWorkspaceOwnerUserID), so a member's generation cannot take
+// the carrier from the owner. permission_mode mirrors UpsertAuroraSystemAgent.
 func (q *Queries) AdoptAuroraSystemAgent(ctx context.Context, arg AdoptAuroraSystemAgentParams) (Agent, error) {
 	row := q.db.QueryRow(ctx, adoptAuroraSystemAgent,
 		arg.OwnerID,
@@ -299,6 +303,112 @@ func (q *Queries) ListAuroraManagedRuntimes(ctx context.Context, provider string
 	return items, nil
 }
 
+const listAuroraSystemAgentKeys = `-- name: ListAuroraSystemAgentKeys :many
+SELECT DISTINCT a.system_key
+FROM agent a
+WHERE a.workspace_id = $1
+  AND a.system_key LIKE $2
+`
+
+type ListAuroraSystemAgentKeysParams struct {
+	WorkspaceID     pgtype.UUID `json:"workspace_id"`
+	SystemKeyPrefix pgtype.Text `json:"system_key_prefix"`
+}
+
+// The carrier keys this workspace has ever had, archived rows included. The
+// first-entry seed diffs them against the catalog and seeds only the experts
+// whose key is absent entirely: a key that is present but archived is a carrier
+// the member archived, and loading the directory must not resurrect it.
+// Generation creation still adopts and un-archives, because that path owns
+// recovering a carrier whose runtime binding went stale.
+//
+// DISTINCT because migration 172's partial unique index includes runtime_id, so
+// a runtime teardown can leave two rows (live or not) for one system_key.
+func (q *Queries) ListAuroraSystemAgentKeys(ctx context.Context, arg ListAuroraSystemAgentKeysParams) ([]pgtype.Text, error) {
+	rows, err := q.db.Query(ctx, listAuroraSystemAgentKeys, arg.WorkspaceID, arg.SystemKeyPrefix)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.Text{}
+	for rows.Next() {
+		var system_key pgtype.Text
+		if err := rows.Scan(&system_key); err != nil {
+			return nil, err
+		}
+		items = append(items, system_key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setAuroraCarrierOwner = `-- name: SetAuroraCarrierOwner :exec
+UPDATE agent
+SET owner_id = $1, updated_at = now()
+WHERE workspace_id = $2
+  AND system_key LIKE $3
+  AND owner_id IS DISTINCT FROM $1
+`
+
+type SetAuroraCarrierOwnerParams struct {
+	OwnerID         pgtype.UUID `json:"owner_id"`
+	WorkspaceID     pgtype.UUID `json:"workspace_id"`
+	SystemKeyPrefix pgtype.Text `json:"system_key_prefix"`
+}
+
+// Converges every Aurora carrier in one workspace onto the owner the seed
+// resolved. AdoptAuroraSystemAgent rewrites only the carrier it seeds and the
+// directory seed skips keys that already exist, so without this an ownership
+// transfer would move the managed runtime and the one seeded carrier while the
+// rest stayed on the previous owner — and the daemon claim path refuses to
+// deliver to a private runtime whose owner differs from the agent's, breaking
+// every expert nobody re-seeded yet.
+//
+// Same predicate as migration 5000's carrier backfill. system_key_prefix is
+// aurora.SystemKeyPrefix plus the LIKE wildcard, passed in rather than spelled
+// here: the "<prefix><skillID>" format has one owner in Go.
+func (q *Queries) SetAuroraCarrierOwner(ctx context.Context, arg SetAuroraCarrierOwnerParams) error {
+	_, err := q.db.Exec(ctx, setAuroraCarrierOwner, arg.OwnerID, arg.WorkspaceID, arg.SystemKeyPrefix)
+	return err
+}
+
+const setAuroraManagedRuntimeOwner = `-- name: SetAuroraManagedRuntimeOwner :exec
+UPDATE agent_runtime
+SET owner_id = $1, updated_at = now()
+WHERE id = $2
+  AND workspace_id = $3
+  AND runtime_mode = 'cloud'
+  AND provider = $4
+  AND owner_id IS DISTINCT FROM $1
+`
+
+type SetAuroraManagedRuntimeOwnerParams struct {
+	OwnerID     pgtype.UUID `json:"owner_id"`
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	Provider    string      `json:"provider"`
+}
+
+// Re-homes the workspace's managed runtime onto whoever the seed resolved as
+// the workspace owner, so an ownership transfer heals on the next seed instead
+// of leaving the runtime on the previous owner. The daemon claim path refuses to
+// deliver to a private runtime whose owner differs from the agent's, and the
+// seed re-owns the carriers on every run, so this is the other half of that
+// invariant. The predicate repeats the carrier identity so only this managed
+// runtime can be re-homed, and the IS DISTINCT FROM test keeps a steady-state
+// seed to a no-op rather than a write.
+func (q *Queries) SetAuroraManagedRuntimeOwner(ctx context.Context, arg SetAuroraManagedRuntimeOwnerParams) error {
+	_, err := q.db.Exec(ctx, setAuroraManagedRuntimeOwner,
+		arg.OwnerID,
+		arg.ID,
+		arg.WorkspaceID,
+		arg.Provider,
+	)
+	return err
+}
+
 const upsertAuroraSkill = `-- name: UpsertAuroraSkill :one
 INSERT INTO skill (workspace_id, name, description, content, config, created_by)
 VALUES ($1, $2, '', $3, '{}'::jsonb, $4)
@@ -347,7 +457,7 @@ INSERT INTO agent (
     workspace_id, owner_id, runtime_id, kind, system_key, name, instructions,
     conversation_starters, runtime_mode, visibility, permission_mode, runtime_config
 ) VALUES (
-    $1, $2, $3, 'user', $4, $5, $6, $7, 'cloud', 'workspace', 'private', '{}'::jsonb
+    $1, $2, $3, 'user', $4, $5, $6, $7, 'cloud', 'workspace', 'public_to', '{}'::jsonb
 )
 ON CONFLICT (workspace_id, owner_id, runtime_id, system_key) WHERE system_key IS NOT NULL
 DO UPDATE SET name = EXCLUDED.name, instructions = EXCLUDED.instructions,
@@ -368,6 +478,11 @@ type UpsertAuroraSystemAgentParams struct {
 
 // Like Mika's CreateSystemUserAgent, this product-defined agent is deliberately
 // kind='user': members can see it, chat with it and assign issues to it.
+//
+// permission_mode is 'public_to' because the carrier belongs to the workspace
+// owner, not to whoever runs a generation: 'private' would let only that owner
+// invoke it. The agent_invocation_target('workspace') row that makes public_to
+// mean "every member" is written by aurora.ensureExpert.
 // Idempotency rides
 // migration 172's partial unique index on
 // (workspace_id, owner_id, runtime_id, system_key) WHERE system_key IS NOT

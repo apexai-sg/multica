@@ -8,6 +8,7 @@ import {
   listAuroraAssets,
   listAuroraGenerations,
   listAuroraSkills,
+  listAuroraTools,
   listAuroraTopups,
   listAuroraTransactions,
 } from "./api";
@@ -28,6 +29,8 @@ import {
 export const auroraKeys = {
   all: (wsId: string) => ["aurora", wsId] as const,
   skills: (wsId: string) => [...auroraKeys.all(wsId), "skills"] as const,
+  /** Each tool page's executing expert, as the server maps it. */
+  tools: (wsId: string) => [...auroraKeys.all(wsId), "tools"] as const,
   /** The list and every detail: invalidating this refreshes both. */
   generations: (wsId: string) => [...auroraKeys.all(wsId), "generations"] as const,
   // The page params are part of the key, so a paged read cannot be served the
@@ -92,6 +95,21 @@ export function auroraSkillsOptions(wsId: string) {
   return queryOptions({
     queryKey: auroraKeys.skills(wsId),
     queryFn: () => listAuroraSkills(),
+    enabled: wsId.length > 0,
+  });
+}
+
+/**
+ * The tool → expert directory.
+ *
+ * The mapping is a server-side constant, so it keeps the cache's default
+ * stale-time; it shares the workspace scope because the submission pre-check
+ * pairs it with that workspace's agent list.
+ */
+export function auroraToolsOptions(wsId: string) {
+  return queryOptions({
+    queryKey: auroraKeys.tools(wsId),
+    queryFn: () => listAuroraTools(),
     enabled: wsId.length > 0,
   });
 }

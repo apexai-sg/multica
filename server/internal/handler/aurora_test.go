@@ -27,6 +27,10 @@ import (
 )
 
 func TestListAuroraSkills(t *testing.T) {
+	// Loading the directory now seeds the workspace's carriers, so the payload
+	// covers the same first-entry path CreateAuroraGeneration already takes.
+	cleanupAuroraSystemAgents(t)
+
 	req := newRequest(http.MethodGet, "/api/aurora/skills", nil)
 	var out struct {
 		Skills []struct {
@@ -46,8 +50,8 @@ func TestListAuroraSkills(t *testing.T) {
 	if got := response.Header().Get("Content-Type"); got != "application/json" {
 		t.Errorf("Content-Type = %q, want application/json", got)
 	}
-	if len(out.Skills) != 24 {
-		t.Fatalf("expected 24 experts, got %d", len(out.Skills))
+	if len(out.Skills) != 33 {
+		t.Fatalf("expected 33 experts, got %d", len(out.Skills))
 	}
 	available := 0
 	for _, s := range out.Skills {
@@ -155,8 +159,8 @@ func TestListAuroraSkillsIncludesCarrierAvatars(t *testing.T) {
 		} `json:"skills"`
 	}
 	testutil.Call(t, testHandler.ListAuroraSkills, req).Want(http.StatusOK).JSON(&out)
-	if len(out.Skills) != 24 {
-		t.Fatalf("expected 24 experts, got %d", len(out.Skills))
+	if len(out.Skills) != 33 {
+		t.Fatalf("expected 33 experts, got %d", len(out.Skills))
 	}
 	avatars := make(map[string]string, len(out.Skills))
 	for _, s := range out.Skills {
@@ -173,11 +177,11 @@ func TestListAuroraSkillsIncludesCarrierAvatars(t *testing.T) {
 }
 
 // cleanupAuroraSystemAgents removes the workspace's lazily seeded Aurora system
-// agents, skills and managed runtime at teardown. Generation creation seeds
-// these on first use and they would otherwise persist into every later handler
-// test, whose `agent ... LIMIT 1` agent-runtime heuristics assume the workspace
-// holds only user-visible agents (kind='system' is excluded by
-// GetAgentInWorkspace but not by an unfiltered LIMIT 1). Agents go first so
+// agents, skills and managed runtime at teardown. Generation creation and the
+// directory load seed these on first use and they would otherwise persist into
+// every later handler test, whose `agent ... LIMIT 1` agent-runtime heuristics
+// assume the workspace holds only user-visible agents (kind='system' is excluded
+// by GetAgentInWorkspace but not by an unfiltered LIMIT 1). Agents go first so
 // their agent_skill rows cascade; skills and the runtime follow once the agents
 // no longer reference them.
 func cleanupAuroraSystemAgents(t *testing.T) {
@@ -3321,7 +3325,7 @@ func auroraClaimFixture(t *testing.T) (db.AgentTaskQueue, db.AgentRuntime, strin
 	if err := testHandler.Credit.Grant(ctx, user, ws, 1_000_000_000, aurora.LedgerKindAdjustment, creditRef("seed")); err != nil {
 		t.Fatalf("Grant: %v", err)
 	}
-	if err := testHandler.ensureAuroraExpertSeed(ctx, ws, user, "ecommerce-bidding-strategy"); err != nil {
+	if err := testHandler.ensureAuroraExpertSeed(ctx, ws, "ecommerce-bidding-strategy"); err != nil {
 		t.Fatalf("ensure aurora system agents: %v", err)
 	}
 	agent, err := testHandler.Queries.GetAgentBySystemKey(ctx, db.GetAgentBySystemKeyParams{
@@ -3625,5 +3629,251 @@ func TestAuroraReadsExposeIssueIdentifier(t *testing.T) {
 
 	if detail.Generation.IssueIdentifier != want {
 		t.Fatalf("detail issueIdentifier = %q, want %q", detail.Generation.IssueIdentifier, want)
+	}
+}
+
+// TestEnsureAuroraCatalogSeedSeedsEveryExpertOnce covers the one-time full seed
+// behind the directory load: a workspace with no carriers gets one per catalog
+// expert, and a second entry adds nothing.
+//
+// A throwaway workspace is required. Seeding 33 carriers into the shared fixture
+// workspace would leak into every later test's unfiltered `agent ... LIMIT 1`
+// heuristics (the same reason cleanupAuroraSystemAgents exists).
+func TestEnsureAuroraCatalogSeedSeedsEveryExpertOnce(t *testing.T) {
+	if testHandler == nil || testPool == nil {
+		t.Skip("database not available")
+	}
+	workspaceID := dbfx.Workspace(t, "Aurora catalog seed", "aurora-catalog-seed-"+uuid.NewString())
+	dbfx.Member(t, workspaceID, testUserID, "owner")
+	// agent, skill, agent_runtime and member all cascade from the workspace, so
+	// removing it removes everything the seed wrote.
+	t.Cleanup(func() {
+		_, _ = testPool.Exec(context.Background(), `DELETE FROM workspace WHERE id = $1`, workspaceID)
+	})
+
+	ctx := context.Background()
+	const carriers = `SELECT count(*) FROM agent WHERE workspace_id = $1 AND system_key LIKE 'aurora:%'`
+
+	if err := testHandler.ensureAuroraCatalogSeed(ctx, parseUUID(workspaceID)); err != nil {
+		t.Fatalf("first seed: %v", err)
+	}
+	if n := dbfx.Count(t, carriers, workspaceID); n != 33 {
+		t.Fatalf("carriers = %d, want 33", n)
+	}
+	if n := dbfx.Count(t,
+		`SELECT count(*) FROM agent_runtime WHERE workspace_id = $1 AND provider = 'aurora_managed'`, workspaceID); n != 1 {
+		t.Fatalf("managed runtimes = %d, want 1", n)
+	}
+
+	if err := testHandler.ensureAuroraCatalogSeed(ctx, parseUUID(workspaceID)); err != nil {
+		t.Fatalf("second seed: %v", err)
+	}
+	if n := dbfx.Count(t, carriers, workspaceID); n != 33 {
+		t.Fatalf("second seed duplicated carriers: %d", n)
+	}
+	if n := dbfx.Count(t,
+		`SELECT count(*) FROM agent_runtime WHERE workspace_id = $1 AND provider = 'aurora_managed'`, workspaceID); n != 1 {
+		t.Fatalf("second seed duplicated the managed runtime: %d", n)
+	}
+}
+
+// TestEnsureAuroraCatalogSeedDoesNotResurrectArchivedCarrier pins the guard's
+// key-set semantics: a carrier the member archived still exists, so the
+// directory load leaves it alone instead of re-adopting it (AdoptAuroraSystemAgent
+// clears archived_at) on every page load. A carrier whose row is gone entirely is
+// still the seed's job.
+func TestEnsureAuroraCatalogSeedDoesNotResurrectArchivedCarrier(t *testing.T) {
+	if testHandler == nil || testPool == nil {
+		t.Skip("database not available")
+	}
+	workspaceID := dbfx.Workspace(t, "Aurora archived carrier", "aurora-archived-carrier-"+uuid.NewString())
+	dbfx.Member(t, workspaceID, testUserID, "owner")
+	t.Cleanup(func() {
+		_, _ = testPool.Exec(context.Background(), `DELETE FROM workspace WHERE id = $1`, workspaceID)
+	})
+
+	const (
+		archivedSlug = "design-prd-writing"
+		removedSlug  = "media-short-video-copy"
+	)
+	archivedKey := aurora.SystemKey(archivedSlug)
+	removedKey := aurora.SystemKey(removedSlug)
+
+	ctx := context.Background()
+	if err := testHandler.ensureAuroraCatalogSeed(ctx, parseUUID(workspaceID)); err != nil {
+		t.Fatalf("first seed: %v", err)
+	}
+	dbfx.Exec(t, `UPDATE agent SET archived_at = now() WHERE workspace_id = $1 AND system_key = $2`,
+		workspaceID, archivedKey)
+	dbfx.Exec(t, `DELETE FROM agent WHERE workspace_id = $1 AND system_key = $2`, workspaceID, removedKey)
+
+	if err := testHandler.ensureAuroraCatalogSeed(ctx, parseUUID(workspaceID)); err != nil {
+		t.Fatalf("second seed: %v", err)
+	}
+
+	if n := dbfx.Count(t, `SELECT count(*) FROM agent WHERE workspace_id = $1 AND system_key = $2`,
+		workspaceID, archivedKey); n != 1 {
+		t.Fatalf("archived carrier rows = %d, want 1 (no duplicate)", n)
+	}
+	if n := dbfx.Count(t, `SELECT count(*) FROM agent WHERE workspace_id = $1 AND system_key = $2 AND archived_at IS NOT NULL`,
+		workspaceID, archivedKey); n != 1 {
+		t.Fatalf("archived carrier rows still archived = %d, want 1", n)
+	}
+	if n := dbfx.Count(t, `SELECT count(*) FROM agent WHERE workspace_id = $1 AND system_key = $2 AND archived_at IS NULL`,
+		workspaceID, removedKey); n != 1 {
+		t.Fatalf("removed carrier live rows = %d, want 1", n)
+	}
+	if n := dbfx.Count(t, `SELECT count(*) FROM agent WHERE workspace_id = $1 AND system_key LIKE 'aurora:%'`,
+		workspaceID); n != 33 {
+		t.Fatalf("carriers = %d, want 33", n)
+	}
+}
+
+// TestAuroraCarrierIsAssignableByANonOwnerMember pins the two properties that
+// make an expert carrier usable by the whole workspace without ever belonging
+// to an ordinary member: it is public_to with a workspace invocation target,
+// and both the carrier and the managed runtime stay owned by the workspace
+// owner no matter who triggers the seed.
+//
+// The second seed deliberately runs through the generation path, which used to
+// stamp the calling member's id onto owner_id via AdoptAuroraSystemAgent — and
+// the daemon claim path refuses to deliver to a private runtime whose owner
+// differs from the agent's.
+func TestAuroraCarrierIsAssignableByANonOwnerMember(t *testing.T) {
+	if testHandler == nil || testPool == nil {
+		t.Skip("database not available")
+	}
+
+	workspaceID := dbfx.Workspace(t, "Aurora carrier perms", "aurora-carrier-perms-"+uuid.NewString())
+	dbfx.Member(t, workspaceID, testUserID, "owner")
+	memberID := dbfx.User(t, "Aurora carrier member", "aurora-carrier-member-"+uuid.NewString()+"@test.invalid")
+	dbfx.Member(t, workspaceID, memberID, "member")
+	// agent, agent_runtime, skill and member all cascade from the workspace.
+	// agent_invocation_target has no foreign keys by design (migration 130), so
+	// the grants the seed writes are removed explicitly.
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = testPool.Exec(ctx,
+			`DELETE FROM agent_invocation_target WHERE agent_id IN (SELECT id FROM agent WHERE workspace_id = $1)`, workspaceID)
+		_, _ = testPool.Exec(ctx, `DELETE FROM workspace WHERE id = $1`, workspaceID)
+	})
+
+	const slug = "media-face-swap"
+	systemKey := aurora.SystemKey(slug)
+	ctx := context.Background()
+
+	// The owner opens the directory first, which seeds every carrier.
+	if err := testHandler.ensureAuroraCatalogSeed(ctx, parseUUID(workspaceID)); err != nil {
+		t.Fatalf("owner seed: %v", err)
+	}
+
+	// A plain member opens the directory, then triggers the generation-path
+	// seed for one expert. Neither may end up owning the carrier.
+	req := newRequestAs(memberID, http.MethodGet, "/api/aurora/skills", nil)
+	req.Header.Set("X-Workspace-ID", workspaceID)
+	testutil.Call(t, testHandler.ListAuroraSkills, req).Want(http.StatusOK)
+	if err := testHandler.ensureAuroraExpertSeed(ctx, parseUUID(workspaceID), slug); err != nil {
+		t.Fatalf("member seed: %v", err)
+	}
+
+	var carrierOwner, runtimeOwner, permissionMode string
+	dbfx.QueryRow(t,
+		`SELECT owner_id::text, permission_mode FROM agent WHERE workspace_id = $1 AND system_key = $2`,
+		workspaceID, systemKey).Scan(&carrierOwner, &permissionMode)
+	dbfx.QueryRow(t,
+		`SELECT owner_id::text FROM agent_runtime WHERE workspace_id = $1 AND provider = 'aurora_managed'`,
+		workspaceID).Scan(&runtimeOwner)
+	if carrierOwner != testUserID || runtimeOwner != testUserID {
+		t.Fatalf("carrier/runtime owners = %s / %s, want the workspace owner %s", carrierOwner, runtimeOwner, testUserID)
+	}
+	if permissionMode != "public_to" {
+		t.Fatalf("carrier permission_mode = %q, want public_to", permissionMode)
+	}
+	// One workspace grant per carrier: every member may invoke it.
+	if n := dbfx.Count(t,
+		`SELECT count(*) FROM agent_invocation_target it JOIN agent a ON a.id = it.agent_id
+		 WHERE a.workspace_id = $1 AND a.system_key = $2 AND it.target_type = 'workspace' AND it.target_id = $1`,
+		workspaceID, systemKey); n != 1 {
+		t.Fatalf("workspace invocation targets = %d, want 1", n)
+	}
+}
+
+// TestAuroraSeedRehomesAManagedRuntimeOwnedByAMember covers the ownership
+// transfer: the managed runtime and several carriers already exist under an
+// ordinary member — what an earlier ownership arrangement leaves behind — and
+// one generation's seed must move the runtime and every carrier onto the
+// workspace owner together. Moving only the seeded expert would leave the rest
+// on the member, where the daemon claim path's private-runtime owner check
+// refuses them.
+func TestAuroraSeedRehomesAManagedRuntimeOwnedByAMember(t *testing.T) {
+	if testHandler == nil || testPool == nil {
+		t.Skip("database not available")
+	}
+
+	workspaceID := dbfx.Workspace(t, "Aurora runtime owner", "aurora-runtime-owner-"+uuid.NewString())
+	dbfx.Member(t, workspaceID, testUserID, "owner")
+	memberID := dbfx.User(t, "Aurora runtime member", "aurora-runtime-member-"+uuid.NewString()+"@test.invalid")
+	dbfx.Member(t, workspaceID, memberID, "member")
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = testPool.Exec(ctx,
+			`DELETE FROM agent_invocation_target WHERE agent_id IN (SELECT id FROM agent WHERE workspace_id = $1)`, workspaceID)
+		_, _ = testPool.Exec(ctx, `DELETE FROM workspace WHERE id = $1`, workspaceID)
+	})
+
+	runtimeID := dbfx.Insert(t, "agent_runtime", testutil.Cols{
+		"workspace_id": workspaceID,
+		"name":         "Aurora Managed Runtime",
+		"runtime_mode": "cloud",
+		"provider":     "aurora_managed",
+		"status":       "offline",
+		"device_info":  "",
+		"metadata":     testutil.Raw("'{}'::jsonb"),
+		"owner_id":     memberID,
+		"visibility":   "private",
+	})
+	// Two experts the member's generation already seeded, already migrated to
+	// the public-to-workspace shape. The seed below touches neither of them.
+	untouched := []string{"design-prd-writing", "media-short-video-copy"}
+	for _, stale := range untouched {
+		dbfx.Agent(t, "Aurora carrier "+stale, runtimeID, testutil.Cols{
+			"workspace_id":    workspaceID,
+			"owner_id":        memberID,
+			"system_key":      aurora.SystemKey(stale),
+			"visibility":      "workspace",
+			"permission_mode": "public_to",
+		})
+	}
+
+	const slug = "media-face-swap"
+	if err := testHandler.ensureAuroraExpertSeed(context.Background(), parseUUID(workspaceID), slug); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	var runtimeOwner, carrierOwner string
+	dbfx.QueryRow(t,
+		`SELECT owner_id::text FROM agent_runtime WHERE workspace_id = $1 AND provider = 'aurora_managed'`,
+		workspaceID).Scan(&runtimeOwner)
+	dbfx.QueryRow(t,
+		`SELECT owner_id::text FROM agent WHERE workspace_id = $1 AND system_key = $2`,
+		workspaceID, aurora.SystemKey(slug)).Scan(&carrierOwner)
+	if runtimeOwner != testUserID || carrierOwner != testUserID {
+		t.Fatalf("runtime/seeded carrier owners = %s / %s, want the workspace owner %s", runtimeOwner, carrierOwner, testUserID)
+	}
+	if n := dbfx.Count(t,
+		`SELECT count(*) FROM agent WHERE workspace_id = $1 AND system_key LIKE 'aurora:%' AND owner_id <> $2`,
+		workspaceID, testUserID); n != 0 {
+		t.Fatalf("%d carriers still owned by someone else, want 0", n)
+	}
+	// Every untouched carrier is still there: convergence moves ownership, it
+	// does not remove the rows.
+	for _, stale := range untouched {
+		var owner string
+		dbfx.QueryRow(t,
+			`SELECT owner_id::text FROM agent WHERE workspace_id = $1 AND system_key = $2`,
+			workspaceID, aurora.SystemKey(stale)).Scan(&owner)
+		if owner != testUserID {
+			t.Fatalf("untouched carrier %q owner = %s, want the workspace owner %s", stale, owner, testUserID)
+		}
 	}
 }

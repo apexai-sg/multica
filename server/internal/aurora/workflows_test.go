@@ -37,8 +37,8 @@ func availableSkills() []string {
 // expert. What a brief may say is TestRewrittenWorkflowsDescribeRealSteps.
 func TestAvailableSkillsHaveCanonicalWorkflows(t *testing.T) {
 	available := availableSkills()
-	if len(available) != 24 {
-		t.Fatalf("available skills = %d, want 24", len(available))
+	if len(available) != 33 {
+		t.Fatalf("available skills = %d, want 33", len(available))
 	}
 
 	// The vendored index is the "exactly one" ground truth: no expert without a
@@ -68,6 +68,28 @@ func TestAvailableSkillsHaveCanonicalWorkflows(t *testing.T) {
 		}
 		if !strings.Contains(brief, skill) {
 			t.Errorf("Workflow(%q) does not name its skill", skill)
+		}
+	}
+}
+
+// TestMediaExpertsNameTheirProviderPath holds the locally authored experts to
+// the honesty rule: a brief that touches media either names the pinned provider
+// model it actually calls, or states plainly that this environment has no media
+// provider. A brief that names neither invites a fabricated deliverable.
+func TestMediaExpertsNameTheirProviderPath(t *testing.T) {
+	pinned := []string{"doubao-seedream-5-0-pro-260628", "doubao-seedance-2-5-260628"}
+	const noProvider = "当前环境没有可用的媒体生成 provider"
+	for _, slug := range []string{
+		"media-face-swap", "media-image-retouch", "media-portrait-studio",
+		"media-video-translation", "media-voiceover", "office-spreadsheet-analysis",
+		"office-document-reading", "office-resume-optimization", "design-website-build",
+	} {
+		brief, ok := aurora.Workflow(slug)
+		if !ok {
+			t.Fatalf("%s has no workflow", slug)
+		}
+		if !strings.Contains(brief, noProvider) && !slices.ContainsFunc(pinned, func(id string) bool { return strings.Contains(brief, id) }) {
+			t.Errorf("%s names neither a pinned model id nor the no-provider clause", slug)
 		}
 	}
 }

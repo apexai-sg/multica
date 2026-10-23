@@ -126,6 +126,31 @@ func (q *Queries) GetRealtimeMemberships(ctx context.Context, arg GetRealtimeMem
 	return items, nil
 }
 
+const getWorkspaceOwnerUserID = `-- name: GetWorkspaceOwnerUserID :one
+SELECT user_id FROM member
+WHERE workspace_id = $1 AND role = 'owner'
+ORDER BY created_at ASC, user_id ASC
+LIMIT 1
+`
+
+// The owner a product-defined carrier belongs to. Expert carriers and the
+// managed runtime must share one owner: the daemon claim path refuses to
+// deliver to a private runtime whose owner differs from the agent's.
+//
+// Nothing enforces one owner row per workspace (promotion to 'owner' is
+// unrestricted), so the ordering is part of the contract: without it two reads
+// — the carrier's and the runtime's — could pick different rows and split the
+// ownership the seed is converging. Oldest membership wins (the ordering
+// GetPersonalWorkspaceForUser uses), with user_id as the tie-break so equal
+// created_at values still resolve to one row. Migration 5000 picks the same row
+// for its backfill.
+func (q *Queries) GetWorkspaceOwnerUserID(ctx context.Context, workspaceID pgtype.UUID) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, getWorkspaceOwnerUserID, workspaceID)
+	var user_id pgtype.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
 const listMembers = `-- name: ListMembers :many
 SELECT id, workspace_id, user_id, role, created_at FROM member
 WHERE workspace_id = $1
