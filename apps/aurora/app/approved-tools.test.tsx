@@ -9,13 +9,17 @@ import { WorkspaceChrome } from "../components/workspace-chrome";
 import { apexTools } from "../components/tools/tool-definitions";
 
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NEXT_NOT_FOUND"); } }));
-vi.mock("../components/tools/use-tool-submission", () => ({
+vi.mock("../components/tools/use-tool-submission", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../components/tools/use-tool-submission")>()),
   useToolSubmission: () => ({
     submit: vi.fn(),
     pending: false,
     error: null,
+    createdIdentifier: null,
     canSubmit: true,
+    status: "ready" as const,
     agent: { id: "agent-1" },
+    reloadAgents: vi.fn(),
   }),
 }));
 vi.mock("../components/aurora-shell", () => ({

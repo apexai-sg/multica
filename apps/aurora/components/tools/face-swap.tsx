@@ -10,7 +10,7 @@ import { Spinner } from "@multica/ui/components/ui/spinner";
 
 import { fileSize, useLocalFile as useLocalMedia } from "./local-file";
 import { findTool } from "./tool-definitions";
-import { useToolSubmission } from "./use-tool-submission";
+import { toolSubmissionNotice, useToolSubmission } from "./use-tool-submission";
 
 type MediaKind = "video" | "image";
 
@@ -78,7 +78,7 @@ function UploadCard({
             <div className="apex-file-bar">
               <div className="apex-file-name">
                 <strong title={slot.media.file.name}>{slot.media.file.name}</strong>
-                <span>{fileSize(slot.media.file.size)} · 仅在本机预览</span>
+                <span>{fileSize(slot.media.file.size)} · 提交时上传为任务附件</span>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={() => input.current?.click()}>
                 替换<span className="sr-only">{label}</span>
@@ -173,9 +173,11 @@ export function FaceSwapWorkbench({ slug }: { slug: string }) {
         <p id="apex-generation-note">
           <Info aria-hidden="true" />
           {ready ? "素材已就绪" : `请先选择原${noun}和人脸照片`}
-          <span>·</span>提交后由 AI 在任务详情页执行并返回结果
+          <span>·</span>{toolSubmissionNotice(submission.status)}
+          {submission.status === "error" ? <><span>·</span><Button type="button" variant="outline" size="sm" onClick={submission.reloadAgents}>重新加载</Button></> : null}
         </p>
         {submission.error ? <p className="apex-upload-error" role="alert">{submission.error}</p> : null}
+        {submission.createdIdentifier ? <p className="apex-sample-note" role="status">任务已创建：{submission.createdIdentifier}，请到任务列表查看。</p> : null}
       </div>
 
       <section className="apex-result-panel" aria-labelledby="apex-result-title">

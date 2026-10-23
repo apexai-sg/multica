@@ -1,12 +1,19 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@multica/core/api";
+import { isAgentRuntimeBound } from "@multica/core/agents";
+import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { useFileUpload } from "@multica/core/hooks/use-file-upload";
 import { useCreateIssue } from "@multica/core/issues/mutations";
-import { agentListOptions } from "@multica/core/workspace/queries";
+import { canAssignAgentToIssue } from "@multica/core/permissions";
+import type { Agent, Issue, MemberRole } from "@multica/core/types";
+import {
+  agentListOptions,
+  memberListOptions,
+} from "@multica/core/workspace/queries";
 import { useNavigation } from "@multica/views/navigation";
 import { auroraIssueHrefFor } from "@/lib/issue-link";
 import type { ToolDefinition } from "./tool-definitions";
@@ -21,45 +28,128 @@ export type ToolSubmissionInput = {
 };
 
 /**
+ * Why the submit button is unavailable, in the order the reasons are checked.
+ * `ready` is the only state that permits a submission.
+ */
+export type ToolSubmissionStatus =
+  | "loading"
+  | "error"
+  | "no-agent"
+  | "no-runtime"
+  | "ready";
+
+const NO_AGENT_ERROR =
+  "当前工作区没有可执行的助手，请先在工作区设置里创建或连接一个助手。";
+
+/**
+ * Localized explanation for a non-ready submission state. Components render
+ * this next to the submit button so a disabled button always says why.
+ */
+export function toolSubmissionNotice(status: ToolSubmissionStatus): string {
+  switch (status) {
+    case "loading":
+      return "正在加载工作区助手…";
+    case "error":
+      return "无法加载工作区助手";
+    case "no-agent":
+      return "工作区还没有可用的助手";
+    case "no-runtime":
+      return "工作区的助手尚未连接运行环境";
+    case "ready":
+      return "提交后由 AI 在任务详情页执行并返回结果";
+  }
+}
+
+/**
  * Submit one tool run as an ordinary issue task.
  *
  * Aurora's generation pipeline only exists for catalog carriers. The 18 tools
- * are consumer entry points, so the run is handed to a real workspace agent as
- * an issue: the agent executes on the issue and writes its result there as a
+ * are consumer entry points, so the run is handed to a workspace agent as an
+ * issue: the agent executes on the issue and writes its result there as a
  * comment and/or attachments, which the issue detail page renders. The user
  * lands on that detail page, so the run and its output share one address.
  *
- * The agent comes from the backend: the tool's `agentKey` selects the matching
- * workspace agent by `system_key`, with the workspace's general assistant as a
- * fallback. No agent data is fabricated in the tool definitions.
+ * Which agent runs it is decided from the agents the viewer may assign in this
+ * workspace — the built-in assistant when present, otherwise the oldest agent
+ * that still has a runtime. Tools deliberately carry no `agentKey`: the
+ * retired skill ids do not map onto the current expert catalog, so a per-tool
+ * key could only match by accident. Any agent the viewer can assign is
+ * expected to handle the text part of a tool task; media generation still
+ * depends on its providers.
  */
 export function useToolSubmission(tool: ToolDefinition, slug: string) {
   const wsId = useWorkspaceId();
-  const { data: agents = [] } = useQuery(agentListOptions(wsId));
+  const userId = useAuthStore((s) => s.user?.id ?? null);
+  const {
+    data: agents,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery(agentListOptions(wsId));
+  // The agent list shows admins every agent in the workspace, including other
+  // members' private ones, while the backend's invocation gate refuses to
+  // assign work to those — the submission would upload its attachments first
+  // and then fail with a 403. The viewer's role is what decides that gate, so
+  // it has to resolve before the list can be narrowed.
+  const { data: members, isLoading: membersLoading } = useQuery(
+    memberListOptions(wsId),
+  );
   const createIssue = useCreateIssue();
   const { upload } = useFileUpload(api);
   const navigation = useNavigation();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdIdentifier, setCreatedIdentifier] = useState<string | null>(null);
+  // The button is disabled while pending, but a click that lands between the
+  // render and the state flush would still reach this callback. The ref is the
+  // lock; `pending` is only what the UI renders.
+  const inFlight = useRef(false);
 
-  const activeAgents = agents.filter((agent) => !agent.archived_at);
-  const agent =
-    (tool.agentKey
-      ? activeAgents.find((candidate) => candidate.system_key === tool.agentKey)
-      : undefined) ??
-    activeAgents.find((candidate) => candidate.system_key === "mika") ??
-    activeAgents[0] ??
+  const rawRole = members?.find((m) => m.user_id === userId)?.role;
+  const role: MemberRole | null =
+    rawRole === "owner" || rawRole === "admin" || rawRole === "member"
+      ? rawRole
+      : null;
+
+  const activeAgents = (agents ?? []).filter(
+    (candidate) =>
+      !candidate.archived_at &&
+      canAssignAgentToIssue(candidate, { userId, role }).allowed,
+  );
+  const runnableAgents = activeAgents.filter(isAgentRuntimeBound);
+  const agent: Agent | null =
+    runnableAgents.find((candidate) => candidate.system_key === "mika") ??
+    runnableAgents[0] ??
     null;
 
-  const canSubmit = agent !== null && !pending && !createIssue.isPending;
+  const status: ToolSubmissionStatus =
+    isLoading || membersLoading
+      ? "loading"
+      : isError
+        ? "error"
+        : runnableAgents.length > 0
+          ? "ready"
+          : activeAgents.length > 0
+            ? "no-runtime"
+            : "no-agent";
+
+  const canSubmit = status === "ready" && !pending;
 
   const submit = useCallback(
     async ({ source, values, files = [] }: ToolSubmissionInput) => {
-      if (!agent || pending) return;
+      if (inFlight.current) return;
+      if (!agent) {
+        setError(NO_AGENT_ERROR);
+        return;
+      }
+      inFlight.current = true;
       setPending(true);
       setError(null);
+      setCreatedIdentifier(null);
+
+      const uploaded: string[] = [];
+      let created: Issue;
       try {
-        const uploaded: string[] = [];
         for (const file of files) {
           const result = await upload(file);
           if (!result?.id) {
@@ -86,7 +176,7 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
           0,
           120,
         );
-        const created = await createIssue.mutateAsync({
+        created = await createIssue.mutateAsync({
           title,
           description: sections.join("\n\n"),
           assignee_type: "agent",
@@ -96,23 +186,57 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
           // guard would otherwise reject the same prompt a second time.
           allow_duplicate: true,
         });
-
-        const href =
-          auroraIssueHrefFor(slug)(created.identifier) ??
-          `/${encodeURIComponent(slug)}/issues/${encodeURIComponent(created.identifier)}`;
-        navigation.push(href);
       } catch (err) {
         setError(
           err instanceof Error && err.message
             ? err.message
             : "任务提交未完成，请稍后重试。",
         );
-      } finally {
         setPending(false);
+        inFlight.current = false;
+        return;
       }
+
+      // The issue exists from here on. Navigation is deliberately outside the
+      // try above: telling the user a created task failed would invite a retry
+      // that creates a second one.
+      const href = auroraIssueHrefFor(slug)(created.identifier);
+      if (!href) {
+        setCreatedIdentifier(created.identifier);
+        setPending(false);
+        inFlight.current = false;
+        return;
+      }
+
+      try {
+        navigation.push(href);
+      } catch {
+        setCreatedIdentifier(created.identifier);
+        setError(`任务已创建（${created.identifier}），但打开详情页失败，请到任务列表查看。`);
+        setPending(false);
+        inFlight.current = false;
+        return;
+      }
+
+      // Success: stay locked. The route replaces this page, and re-enabling the
+      // button before that commit would let the same click create a second
+      // issue and run the agent twice.
     },
-    [agent, createIssue, navigation, pending, slug, tool.name, upload],
+    [agent, createIssue, navigation, slug, tool.name, upload],
   );
 
-  return { submit, pending, error, canSubmit, agent };
+  const reloadAgents = useCallback(() => {
+    void refetch();
+  }, [refetch]);
+
+  return {
+    submit,
+    pending,
+    error,
+    createdIdentifier,
+    canSubmit,
+    status,
+    agent,
+    reloadAgents,
+  };
 }
