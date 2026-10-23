@@ -2069,6 +2069,8 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 
 			// Aurora skill catalog
 			r.Get("/api/aurora/skills", h.ListAuroraSkills)
+			// Every tool page's executing expert, in client display order.
+			r.Get("/api/aurora/tools", h.ListAuroraTools)
 			// Creating a generation reserves owner credits once Plan 2 lands,
 			// so it is human-only, like the billing routes above. It is also
 			// the execution entry point, so a per-user frequency gate caps how
