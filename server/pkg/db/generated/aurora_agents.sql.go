@@ -344,11 +344,42 @@ func (q *Queries) ListAuroraSystemAgentKeys(ctx context.Context, arg ListAuroraS
 	return items, nil
 }
 
+const setAuroraCarrierOwner = `-- name: SetAuroraCarrierOwner :exec
+UPDATE agent
+SET owner_id = $1, updated_at = now()
+WHERE workspace_id = $2
+  AND system_key LIKE $3
+  AND owner_id IS DISTINCT FROM $1
+`
+
+type SetAuroraCarrierOwnerParams struct {
+	OwnerID         pgtype.UUID `json:"owner_id"`
+	WorkspaceID     pgtype.UUID `json:"workspace_id"`
+	SystemKeyPrefix pgtype.Text `json:"system_key_prefix"`
+}
+
+// Converges every Aurora carrier in one workspace onto the owner the seed
+// resolved. AdoptAuroraSystemAgent rewrites only the carrier it seeds and the
+// directory seed skips keys that already exist, so without this an ownership
+// transfer would move the managed runtime and the one seeded carrier while the
+// rest stayed on the previous owner — and the daemon claim path refuses to
+// deliver to a private runtime whose owner differs from the agent's, breaking
+// every expert nobody re-seeded yet.
+//
+// Same predicate as migration 5000's carrier backfill. system_key_prefix is
+// aurora.SystemKeyPrefix plus the LIKE wildcard, passed in rather than spelled
+// here: the "<prefix><skillID>" format has one owner in Go.
+func (q *Queries) SetAuroraCarrierOwner(ctx context.Context, arg SetAuroraCarrierOwnerParams) error {
+	_, err := q.db.Exec(ctx, setAuroraCarrierOwner, arg.OwnerID, arg.WorkspaceID, arg.SystemKeyPrefix)
+	return err
+}
+
 const setAuroraManagedRuntimeOwner = `-- name: SetAuroraManagedRuntimeOwner :exec
 UPDATE agent_runtime
 SET owner_id = $1, updated_at = now()
 WHERE id = $2
   AND workspace_id = $3
+  AND runtime_mode = 'cloud'
   AND provider = $4
   AND owner_id IS DISTINCT FROM $1
 `

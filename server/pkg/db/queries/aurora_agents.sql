@@ -48,7 +48,26 @@ UPDATE agent_runtime
 SET owner_id = @owner_id, updated_at = now()
 WHERE id = @id
   AND workspace_id = @workspace_id
+  AND runtime_mode = 'cloud'
   AND provider = @provider
+  AND owner_id IS DISTINCT FROM @owner_id;
+
+-- name: SetAuroraCarrierOwner :exec
+-- Converges every Aurora carrier in one workspace onto the owner the seed
+-- resolved. AdoptAuroraSystemAgent rewrites only the carrier it seeds and the
+-- directory seed skips keys that already exist, so without this an ownership
+-- transfer would move the managed runtime and the one seeded carrier while the
+-- rest stayed on the previous owner — and the daemon claim path refuses to
+-- deliver to a private runtime whose owner differs from the agent's, breaking
+-- every expert nobody re-seeded yet.
+--
+-- Same predicate as migration 5000's carrier backfill. system_key_prefix is
+-- aurora.SystemKeyPrefix plus the LIKE wildcard, passed in rather than spelled
+-- here: the "<prefix><skillID>" format has one owner in Go.
+UPDATE agent
+SET owner_id = @owner_id, updated_at = now()
+WHERE workspace_id = @workspace_id
+  AND system_key LIKE @system_key_prefix
   AND owner_id IS DISTINCT FROM @owner_id;
 
 -- name: UpsertAuroraSystemAgent :one

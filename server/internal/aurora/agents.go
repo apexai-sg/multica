@@ -238,23 +238,26 @@ func isManagedSubskillName(expert Expert, name string) bool {
 	return false
 }
 
-// ensureManagedRuntime returns the workspace's managed runtime, creating it on
-// first seed and re-homing it on the workspace owner when it has drifted.
+// ensureManagedRuntime returns the workspace's managed runtime with the whole
+// workspace converged onto ownerID, creating the runtime on first seed.
 // Lookup-then-insert is the idempotency strategy: the runtime's NULL daemon_id
 // sits outside migration 121's partial unique index (NULLs are distinct), so
 // there is no ON CONFLICT arbiter to lean on. Concurrent seeds could mint a
 // second row; the call site serialises on a per-workspace lock (Plan 3 Task 2),
 // which is where that guarantee belongs.
 //
-// The existing-row branch repairs owner_id rather than only returning the id.
-// The seed re-owns the carriers on every run, so after a workspace ownership
-// transfer the agents move to the new owner while the runtime would not: the
-// daemon claim path then refuses to deliver to a private runtime whose owner
-// differs from the agent's, blocking every generation. Nothing else touches the
-// row.
+// The ownership writes are what makes an ownership transfer heal. A private
+// runtime whose owner differs from the agent's is refused at claim time
+// (daemon.go), so the runtime and every carrier must land on the same person.
+// Re-homing only the carrier being seeded would move the one expert a
+// generation touched while the rest stayed on the previous owner — swapping one
+// broken expert for every other one — because AdoptAuroraSystemAgent rewrites
+// just its own carrier and the directory seed skips keys that already exist.
+// Both writes are no-ops in the steady state.
 func ensureManagedRuntime(ctx context.Context, q *db.Queries, workspaceID, ownerID pgtype.UUID) (pgtype.UUID, error) {
 	runtimeID, err := ManagedRuntimeID(ctx, q, workspaceID)
-	if err == nil {
+	switch {
+	case err == nil:
 		if err := q.SetAuroraManagedRuntimeOwner(ctx, db.SetAuroraManagedRuntimeOwnerParams{
 			OwnerID:     ownerID,
 			ID:          runtimeID,
@@ -263,21 +266,30 @@ func ensureManagedRuntime(ctx context.Context, q *db.Queries, workspaceID, owner
 		}); err != nil {
 			return pgtype.UUID{}, fmt.Errorf("re-home managed runtime: %w", err)
 		}
-		return runtimeID, nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
+	case errors.Is(err, pgx.ErrNoRows):
+		created, err := q.CreateAuroraManagedRuntime(ctx, db.CreateAuroraManagedRuntimeParams{
+			WorkspaceID: workspaceID,
+			Name:        managedRuntimeName,
+			Provider:    managedRuntimeProvider,
+			OwnerID:     ownerID,
+		})
+		if err != nil {
+			return pgtype.UUID{}, err
+		}
+		runtimeID = created.ID
+	default:
 		return pgtype.UUID{}, err
 	}
-	created, err := q.CreateAuroraManagedRuntime(ctx, db.CreateAuroraManagedRuntimeParams{
-		WorkspaceID: workspaceID,
-		Name:        managedRuntimeName,
-		Provider:    managedRuntimeProvider,
-		OwnerID:     ownerID,
-	})
-	if err != nil {
-		return pgtype.UUID{}, err
+	// Runs on the create path too: carriers survive a runtime teardown with
+	// runtime_id unbound, so a freshly minted runtime can find stale owners.
+	if err := q.SetAuroraCarrierOwner(ctx, db.SetAuroraCarrierOwnerParams{
+		OwnerID:         ownerID,
+		WorkspaceID:     workspaceID,
+		SystemKeyPrefix: pgtype.Text{String: SystemKeyPrefix + "%", Valid: true},
+	}); err != nil {
+		return pgtype.UUID{}, fmt.Errorf("converge carrier owners: %w", err)
 	}
-	return created.ID, nil
+	return runtimeID, nil
 }
 
 // The agent conversation-starter contract is owned by the handler and mirrored

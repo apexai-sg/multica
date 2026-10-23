@@ -3799,11 +3799,12 @@ func TestAuroraCarrierIsAssignableByANonOwnerMember(t *testing.T) {
 }
 
 // TestAuroraSeedRehomesAManagedRuntimeOwnedByAMember covers the ownership
-// transfer: the managed runtime already exists under an ordinary member — what
-// an earlier ownership arrangement leaves behind — and the next generation's
-// seed must move it onto the workspace owner. The carriers follow through
-// AdoptAuroraSystemAgent; if the runtime did not, the daemon claim path would
-// refuse every generation in the workspace.
+// transfer: the managed runtime and several carriers already exist under an
+// ordinary member — what an earlier ownership arrangement leaves behind — and
+// one generation's seed must move the runtime and every carrier onto the
+// workspace owner together. Moving only the seeded expert would leave the rest
+// on the member, where the daemon claim path's private-runtime owner check
+// refuses them.
 func TestAuroraSeedRehomesAManagedRuntimeOwnedByAMember(t *testing.T) {
 	if testHandler == nil || testPool == nil {
 		t.Skip("database not available")
@@ -3820,7 +3821,7 @@ func TestAuroraSeedRehomesAManagedRuntimeOwnedByAMember(t *testing.T) {
 		_, _ = testPool.Exec(ctx, `DELETE FROM workspace WHERE id = $1`, workspaceID)
 	})
 
-	dbfx.Insert(t, "agent_runtime", testutil.Cols{
+	runtimeID := dbfx.Insert(t, "agent_runtime", testutil.Cols{
 		"workspace_id": workspaceID,
 		"name":         "Aurora Managed Runtime",
 		"runtime_mode": "cloud",
@@ -3831,6 +3832,18 @@ func TestAuroraSeedRehomesAManagedRuntimeOwnedByAMember(t *testing.T) {
 		"owner_id":     memberID,
 		"visibility":   "private",
 	})
+	// Two experts the member's generation already seeded, already migrated to
+	// the public-to-workspace shape. The seed below touches neither of them.
+	untouched := []string{"design-prd-writing", "media-short-video-copy"}
+	for _, stale := range untouched {
+		dbfx.Agent(t, "Aurora carrier "+stale, runtimeID, testutil.Cols{
+			"workspace_id":    workspaceID,
+			"owner_id":        memberID,
+			"system_key":      aurora.SystemKey(stale),
+			"visibility":      "workspace",
+			"permission_mode": "public_to",
+		})
+	}
 
 	const slug = "media-face-swap"
 	if err := testHandler.ensureAuroraExpertSeed(context.Background(), parseUUID(workspaceID), slug); err != nil {
@@ -3845,6 +3858,22 @@ func TestAuroraSeedRehomesAManagedRuntimeOwnedByAMember(t *testing.T) {
 		`SELECT owner_id::text FROM agent WHERE workspace_id = $1 AND system_key = $2`,
 		workspaceID, aurora.SystemKey(slug)).Scan(&carrierOwner)
 	if runtimeOwner != testUserID || carrierOwner != testUserID {
-		t.Fatalf("runtime/carrier owners = %s / %s, want the workspace owner %s", runtimeOwner, carrierOwner, testUserID)
+		t.Fatalf("runtime/seeded carrier owners = %s / %s, want the workspace owner %s", runtimeOwner, carrierOwner, testUserID)
+	}
+	if n := dbfx.Count(t,
+		`SELECT count(*) FROM agent WHERE workspace_id = $1 AND system_key LIKE 'aurora:%' AND owner_id <> $2`,
+		workspaceID, testUserID); n != 0 {
+		t.Fatalf("%d carriers still owned by someone else, want 0", n)
+	}
+	// Every untouched carrier is still there: convergence moves ownership, it
+	// does not remove the rows.
+	for _, stale := range untouched {
+		var owner string
+		dbfx.QueryRow(t,
+			`SELECT owner_id::text FROM agent WHERE workspace_id = $1 AND system_key = $2`,
+			workspaceID, aurora.SystemKey(stale)).Scan(&owner)
+		if owner != testUserID {
+			t.Fatalf("untouched carrier %q owner = %s, want the workspace owner %s", stale, owner, testUserID)
+		}
 	}
 }
