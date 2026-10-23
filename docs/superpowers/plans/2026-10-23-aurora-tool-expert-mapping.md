@@ -10,10 +10,11 @@
 
 **Spec:** [docs/superpowers/specs/2026-10-23-aurora-tool-expert-mapping-design.md](../specs/2026-10-23-aurora-tool-expert-mapping-design.md)
 
-**Status (2026-10-23):** Tasks 1–9 complete, each gated by an independent task review.
-Task 1 is on PR #17 (`47ee4c79f`); Tasks 2 and 3 are PR #21 and PR #22; Tasks 4–9 are
-on the draft PR #23. Tasks 10–13 (run endpoint, core client, frontend switch, docs and
-full verification) remain.
+**Status (2026-10-23):** All 13 tasks complete, each gated by an independent review.
+Task 1 is on PR #17 (`47ee4c79f`); Tasks 2 and 3 are PR #21 and PR #22; Tasks 4–13 are
+on PR #23, which closes #16. Tasks 10–13 ran on a remote Orca host against a throwaway
+PostgreSQL 17 cluster; that host's pulls and the branch push are recorded in the PR's
+latest comment.
 
 ## Global Constraints
 
