@@ -573,7 +573,7 @@ func validBootstrapSuccess(s RecoverySnapshot) bool {
 		return false
 	}
 	o := p.Observation
-	if p.ClaimedAt.After(s.SQLNow) || o.ObservedAt.After(s.SQLNow) || o.ObservedAt.Before(p.ClaimedAt) || !o.ObservedAt.Before(p.ClaimedAt.Add(bootstrapLease)) || o.ObservedAt.Before(op.CreatedAt) {
+	if p.ClaimedAt.After(s.SQLNow) || o.ObservedAt.After(s.SQLNow.Add(observationClockSkew)) || o.ObservedAt.Before(p.ClaimedAt) || !o.ObservedAt.Before(p.ClaimedAt.Add(bootstrapLease)) || o.ObservedAt.Before(op.CreatedAt) {
 		return false
 	}
 	epoch, e := time.Parse(time.RFC3339Nano, p.StartEpoch)

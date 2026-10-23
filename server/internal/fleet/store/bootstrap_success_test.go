@@ -149,7 +149,7 @@ func TestRecoveryBootstrapSuccessNegativeMatrix(t *testing.T) {
 			case "late-proof":
 				s.bootstrapSuccess.Observation.ObservedAt = s.Operation.BootstrapClaimedAt.Add(5 * time.Minute)
 			case "future-proof":
-				s.bootstrapSuccess.Observation.ObservedAt = s.SQLNow.Add(time.Second)
+				s.bootstrapSuccess.Observation.ObservedAt = s.SQLNow.Add(3 * time.Second)
 			case "preclaim-proof":
 				s.bootstrapSuccess.Observation.ObservedAt = s.Operation.BootstrapClaimedAt.Add(-time.Second)
 			case "old-epoch":
@@ -230,6 +230,33 @@ func TestRecoveryBootstrapSuccessFreshHealthNegativeMatrix(t *testing.T) {
 				t.Fatal("unknown current health revoked historical initialization success")
 			}
 		})
+	}
+}
+
+// TestRecoveryBootstrapSuccessWithinClockSkew pins the receipt side of the
+// cross-clock tolerance. A daemon clock ahead of SQL must still yield the
+// durable proof: ConfirmBootstrap writes container_id regardless, so dropping
+// the receipt would leave a confirmed node unprovable and lease expiry would
+// later revoke it as never-ready.
+func TestRecoveryBootstrapSuccessWithinClockSkew(t *testing.T) {
+	now := time.Date(2026, 10, 5, 0, 5, 0, 0, time.UTC)
+	n := model.Node{Namespace: "owned", ID: uuid(t, "10000000-0000-0000-0000-000000000001"), OwnerID: uuid(t, "20000000-0000-0000-0000-000000000001"), Generation: 3, Desired: "running", DaemonID: "daemon", DataVolume: "data", SecretsVolume: "secrets", Image: "image", ProfileRef: "profile", Resources: model.Spec{CPUs: 2, MemoryBytes: 4 << 30, Pids: 256, MaxRuns: 1}}
+	op := model.Operation{ID: uuid(t, "30000000-0000-0000-0000-000000000001"), NodeID: n.ID, OwnerID: n.OwnerID, Generation: 3, Action: model.Create, Phase: "applying", BootstrapMinted: true, BootstrapClaimedAt: now.Add(-time.Minute), CreatedAt: now.Add(-6 * time.Minute)}
+	s := RecoverySnapshot{Node: n, Operation: op, SQLNow: now}
+	o := model.Observation{ContainerID: "cid", DaemonID: n.DaemonID, StartEpoch: now.Add(-30 * time.Second).Format(time.RFC3339Nano), Status: "running", Ready: true, Agents: []string{"claude"}, RuntimeCount: 1, ReportStatsKnown: true, ObservedAt: now.Add(1500 * time.Millisecond)}
+	p := confirmedBootstrapSuccess(s, o)
+	if p == nil {
+		t.Fatal("confirmation within clock skew produced no durable receipt")
+	}
+	s.Node.ContainerID = o.ContainerID
+	s.Node.StartEpoch = o.StartEpoch
+	s.bootstrapSuccess = p
+	if !validBootstrapSuccess(s) || confirmedCreateExpired(s) {
+		t.Fatal("within-skew receipt did not survive validation")
+	}
+	raw, e := encodeObservation(n.Generation, o, p)
+	if e != nil || !strings.Contains(string(raw), `"bootstrap_success"`) {
+		t.Fatal("within-skew confirmation wrote the receipt-less form")
 	}
 }
 func TestRecoveryBootstrapSuccessMintOnlyInWindowHealthyConfirmation(t *testing.T) {
