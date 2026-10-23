@@ -13,9 +13,12 @@
 --     workspace's private managed runtime: the daemon claim path refuses to
 --     deliver a task to a private runtime whose owner differs from the agent's.
 --
--- The workspace ownership is the same one the seed resolves
--- (GetWorkspaceOwnerUserID: member.role = 'owner'), so a re-seed after this
--- migration writes the values it already found.
+-- Ownership comes from the same rule the seed resolves (GetWorkspaceOwnerUserID:
+-- role = 'owner', oldest membership first, user_id as the tie-break). Both
+-- backfills read one CTE rather than each joining member: nothing enforces one
+-- owner row per workspace (promotion to 'owner' is unrestricted), and two
+-- independent joins could pick different rows, leaving the carrier and runtime
+-- owned by different people — the very split that blocks claims.
 
 -- ----------------------------------------------------------------------------
 -- 1. Every carrier admits the whole workspace.
@@ -34,12 +37,26 @@ ON CONFLICT (agent_id, target_type, target_id) DO NOTHING;
 -- ----------------------------------------------------------------------------
 -- 2. Carrier and managed runtime belong to the workspace owner.
 -- ----------------------------------------------------------------------------
-UPDATE agent a SET owner_id = m.user_id, updated_at = now()
-FROM member m
-WHERE a.system_key LIKE 'aurora:%' AND m.workspace_id = a.workspace_id AND m.role = 'owner'
-  AND a.owner_id <> m.user_id;
+WITH owner AS (
+    SELECT DISTINCT ON (workspace_id) workspace_id, user_id
+    FROM member
+    WHERE role = 'owner'
+    ORDER BY workspace_id, created_at ASC, user_id ASC
+)
+UPDATE agent a SET owner_id = o.user_id, updated_at = now()
+FROM owner o
+WHERE a.system_key LIKE 'aurora:%'
+  AND o.workspace_id = a.workspace_id
+  AND a.owner_id IS DISTINCT FROM o.user_id;
 
-UPDATE agent_runtime rt SET owner_id = m.user_id, updated_at = now()
-FROM member m
-WHERE rt.provider = 'aurora_managed' AND m.workspace_id = rt.workspace_id AND m.role = 'owner'
-  AND rt.owner_id IS DISTINCT FROM m.user_id;
+WITH owner AS (
+    SELECT DISTINCT ON (workspace_id) workspace_id, user_id
+    FROM member
+    WHERE role = 'owner'
+    ORDER BY workspace_id, created_at ASC, user_id ASC
+)
+UPDATE agent_runtime rt SET owner_id = o.user_id, updated_at = now()
+FROM owner o
+WHERE rt.provider = 'aurora_managed'
+  AND o.workspace_id = rt.workspace_id
+  AND rt.owner_id IS DISTINCT FROM o.user_id;

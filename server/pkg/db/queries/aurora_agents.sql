@@ -35,6 +35,22 @@ INSERT INTO agent_runtime (
 )
 RETURNING *;
 
+-- name: SetAuroraManagedRuntimeOwner :exec
+-- Re-homes the workspace's managed runtime onto whoever the seed resolved as
+-- the workspace owner, so an ownership transfer heals on the next seed instead
+-- of leaving the runtime on the previous owner. The daemon claim path refuses to
+-- deliver to a private runtime whose owner differs from the agent's, and the
+-- seed re-owns the carriers on every run, so this is the other half of that
+-- invariant. The predicate repeats the carrier identity so only this managed
+-- runtime can be re-homed, and the IS DISTINCT FROM test keeps a steady-state
+-- seed to a no-op rather than a write.
+UPDATE agent_runtime
+SET owner_id = @owner_id, updated_at = now()
+WHERE id = @id
+  AND workspace_id = @workspace_id
+  AND provider = @provider
+  AND owner_id IS DISTINCT FROM @owner_id;
+
 -- name: UpsertAuroraSystemAgent :one
 -- Like Mika's CreateSystemUserAgent, this product-defined agent is deliberately
 -- kind='user': members can see it, chat with it and assign issues to it.

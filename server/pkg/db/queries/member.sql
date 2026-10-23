@@ -10,8 +10,20 @@ ORDER BY created_at ASC;
 
 -- name: GetWorkspaceOwnerUserID :one
 -- The owner a product-defined carrier belongs to. Expert carriers and the
--- managed runtime must share one owner, or runtimeVerdict blocks the workspace.
-SELECT user_id FROM member WHERE workspace_id = $1 AND role = 'owner' LIMIT 1;
+-- managed runtime must share one owner: the daemon claim path refuses to
+-- deliver to a private runtime whose owner differs from the agent's.
+--
+-- Nothing enforces one owner row per workspace (promotion to 'owner' is
+-- unrestricted), so the ordering is part of the contract: without it two reads
+-- — the carrier's and the runtime's — could pick different rows and split the
+-- ownership the seed is converging. Oldest membership wins (the ordering
+-- GetPersonalWorkspaceForUser uses), with user_id as the tie-break so equal
+-- created_at values still resolve to one row. Migration 5000 picks the same row
+-- for its backfill.
+SELECT user_id FROM member
+WHERE workspace_id = $1 AND role = 'owner'
+ORDER BY created_at ASC, user_id ASC
+LIMIT 1;
 
 -- name: GetMember :one
 SELECT * FROM member

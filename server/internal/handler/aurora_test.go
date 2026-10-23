@@ -3797,3 +3797,54 @@ func TestAuroraCarrierIsAssignableByANonOwnerMember(t *testing.T) {
 		t.Fatalf("workspace invocation targets = %d, want 1", n)
 	}
 }
+
+// TestAuroraSeedRehomesAManagedRuntimeOwnedByAMember covers the ownership
+// transfer: the managed runtime already exists under an ordinary member — what
+// an earlier ownership arrangement leaves behind — and the next generation's
+// seed must move it onto the workspace owner. The carriers follow through
+// AdoptAuroraSystemAgent; if the runtime did not, the daemon claim path would
+// refuse every generation in the workspace.
+func TestAuroraSeedRehomesAManagedRuntimeOwnedByAMember(t *testing.T) {
+	if testHandler == nil || testPool == nil {
+		t.Skip("database not available")
+	}
+
+	workspaceID := dbfx.Workspace(t, "Aurora runtime owner", "aurora-runtime-owner-"+uuid.NewString())
+	dbfx.Member(t, workspaceID, testUserID, "owner")
+	memberID := dbfx.User(t, "Aurora runtime member", "aurora-runtime-member-"+uuid.NewString()+"@test.invalid")
+	dbfx.Member(t, workspaceID, memberID, "member")
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = testPool.Exec(ctx,
+			`DELETE FROM agent_invocation_target WHERE agent_id IN (SELECT id FROM agent WHERE workspace_id = $1)`, workspaceID)
+		_, _ = testPool.Exec(ctx, `DELETE FROM workspace WHERE id = $1`, workspaceID)
+	})
+
+	dbfx.Insert(t, "agent_runtime", testutil.Cols{
+		"workspace_id": workspaceID,
+		"name":         "Aurora Managed Runtime",
+		"runtime_mode": "cloud",
+		"provider":     "aurora_managed",
+		"status":       "offline",
+		"device_info":  "",
+		"metadata":     testutil.Raw("'{}'::jsonb"),
+		"owner_id":     memberID,
+		"visibility":   "private",
+	})
+
+	const slug = "media-face-swap"
+	if err := testHandler.ensureAuroraExpertSeed(context.Background(), parseUUID(workspaceID), slug); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	var runtimeOwner, carrierOwner string
+	dbfx.QueryRow(t,
+		`SELECT owner_id::text FROM agent_runtime WHERE workspace_id = $1 AND provider = 'aurora_managed'`,
+		workspaceID).Scan(&runtimeOwner)
+	dbfx.QueryRow(t,
+		`SELECT owner_id::text FROM agent WHERE workspace_id = $1 AND system_key = $2`,
+		workspaceID, aurora.SystemKey(slug)).Scan(&carrierOwner)
+	if runtimeOwner != testUserID || carrierOwner != testUserID {
+		t.Fatalf("runtime/carrier owners = %s / %s, want the workspace owner %s", runtimeOwner, carrierOwner, testUserID)
+	}
+}

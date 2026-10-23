@@ -344,6 +344,40 @@ func (q *Queries) ListAuroraSystemAgentKeys(ctx context.Context, arg ListAuroraS
 	return items, nil
 }
 
+const setAuroraManagedRuntimeOwner = `-- name: SetAuroraManagedRuntimeOwner :exec
+UPDATE agent_runtime
+SET owner_id = $1, updated_at = now()
+WHERE id = $2
+  AND workspace_id = $3
+  AND provider = $4
+  AND owner_id IS DISTINCT FROM $1
+`
+
+type SetAuroraManagedRuntimeOwnerParams struct {
+	OwnerID     pgtype.UUID `json:"owner_id"`
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	Provider    string      `json:"provider"`
+}
+
+// Re-homes the workspace's managed runtime onto whoever the seed resolved as
+// the workspace owner, so an ownership transfer heals on the next seed instead
+// of leaving the runtime on the previous owner. The daemon claim path refuses to
+// deliver to a private runtime whose owner differs from the agent's, and the
+// seed re-owns the carriers on every run, so this is the other half of that
+// invariant. The predicate repeats the carrier identity so only this managed
+// runtime can be re-homed, and the IS DISTINCT FROM test keeps a steady-state
+// seed to a no-op rather than a write.
+func (q *Queries) SetAuroraManagedRuntimeOwner(ctx context.Context, arg SetAuroraManagedRuntimeOwnerParams) error {
+	_, err := q.db.Exec(ctx, setAuroraManagedRuntimeOwner,
+		arg.OwnerID,
+		arg.ID,
+		arg.WorkspaceID,
+		arg.Provider,
+	)
+	return err
+}
+
 const upsertAuroraSkill = `-- name: UpsertAuroraSkill :one
 INSERT INTO skill (workspace_id, name, description, content, config, created_by)
 VALUES ($1, $2, '', $3, '{}'::jsonb, $4)

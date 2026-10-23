@@ -239,14 +239,30 @@ func isManagedSubskillName(expert Expert, name string) bool {
 }
 
 // ensureManagedRuntime returns the workspace's managed runtime, creating it on
-// first seed. Lookup-then-insert is the idempotency strategy: the runtime's
-// NULL daemon_id sits outside migration 121's partial unique index (NULLs are
-// distinct), so there is no ON CONFLICT arbiter to lean on. Concurrent seeds
-// could mint a second row; the call site serialises on a per-workspace lock
-// (Plan 3 Task 2), which is where that guarantee belongs.
+// first seed and re-homing it on the workspace owner when it has drifted.
+// Lookup-then-insert is the idempotency strategy: the runtime's NULL daemon_id
+// sits outside migration 121's partial unique index (NULLs are distinct), so
+// there is no ON CONFLICT arbiter to lean on. Concurrent seeds could mint a
+// second row; the call site serialises on a per-workspace lock (Plan 3 Task 2),
+// which is where that guarantee belongs.
+//
+// The existing-row branch repairs owner_id rather than only returning the id.
+// The seed re-owns the carriers on every run, so after a workspace ownership
+// transfer the agents move to the new owner while the runtime would not: the
+// daemon claim path then refuses to deliver to a private runtime whose owner
+// differs from the agent's, blocking every generation. Nothing else touches the
+// row.
 func ensureManagedRuntime(ctx context.Context, q *db.Queries, workspaceID, ownerID pgtype.UUID) (pgtype.UUID, error) {
 	runtimeID, err := ManagedRuntimeID(ctx, q, workspaceID)
 	if err == nil {
+		if err := q.SetAuroraManagedRuntimeOwner(ctx, db.SetAuroraManagedRuntimeOwnerParams{
+			OwnerID:     ownerID,
+			ID:          runtimeID,
+			WorkspaceID: workspaceID,
+			Provider:    managedRuntimeProvider,
+		}); err != nil {
+			return pgtype.UUID{}, fmt.Errorf("re-home managed runtime: %w", err)
+		}
 		return runtimeID, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
