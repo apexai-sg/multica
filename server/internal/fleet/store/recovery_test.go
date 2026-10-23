@@ -145,7 +145,7 @@ func TestRecoveryBootstrapResultValidation(t *testing.T) {
 		change func(*RecoverySnapshot, *model.Observation)
 	}{
 		{"before-mint", func(s *RecoverySnapshot, o *model.Observation) { s.Operation.BootstrapMinted = false }},
-		{"cached-before-checkpoint", func(s *RecoverySnapshot, o *model.Observation) { o.ObservedAt = now.Add(-2 * time.Second) }},
+		{"cached-before-checkpoint", func(s *RecoverySnapshot, o *model.Observation) { o.ObservedAt = now.Add(-4 * time.Second) }},
 		{"offline", func(s *RecoverySnapshot, o *model.Observation) { o.Offline = true }},
 		{"missing", func(s *RecoverySnapshot, o *model.Observation) { o.Status = "missing" }},
 		{"no-confirmed-id", func(s *RecoverySnapshot, o *model.Observation) { o.ContainerID = "" }},
@@ -374,7 +374,8 @@ func TestRecoveryObservationValidation(t *testing.T) {
 		valid  bool
 	}{
 		{"current", func(o *model.Observation) {}, true},
-		{"future", func(o *model.Observation) { o.ObservedAt = now.Add(time.Nanosecond) }, false},
+		{"future", func(o *model.Observation) { o.ObservedAt = now.Add(3 * time.Second) }, false},
+		{"future-within-clock-skew", func(o *model.Observation) { o.ObservedAt = now.Add(1500 * time.Millisecond) }, true},
 		{"stale", func(o *model.Observation) { o.ObservedAt = now.Add(-31 * time.Second) }, false},
 		{"older-than-recorded", func(o *model.Observation) { o.ObservedAt = now.Add(-2 * time.Second) }, false},
 		{"wrong-container", func(o *model.Observation) { o.ContainerID = "other" }, false},
