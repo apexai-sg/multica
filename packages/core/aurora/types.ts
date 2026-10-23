@@ -36,6 +36,20 @@ export interface CreateAuroraGenerationRequest {
 }
 
 /**
+ * Body of `POST /api/aurora/tools/{toolId}/runs`.
+ *
+ * The server owns the executor and the issue text; the client only carries what
+ * the person entered. Ids must already be uploaded workspace attachments — the
+ * server rejects one that belongs elsewhere.
+ */
+export interface CreateAuroraToolRunRequest {
+  source?: string;
+  values?: Record<string, string>;
+  fileNames?: string[];
+  attachmentIds?: string[];
+}
+
+/**
  * Paging for the generation and asset lists. Both are optional: the server
  * falls back to its own defaults (50 rows from offset 0) for a missing,
  * unparseable or out-of-range value, so a client bug cannot turn a list into a

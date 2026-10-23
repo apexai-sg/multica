@@ -10,6 +10,8 @@ import {
   auroraRuntimeNodeSchema,
   auroraSkillsSchema,
   auroraSubscriptionSchema,
+  auroraToolRunSchema,
+  auroraToolsSchema,
   auroraTopupsSchema,
   auroraTransactionsSchema,
 } from "./schema";
@@ -264,5 +266,53 @@ describe("auroraCheckoutResponseSchema", () => {
         checkoutUrl: "https://checkout.stripe.com/c/test",
       }).checkoutUrl,
     ).toBe("https://checkout.stripe.com/c/test");
+  });
+});
+
+describe("auroraToolsSchema", () => {
+  it("keeps the expert's display name alongside its slug", () => {
+    const res = auroraToolsSchema.parse({
+      tools: [
+        {
+          id: "poster",
+          expert_slug: "marketing-ad-copywriting",
+          expert_name: "广告文案专家",
+        },
+      ],
+    });
+
+    expect(res.tools[0]).toEqual({
+      id: "poster",
+      expertSlug: "marketing-ad-copywriting",
+      expertName: "广告文案专家",
+    });
+  });
+
+  it("rejects an entry with no executor rather than inventing one", () => {
+    expect(
+      auroraToolsSchema.safeParse({ tools: [{ id: "poster" }] }).success,
+    ).toBe(false);
+  });
+});
+
+describe("auroraToolRunSchema", () => {
+  it("maps the created run onto camelCase", () => {
+    expect(
+      auroraToolRunSchema.parse({
+        identifier: "MUL-42",
+        issue_id: "i-1",
+        expert: { slug: "marketing-ad-copywriting", name: "广告文案专家" },
+      }),
+    ).toEqual({
+      identifier: "MUL-42",
+      issueId: "i-1",
+      expert: { slug: "marketing-ad-copywriting", name: "广告文案专家" },
+    });
+  });
+
+  it("rejects a run with no identifier, which the client cannot link to", () => {
+    expect(
+      auroraToolRunSchema.safeParse({ issue_id: "i-1", expert: {} }).success,
+    ).toBe(false);
   });
 });
