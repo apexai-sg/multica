@@ -810,6 +810,7 @@ type DaemonToken struct {
 	DaemonID    string             `json:"daemon_id"`
 	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	OwnerID     pgtype.UUID        `json:"owner_id"`
 }
 
 type DingtalkBotIdentity struct {
@@ -1447,6 +1448,11 @@ type Member struct {
 	UserID      pgtype.UUID        `json:"user_id"`
 	Role        string             `json:"role"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type MemberDelegationDay struct {
+	UserID       pgtype.UUID `json:"user_id"`
+	ActivityDate pgtype.Date `json:"activity_date"`
 }
 
 type NotificationPreference struct {

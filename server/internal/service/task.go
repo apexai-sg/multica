@@ -43,6 +43,11 @@ import (
 )
 
 type TaskService struct {
+	// RecordMemberActivity enables the member_delegation_day ledger, which
+	// only feeds self-host telemetry. Off unless the server enables telemetry
+	// at startup, so DO_NOT_TRACK stops collection, not just delivery.
+	RecordMemberActivity bool
+
 	Queries   *db.Queries
 	TxStarter TxStarter
 	Hub       *realtime.Hub
@@ -479,6 +484,7 @@ func (s *TaskService) attributionFromComment(ctx context.Context, comment db.Com
 		CommentID:  comment.ID,
 		AuthorType: comment.AuthorType,
 		AuthorID:   comment.AuthorID,
+		CreatedAt:  comment.CreatedAt,
 	}
 	// For an agent-authored comment, walk comment.source_task_id → parent task →
 	// parent.originator_user_id (set by every agent comment-write path since
@@ -822,6 +828,26 @@ func attributionCreateParams(attr attribution.Result) (source pgtype.Text, deleg
 	evidenceKind = pgtype.Text{String: string(attr.EvidenceKind), Valid: attr.EvidenceKind != ""}
 	evidenceRef = attr.EvidenceRefID
 	return
+}
+
+// RecordHumanDelegation notes that attr's member personally started an agent
+// run, for the self-host telemetry "delegating member" counts. Call it once the
+// run row (or the fold into a queued row) is committed, with the attribution
+// that row was written with. Runs that only inherit a human (retries, system
+// wakeups, delegation, autopilot) carry HumanAction=false and are skipped.
+//
+// Best-effort and outside any caller transaction: a failed write costs one
+// activity mark, never the run.
+func (s *TaskService) RecordHumanDelegation(ctx context.Context, attr attribution.Result) {
+	if s == nil || !s.RecordMemberActivity || s.Queries == nil || !attr.HumanAction || !attr.UserID.Valid {
+		return
+	}
+	if err := s.Queries.RecordMemberDelegationDay(ctx, db.RecordMemberDelegationDayParams{
+		UserID:  attr.UserID,
+		ActedAt: attr.HumanActedAt,
+	}); err != nil {
+		slog.Warn("record member delegation day failed", "error", err)
+	}
 }
 
 // OriginatorForIssueTask exposes resolveOriginatorForIssueTask to callers
@@ -1605,6 +1631,7 @@ func (s *TaskService) enqueueIssueTaskWithCommentPlan(ctx context.Context, issue
 		"agent_id", util.UUIDToString(issue.AssigneeID),
 		"force_fresh_session", forceFreshSession,
 	)
+	s.RecordHumanDelegation(ctx, attr)
 	if fireAt.Valid {
 		return task, nil
 	}
@@ -1749,6 +1776,7 @@ func (s *TaskService) enqueueMentionTaskWithCommentPlan(ctx context.Context, iss
 	}
 
 	slog.Info("mention task enqueued", "task_id", util.UUIDToString(task.ID), "issue_id", util.UUIDToString(issue.ID), "agent_id", util.UUIDToString(agentID), "is_leader_task", isLeader)
+	s.RecordHumanDelegation(ctx, attr)
 	// See EnqueueTaskForIssue for ordering rationale.
 	s.broadcastTaskEvent(ctx, protocol.EventTaskQueued, task)
 	s.NotifyTaskEnqueued(ctx, task)
@@ -1979,6 +2007,7 @@ func (s *TaskService) enqueueQuickCreateTask(ctx context.Context, workspaceID, r
 	// cycle. Without this the user perceives "quick create never
 	// triggered" because the modal closes immediately and the task
 	// sits in 'queued' until the next sleepWithContextOrWakeup tick.
+	s.RecordHumanDelegation(ctx, attr)
 	s.NotifyTaskEnqueued(ctx, task)
 	return task, nil
 }
@@ -2458,6 +2487,12 @@ func (s *TaskService) enqueueChatTaskTx(
 
 // FinalizeChatTaskEnqueue performs only post-commit effects.
 func (s *TaskService) FinalizeChatTaskEnqueue(ctx context.Context, task db.AgentTaskQueue) {
+	// Every chat enqueue path stamps the message sender as a direct_human
+	// originator (DirectHumanRun); an unresolved sender is unattributed or
+	// owner_fallback and is skipped here.
+	if task.OriginatorSource.String == string(attribution.SourceDirectHuman) && !task.RetryOfTaskID.Valid {
+		s.RecordHumanDelegation(ctx, attribution.Result{UserID: task.OriginatorUserID, HumanAction: true})
+	}
 	if task.Status == "deferred" {
 		slog.Info("chat task deferred for channel media",
 			"task_id", util.UUIDToString(task.ID),
@@ -2825,6 +2860,7 @@ func (s *TaskService) SendDirectChatMessage(
 		"task_id", util.UUIDToString(out.Task.ID),
 		"chat_session_id", util.UUIDToString(session.ID),
 		"agent_id", util.UUIDToString(session.AgentID))
+	s.RecordHumanDelegation(ctx, attr)
 	// Notify only after commit. See EnqueueTaskForIssue for ordering rationale.
 	s.broadcastTaskEvent(ctx, protocol.EventTaskQueued, out.Task)
 	s.NotifyTaskEnqueued(ctx, out.Task)
@@ -4190,7 +4226,16 @@ func (s *TaskService) FinalizeTaskClaim(
 			if err := qtx.DeleteExpiredDaemonTokens(ctx); err != nil {
 				return fmt.Errorf("delete expired daemon tokens: %w", err)
 			}
-			if _, err := qtx.CreateDaemonToken(ctx, daemonTokens[0]); err != nil {
+			// Bind the credential to the same owner the task token was just
+			// minted for (the locked runtime owner, set by authorize), so it
+			// can never reach a runtime another member later registers under
+			// this daemon_id (MUL-8154).
+			daemonToken := daemonTokens[0]
+			daemonToken.OwnerID = token.UserID
+			if !daemonToken.OwnerID.Valid {
+				return fmt.Errorf("create remote MCP daemon token: runtime owner required")
+			}
+			if _, err := qtx.CreateDaemonToken(ctx, daemonToken); err != nil {
 				return fmt.Errorf("create remote MCP daemon token: %w", err)
 			}
 		}
@@ -6514,9 +6559,9 @@ func (s *TaskService) terminateTasksInTx(ctx context.Context, fail func(*db.Quer
 // task and isn't being retried) resetting the issue back to todo so the
 // daemon can pick it up again.
 //
-// All callers that surface a task as failed — sweepers, FailTask,
-// recover-orphans — funnel through here so the same UI-consistency
-// guarantees apply on every code path.
+// The bulk failure paths — sweepers and recover-orphans — funnel through
+// here so the same UI-consistency guarantees apply on each of them.
+// FailTaskWithTransition runs its own failure side effects.
 func (s *TaskService) HandleFailedTasks(ctx context.Context, tasks []db.AgentTaskQueue) int {
 	if len(tasks) == 0 {
 		return 0
@@ -6545,6 +6590,11 @@ func (s *TaskService) HandleFailedTasks(ctx context.Context, tasks []db.AgentTas
 					"delegated_from_task_id", util.UUIDToString(t.DelegatedFromTaskID),
 					"error", err,
 				)
+			}
+			// Same terminal-failure comment FailTaskWithTransition posts, so
+			// swept tasks are not silent on their issue.
+			if t.IssueID.Valid && t.Error.String != "" {
+				s.createAgentComment(ctx, t.IssueID, t.AgentID, redact.Text(t.Error.String), "system", t.TriggerCommentID, t.ID)
 			}
 		}
 
