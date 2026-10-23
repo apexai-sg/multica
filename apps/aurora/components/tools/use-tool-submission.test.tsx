@@ -48,7 +48,12 @@ vi.mock("@multica/core/aurora", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@multica/core/aurora")>()),
   auroraToolsOptions: (wsId: string) => ({
     queryKey: ["aurora", wsId, "tools"],
-    queryFn: async () => toolsResult(await mocks.listTools(wsId)),
+    queryFn: async () => {
+      const result = await mocks.listTools(wsId);
+      // A bare array is the ordinary fixture; a ParseResult lets a test choose
+      // the degraded path.
+      return Array.isArray(result) ? toolsResult(result) : result;
+    },
   }),
   createAuroraToolRun: mocks.createToolRun,
 }));
@@ -170,6 +175,38 @@ describe("useToolSubmission", () => {
     });
 
     expect(mocks.createToolRun).not.toHaveBeenCalled();
+  });
+
+  it("reports an unreadable tool directory as an error, not as a missing executor", async () => {
+    // A degraded body parses to an empty directory; calling that "no-expert"
+    // would claim the server is unconfigured and offer no reload.
+    mocks.listTools.mockResolvedValue({ value: [], degraded: true });
+    const { result } = await render();
+
+    expect(result.current.status).toBe("error");
+    expect(result.current.canSubmit).toBe(false);
+  });
+
+  it("reads the agent list only after the tool directory has answered", async () => {
+    // The tools read is what seeds the carriers; reading agents in parallel
+    // would resolve "no-agent" from a list that predates the seed.
+    let releaseTools!: (tools: unknown[]) => void;
+    mocks.listTools.mockReturnValueOnce(
+      new Promise((resolve) => {
+        releaseTools = resolve;
+      }),
+    );
+    const view = renderHook(() => useToolSubmission(tool, "acme"), { wrapper });
+
+    expect(view.result.current.status).toBe("loading");
+    expect(mocks.listAgents).not.toHaveBeenCalled();
+
+    await act(async () => {
+      releaseTools([mapping("poster", "marketing-ad-copywriting")]);
+    });
+
+    await waitFor(() => expect(view.result.current.status).toBe("ready"));
+    expect(mocks.listAgents).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the button disabled when the mapped carrier has no runtime", async () => {

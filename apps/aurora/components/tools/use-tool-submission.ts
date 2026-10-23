@@ -4,7 +4,11 @@ import { useCallback, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@multica/core/api";
 import { isAgentRuntimeBound } from "@multica/core/agents";
-import { auroraToolsOptions, createAuroraToolRun } from "@multica/core/aurora";
+import {
+  auroraToolsOptions,
+  createAuroraToolRun,
+  isAuroraDegraded,
+} from "@multica/core/aurora";
 import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { useFileUpload } from "@multica/core/hooks/use-file-upload";
@@ -93,12 +97,16 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
     isError: toolsError,
     refetch: refetchTools,
   } = useQuery(auroraToolsOptions(wsId));
+  // The tools read seeds the workspace's carriers server-side, so the agent list
+  // must start only after it settles. Firing both together would let a fresh
+  // workspace resolve "no-agent" from a list read before the seed committed, and
+  // "重新加载" would never converge.
   const {
     data: agents,
     isLoading: agentsLoading,
     isError: agentsError,
     refetch: refetchAgents,
-  } = useQuery(agentListOptions(wsId));
+  } = useQuery({ ...agentListOptions(wsId), enabled: !toolsLoading });
   const {
     data: members,
     isLoading: membersLoading,
@@ -135,10 +143,13 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
     : null;
   const runnable = carrier !== null && isAgentRuntimeBound(carrier);
 
+  // A degraded tools body parses to an empty directory. Reading that as
+  // "no-expert" would tell the user the server has no executor — a claim about
+  // configuration that is false, with no reload offered. It is a load failure.
   const status: ToolSubmissionStatus =
     toolsLoading || agentsLoading || membersLoading
       ? "loading"
-      : toolsError || agentsError || membersError
+      : toolsError || isAuroraDegraded(tools) || agentsError || membersError
         ? "error"
         : !executor
           ? "no-expert"
