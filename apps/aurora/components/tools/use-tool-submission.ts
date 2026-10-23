@@ -4,11 +4,16 @@ import { useCallback, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@multica/core/api";
 import { isAgentRuntimeBound } from "@multica/core/agents";
+import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { useFileUpload } from "@multica/core/hooks/use-file-upload";
 import { useCreateIssue } from "@multica/core/issues/mutations";
-import type { Agent, Issue } from "@multica/core/types";
-import { agentListOptions } from "@multica/core/workspace/queries";
+import { canAssignAgentToIssue } from "@multica/core/permissions";
+import type { Agent, Issue, MemberRole } from "@multica/core/types";
+import {
+  agentListOptions,
+  memberListOptions,
+} from "@multica/core/workspace/queries";
 import { useNavigation } from "@multica/views/navigation";
 import { auroraIssueHrefFor } from "@/lib/issue-link";
 import type { ToolDefinition } from "./tool-definitions";
@@ -64,21 +69,31 @@ export function toolSubmissionNotice(status: ToolSubmissionStatus): string {
  * comment and/or attachments, which the issue detail page renders. The user
  * lands on that detail page, so the run and its output share one address.
  *
- * Which agent runs it is decided from the workspace's own agent list — the
- * built-in assistant when present, otherwise the oldest agent that still has a
- * runtime. Tools deliberately carry no `agentKey`: the retired skill ids do not
- * map onto the current expert catalog, so a per-tool key could only match by
- * accident. Any agent the workspace can address is expected to handle the text
- * part of a tool task; media generation still depends on its providers.
+ * Which agent runs it is decided from the agents the viewer may assign in this
+ * workspace — the built-in assistant when present, otherwise the oldest agent
+ * that still has a runtime. Tools deliberately carry no `agentKey`: the
+ * retired skill ids do not map onto the current expert catalog, so a per-tool
+ * key could only match by accident. Any agent the viewer can assign is
+ * expected to handle the text part of a tool task; media generation still
+ * depends on its providers.
  */
 export function useToolSubmission(tool: ToolDefinition, slug: string) {
   const wsId = useWorkspaceId();
+  const userId = useAuthStore((s) => s.user?.id ?? null);
   const {
     data: agents,
     isLoading,
     isError,
     refetch,
   } = useQuery(agentListOptions(wsId));
+  // The agent list shows admins every agent in the workspace, including other
+  // members' private ones, while the backend's invocation gate refuses to
+  // assign work to those — the submission would upload its attachments first
+  // and then fail with a 403. The viewer's role is what decides that gate, so
+  // it has to resolve before the list can be narrowed.
+  const { data: members, isLoading: membersLoading } = useQuery(
+    memberListOptions(wsId),
+  );
   const createIssue = useCreateIssue();
   const { upload } = useFileUpload(api);
   const navigation = useNavigation();
@@ -90,22 +105,33 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
   // lock; `pending` is only what the UI renders.
   const inFlight = useRef(false);
 
-  const activeAgents = (agents ?? []).filter((candidate) => !candidate.archived_at);
+  const rawRole = members?.find((m) => m.user_id === userId)?.role;
+  const role: MemberRole | null =
+    rawRole === "owner" || rawRole === "admin" || rawRole === "member"
+      ? rawRole
+      : null;
+
+  const activeAgents = (agents ?? []).filter(
+    (candidate) =>
+      !candidate.archived_at &&
+      canAssignAgentToIssue(candidate, { userId, role }).allowed,
+  );
   const runnableAgents = activeAgents.filter(isAgentRuntimeBound);
   const agent: Agent | null =
     runnableAgents.find((candidate) => candidate.system_key === "mika") ??
     runnableAgents[0] ??
     null;
 
-  const status: ToolSubmissionStatus = isLoading
-    ? "loading"
-    : isError
-      ? "error"
-      : runnableAgents.length > 0
-        ? "ready"
-        : activeAgents.length > 0
-          ? "no-runtime"
-          : "no-agent";
+  const status: ToolSubmissionStatus =
+    isLoading || membersLoading
+      ? "loading"
+      : isError
+        ? "error"
+        : runnableAgents.length > 0
+          ? "ready"
+          : activeAgents.length > 0
+            ? "no-runtime"
+            : "no-agent";
 
   const canSubmit = status === "ready" && !pending;
 
