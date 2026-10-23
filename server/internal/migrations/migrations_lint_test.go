@@ -67,12 +67,41 @@ var grandfatheredSharedPrefixes = map[int]string{
 	570: "570_channel_typing_quota_idx / 570_fleet_credentials_hash_index",
 	571: "571_channel_typing_expiry_idx / 571_fleet_profiles_id_index",
 	572: "572_channel_typing_abandoned_idx / 572_fleet_profiles_owner_index",
+	573: "573_fleet_nodes_owner_index / 573_issue_workflow",
+	574: "574_fleet_operations_pending_index / 574_issue_workflow_pkey_index",
+	575: "575_fleet_runtime_node_index / 575_issue_workflow_primary_key",
+	576: "576_fleet_provisioning_snapshot / 576_issue_workflow_workspace_name_index",
+	577: "577_fleet_recovery_fences / 577_project_workflow_id",
+	578: "578_agent_task_workflow_step / 578_fleet_lifecycle_dispatch",
+	579: "579_fleet_namespace_fences / 579_wakeup_skip_handed_to_agent",
+	581: "581_fleet_namespace_finalized / 581_issue_workflow_is_default",
+	582: "582_fleet_namespace_manifest / 582_issue_workflow_default_index",
+	583: "583_fleet_nodes_aurora_dimensions / 583_runtime_profile_add_muse",
+	584: "584_fleet_nodes_workspace_index / 584_quick_action_optional_target",
+	585: "585_aurora_agents_visible / 585_issue_workflow_owner",
+	586: "586_aurora_generation_issue / 586_cloud_agent_connection",
+	587: "587_aurora_generation_issue_idx / 587_cloud_agent_connection_provider_index",
+	588: "588_aurora_asset_media_url_idx / 588_daemon_token_owner",
 }
 
-// auroraLegacyPrefixes are the Aurora migrations that shipped before the
+// forkLegacyPrefixes are the fork's own migrations that shipped before the
 // reserved range existed. They are applied on live databases, so they keep
-// their numbers; only new Aurora migrations must use the reserved range.
-var auroraLegacyPrefixes = map[int]bool{500: true, 501: true, 506: true, 507: true, 508: true, 509: true, 510: true, 511: true, 512: true, 513: true, 514: true, 515: true, 516: true, 517: true, 518: true, 519: true, 520: true, 521: true, 522: true, 523: true, 524: true, 525: true, 526: true, 527: true, 528: true, 529: true, 530: true, 531: true, 532: true, 533: true, 534: true, 535: true, 536: true, 537: true, 583: true, 585: true, 586: true, 587: true, 588: true}
+// their numbers; only new fork migrations must use the reserved range.
+var forkLegacyPrefixes = map[int]bool{
+	// Aurora.
+	500: true, 501: true, 506: true, 507: true, 508: true, 509: true,
+	510: true, 511: true, 512: true, 513: true, 514: true, 515: true,
+	516: true, 517: true, 518: true, 519: true, 520: true, 521: true,
+	522: true, 523: true, 524: true, 525: true, 526: true, 527: true,
+	528: true, 529: true, 530: true, 531: true, 532: true, 533: true,
+	534: true, 535: true, 536: true, 537: true,
+	// Fleet.
+	564: true, 565: true, 566: true, 567: true, 568: true, 569: true, 570: true, 571: true, 572: true,
+	573: true, 574: true, 575: true, 576: true, 577: true, 578: true, 579: true, 580: true, 581: true,
+	582: true, 583: true, 584: true,
+	// Aurora after the Fleet range.
+	585: true, 586: true, 587: true, 588: true,
+}
 
 func TestMigrationNumericPrefixesAreUnique(t *testing.T) {
 	files := migrationFilesForLint(t, "*.up.sql")
@@ -109,15 +138,42 @@ func TestMigrationNumericPrefixesAreUnique(t *testing.T) {
 	}
 }
 
+// TestGrandfatheredPrefixesStillCollide keeps the grandfather list honest: once
+// one side of a historical collision disappears (for example a deleted or
+// renumbered migration), the exemption must go too, or it would silently allow
+// a future duplicate to reuse that number.
+func TestGrandfatheredPrefixesStillCollide(t *testing.T) {
+	files := migrationFilesForLint(t, "*.up.sql")
+	count := map[int]int{}
+	for _, file := range files {
+		stem, _, ok := splitMigrationFilename(filepath.Base(file))
+		if !ok {
+			continue
+		}
+		prefix, _, ok := strings.Cut(stem, "_")
+		if !ok {
+			continue
+		}
+		if n, err := strconv.Atoi(prefix); err == nil {
+			count[n]++
+		}
+	}
+	for number := range grandfatheredSharedPrefixes {
+		if count[number] < 2 {
+			t.Errorf("grandfathered prefix %d no longer collides; remove it", number)
+		}
+	}
+}
+
 // TestAuroraMigrationsUseTheReservedRange keeps the fork's own migrations from
-// colliding with upstream again. Aurora is fork-only, so it owns the reserved
-// range; the migrations that predate the range are listed explicitly.
+// colliding with upstream again. Aurora and Fleet are fork-only, so they own the
+// reserved range; the migrations that predate the range are listed explicitly.
 func TestAuroraMigrationsUseTheReservedRange(t *testing.T) {
 	files := migrationFilesForLint(t, "*.up.sql")
 
 	for _, file := range files {
 		stem, _, ok := splitMigrationFilename(filepath.Base(file))
-		if !ok || !strings.Contains(stem, "aurora") {
+		if !ok || !(strings.Contains(stem, "aurora") || strings.Contains(stem, "fleet")) {
 			continue
 		}
 		prefix, _, ok := strings.Cut(stem, "_")
@@ -128,10 +184,10 @@ func TestAuroraMigrationsUseTheReservedRange(t *testing.T) {
 		if err != nil {
 			continue
 		}
-		if number >= auroraMigrationReservedNumber || auroraLegacyPrefixes[number] {
+		if number >= auroraMigrationReservedNumber || forkLegacyPrefixes[number] {
 			continue
 		}
-		t.Errorf("Aurora migration %s must use a number >= %d", stem, auroraMigrationReservedNumber)
+		t.Errorf("fork migration %s must use a number >= %d", stem, auroraMigrationReservedNumber)
 	}
 }
 
