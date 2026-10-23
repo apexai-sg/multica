@@ -23,10 +23,14 @@ const (
 	AttachmentVideo    AttachmentKind = "video"
 )
 
-// documentAttachmentMaxBytes caps one expert input document. It is the only
-// live per-file cap: every expert accepts a written request plus an optional
-// document.
+// documentAttachmentMaxBytes caps one expert input document: a written request
+// plus an optional document.
 const documentAttachmentMaxBytes = 25 << 20
+
+// mediaAttachmentMaxBytes caps one expert input image, audio or video file.
+// It matches the upload path's own per-file ceiling (maxUploadSize), so a media
+// expert accepts every file the platform lets a user upload.
+const mediaAttachmentMaxBytes = 100 << 20
 
 // AttachmentConstraint is one rule over a set of input files. All kinds listed
 // in one constraint count together, so transcription's "exactly one audio or
@@ -77,6 +81,18 @@ func documentConstraint(min, max int) []AttachmentConstraint {
 		Min:      min,
 		Max:      max,
 		MaxBytes: documentAttachmentMaxBytes,
+	}}
+}
+
+// mediaConstraint is one rule over the given media kinds. Several kinds in one
+// call count together, so "at most one video or audio file" is a single
+// constraint with two alternative kinds rather than two rules.
+func mediaConstraint(min, max int, kinds ...AttachmentKind) []AttachmentConstraint {
+	return []AttachmentConstraint{{
+		Kinds:    kinds,
+		Min:      min,
+		Max:      max,
+		MaxBytes: mediaAttachmentMaxBytes,
 	}}
 }
 

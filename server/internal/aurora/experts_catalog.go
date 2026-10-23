@@ -5,10 +5,19 @@ package aurora
 // description and the brief; pricing, category, feature flag and input rules
 // are decisions this repository owns and curates here.
 type expertDef struct {
-	Slug        string
-	Category    string
-	Credits     int
-	Featured    bool
+	Slug     string
+	Category string
+	Credits  int
+	Featured bool
+	// Inputs and Outputs name the modalities this expert accepts and delivers.
+	// Empty means the package defaults (a written request plus an optional
+	// document in, one text deliverable out). A media expert overrides them so
+	// the directory stops advertising "text only" for a skill that returns an
+	// image. The first output is the primary one.
+	Inputs  []string
+	Outputs []string
+	// Attachments is the input policy. A media expert takes an image or a
+	// video where a text expert takes a document.
 	Attachments []AttachmentConstraint
 }
 
@@ -41,6 +50,7 @@ var expertDefs = []expertDef{
 	// design
 	{Slug: "design-prd-writing", Category: "design", Credits: 90, Featured: true, Attachments: documentConstraint(0, 1)},
 	{Slug: "design-ui-prototype", Category: "design", Credits: 90, Attachments: documentConstraint(0, 1)},
+	{Slug: "design-website-build", Category: "design", Credits: 90, Attachments: documentConstraint(0, 1)},
 	// ecommerce
 	{Slug: "ecommerce-bidding-strategy", Category: "ecommerce", Credits: 80, Featured: true, Attachments: documentConstraint(0, 1)},
 	{Slug: "ecommerce-pricing-analysis", Category: "ecommerce", Credits: 80, Attachments: documentConstraint(0, 1)},
@@ -60,10 +70,23 @@ var expertDefs = []expertDef{
 	{Slug: "marketing-social-media-operation", Category: "marketing", Credits: 80, Attachments: documentConstraint(0, 1)},
 	{Slug: "marketing-user-growth", Category: "marketing", Credits: 80, Attachments: documentConstraint(0, 1)},
 	// media
+	// media-face-swap delivers a plan, never a fabricated video: no verified
+	// face-swap model exists, so its only declared output is the text brief.
+	{Slug: "media-face-swap", Category: "media", Credits: 120, Inputs: []string{"text", "image"}, Attachments: mediaConstraint(0, 1, AttachmentImage)},
+	{Slug: "media-image-retouch", Category: "media", Credits: 120, Inputs: []string{"text", "image"}, Outputs: []string{"text", "image"}, Attachments: mediaConstraint(0, 1, AttachmentImage)},
+	{Slug: "media-portrait-studio", Category: "media", Credits: 120, Inputs: []string{"text", "image"}, Outputs: []string{"text", "image"}, Attachments: mediaConstraint(0, 1, AttachmentImage)},
 	{Slug: "media-script-breakdown", Category: "media", Credits: 120, Featured: true, Attachments: documentConstraint(0, 1)},
 	{Slug: "media-short-video-copy", Category: "media", Credits: 120, Attachments: documentConstraint(0, 1)},
 	{Slug: "media-storyboard-design", Category: "media", Credits: 120, Attachments: documentConstraint(0, 1)},
 	{Slug: "media-video-editing", Category: "media", Credits: 120, Attachments: documentConstraint(0, 1)},
+	{Slug: "media-video-translation", Category: "media", Credits: 120, Inputs: []string{"text", "video", "audio"}, Outputs: []string{"text", "video"}, Attachments: mediaConstraint(0, 1, AttachmentVideo, AttachmentAudio)},
+	// media-voiceover declares text only: the artifact pipeline has no audio
+	// kind, so advertising audio would promise a deliverable it cannot carry.
+	{Slug: "media-voiceover", Category: "media", Credits: 120, Attachments: documentConstraint(0, 1)},
+	// office
+	{Slug: "office-document-reading", Category: "office", Credits: 60, Attachments: documentConstraint(0, 1)},
+	{Slug: "office-resume-optimization", Category: "office", Credits: 60, Outputs: []string{"text", "pdf"}, Attachments: documentConstraint(0, 1)},
+	{Slug: "office-spreadsheet-analysis", Category: "office", Credits: 60, Attachments: documentConstraint(0, 1)},
 }
 
 // expertDefFor resolves one curated row.

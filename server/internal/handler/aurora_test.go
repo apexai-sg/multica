@@ -46,8 +46,8 @@ func TestListAuroraSkills(t *testing.T) {
 	if got := response.Header().Get("Content-Type"); got != "application/json" {
 		t.Errorf("Content-Type = %q, want application/json", got)
 	}
-	if len(out.Skills) != 24 {
-		t.Fatalf("expected 24 experts, got %d", len(out.Skills))
+	if len(out.Skills) != 33 {
+		t.Fatalf("expected 33 experts, got %d", len(out.Skills))
 	}
 	available := 0
 	for _, s := range out.Skills {
@@ -155,8 +155,8 @@ func TestListAuroraSkillsIncludesCarrierAvatars(t *testing.T) {
 		} `json:"skills"`
 	}
 	testutil.Call(t, testHandler.ListAuroraSkills, req).Want(http.StatusOK).JSON(&out)
-	if len(out.Skills) != 24 {
-		t.Fatalf("expected 24 experts, got %d", len(out.Skills))
+	if len(out.Skills) != 33 {
+		t.Fatalf("expected 33 experts, got %d", len(out.Skills))
 	}
 	avatars := make(map[string]string, len(out.Skills))
 	for _, s := range out.Skills {

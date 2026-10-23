@@ -265,11 +265,22 @@ func TestValidateSkillInputsRejectsForeignWorkspaceOrOwner(t *testing.T) {
 	}
 }
 
-// TestExpertInputRulesMatchTheCuratedTable pins what every vendored expert
-// accepts and where it runs: a written request plus at most one document, on
-// the ordinary-agent text route.
+// TestExpertInputRulesMatchTheCuratedTable pins what every expert accepts and
+// where it runs. A text expert takes a written request plus at most one
+// document; a media expert takes one media file at the upload path's own
+// ceiling instead. Every expert runs the ordinary-agent text route.
 func TestExpertInputRulesMatchTheCuratedTable(t *testing.T) {
-	want := []aurora.AttachmentConstraint{documentConstraint(0, 1)}
+	// mediaInputs pins the experts whose input rule is not the package default.
+	// A media expert takes one media file at the upload path's own ceiling.
+	mediaOne := func(kinds ...aurora.AttachmentKind) []aurora.AttachmentConstraint {
+		return []aurora.AttachmentConstraint{{Kinds: kinds, Min: 0, Max: 1, MaxBytes: 100 << 20}}
+	}
+	mediaInputs := map[string][]aurora.AttachmentConstraint{
+		"media-face-swap":         mediaOne(aurora.AttachmentImage),
+		"media-image-retouch":     mediaOne(aurora.AttachmentImage),
+		"media-portrait-studio":   mediaOne(aurora.AttachmentImage),
+		"media-video-translation": mediaOne(aurora.AttachmentVideo, aurora.AttachmentAudio),
+	}
 	for _, entry := range aurora.Catalog() {
 		policy, ok := aurora.ExecutionPolicy(entry.ID)
 		if !ok {
@@ -278,6 +289,10 @@ func TestExpertInputRulesMatchTheCuratedTable(t *testing.T) {
 		if policy.Route != "claude-text" {
 			t.Errorf("expert %q route = %q, want claude-text", entry.ID, policy.Route)
 		}
+		want, pinned := mediaInputs[entry.ID]
+		if !pinned {
+			want = []aurora.AttachmentConstraint{documentConstraint(0, 1)}
+		}
 		if !reflect.DeepEqual(policy.Attachments, want) {
 			t.Errorf("expert %q attachments = %#v, want %#v", entry.ID, policy.Attachments, want)
 		}
@@ -285,7 +300,7 @@ func TestExpertInputRulesMatchTheCuratedTable(t *testing.T) {
 }
 
 // TestExecutionPolicyCoversEveryAvailableSkill asserts the policy table is
-// complete for the 24 runnable experts and absent for everything else.
+// complete for the 33 runnable experts and absent for everything else.
 func TestExecutionPolicyCoversEveryAvailableSkill(t *testing.T) {
 	available := 0
 	for _, entry := range aurora.Catalog() {

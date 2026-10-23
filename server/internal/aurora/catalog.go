@@ -13,7 +13,7 @@ type SkillCatalogEntry struct {
 	ID        string   `json:"id"`
 	Name      string   `json:"name"`     // Chinese display name
 	NameEn    string   `json:"name_en"`  // English display name
-	Category  string   `json:"category"` // image | video | content | office
+	Category  string   `json:"category"` // the curated scene: content-creation | design | ecommerce | legal | marketing | media | office
 	Credits   int      `json:"credits"`
 	Input     []string `json:"input"`
 	Output    []string `json:"output"`
@@ -32,11 +32,12 @@ type SkillCatalogEntry struct {
 	AvatarURL string `json:"avatar_url,omitempty"`
 }
 
-// catalog is the one product-facing skill directory: the 24 vendored experts in
-// fixed display order (the vendored index is alphabetical by slug, which groups
-// the six SkillHub scenes). It is built once from that index plus the curated
-// table in experts_catalog.go, so an expert without a definition — or a
-// definition without an expert — fails loudly at init.
+// catalog is the one product-facing skill directory: the 33 experts in fixed
+// display order (the vendored index is alphabetical by slug, which groups the
+// six SkillHub scenes; the locally authored ones sort into the same order). It
+// is built once from that index plus the curated table in experts_catalog.go,
+// so an expert without a definition — or a definition without an expert —
+// fails loudly at init.
 var catalog = buildCatalog()
 
 func buildCatalog() []SkillCatalogEntry {
@@ -47,14 +48,21 @@ func buildCatalog() []SkillCatalogEntry {
 		if !ok {
 			panic(fmt.Sprintf("aurora: expert %q has no catalog definition", expert.Slug))
 		}
+		inputs, outputs := def.Inputs, def.Outputs
+		if len(inputs) == 0 {
+			inputs = expertInputs
+		}
+		if len(outputs) == 0 {
+			outputs = expertOutputs
+		}
 		entries = append(entries, SkillCatalogEntry{
 			ID:        expert.Slug,
 			Name:      expert.NameZh,
 			NameEn:    expert.NameEn,
 			Category:  def.Category,
 			Credits:   def.Credits,
-			Input:     slices.Clone(expertInputs),
-			Output:    slices.Clone(expertOutputs),
+			Input:     slices.Clone(inputs),
+			Output:    slices.Clone(outputs),
 			Featured:  def.Featured,
 			Available: true,
 		})
@@ -65,7 +73,7 @@ func buildCatalog() []SkillCatalogEntry {
 	return entries
 }
 
-// Catalog returns an independent copy of the 24 experts in fixed display order,
+// Catalog returns an independent copy of the 33 experts in fixed display order,
 // each carrying its execution policy's attachment rules. Every entry is
 // available: the three phase-2 skills the catalog used to list are gone.
 func Catalog() []SkillCatalogEntry {
