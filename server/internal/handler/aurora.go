@@ -532,24 +532,28 @@ func (h *Handler) ensureFreeMonthlyGrant(ctx context.Context, userID pgtype.UUID
 	return h.Credit.EnsureMonthlyAllowance(ctx, userID, wsID, h.Tiers.FreeMonthlyMicro(), time.Now())
 }
 
-// ensureAuroraCatalogSeed materialises the whole expert catalog for a workspace
-// that has fewer carriers than the catalog has experts, and does nothing for a
-// workspace that is already complete.
+// ensureAuroraCatalogSeed gives a workspace the carriers it has never had: the
+// experts whose aurora:<slug> key is absent from the workspace entirely. It
+// writes nothing once every catalog expert has a key.
 //
-// The carrier count is the guard rather than a "seeded" flag: a workspace seeded
-// by a build with a smaller catalog is below it and converges here, and a
-// complete workspace pays one indexed count per directory load instead of 33
-// idempotent upserts. The common case therefore takes no transaction and no
-// lock.
+// It is a key-set diff, not a row count, and archived rows count as present.
+// The difference matters when a member archives a carrier: the generation path
+// calls AdoptAuroraSystemAgent, which clears archived_at to recover a stale
+// runtime binding, and that is right there — but a directory load must not undo
+// the member's archive, so a present-but-archived key is not missing.
+//
+// The diff is the guard rather than a "seeded" flag: a workspace seeded by a
+// build with a smaller catalog is missing the newer slugs and converges here,
+// and a complete workspace pays one indexed key query per directory load. The
+// common case therefore takes no transaction and no lock.
 //
 // The seed itself runs under the per-workspace advisory lock generation
-// creation uses, and re-checks the count inside it: the managed-runtime
-// lookup-then-insert below has no ON CONFLICT arbiter (see
-// ensureAuroraExpertSeed), so two concurrent first entries would otherwise mint
-// two managed runtimes.
+// creation uses, and re-diffs inside it: the managed-runtime lookup-then-insert
+// below has no ON CONFLICT arbiter (see ensureAuroraExpertSeed), so two
+// concurrent first entries would otherwise mint two managed runtimes.
 func (h *Handler) ensureAuroraCatalogSeed(ctx context.Context, workspaceID pgtype.UUID) error {
-	complete, err := auroraCatalogComplete(ctx, h.Queries, workspaceID)
-	if err != nil || complete {
+	missing, err := auroraMissingCatalogExperts(ctx, h.Queries, workspaceID)
+	if err != nil || len(missing) == 0 {
 		return err
 	}
 	tx, err := h.TxStarter.Begin(ctx)
@@ -561,9 +565,10 @@ func (h *Handler) ensureAuroraCatalogSeed(ctx context.Context, workspaceID pgtyp
 		return err
 	}
 	q := h.Queries.WithTx(tx)
-	// The request that held the lock before this one may have just finished the
-	// same seed, which the pre-check above ran too early to see.
-	if complete, err := auroraCatalogComplete(ctx, q, workspaceID); err != nil || complete {
+	// The request that held the lock before this one may have just seeded these
+	// experts, which the pre-check above ran too early to see.
+	missing, err = auroraMissingCatalogExperts(ctx, q, workspaceID)
+	if err != nil || len(missing) == 0 {
 		return err
 	}
 	// Expert carriers and the managed runtime share this owner: runtimeVerdict
@@ -572,23 +577,39 @@ func (h *Handler) ensureAuroraCatalogSeed(ctx context.Context, workspaceID pgtyp
 	if err != nil {
 		return fmt.Errorf("get workspace owner: %w", err)
 	}
-	if err := aurora.EnsureSystemAgents(ctx, q, workspaceID, ownerID); err != nil {
-		return fmt.Errorf("seed aurora system agents: %w", err)
+	for _, skillID := range missing {
+		if err := aurora.EnsureAuroraExpert(ctx, q, workspaceID, ownerID, skillID); err != nil {
+			return fmt.Errorf("seed aurora expert %q: %w", skillID, err)
+		}
 	}
 	return tx.Commit(ctx)
 }
 
-// auroraCatalogComplete reports whether the workspace already carries one live
-// carrier per catalog expert.
-func auroraCatalogComplete(ctx context.Context, q *db.Queries, workspaceID pgtype.UUID) (bool, error) {
-	carriers, err := q.CountAuroraSystemAgents(ctx, db.CountAuroraSystemAgentsParams{
+// auroraMissingCatalogExperts returns the catalog skills whose carrier key the
+// workspace does not have at all. An archived carrier still has its key, so it
+// is not missing; that is what keeps a directory load from resurrecting an
+// expert the member archived.
+func auroraMissingCatalogExperts(ctx context.Context, q *db.Queries, workspaceID pgtype.UUID) ([]string, error) {
+	keys, err := q.ListAuroraSystemAgentKeys(ctx, db.ListAuroraSystemAgentKeysParams{
 		WorkspaceID:     workspaceID,
 		SystemKeyPrefix: strToText(aurora.SystemKeyPrefix + "%"),
 	})
 	if err != nil {
-		return false, fmt.Errorf("count aurora carriers: %w", err)
+		return nil, fmt.Errorf("list aurora carrier keys: %w", err)
 	}
-	return carriers >= int64(len(aurora.Catalog())), nil
+	present := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		if key.Valid {
+			present[key.String] = struct{}{}
+		}
+	}
+	missing := make([]string, 0, len(aurora.Catalog()))
+	for _, entry := range aurora.Catalog() {
+		if _, ok := present[aurora.SystemKey(entry.ID)]; !ok {
+			missing = append(missing, entry.ID)
+		}
+	}
+	return missing, nil
 }
 
 // ensureAuroraExpertSeed serialises the idempotent expert seed behind a

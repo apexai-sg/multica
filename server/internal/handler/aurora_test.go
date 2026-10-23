@@ -3676,3 +3676,55 @@ func TestEnsureAuroraCatalogSeedSeedsEveryExpertOnce(t *testing.T) {
 		t.Fatalf("second seed duplicated the managed runtime: %d", n)
 	}
 }
+
+// TestEnsureAuroraCatalogSeedDoesNotResurrectArchivedCarrier pins the guard's
+// key-set semantics: a carrier the member archived still exists, so the
+// directory load leaves it alone instead of re-adopting it (AdoptAuroraSystemAgent
+// clears archived_at) on every page load. A carrier whose row is gone entirely is
+// still the seed's job.
+func TestEnsureAuroraCatalogSeedDoesNotResurrectArchivedCarrier(t *testing.T) {
+	if testHandler == nil || testPool == nil {
+		t.Skip("database not available")
+	}
+	workspaceID := dbfx.Workspace(t, "Aurora archived carrier", "aurora-archived-carrier-"+uuid.NewString())
+	dbfx.Member(t, workspaceID, testUserID, "owner")
+	t.Cleanup(func() {
+		_, _ = testPool.Exec(context.Background(), `DELETE FROM workspace WHERE id = $1`, workspaceID)
+	})
+
+	const (
+		archivedSlug = "design-prd-writing"
+		removedSlug  = "media-short-video-copy"
+	)
+	archivedKey := aurora.SystemKey(archivedSlug)
+	removedKey := aurora.SystemKey(removedSlug)
+
+	ctx := context.Background()
+	if err := testHandler.ensureAuroraCatalogSeed(ctx, parseUUID(workspaceID)); err != nil {
+		t.Fatalf("first seed: %v", err)
+	}
+	dbfx.Exec(t, `UPDATE agent SET archived_at = now() WHERE workspace_id = $1 AND system_key = $2`,
+		workspaceID, archivedKey)
+	dbfx.Exec(t, `DELETE FROM agent WHERE workspace_id = $1 AND system_key = $2`, workspaceID, removedKey)
+
+	if err := testHandler.ensureAuroraCatalogSeed(ctx, parseUUID(workspaceID)); err != nil {
+		t.Fatalf("second seed: %v", err)
+	}
+
+	if n := dbfx.Count(t, `SELECT count(*) FROM agent WHERE workspace_id = $1 AND system_key = $2`,
+		workspaceID, archivedKey); n != 1 {
+		t.Fatalf("archived carrier rows = %d, want 1 (no duplicate)", n)
+	}
+	if n := dbfx.Count(t, `SELECT count(*) FROM agent WHERE workspace_id = $1 AND system_key = $2 AND archived_at IS NOT NULL`,
+		workspaceID, archivedKey); n != 1 {
+		t.Fatalf("archived carrier rows still archived = %d, want 1", n)
+	}
+	if n := dbfx.Count(t, `SELECT count(*) FROM agent WHERE workspace_id = $1 AND system_key = $2 AND archived_at IS NULL`,
+		workspaceID, removedKey); n != 1 {
+		t.Fatalf("removed carrier live rows = %d, want 1", n)
+	}
+	if n := dbfx.Count(t, `SELECT count(*) FROM agent WHERE workspace_id = $1 AND system_key LIKE 'aurora:%'`,
+		workspaceID); n != 33 {
+		t.Fatalf("carriers = %d, want 33", n)
+	}
+}

@@ -100,34 +100,6 @@ func (q *Queries) AdoptAuroraSystemAgent(ctx context.Context, arg AdoptAuroraSys
 	return i, err
 }
 
-const countAuroraSystemAgents = `-- name: CountAuroraSystemAgents :one
-SELECT count(DISTINCT a.system_key)
-FROM agent a
-WHERE a.workspace_id = $1
-  AND a.system_key LIKE $2
-  AND a.archived_at IS NULL
-`
-
-type CountAuroraSystemAgentsParams struct {
-	WorkspaceID     pgtype.UUID `json:"workspace_id"`
-	SystemKeyPrefix pgtype.Text `json:"system_key_prefix"`
-}
-
-// How many of the catalog's carriers this workspace already has, which is what
-// the first-entry seed compares with len(aurora.Catalog()) to decide whether to
-// run. The count is DISTINCT because migration 172's partial unique index
-// includes runtime_id: a runtime teardown can leave two live rows for one
-// system_key, and a duplicate must not stand in for a carrier that is missing.
-//
-// A complete workspace still pays this one indexed count per directory load, so
-// it stays a plain aggregate rather than selecting the rows.
-func (q *Queries) CountAuroraSystemAgents(ctx context.Context, arg CountAuroraSystemAgentsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countAuroraSystemAgents, arg.WorkspaceID, arg.SystemKeyPrefix)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createAuroraManagedRuntime = `-- name: CreateAuroraManagedRuntime :one
 INSERT INTO agent_runtime (
     workspace_id, daemon_id, name, runtime_mode, provider, status,
@@ -320,6 +292,47 @@ func (q *Queries) ListAuroraManagedRuntimes(ctx context.Context, provider string
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAuroraSystemAgentKeys = `-- name: ListAuroraSystemAgentKeys :many
+SELECT DISTINCT a.system_key
+FROM agent a
+WHERE a.workspace_id = $1
+  AND a.system_key LIKE $2
+`
+
+type ListAuroraSystemAgentKeysParams struct {
+	WorkspaceID     pgtype.UUID `json:"workspace_id"`
+	SystemKeyPrefix pgtype.Text `json:"system_key_prefix"`
+}
+
+// The carrier keys this workspace has ever had, archived rows included. The
+// first-entry seed diffs them against the catalog and seeds only the experts
+// whose key is absent entirely: a key that is present but archived is a carrier
+// the member archived, and loading the directory must not resurrect it.
+// Generation creation still adopts and un-archives, because that path owns
+// recovering a carrier whose runtime binding went stale.
+//
+// DISTINCT because migration 172's partial unique index includes runtime_id, so
+// a runtime teardown can leave two rows (live or not) for one system_key.
+func (q *Queries) ListAuroraSystemAgentKeys(ctx context.Context, arg ListAuroraSystemAgentKeysParams) ([]pgtype.Text, error) {
+	rows, err := q.db.Query(ctx, listAuroraSystemAgentKeys, arg.WorkspaceID, arg.SystemKeyPrefix)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.Text{}
+	for rows.Next() {
+		var system_key pgtype.Text
+		if err := rows.Scan(&system_key); err != nil {
+			return nil, err
+		}
+		items = append(items, system_key)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

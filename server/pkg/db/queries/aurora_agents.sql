@@ -127,17 +127,17 @@ WHERE a.workspace_id = @workspace_id
   AND a.archived_at IS NULL
 ORDER BY a.system_key ASC, a.created_at ASC, a.id ASC;
 
--- name: CountAuroraSystemAgents :one
--- How many of the catalog's carriers this workspace already has, which is what
--- the first-entry seed compares with len(aurora.Catalog()) to decide whether to
--- run. The count is DISTINCT because migration 172's partial unique index
--- includes runtime_id: a runtime teardown can leave two live rows for one
--- system_key, and a duplicate must not stand in for a carrier that is missing.
+-- name: ListAuroraSystemAgentKeys :many
+-- The carrier keys this workspace has ever had, archived rows included. The
+-- first-entry seed diffs them against the catalog and seeds only the experts
+-- whose key is absent entirely: a key that is present but archived is a carrier
+-- the member archived, and loading the directory must not resurrect it.
+-- Generation creation still adopts and un-archives, because that path owns
+-- recovering a carrier whose runtime binding went stale.
 --
--- A complete workspace still pays this one indexed count per directory load, so
--- it stays a plain aggregate rather than selecting the rows.
-SELECT count(DISTINCT a.system_key)
+-- DISTINCT because migration 172's partial unique index includes runtime_id, so
+-- a runtime teardown can leave two rows (live or not) for one system_key.
+SELECT DISTINCT a.system_key
 FROM agent a
 WHERE a.workspace_id = @workspace_id
-  AND a.system_key LIKE @system_key_prefix
-  AND a.archived_at IS NULL;
+  AND a.system_key LIKE @system_key_prefix;
