@@ -8,7 +8,7 @@ import { Textarea } from "@multica/ui/components/ui/textarea";
 import { LocalFileCard, useLocalFile } from "./local-file";
 import { TranscriptResult } from "./transcript-result";
 import { toolCategories, type ToolDefinition } from "./tool-definitions";
-import { useToolSubmission } from "./use-tool-submission";
+import { toolSubmissionNotice, useToolSubmission } from "./use-tool-submission";
 
 const resultIcons = { image: ImagePlus, video: Film, slides: Presentation, table: Sheet, document: FileText, audio: Volume2, website: Globe, transcript: FileText };
 
@@ -67,8 +67,11 @@ export function ToolWorkbench({ tool, slug }: { tool: ToolDefinition; slug: stri
         {submission.pending ? "提交中…" : tool.action}
         {submission.pending ? null : <ArrowRight aria-hidden="true" />}
       </Button>
-      <p id="tool-preview-note">{ready ? "素材和设置已准备好" : "请先补充必填素材或文案"}<span>·</span>提交后由 AI 在任务详情页执行并返回结果</p>
+      <p id="tool-preview-note">{ready ? "素材和设置已准备好" : "请先补充必填素材或文案"}<span>·</span>{toolSubmissionNotice(submission.status)}
+        {submission.status === "error" ? <><span>·</span><Button type="button" variant="outline" size="sm" onClick={submission.reloadAgents}>重新加载</Button></> : null}
+      </p>
       {submission.error ? <p className="apex-upload-error" role="alert">{submission.error}</p> : null}
+      {submission.createdIdentifier ? <p className="apex-sample-note" role="status">任务已创建：{submission.createdIdentifier}，请到任务列表查看。</p> : null}
     </div>
     <div>
       <p className="apex-sample-note">提交后会自动打开该任务的问题详情页；AI 的执行结果以评论和附件的形式显示在那里。若无法生成真实媒体文件，结果中会说明限制并给出方案。</p>

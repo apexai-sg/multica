@@ -2,8 +2,9 @@
 
 本次把已确认的 18 个工具首页与全屏工作台接入正式 Next.js 页面。
 预览与正式网站共用 `components/tools/`，头像位于 `public/avatars/`，
-不再需要从预览目录复制页面。工具提交会创建一条真实 issue 并分配给后端
-agent，由 agent 执行后在 issue detail 中返回评论和附件。
+不再需要从预览目录复制页面。工具提交会创建一条真实 issue 并交给工作区的
+agent 执行；agent 的结果预期以评论或附件的形式出现在 issue detail，端到端
+行为以验收项 9 为准，交付时尚未在线上验证。
 
 ## 部署对象
 
@@ -28,8 +29,10 @@ agent，由 agent 执行后在 issue detail 中返回评论和附件。
 
 工具详情页使用完整窗口，不包在侧栏或抽屉内；原有登录和工作区访问校验继续生效。
 账号、积分、作品、历史记录、服务状态继续使用现有真实系统。
-工具通过 `agentKey`（后端 agent 的 `system_key`）选择执行该任务的后端 agent；
-没有对应 agent 时回退到工作区的通用助手，agent 数据全部来自后端。
+执行任务的 agent 从工作区自己的 agent 列表中选择：优先内置助手，没有时取
+最早创建且仍绑定运行环境的 agent。18 个工具不携带后端专家 ID —— 旧技能的
+`system_key` 已随 24 个专家目录下线，按名称猜测映射只会静默派错 agent。
+工作区没有任何可用 agent 时，提交按钮保持禁用并在页面上说明原因。
 原有后端工具库保留其现有提交路径，避免前端改版中断已有能力。
 
 ## 部署测试版后的验收
@@ -42,29 +45,32 @@ agent，由 agent 执行后在 issue detail 中返回评论和附件。
 6. 视频文案提取的人物说话与画面文字分开显示。示例结果必须保留“与上传的视频无关”的标注，不能当成提取成功。
 7. 用退出登录的浏览器打开工具链接，仍应进入登录流程；错误的工具标识应显示未找到页面。
 8. 检查“现有工具库”、作品、历史记录和账号入口。先由 Hannah 确认外观，再发布到正式域名。
-9. 提交一个文本类工具任务（如“文案创作”）：应自动打开 issue detail，agent 执行后在评论/附件中返回结果。
-10. 提交一个媒体类工具任务：agent 应明确说明当前无法生成真实媒体，并给出方案；不能出现伪造图片/视频。
+9. 提交一个文本类工具任务（如“文案创作”）：应自动打开 issue detail，agent 预期在评论/附件中返回结果。若该 issue 上始终没有任务或评论，记为本项验收失败。
+10. 在未配置媒体 provider 的环境下提交一个媒体类工具任务：agent 应说明限制并给出方案，不能出现伪造图片/视频。若环境已配置 provider，真实产出同样视为通过。
 
 ## 任务执行与结果
 
 每个工具页面提交时：
 
 1. 把已选择的本地文件上传为 issue 附件（沿用现有附件上传限制）。
-2. 创建一条 issue，标题取工具名与需求摘要，描述包含工具、需求、设置和素材说明，并分配给该工具对应的后端 agent（`agentKey`；没有对应 agent 时回退到工作区通用助手）。
-3. 创建成功后自动打开 `/{workspaceSlug}/issues/{identifier}`（issue detail）。
+2. 创建一条 issue，标题取工具名与需求摘要，描述包含工具、需求、设置和素材说明，并分配给工作区选出的 agent（内置助手优先，其次是最早创建且仍绑定运行环境的 agent）。
+3. 创建成功后自动打开 `/{workspaceSlug}/issues/{identifier}`（issue detail）；配置了 `NEXT_PUBLIC_WEB_ORIGIN` 时跳到该 origin 的同名路径，未配置时由 Aurora 自己渲染。
 
-agent 在 issue 上执行任务，并把结果以评论和附件返回，结果直接显示在 issue detail。
-上传存储、任务进度、取消、失败重试与计费沿用 Multica 现有的 issue/agent 任务能力，
-前端不再展示“尚未接入”的模拟结果。
+预期由 agent 在该 issue 上执行任务，并把结果以评论或附件返回。前端不再展示“尚未接入”的模拟结果，
+但结果区仍保留布局占位与内置示例（示例明确标注与上传文件无关）。
+上传与 issue 创建沿用现有能力；任务进度、取消、失败重试和计费取决于 Multica 的部署配置，需在验收中确认。
 
 限制：文本/方案类任务可由普通 agent 完成；图片、视频、音频的**真实媒体生成**仍取决于
-后端是否配置了对应 provider。未配置时 agent 会在结果中说明限制并给出方案，不伪造媒体产物。
-未配置运行时的 agent 无法执行任务，提交会失败并在页面上报错。
+后端是否配置了对应 provider。issue 描述会要求 agent 在无法生成真实媒体时说明限制并给出方案，
+这是对 agent 的指令而非平台保证，验收时以实际结果为准。
+没有任何可见 agent 时提交按钮禁用；已失去运行环境的 agent 不会被选中，因此不会出现“提交成功但
+迟迟不执行”的情况。agent 列表加载失败时页面报错并提供“重新加载”。
 
 ## 本次验证记录
 
 - `pnpm --filter @multica/aurora typecheck` 通过。
-- `pnpm --filter @multica/aurora exec vitest run`：124 项通过（含工具提交 hook 的单元测试与路由测试）。
+- `pnpm --filter @multica/aurora lint` 通过。
+- `pnpm --filter @multica/aurora exec vitest run`：148 项通过，其中 `components/tools/use-tool-submission.test.tsx` 覆盖提交 hook（上传、建 issue、导航、失败路径、agent 选择与不可用状态）。
 - `pnpm --filter @multica/aurora build` 通过，路由包含 `/[workspaceSlug]/tools/[toolId]`、`/[workspaceSlug]/skills/connected` 与 `/[workspaceSlug]/issues/[id]`。
 - 未在开发机执行真实模型调用或线上登录提交；部署后由真实账号验收任务提交与 issue detail 结果。
 
