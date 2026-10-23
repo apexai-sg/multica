@@ -125,12 +125,8 @@ func requireAuroraRebootstrapReset(t *testing.T, f *testutil.Fixture, ns string,
 	}
 }
 
-// confirmAuroraRebootstrap drives the reset generation through the real claim,
-// mark, and confirm fence, proving the node is a live bootstrap again.
 // claimAuroraRebootstrap proves a re-armed create intent is claimable and
-// minted at its new generation. It deliberately stops before ConfirmBootstrap,
-// which compares a local observation to the SQL clock; claim/mark already prove
-// the SQL fence admitted the reset operation.
+// minted at its new generation. It deliberately stops before ConfirmBootstrap.
 func claimAuroraRebootstrap(t *testing.T, s *Store, ns string, owner, nodeID pgtype.UUID, node model.Node, op model.Operation) {
 	t.Helper()
 	ctx := context.Background()
@@ -144,6 +140,8 @@ func claimAuroraRebootstrap(t *testing.T, s *Store, ns string, owner, nodeID pgt
 	}
 }
 
+// confirmAuroraRebootstrap drives the reset generation through the real claim,
+// mark, and confirm fence, proving the node is a live bootstrap again.
 func confirmAuroraRebootstrap(t *testing.T, s *Store, ns string, owner, nodeID pgtype.UUID, node model.Node, op model.Operation) {
 	t.Helper()
 	ctx := context.Background()

@@ -17,7 +17,7 @@ func NewFleetFixture(t *testing.T) (*pgxpool.Pool, *Fixture) {
 	t.Helper()
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
-		t.Fatal("Fleet tests require explicit DATABASE_URL")
+		t.Skip("Fleet tests require explicit DATABASE_URL")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

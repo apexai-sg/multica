@@ -199,7 +199,7 @@ func TestRecoveryBootstrapSuccessFreshHealthNegativeMatrix(t *testing.T) {
 			case "stale":
 				o.ObservedAt = s.SQLNow.Add(-31 * time.Second)
 			case "future":
-				o.ObservedAt = s.SQLNow.Add(time.Second)
+				o.ObservedAt = s.SQLNow.Add(3 * time.Second)
 			case "unknown":
 				o.Ready = false
 				o.Status = "unknown"

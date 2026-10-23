@@ -22,6 +22,11 @@ func sameRecoveryNode(a, b model.Node) bool {
 
 const bootstrapLease = 5 * time.Minute
 
+// observationClockSkew bounds the comparison between an observation stamped by
+// the caller's clock and a timestamp read from PostgreSQL. The two are separate
+// clock domains; sub-second NTP skew is not evidence of a forged observation.
+const observationClockSkew = 2 * time.Second
+
 func bootstrapState(n model.Node, op model.Operation, now time.Time) string {
 	if n.Generation != op.Generation || op.Action != model.Create || n.Revoked || n.Maintenance || n.Desired != "running" || op.NonRetryable {
 		return "denied"
@@ -51,7 +56,7 @@ func validateObservation(n model.Node, generation int64, o model.Observation, no
 	if generation < 1 || n.Generation != generation {
 		return model.ErrConflict
 	}
-	if o.ObservedAt.IsZero() || o.ObservedAt.After(now) || now.Sub(o.ObservedAt) > 30*time.Second || o.ObservedAt.Before(n.HealthAt) || o.RuntimeCount < 0 || o.ActiveRuns < 0 || o.PendingReports < 0 || o.FailedReports < 0 || o.ActiveRuns > math.MaxInt32 || o.PendingReports > math.MaxInt32 || o.FailedReports > math.MaxInt32 {
+	if o.ObservedAt.IsZero() || o.ObservedAt.After(now.Add(observationClockSkew)) || now.Sub(o.ObservedAt) > 30*time.Second || o.ObservedAt.Before(n.HealthAt) || o.RuntimeCount < 0 || o.ActiveRuns < 0 || o.PendingReports < 0 || o.FailedReports < 0 || o.ActiveRuns > math.MaxInt32 || o.PendingReports > math.MaxInt32 || o.FailedReports > math.MaxInt32 {
 		return model.ErrUnknownHealth
 	}
 	if o.DataVolume != "" && o.DataVolume != n.DataVolume {
@@ -413,7 +418,7 @@ func (s *Store) MarkBootstrapMinted(ctx context.Context, c BootstrapClaim) error
 
 func bootstrapObservation(snap RecoverySnapshot, o model.Observation) (model.Node, error) {
 	n := snap.Node
-	if !snap.Operation.BootstrapMinted || o.ContainerID == "" || o.Offline || o.Status == "missing" || o.ObservedAt.Before(snap.Operation.BootstrapClaimedAt) {
+	if !snap.Operation.BootstrapMinted || o.ContainerID == "" || o.Offline || o.Status == "missing" || o.ObservedAt.Add(observationClockSkew).Before(snap.Operation.BootstrapClaimedAt) {
 		return n, model.ErrConflict
 	}
 	n.ContainerID = o.ContainerID
