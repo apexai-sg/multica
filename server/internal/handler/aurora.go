@@ -67,6 +67,17 @@ var (
 // The catalog itself is a constant; what a workspace owns is the avatar its
 // members set on the experts' carrier agents, so this read joins the two.
 func (h *Handler) ListAuroraSkills(w http.ResponseWriter, r *http.Request) {
+	// Opening the directory is what "using Aurora" looks like, so it is where a
+	// workspace gets every expert's carrier at once — the Agents settings and the
+	// avatar join must not depend on which experts a generation happened to
+	// touch. A failed seed is logged and swallowed: the catalog is a constant and
+	// the carriers are its decoration plus CreateAuroraGeneration's own
+	// prerequisite, so a 500 here would take down the directory for nothing.
+	if workspaceID, err := util.ParseUUID(h.resolveWorkspaceID(r)); err == nil {
+		if err := h.ensureAuroraCatalogSeed(r.Context(), workspaceID); err != nil {
+			slog.Warn("aurora catalog seed", "workspace_id", uuidToString(workspaceID), "error", err)
+		}
+	}
 	skills := aurora.Catalog()
 	h.attachAuroraExpertAvatars(r, skills)
 	writeJSON(w, http.StatusOK, map[string]any{"skills": skills})
@@ -519,6 +530,65 @@ func (h *Handler) ensureFreeMonthlyGrant(ctx context.Context, userID pgtype.UUID
 		return err
 	}
 	return h.Credit.EnsureMonthlyAllowance(ctx, userID, wsID, h.Tiers.FreeMonthlyMicro(), time.Now())
+}
+
+// ensureAuroraCatalogSeed materialises the whole expert catalog for a workspace
+// that has fewer carriers than the catalog has experts, and does nothing for a
+// workspace that is already complete.
+//
+// The carrier count is the guard rather than a "seeded" flag: a workspace seeded
+// by a build with a smaller catalog is below it and converges here, and a
+// complete workspace pays one indexed count per directory load instead of 33
+// idempotent upserts. The common case therefore takes no transaction and no
+// lock.
+//
+// The seed itself runs under the per-workspace advisory lock generation
+// creation uses, and re-checks the count inside it: the managed-runtime
+// lookup-then-insert below has no ON CONFLICT arbiter (see
+// ensureAuroraExpertSeed), so two concurrent first entries would otherwise mint
+// two managed runtimes.
+func (h *Handler) ensureAuroraCatalogSeed(ctx context.Context, workspaceID pgtype.UUID) error {
+	complete, err := auroraCatalogComplete(ctx, h.Queries, workspaceID)
+	if err != nil || complete {
+		return err
+	}
+	tx, err := h.TxStarter.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", "aurora:"+uuidToString(workspaceID)); err != nil {
+		return err
+	}
+	q := h.Queries.WithTx(tx)
+	// The request that held the lock before this one may have just finished the
+	// same seed, which the pre-check above ran too early to see.
+	if complete, err := auroraCatalogComplete(ctx, q, workspaceID); err != nil || complete {
+		return err
+	}
+	// Expert carriers and the managed runtime share this owner: runtimeVerdict
+	// blocks a private runtime whose owner differs from the agent's.
+	ownerID, err := q.GetWorkspaceOwnerUserID(ctx, workspaceID)
+	if err != nil {
+		return fmt.Errorf("get workspace owner: %w", err)
+	}
+	if err := aurora.EnsureSystemAgents(ctx, q, workspaceID, ownerID); err != nil {
+		return fmt.Errorf("seed aurora system agents: %w", err)
+	}
+	return tx.Commit(ctx)
+}
+
+// auroraCatalogComplete reports whether the workspace already carries one live
+// carrier per catalog expert.
+func auroraCatalogComplete(ctx context.Context, q *db.Queries, workspaceID pgtype.UUID) (bool, error) {
+	carriers, err := q.CountAuroraSystemAgents(ctx, db.CountAuroraSystemAgentsParams{
+		WorkspaceID:     workspaceID,
+		SystemKeyPrefix: strToText(aurora.SystemKeyPrefix + "%"),
+	})
+	if err != nil {
+		return false, fmt.Errorf("count aurora carriers: %w", err)
+	}
+	return carriers >= int64(len(aurora.Catalog())), nil
 }
 
 // ensureAuroraExpertSeed serialises the idempotent expert seed behind a

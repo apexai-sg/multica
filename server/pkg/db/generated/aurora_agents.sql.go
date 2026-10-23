@@ -100,6 +100,34 @@ func (q *Queries) AdoptAuroraSystemAgent(ctx context.Context, arg AdoptAuroraSys
 	return i, err
 }
 
+const countAuroraSystemAgents = `-- name: CountAuroraSystemAgents :one
+SELECT count(DISTINCT a.system_key)
+FROM agent a
+WHERE a.workspace_id = $1
+  AND a.system_key LIKE $2
+  AND a.archived_at IS NULL
+`
+
+type CountAuroraSystemAgentsParams struct {
+	WorkspaceID     pgtype.UUID `json:"workspace_id"`
+	SystemKeyPrefix pgtype.Text `json:"system_key_prefix"`
+}
+
+// How many of the catalog's carriers this workspace already has, which is what
+// the first-entry seed compares with len(aurora.Catalog()) to decide whether to
+// run. The count is DISTINCT because migration 172's partial unique index
+// includes runtime_id: a runtime teardown can leave two live rows for one
+// system_key, and a duplicate must not stand in for a carrier that is missing.
+//
+// A complete workspace still pays this one indexed count per directory load, so
+// it stays a plain aggregate rather than selecting the rows.
+func (q *Queries) CountAuroraSystemAgents(ctx context.Context, arg CountAuroraSystemAgentsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAuroraSystemAgents, arg.WorkspaceID, arg.SystemKeyPrefix)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAuroraManagedRuntime = `-- name: CreateAuroraManagedRuntime :one
 INSERT INTO agent_runtime (
     workspace_id, daemon_id, name, runtime_mode, provider, status,

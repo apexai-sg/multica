@@ -126,6 +126,19 @@ func (q *Queries) GetRealtimeMemberships(ctx context.Context, arg GetRealtimeMem
 	return items, nil
 }
 
+const getWorkspaceOwnerUserID = `-- name: GetWorkspaceOwnerUserID :one
+SELECT user_id FROM member WHERE workspace_id = $1 AND role = 'owner' LIMIT 1
+`
+
+// The owner a product-defined carrier belongs to. Expert carriers and the
+// managed runtime must share one owner, or runtimeVerdict blocks the workspace.
+func (q *Queries) GetWorkspaceOwnerUserID(ctx context.Context, workspaceID pgtype.UUID) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, getWorkspaceOwnerUserID, workspaceID)
+	var user_id pgtype.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
 const listMembers = `-- name: ListMembers :many
 SELECT id, workspace_id, user_id, role, created_at FROM member
 WHERE workspace_id = $1

@@ -27,6 +27,10 @@ import (
 )
 
 func TestListAuroraSkills(t *testing.T) {
+	// Loading the directory now seeds the workspace's carriers, so the payload
+	// covers the same first-entry path CreateAuroraGeneration already takes.
+	cleanupAuroraSystemAgents(t)
+
 	req := newRequest(http.MethodGet, "/api/aurora/skills", nil)
 	var out struct {
 		Skills []struct {
@@ -173,11 +177,11 @@ func TestListAuroraSkillsIncludesCarrierAvatars(t *testing.T) {
 }
 
 // cleanupAuroraSystemAgents removes the workspace's lazily seeded Aurora system
-// agents, skills and managed runtime at teardown. Generation creation seeds
-// these on first use and they would otherwise persist into every later handler
-// test, whose `agent ... LIMIT 1` agent-runtime heuristics assume the workspace
-// holds only user-visible agents (kind='system' is excluded by
-// GetAgentInWorkspace but not by an unfiltered LIMIT 1). Agents go first so
+// agents, skills and managed runtime at teardown. Generation creation and the
+// directory load seed these on first use and they would otherwise persist into
+// every later handler test, whose `agent ... LIMIT 1` agent-runtime heuristics
+// assume the workspace holds only user-visible agents (kind='system' is excluded
+// by GetAgentInWorkspace but not by an unfiltered LIMIT 1). Agents go first so
 // their agent_skill rows cascade; skills and the runtime follow once the agents
 // no longer reference them.
 func cleanupAuroraSystemAgents(t *testing.T) {
@@ -3625,5 +3629,50 @@ func TestAuroraReadsExposeIssueIdentifier(t *testing.T) {
 
 	if detail.Generation.IssueIdentifier != want {
 		t.Fatalf("detail issueIdentifier = %q, want %q", detail.Generation.IssueIdentifier, want)
+	}
+}
+
+// TestEnsureAuroraCatalogSeedSeedsEveryExpertOnce covers the one-time full seed
+// behind the directory load: a workspace with no carriers gets one per catalog
+// expert, and a second entry adds nothing.
+//
+// A throwaway workspace is required. Seeding 33 carriers into the shared fixture
+// workspace would leak into every later test's unfiltered `agent ... LIMIT 1`
+// heuristics (the same reason cleanupAuroraSystemAgents exists).
+func TestEnsureAuroraCatalogSeedSeedsEveryExpertOnce(t *testing.T) {
+	if testHandler == nil || testPool == nil {
+		t.Skip("database not available")
+	}
+	workspaceID := dbfx.Workspace(t, "Aurora catalog seed", "aurora-catalog-seed-"+uuid.NewString())
+	dbfx.Member(t, workspaceID, testUserID, "owner")
+	// agent, skill, agent_runtime and member all cascade from the workspace, so
+	// removing it removes everything the seed wrote.
+	t.Cleanup(func() {
+		_, _ = testPool.Exec(context.Background(), `DELETE FROM workspace WHERE id = $1`, workspaceID)
+	})
+
+	ctx := context.Background()
+	const carriers = `SELECT count(*) FROM agent WHERE workspace_id = $1 AND system_key LIKE 'aurora:%'`
+
+	if err := testHandler.ensureAuroraCatalogSeed(ctx, parseUUID(workspaceID)); err != nil {
+		t.Fatalf("first seed: %v", err)
+	}
+	if n := dbfx.Count(t, carriers, workspaceID); n != 33 {
+		t.Fatalf("carriers = %d, want 33", n)
+	}
+	if n := dbfx.Count(t,
+		`SELECT count(*) FROM agent_runtime WHERE workspace_id = $1 AND provider = 'aurora_managed'`, workspaceID); n != 1 {
+		t.Fatalf("managed runtimes = %d, want 1", n)
+	}
+
+	if err := testHandler.ensureAuroraCatalogSeed(ctx, parseUUID(workspaceID)); err != nil {
+		t.Fatalf("second seed: %v", err)
+	}
+	if n := dbfx.Count(t, carriers, workspaceID); n != 33 {
+		t.Fatalf("second seed duplicated carriers: %d", n)
+	}
+	if n := dbfx.Count(t,
+		`SELECT count(*) FROM agent_runtime WHERE workspace_id = $1 AND provider = 'aurora_managed'`, workspaceID); n != 1 {
+		t.Fatalf("second seed duplicated the managed runtime: %d", n)
 	}
 }

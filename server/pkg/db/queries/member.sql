@@ -8,6 +8,11 @@ SELECT user_id FROM member
 WHERE workspace_id = $1 AND role IN ('owner', 'admin')
 ORDER BY created_at ASC;
 
+-- name: GetWorkspaceOwnerUserID :one
+-- The owner a product-defined carrier belongs to. Expert carriers and the
+-- managed runtime must share one owner, or runtimeVerdict blocks the workspace.
+SELECT user_id FROM member WHERE workspace_id = $1 AND role = 'owner' LIMIT 1;
+
 -- name: GetMember :one
 SELECT * FROM member
 WHERE id = $1;
