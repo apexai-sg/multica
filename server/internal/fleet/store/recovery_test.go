@@ -374,8 +374,8 @@ func TestRecoveryObservationValidation(t *testing.T) {
 		valid  bool
 	}{
 		{"current", func(o *model.Observation) {}, true},
-		{"future", func(o *model.Observation) { o.ObservedAt = now.Add(3 * time.Second) }, false},
-		{"future-within-clock-skew", func(o *model.Observation) { o.ObservedAt = now.Add(1500 * time.Millisecond) }, true},
+		{"future", func(o *model.Observation) { o.ObservedAt = now.Add(observationClockSkew + time.Second) }, false},
+		{"future-within-clock-skew", func(o *model.Observation) { o.ObservedAt = now.Add(observationClockSkew / 2) }, true},
 		{"stale", func(o *model.Observation) { o.ObservedAt = now.Add(-31 * time.Second) }, false},
 		{"older-than-recorded", func(o *model.Observation) { o.ObservedAt = now.Add(-2 * time.Second) }, false},
 		{"wrong-container", func(o *model.Observation) { o.ContainerID = "other" }, false},
