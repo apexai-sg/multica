@@ -412,6 +412,32 @@ func parseAuroraAttachmentIDs(w http.ResponseWriter, rawIDs []string) ([]pgtype.
 	return ids, true
 }
 
+// loadAuroraAttachments resolves attachment ids to rows in the order the caller
+// listed them. A missing or foreign id is invalid input, never a silently
+// dropped attachment. It reads only; policy checks stay with each caller.
+func (h *Handler) loadAuroraAttachments(ctx context.Context, workspaceID pgtype.UUID, ids []pgtype.UUID) ([]db.Attachment, error) {
+	rows, err := h.Queries.ListAttachmentsByIDs(ctx, db.ListAttachmentsByIDsParams{
+		AttachmentIds: ids,
+		WorkspaceID:   workspaceID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("load attachments: %w", err)
+	}
+	byID := make(map[pgtype.UUID]db.Attachment, len(rows))
+	for _, row := range rows {
+		byID[row.ID] = row
+	}
+	files := make([]db.Attachment, 0, len(ids))
+	for _, id := range ids {
+		row, found := byID[id]
+		if !found {
+			return nil, invalidAuroraInput("attachment not found")
+		}
+		files = append(files, row)
+	}
+	return files, nil
+}
+
 // validateAuroraAttachments proves every requested id resolves to a row in this
 // workspace uploaded by this user, then applies the skill's input rules. It
 // reads only; it never provisions or writes.
@@ -427,24 +453,9 @@ func (h *Handler) validateAuroraAttachments(ctx context.Context, workspaceID, us
 		return nil
 	}
 
-	rows, err := h.Queries.ListAttachmentsByIDs(ctx, db.ListAttachmentsByIDsParams{
-		AttachmentIds: ids,
-		WorkspaceID:   workspaceID,
-	})
+	files, err := h.loadAuroraAttachments(ctx, workspaceID, ids)
 	if err != nil {
-		return fmt.Errorf("load attachments: %w", err)
-	}
-	byID := make(map[pgtype.UUID]db.Attachment, len(rows))
-	for _, row := range rows {
-		byID[row.ID] = row
-	}
-	files := make([]db.Attachment, 0, len(ids))
-	for _, id := range ids {
-		row, found := byID[id]
-		if !found {
-			return invalidAuroraInput("attachment not found")
-		}
-		files = append(files, row)
+		return err
 	}
 	if err := aurora.ValidateSkillAttachmentScope(files, workspaceID, userID); err != nil {
 		return invalidAuroraInput("%s", err)
@@ -556,6 +567,44 @@ func (h *Handler) ensureAuroraCatalogSeed(ctx context.Context, workspaceID pgtyp
 	if err != nil || len(missing) == 0 {
 		return err
 	}
+	return h.withAuroraSeedLock(ctx, workspaceID, func(ctx context.Context, q *db.Queries) error {
+		// The request that held the lock before this one may have just seeded
+		// these experts, which the pre-check above ran too early to see.
+		missing, err := auroraMissingCatalogExperts(ctx, q, workspaceID)
+		if err != nil || len(missing) == 0 {
+			return err
+		}
+		ownerID, err := q.GetWorkspaceOwnerUserID(ctx, workspaceID)
+		if err != nil {
+			return fmt.Errorf("get workspace owner: %w", err)
+		}
+		for _, skillID := range missing {
+			if err := aurora.EnsureAuroraExpert(ctx, q, workspaceID, ownerID, skillID); err != nil {
+				return fmt.Errorf("seed aurora expert %q: %w", skillID, err)
+			}
+		}
+		return nil
+	})
+}
+
+// withAuroraSeedLock runs fn inside the per-workspace seed transaction, holding
+// the advisory lock that serialises concurrent first seeds. The lock lives here
+// so a new seed entry point cannot forget it.
+//
+// It does not resolve the carrier's owner: each caller does that inside the
+// closure, because only the caller knows which experts it is about to seed. The
+// owner must be the workspace owner — runtimeVerdict blocks a private runtime
+// whose owner differs from the agent's.
+//
+// The lock is not decorum: the managed-runtime lookup-then-insert in
+// aurora.EnsureAuroraExpert has no ON CONFLICT arbiter (its NULL daemon_id sits
+// outside migration 121's partial unique index), so this lock — not the queries
+// — is what makes two concurrent first seeds produce one runtime row.
+func (h *Handler) withAuroraSeedLock(
+	ctx context.Context,
+	workspaceID pgtype.UUID,
+	fn func(context.Context, *db.Queries) error,
+) error {
 	tx, err := h.TxStarter.Begin(ctx)
 	if err != nil {
 		return err
@@ -564,23 +613,8 @@ func (h *Handler) ensureAuroraCatalogSeed(ctx context.Context, workspaceID pgtyp
 	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", "aurora:"+uuidToString(workspaceID)); err != nil {
 		return err
 	}
-	q := h.Queries.WithTx(tx)
-	// The request that held the lock before this one may have just seeded these
-	// experts, which the pre-check above ran too early to see.
-	missing, err = auroraMissingCatalogExperts(ctx, q, workspaceID)
-	if err != nil || len(missing) == 0 {
+	if err := fn(ctx, h.Queries.WithTx(tx)); err != nil {
 		return err
-	}
-	// Expert carriers and the managed runtime share this owner: runtimeVerdict
-	// blocks a private runtime whose owner differs from the agent's.
-	ownerID, err := q.GetWorkspaceOwnerUserID(ctx, workspaceID)
-	if err != nil {
-		return fmt.Errorf("get workspace owner: %w", err)
-	}
-	for _, skillID := range missing {
-		if err := aurora.EnsureAuroraExpert(ctx, q, workspaceID, ownerID, skillID); err != nil {
-			return fmt.Errorf("seed aurora expert %q: %w", skillID, err)
-		}
 	}
 	return tx.Commit(ctx)
 }
@@ -612,35 +646,20 @@ func auroraMissingCatalogExperts(ctx context.Context, q *db.Queries, workspaceID
 	return missing, nil
 }
 
-// ensureAuroraExpertSeed serialises the idempotent expert seed behind a
-// per-workspace advisory lock. The managed-runtime lookup-then-insert inside
-// aurora.EnsureAuroraExpert has no ON CONFLICT arbiter (its NULL daemon_id sits
-// outside migration 121's partial unique index), so this lock — not the queries
-// — is what makes two concurrent first seeds produce one runtime row.
-//
-// It resolves the owner itself rather than taking the request's actor: this
-// path runs for whoever creates the generation, and the carrier and its managed
+// ensureAuroraExpertSeed seeds one expert behind the shared seed lock. It
+// resolves the owner itself rather than taking the request's actor: this path
+// runs for whoever creates the generation, and the carrier and its managed
 // runtime must belong to the workspace owner for any member to invoke them
 // afterwards. Task 10's tool-run endpoint seeds through here for the same
 // reason.
 func (h *Handler) ensureAuroraExpertSeed(ctx context.Context, workspaceID pgtype.UUID, skillID string) error {
-	tx, err := h.TxStarter.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", "aurora:"+uuidToString(workspaceID)); err != nil {
-		return err
-	}
-	q := h.Queries.WithTx(tx)
-	ownerID, err := q.GetWorkspaceOwnerUserID(ctx, workspaceID)
-	if err != nil {
-		return fmt.Errorf("get workspace owner: %w", err)
-	}
-	if err := aurora.EnsureAuroraExpert(ctx, q, workspaceID, ownerID, skillID); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+	return h.withAuroraSeedLock(ctx, workspaceID, func(ctx context.Context, q *db.Queries) error {
+		ownerID, err := q.GetWorkspaceOwnerUserID(ctx, workspaceID)
+		if err != nil {
+			return fmt.Errorf("get workspace owner: %w", err)
+		}
+		return aurora.EnsureAuroraExpert(ctx, q, workspaceID, ownerID, skillID)
+	})
 }
 
 // ensureWorkspaceSandbox makes the workspace's sandbox accepted by the fleet.
