@@ -2322,7 +2322,12 @@ func TestBuildAuroraPromptPointsAtTheSkillDocument(t *testing.T) {
 func TestBuildAuroraPromptWithoutIssueKeepsTheOldWording(t *testing.T) {
 	t.Parallel()
 
-	out := BuildPrompt(Task{Agent: &AgentData{SystemKey: "aurora:poster"}}, "claude")
+	// A generation round always carries its id on the claim; without it the
+	// builder would (correctly) treat this as a tool run.
+	out := BuildPrompt(Task{
+		Agent:        &AgentData{SystemKey: "aurora:poster"},
+		GenerationID: auroraTaskTestGeneration,
+	}, "claude")
 	if !strings.Contains(out, "It is NOT an issue run") {
 		t.Errorf("Aurora prompt without an issue must keep the non-issue wording\n---\n%s", out)
 	}
@@ -2339,6 +2344,7 @@ func TestBuildAuroraPromptCarriesTheTriggerComment(t *testing.T) {
 
 	out := BuildPrompt(Task{
 		Agent:                 &AgentData{SystemKey: "aurora:poster"},
+		GenerationID:          auroraTaskTestGeneration,
 		IssueID:               "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
 		TriggerCommentContent: "把背景换成海边的日落",
 	}, "claude")
