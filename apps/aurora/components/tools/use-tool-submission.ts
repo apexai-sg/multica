@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@multica/core/api";
 import { isAgentRuntimeBound } from "@multica/core/agents";
 import {
+  AuroraToolRunOutcomeUnknownError,
   auroraToolsOptions,
   createAuroraToolRun,
   isAuroraDegraded,
@@ -84,9 +85,10 @@ export function toolSubmissionNotice(status: ToolSubmissionStatus): string {
  * candidates are narrowed with `canAssignAgentToIssue`, the same rule the
  * AssigneePicker uses.
  *
- * PR #17's semantics are preserved: the upload-before-create order keeps a
- * failed runtime check from leaving orphan attachments, and the button stays
- * locked after a run exists because the route replaces this page.
+ * PR #17's semantics are preserved: the button stays locked after a run exists
+ * because the route replaces this page. Files are uploaded before the run is
+ * created, so a refusal after the upload leaves those rows unattached; the
+ * pre-check above is what keeps the common refusals from reaching that point.
  */
 export function useToolSubmission(tool: ToolDefinition, slug: string) {
   const wsId = useWorkspaceId();
@@ -118,6 +120,10 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdIdentifier, setCreatedIdentifier] = useState<string | null>(null);
+  // The server answered 2xx but the body could not be read. The issue may
+  // exist, so a retry could create a second one; the button stays locked and
+  // the page tells the user to check the issue list.
+  const [outcomeUnknown, setOutcomeUnknown] = useState(false);
   // The button is disabled while pending, but a click that lands between the
   // render and the state flush would still reach this callback. The ref is the
   // lock; `pending` is only what the UI renders.
@@ -159,12 +165,12 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
               ? "no-runtime"
               : "ready";
 
-  const canSubmit = status === "ready" && !pending;
+  const canSubmit = status === "ready" && !pending && !outcomeUnknown;
 
   const submit = useCallback(
     async ({ source, values, files = [] }: ToolSubmissionInput) => {
       if (inFlight.current) return;
-      if (!executor || !runnable) {
+      if (status !== "ready") {
         setError(toolSubmissionNotice(status));
         return;
       }
@@ -192,6 +198,15 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
         });
         identifier = run.identifier;
       } catch (err) {
+        if (err instanceof AuroraToolRunOutcomeUnknownError) {
+          // The request reached the server and an issue may exist. Keep the
+          // lock: retrying could create a second one, and there is no
+          // identifier to show.
+          setOutcomeUnknown(true);
+          setPending(false);
+          setError("提交结果未能确认，任务可能已创建。请先到任务列表查看，不要重复提交。");
+          return;
+        }
         setError(
           err instanceof Error && err.message
             ? err.message
@@ -202,12 +217,15 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
         return;
       }
 
-      // The issue exists from here on. Navigation is deliberately outside the
-      // try above: telling the user a created task failed would invite a retry
-      // that creates a second one.
+      // The issue exists from here on. Record its identifier before trying to
+      // navigate: `push` returns void and swallows a failed route, so the
+      // number is the only durable proof the user can act on.
+      setCreatedIdentifier(identifier);
+
+      // Navigation is deliberately outside the try above: telling the user a
+      // created task failed would invite a retry that creates a second one.
       const href = auroraIssueHrefFor(slug)(identifier);
       if (!href) {
-        setCreatedIdentifier(identifier);
         setPending(false);
         inFlight.current = false;
         return;
@@ -216,7 +234,6 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
       try {
         navigation.push(href);
       } catch {
-        setCreatedIdentifier(identifier);
         setError(`任务已创建（${identifier}），但打开详情页失败，请到任务列表查看。`);
         setPending(false);
         inFlight.current = false;
@@ -241,6 +258,7 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
     pending,
     error,
     createdIdentifier,
+    outcomeUnknown,
     canSubmit,
     status,
     agent: carrier,

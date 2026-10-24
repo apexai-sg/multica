@@ -123,6 +123,17 @@ describe("tool workspace preview boundaries", () => {
     expect(submission.reloadAgents).toHaveBeenCalledTimes(1);
   });
 
+  it("offers a reload when the mapped carrier is missing, so a failed first seed is recoverable", async () => {
+    Object.assign(submission, { canSubmit: false, status: "no-agent" });
+    const user = userEvent.setup();
+    const tool = apexTools.find((item) => item.id === "poster")!;
+    render(<ToolWorkbench tool={tool} slug="preview" />);
+
+    expect(screen.getByText(/工作区还没有可用的助手/)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "重新加载" }));
+    expect(submission.reloadAgents).toHaveBeenCalledTimes(1);
+  });
+
   it("shows progress and blocks a second click while submitting", () => {
     Object.assign(submission, { pending: true, canSubmit: false });
     const tool = apexTools.find((item) => item.id === "poster")!;

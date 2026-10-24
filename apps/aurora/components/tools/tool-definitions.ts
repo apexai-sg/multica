@@ -31,8 +31,9 @@ export type ToolDefinition = {
 };
 
 // These approved workspaces define the UI, not backend capabilities or provider
-// contracts. The agent that runs a tool is chosen from the workspace's own agent
-// list, never from this registry.
+// contracts. The expert that runs a tool is decided by the server's mapping
+// (`server/internal/aurora/tool_experts.go`); this registry never chooses an
+// executor, and the tool page only pre-checks the mapped carrier.
 export const apexTools: ToolDefinition[] = [
   {
     id: "face-swap", name: "图片／视频换脸", category: "video", avatar: 2,

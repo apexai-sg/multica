@@ -293,6 +293,12 @@ describe("auroraToolsSchema", () => {
       auroraToolsSchema.safeParse({ tools: [{ id: "poster" }] }).success,
     ).toBe(false);
   });
+
+  it("rejects a body with no tool list, so the caller sees a load failure", () => {
+    // A default of [] here would parse as "this workspace has no mapped tools"
+    // and surface as no-expert: a false claim about configuration.
+    expect(auroraToolsSchema.safeParse({}).success).toBe(false);
+  });
 });
 
 describe("auroraToolRunSchema", () => {
@@ -314,5 +320,14 @@ describe("auroraToolRunSchema", () => {
     expect(
       auroraToolRunSchema.safeParse({ issue_id: "i-1", expert: {} }).success,
     ).toBe(false);
+  });
+
+  it("accepts a run whose optional fields the server omits", () => {
+    // The client navigates by identifier only; requiring issue_id/expert would
+    // turn a created issue into a thrown error after the fact.
+    expect(auroraToolRunSchema.parse({ identifier: "MUL-42" })).toEqual({
+      identifier: "MUL-42",
+      issueId: null,
+    });
   });
 });

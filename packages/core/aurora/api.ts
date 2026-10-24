@@ -154,10 +154,24 @@ export function parseAuroraTools(
 }
 
 /**
+ * The server answered 2xx but the body could not be read, so whether an issue
+ * exists is unknown. Callers must not treat this as "nothing was created": a
+ * retry can open a second issue for the same submission.
+ */
+export class AuroraToolRunOutcomeUnknownError extends Error {
+  constructor() {
+    super("the tool run outcome could not be read");
+    this.name = "AuroraToolRunOutcomeUnknownError";
+  }
+}
+
+/**
  * The issue a tool run created.
  *
  * A malformed body throws rather than degrading: the issue may already exist,
  * and a placeholder would leave the caller with neither a link nor an error.
+ * The error is typed so the caller can tell "the run was refused" apart from
+ * "the run happened and we cannot read the answer".
  */
 export function parseAuroraToolRun(data: unknown): AuroraToolRun {
   const parsed = parseWithFallback<AuroraToolRun | null>(
@@ -166,7 +180,7 @@ export function parseAuroraToolRun(data: unknown): AuroraToolRun {
     null,
     { endpoint: CREATE_TOOL_RUN_ENDPOINT },
   );
-  if (!parsed) throw new Error("invalid tool run response");
+  if (!parsed) throw new AuroraToolRunOutcomeUnknownError();
   return parsed;
 }
 

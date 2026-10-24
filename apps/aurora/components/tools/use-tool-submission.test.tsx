@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NavigationProvider, type NavigationAdapter } from "@multica/views/navigation";
+import { AuroraToolRunOutcomeUnknownError } from "@multica/core/aurora";
 import type { Agent } from "@multica/core/types";
 
 import { apexTools } from "./tool-definitions";
@@ -260,6 +261,37 @@ describe("useToolSubmission", () => {
 
     expect(mocks.createToolRun).toHaveBeenCalledTimes(1);
     expect(push).toHaveBeenCalledTimes(1);
+  });
+
+  it("locks the button when the run exists but its answer is unreadable", async () => {
+    mocks.createToolRun.mockRejectedValueOnce(new AuroraToolRunOutcomeUnknownError());
+    const { result } = await render();
+
+    await act(async () => {
+      await result.current.submit({ source: "海报" });
+    });
+
+    expect(result.current.outcomeUnknown).toBe(true);
+    expect(result.current.error).toContain("任务可能已创建");
+    expect(result.current.pending).toBe(false);
+    expect(result.current.canSubmit).toBe(false);
+
+    // Retrying could create a second issue, so the lock must survive a click.
+    await act(async () => {
+      await result.current.submit({ source: "海报" });
+    });
+    expect(mocks.createToolRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("records the issue identifier before navigating", async () => {
+    const { result } = await render();
+
+    await act(async () => {
+      await result.current.submit({ source: "海报" });
+    });
+
+    expect(result.current.createdIdentifier).toBe("MUL-42");
+    expect(push).toHaveBeenCalledWith("/acme/issues/MUL-42");
   });
 
   it("reports a failed upload without creating a run or navigating", async () => {
