@@ -13,9 +13,16 @@ import { visibleAgents } from "./aurora-agents";
  * view filters them here. Permission filtering is the backend's: the response
  * is exactly what the agents page shows this member.
  */
-export function useAuroraAgentDirectory() {
+export function useAuroraAgentDirectory(options: { enabled?: boolean } = {}) {
   const wsId = useWorkspaceId();
-  const query = useQuery(agentListOptions(wsId));
+  // The catalog read seeds the workspace's carriers on the server, so a
+  // directory that lists agents before it answers can read an empty list for a
+  // workspace that is about to have all of them. Callers that render the
+  // directory pass `enabled: false` until the catalog settles.
+  const query = useQuery({
+    ...agentListOptions(wsId),
+    enabled: options.enabled ?? true,
+  });
   const agents = useMemo(() => visibleAgents(query.data ?? []), [query.data]);
   return { agents, query };
 }

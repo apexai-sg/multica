@@ -15,10 +15,14 @@ const mocks = vi.hoisted(() => ({
   createIssue: vi.fn(),
   detail: vi.fn(),
   balance: vi.fn(),
+  directoryOptions: [] as { enabled?: boolean }[],
 }));
 
 vi.mock("./use-aurora-agent-directory", () => ({
-  useAuroraAgentDirectory: () => mocks.directory(),
+  useAuroraAgentDirectory: (options: { enabled?: boolean } = {}) => {
+    mocks.directoryOptions.push(options);
+    return mocks.directory();
+  },
 }));
 
 vi.mock("@multica/core/aurora", async (importOriginal) => {
@@ -169,6 +173,7 @@ function cards() {
 describe("SkillDirectory", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.directoryOptions.length = 0;
     directory(AGENTS);
     catalog();
     mocks.detail.mockReturnValue({ data: undefined, isPending: true });
@@ -176,6 +181,17 @@ describe("SkillDirectory", () => {
       data: { value: { availableMicro: 0 }, degraded: false },
       isPending: false,
     });
+  });
+
+  it("waits for the catalog before reading the agent list, because that read seeds the carriers", () => {
+    mocks.skills.mockReturnValue({ data: undefined, isPending: true });
+    renderDirectory();
+    expect(mocks.directoryOptions.at(-1)).toEqual({ enabled: false });
+  });
+
+  it("reads the agent list once the catalog has answered", () => {
+    renderDirectory();
+    expect(mocks.directoryOptions.at(-1)).toEqual({ enabled: true });
   });
 
   it("lets the host open classified tools without also opening a drawer", async () => {
