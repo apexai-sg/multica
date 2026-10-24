@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "../auth";
 import type { MemberRole, MemberWithUser } from "../types";
@@ -36,9 +35,9 @@ export function useCurrentMember(wsId: string): {
   const { data: members, isLoading, isError, isFetched, refetch } = useQuery(
     memberListOptions(wsId),
   );
-  // Stable identity: callers put this inside their own useCallback dependency
-  // arrays, and a fresh function each render would rebuild theirs too.
-  const reload = useCallback(() => void refetch(), [refetch]);
+  // TanStack's refetch is already stable for the lifetime of the query. Return
+  // it directly rather than wrapping it: a wrapper would need its own
+  // useCallback just to keep the identity callers depend on.
   const member = members?.find((m) => m.user_id === userId) ?? null;
   return {
     userId,
@@ -50,6 +49,6 @@ export function useCurrentMember(wsId: string): {
     isLoading,
     isError,
     isFetched,
-    refetch: reload,
+    refetch,
   };
 }

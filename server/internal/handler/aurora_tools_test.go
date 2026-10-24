@@ -246,12 +246,12 @@ func TestAuroraToolDescriptionNamesTheStoredFiles(t *testing.T) {
 			"style": "简约",
 		}}, nil, expert)
 
-		style := strings.Index(got, "- ratio: 1:1")
-		ratio := strings.Index(got, "- style: 简约")
-		if style < 0 || ratio < 0 {
+		ratioAt := strings.Index(got, "- ratio: 1:1")
+		styleAt := strings.Index(got, "- style: 简约")
+		if ratioAt < 0 || styleAt < 0 {
 			t.Fatalf("description missing settings lines:\n%s", got)
 		}
-		if style > ratio {
+		if ratioAt > styleAt {
 			t.Fatalf("settings are not sorted by field id:\n%s", got)
 		}
 	})
