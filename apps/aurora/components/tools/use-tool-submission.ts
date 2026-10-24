@@ -46,10 +46,6 @@ export type ToolSubmissionStatus =
   | "ready";
 
 /**
- * Localized explanation for a non-ready submission state. Components render
- * this next to the submit button so a disabled button always says why.
- */
-/**
  * The order of these checks is the availability contract: a load failure
  * outranks a missing mapping, which outranks a missing carrier. Each branch
  * below is one line so a new state has an obvious place to go.
@@ -74,6 +70,10 @@ export function resolveToolSubmissionStatus({
   return runnable ? "ready" : "no-runtime";
 }
 
+/**
+ * Localized explanation for a non-ready submission state. Components render
+ * this next to the submit button so a disabled button always says why.
+ */
 export function toolSubmissionNotice(status: ToolSubmissionStatus): string {
   switch (status) {
     case "loading":

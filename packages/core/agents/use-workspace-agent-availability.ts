@@ -28,9 +28,8 @@ export type WorkspaceAgentAvailability = "loading" | "none" | "available";
  * and the chat agent dropdown, so the three pickers can never disagree on
  * "is this agent reachable?".
  *
- * Members are queried because `canAssignAgentToIssue` reads the caller's
- * role to decide visibility for `private` agents — without member data,
- * a freshly-loaded agent list could still produce wrong answers.
+ * The caller's role decides which agents count, so the member list is read
+ * here; `filterAssignableAgents` documents why.
  */
 export function useWorkspaceAgentAvailability(): WorkspaceAgentAvailability {
   const wsId = useWorkspaceId();

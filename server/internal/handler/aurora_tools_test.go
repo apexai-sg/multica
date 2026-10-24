@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -213,4 +214,45 @@ func TestCreateAuroraToolRunAppliesTheExpertInputRules(t *testing.T) {
 	if after := dbfx.Count(t, `SELECT count(*) FROM issue WHERE workspace_id=$1`, ws); after != before {
 		t.Fatalf("a refused third file created an issue: %d -> %d", before, after)
 	}
+}
+
+// TestAuroraToolDescriptionNamesTheStoredFiles pins the one part of the issue
+// body this package derives rather than receives: the 素材 line is built from
+// the attachment rows, in the order the caller listed them, because the request
+// no longer carries file names. A regression here is silent — the issue opens,
+// the agent runs, and only the file list in the prompt is wrong.
+func TestAuroraToolDescriptionNamesTheStoredFiles(t *testing.T) {
+	expert := aurora.SkillCatalogEntry{ID: "marketing-ad-copywriting", Name: "广告文案专家"}
+
+	t.Run("lists the resolved names in request order", func(t *testing.T) {
+		got := auroraToolDescription("海报制作", auroraToolRunRequest{Source: "秋季新品"}, []string{"clip.mp4", "face.png"}, expert)
+
+		want := "## 素材\nclip.mp4、face.png（见附件）"
+		if !strings.Contains(got, want) {
+			t.Fatalf("description missing %q:\n%s", want, got)
+		}
+	})
+
+	t.Run("omits the section when there are no attachments", func(t *testing.T) {
+		got := auroraToolDescription("海报制作", auroraToolRunRequest{}, nil, expert)
+		if strings.Contains(got, "## 素材") {
+			t.Fatalf("description invented a 素材 section with no attachments:\n%s", got)
+		}
+	})
+
+	t.Run("sorts settings by field id so the same run describes itself the same way", func(t *testing.T) {
+		got := auroraToolDescription("海报制作", auroraToolRunRequest{Values: map[string]string{
+			"ratio": "1:1",
+			"style": "简约",
+		}}, nil, expert)
+
+		ratioAt := strings.Index(got, "- ratio: 1:1")
+		styleAt := strings.Index(got, "- style: 简约")
+		if ratioAt < 0 || styleAt < 0 {
+			t.Fatalf("description missing settings lines:\n%s", got)
+		}
+		if ratioAt > styleAt {
+			t.Fatalf("settings are not sorted by field id:\n%s", got)
+		}
+	})
 }

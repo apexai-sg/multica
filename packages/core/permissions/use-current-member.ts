@@ -35,6 +35,9 @@ export function useCurrentMember(wsId: string): {
   const { data: members, isLoading, isError, isFetched, refetch } = useQuery(
     memberListOptions(wsId),
   );
+  // TanStack's refetch is already stable for the lifetime of the query. Return
+  // it directly rather than wrapping it: a wrapper would need its own
+  // useCallback just to keep the identity callers depend on.
   const member = members?.find((m) => m.user_id === userId) ?? null;
   return {
     userId,
@@ -46,6 +49,6 @@ export function useCurrentMember(wsId: string): {
     isLoading,
     isError,
     isFetched,
-    refetch: () => void refetch(),
+    refetch,
   };
 }
