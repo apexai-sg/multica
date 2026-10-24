@@ -5962,7 +5962,10 @@ func (d *Daemon) handleTask(ctx context.Context, task Task, slot int) {
 		return
 	}
 
-	if isAuroraTask(task) {
+	// Only a generation run owns the artifact contract: the upload endpoint
+	// scopes every call by the task's generation, so a tool run on an expert
+	// carrier would have each staged file rejected.
+	if isAuroraTask(task) && task.GenerationID != "" {
 		d.attachAuroraArtifacts(ctx, task, &result, taskLog, auroraSandboxRoot, auroraSandboxOutputRoot)
 	}
 	d.reportTaskResult(ctx, task.ID, result, taskLog)

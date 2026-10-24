@@ -253,3 +253,33 @@ func TestAttachAuroraArtifactsNeedsInputDoesNotBlock(t *testing.T) {
 		t.Fatalf("artifacts = %d, want 0", len(result.Artifacts))
 	}
 }
+
+// TestToolRunGetsTheIssueBriefNotTheArtifactOne pins the split between the two
+// kinds of expert task. A generation run stages a manifest the platform
+// collects; a tool run has no generation, so the artifact endpoints reject it
+// and the brief must send the model to the issue instead. Getting this wrong
+// fails every tool task after the work is already done.
+func TestToolRunGetsTheIssueBriefNotTheArtifactOne(t *testing.T) {
+	generation := auroraTaskTestTask()
+	if body := buildPromptBody(generation, "claude"); !strings.Contains(body, auroraManifestRelativePath) {
+		t.Fatalf("generation brief must name the manifest path:\n%s", body)
+	}
+
+	toolRun := auroraTaskTestTask()
+	toolRun.GenerationID = ""
+	toolRun.IssueID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+	body := buildPromptBody(toolRun, "claude")
+
+	if strings.Contains(body, auroraManifestRelativePath) {
+		t.Fatalf("tool-run brief must not ask for a manifest:\n%s", body)
+	}
+	for _, want := range []string{
+		"multica issue comment add " + toolRun.IssueID,
+		"aurora-artifacts",
+		"multica issue get " + toolRun.IssueID,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("tool-run brief missing %q:\n%s", want, body)
+		}
+	}
+}

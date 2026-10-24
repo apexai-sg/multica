@@ -232,6 +232,13 @@ func buildPromptBody(task Task, provider string) string {
 	// generic quick-create prompt would wrongly send the agent to
 	// `multica issue create`.
 	if isAuroraTask(task) {
+		// A generation run writes a manifest the platform collects, and every
+		// generation round carries its id on the claim. A tool run is an
+		// ordinary issue task on an expert carrier: no generation, so the
+		// artifact pipeline refuses it and the result belongs on the issue.
+		if task.GenerationID == "" && task.ChatSessionID == "" && task.IssueID != "" {
+			return buildAuroraToolRunPrompt(task)
+		}
 		return buildAuroraPrompt(task)
 	}
 	if task.WakeupID != "" {
@@ -454,6 +461,35 @@ func buildAuroraPrompt(task Task) string {
 		fmt.Fprintf(&b, "- If a required input is missing, ask on this issue with `multica issue comment add %s --content-file <path>` and stop; do not guess. Leave the answer for the next round.\n", task.IssueID)
 	}
 	b.WriteString("- When you are done, print one short line naming the produced artifact and stop.\n")
+	return b.String()
+}
+
+// buildAuroraToolRunPrompt is the brief for a tool page's task: an ordinary
+// issue run on a catalog expert, with no generation behind it.
+//
+// It exists because the expert skill documents tell the model to stage its
+// deliverable as an artifact manifest, and only a generation can accept one.
+// A tool run therefore works the same way but delivers through the issue.
+func buildAuroraToolRunPrompt(task Task) string {
+	skillID, _ := auroraSkillID(task)
+	var b strings.Builder
+	b.WriteString("You are running an Aurora tool task for a Multica workspace. The task lives on the issue below; do not create another issue.\n\n")
+	fmt.Fprintf(&b, "Issue id: `%s`\n", task.IssueID)
+	fmt.Fprintf(&b, "Task id: `%s`\n", task.ID)
+	fmt.Fprintf(&b, "Skill: `%s`\n\n", skillID)
+	b.WriteString("Your working directory carries this skill's document in the project skills directory (for Claude: `.claude/skills/`). Read it and follow its steps for the work itself.\n\n")
+	b.WriteString("Deliver through the issue, not through an artifact manifest. This run has no generation, so there is nowhere to stage artifacts and the manifest step in the skill document does not apply.\n\n")
+	if task.IssueID != "" {
+		fmt.Fprintf(&b, "Start by reading the task: `multica issue get %s --output json`. Its description carries the request, the chosen settings and the names of any attachments.\n\n", task.IssueID)
+	}
+	b.WriteString("Hard rules:\n")
+	b.WriteString("- Do the work yourself with the tools you have; you are the only execution path.\n")
+	b.WriteString("- Do not write an artifact manifest and do not call the `aurora-artifacts` endpoints; they reject this task.\n")
+	if task.IssueID != "" {
+		fmt.Fprintf(&b, "- Deliver the result as a comment on this issue: `multica issue comment add %s --content-file <path> [--attachment <path>...]`. Save any files inside your working directory first, because attachments must come from there.\n", task.IssueID)
+		b.WriteString("- If a required input is missing or the request cannot be met, say so in that comment and explain what would unblock it. Never present a placeholder or fabricated result as the deliverable.\n")
+	}
+	b.WriteString("- When you are done, print one short line naming what you delivered and stop.\n")
 	return b.String()
 }
 
