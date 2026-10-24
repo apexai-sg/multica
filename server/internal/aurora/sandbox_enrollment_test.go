@@ -399,6 +399,13 @@ func TestSandboxEnrollmentConsumeMintsScopedDaemonTokenAndBindsRuntime(t *testin
 	if !stored.ExpiresAt.Valid || !stored.ExpiresAt.Time.Equal(consumed.DaemonTokenExpiresAt) {
 		t.Errorf("stored daemon expiry = %+v, want %v", stored.ExpiresAt, consumed.DaemonTokenExpiresAt)
 	}
+	// MUL-8154: the daemon register gate refuses a token with no owner binding.
+	if !stored.OwnerID.Valid {
+		t.Fatal("stored daemon token has no owner binding")
+	}
+	if stored.OwnerID != bound.OwnerID {
+		t.Errorf("stored daemon token owner = %v, want the runtime owner %v", stored.OwnerID, bound.OwnerID)
+	}
 
 	if bound.ID != runtimeID {
 		t.Errorf("bound runtime = %v, want %v", bound.ID, runtimeID)
