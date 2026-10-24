@@ -216,11 +216,12 @@ func TestCreateAuroraToolRunAppliesTheExpertInputRules(t *testing.T) {
 	}
 }
 
-// TestAuroraToolDescriptionNamesTheStoredFiles pins the one part of the issue
-// body this package derives rather than receives: the 素材 line is built from
-// the attachment rows, in the order the caller listed them, because the request
-// no longer carries file names. A regression here is silent — the issue opens,
-// the agent runs, and only the file list in the prompt is wrong.
+// TestAuroraToolDescriptionNamesTheStoredFiles pins the issue body this package
+// builds rather than receives. The 素材 line comes from the attachment rows in
+// the order the caller listed them, since the request no longer carries file
+// names; the settings lines are sorted by field id for the same reason. A
+// regression here is silent — the issue opens, the agent runs, and only the
+// prompt text is wrong.
 func TestAuroraToolDescriptionNamesTheStoredFiles(t *testing.T) {
 	expert := aurora.SkillCatalogEntry{ID: "marketing-ad-copywriting", Name: "广告文案专家"}
 

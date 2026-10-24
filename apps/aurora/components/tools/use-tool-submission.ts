@@ -71,8 +71,8 @@ export function resolveToolSubmissionStatus({
 }
 
 /**
- * Localized explanation for a non-ready submission state. Components render
- * this next to the submit button so a disabled button always says why.
+ * Localized line for each submission status, rendered beside the submit
+ * button so a disabled button always says why and a ready one says what happens.
  */
 export function toolSubmissionNotice(status: ToolSubmissionStatus): string {
   switch (status) {
