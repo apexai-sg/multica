@@ -68,7 +68,7 @@ export function ToolWorkbench({ tool, slug }: { tool: ToolDefinition; slug: stri
         {submission.pending ? null : <ArrowRight aria-hidden="true" />}
       </Button>
       <p id="tool-preview-note">{ready ? "素材和设置已准备好" : "请先补充必填素材或文案"}<span>·</span>{toolSubmissionNotice(submission.status)}
-        {submission.status === "error" ? <><span>·</span><Button type="button" variant="outline" size="sm" onClick={submission.reloadAgents}>重新加载</Button></> : null}
+        {submission.status === "error" || submission.status === "no-agent" || submission.status === "no-runtime" ? <><span>·</span><Button type="button" variant="outline" size="sm" onClick={submission.reloadAgents}>重新加载</Button></> : null}
       </p>
       {submission.error ? <p className="apex-upload-error" role="alert">{submission.error}</p> : null}
       {submission.createdIdentifier ? <p className="apex-sample-note" role="status">任务已创建：{submission.createdIdentifier}，请到任务列表查看。</p> : null}

@@ -174,7 +174,7 @@ export function FaceSwapWorkbench({ slug }: { slug: string }) {
           <Info aria-hidden="true" />
           {ready ? "素材已就绪" : `请先选择原${noun}和人脸照片`}
           <span>·</span>{toolSubmissionNotice(submission.status)}
-          {submission.status === "error" ? <><span>·</span><Button type="button" variant="outline" size="sm" onClick={submission.reloadAgents}>重新加载</Button></> : null}
+          {submission.status === "error" || submission.status === "no-agent" || submission.status === "no-runtime" ? <><span>·</span><Button type="button" variant="outline" size="sm" onClick={submission.reloadAgents}>重新加载</Button></> : null}
         </p>
         {submission.error ? <p className="apex-upload-error" role="alert">{submission.error}</p> : null}
         {submission.createdIdentifier ? <p className="apex-sample-note" role="status">任务已创建：{submission.createdIdentifier}，请到任务列表查看。</p> : null}

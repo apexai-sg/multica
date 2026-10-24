@@ -46,6 +46,7 @@ func auroraEmptyToolWorkspace(t *testing.T) (string, string) {
 		ctx := context.Background()
 		for _, stmt := range []string{
 			`DELETE FROM issue WHERE workspace_id = $1`,
+			`DELETE FROM attachment WHERE workspace_id = $1`,
 			`DELETE FROM agent WHERE workspace_id = $1`,
 			`DELETE FROM agent_runtime WHERE workspace_id = $1`,
 			`DELETE FROM skill WHERE workspace_id = $1`,
@@ -164,4 +165,52 @@ func TestCreateAuroraToolRunRefusesWhenTheRuntimeIsUnavailable(t *testing.T) {
 func TestCreateAuroraToolRunAllowsANonOwnerMember(t *testing.T) {
 	ws, member := auroraToolWorkspace(t)
 	postToolRun(t, ws, member, "copywriting", map[string]any{"source": "写一段文案"}).Want(http.StatusCreated)
+}
+
+// insertToolAttachment stands in for the authenticated upload path: one row in
+// this workspace, uploaded by uploader.
+func insertToolAttachment(t *testing.T, workspaceID, uploader, filename, contentType string, size int64) string {
+	t.Helper()
+	return dbfx.Insert(t, "attachment", testutil.Cols{
+		"workspace_id":  workspaceID,
+		"uploader_type": "member",
+		"uploader_id":   uploader,
+		"filename":      filename,
+		"url":           "https://storage.test/" + filename,
+		"content_type":  contentType,
+		"size_bytes":    size,
+	})
+}
+
+// TestCreateAuroraToolRunRejectsAnotherMembersAttachment covers the ownership
+// half of the attachment check: a member may only attach files they uploaded
+// themselves. Without it, any workspace member could bind someone else's upload
+// to a task the shared carrier then reads.
+func TestCreateAuroraToolRunRejectsAnotherMembersAttachment(t *testing.T) {
+	ws, member := auroraToolWorkspace(t)
+	other := dbfx.User(t, "aurora other member", "aurora-other-"+uuid.NewString()+"@test.invalid")
+	dbfx.Member(t, ws, other, "member")
+	attachment := insertToolAttachment(t, ws, other, "theirs.png", "image/png", 1024)
+	before := dbfx.Count(t, `SELECT count(*) FROM issue WHERE workspace_id=$1`, ws)
+	postToolRun(t, ws, member, "poster", map[string]any{"attachment_ids": []string{attachment}}).Want(http.StatusBadRequest)
+	if after := dbfx.Count(t, `SELECT count(*) FROM issue WHERE workspace_id=$1`, ws); after != before {
+		t.Fatalf("issues changed: %d -> %d", before, after)
+	}
+}
+
+// TestCreateAuroraToolRunAppliesTheExpertInputRules keeps the tool path and the
+// catalog in one contract: face-swap submits a source video plus a face photo,
+// and a third file exceeds the expert's two-file slot.
+func TestCreateAuroraToolRunAppliesTheExpertInputRules(t *testing.T) {
+	ws, member := auroraToolWorkspace(t)
+	video := insertToolAttachment(t, ws, member, "clip.mp4", "video/mp4", 1<<20)
+	photo := insertToolAttachment(t, ws, member, "face.png", "image/png", 1024)
+	postToolRun(t, ws, member, "face-swap", map[string]any{"attachment_ids": []string{video, photo}}).Want(http.StatusCreated)
+
+	extra := insertToolAttachment(t, ws, member, "extra.png", "image/png", 1024)
+	before := dbfx.Count(t, `SELECT count(*) FROM issue WHERE workspace_id=$1`, ws)
+	postToolRun(t, ws, member, "face-swap", map[string]any{"attachment_ids": []string{video, photo, extra}}).Want(http.StatusBadRequest)
+	if after := dbfx.Count(t, `SELECT count(*) FROM issue WHERE workspace_id=$1`, ws); after != before {
+		t.Fatalf("a refused third file created an issue: %d -> %d", before, after)
+	}
 }

@@ -129,13 +129,14 @@ const auroraToolMediaNote = "请完成这个任务，把生成内容作为评论
 // CreateAuroraToolRun turns one tool page submission into an ordinary issue
 // assigned to the tool's mapped expert.
 //
-// The order is fixed and each step exists to keep a refusal free of side
-// effects: membership, the mapping (409), the attachment check (400), then the
-// seed and carrier lookup, then the runtime (503), then the issue. Everything a
-// caller can be refused for is decided before the first write — an unknown tool,
-// a foreign attachment and an unreachable runtime each leave the workspace
-// exactly as it was, and in particular do not provision a managed runtime that
-// the sandbox sweeper would then keep alive.
+// The order is fixed: membership, the mapping (409), the attachment check
+// (400), the seed and carrier lookup, the runtime (503), then the issue. The
+// checks a bad request can fail cheaply — an unknown tool, a foreign or
+// malformed attachment — run before any write, so a rejected file never pays
+// for 33 carriers and a managed runtime. An unreachable runtime is checked
+// after the seed on purpose: the workspace needs those carriers for its next
+// visit anyway, and the seed is what makes the runtime exist to test. The 503
+// therefore leaves the seeded workspace in place; it does not create an issue.
 //
 // The issue is an ordinary one — deliberately without
 // SkipAssignedAgentEnqueue — so the carrier's assigned-agent path enqueues the
@@ -194,7 +195,7 @@ func (h *Handler) CreateAuroraToolRun(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.validateAuroraToolAttachments(r.Context(), workspaceID, attachmentIDs); err != nil {
+	if err := h.validateAuroraToolAttachments(r.Context(), workspaceID, userUUID, slug, attachmentIDs); err != nil {
 		var invalid auroraInputError
 		if errors.As(err, &invalid) {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -270,10 +271,20 @@ func (h *Handler) CreateAuroraToolRun(w http.ResponseWriter, r *http.Request) {
 }
 
 // validateAuroraToolAttachments proves every requested id resolves to a row in
-// this workspace. A foreign or unknown id is a 400 rather than a silently
-// dropped attachment; the counts must match one for one.
-func (h *Handler) validateAuroraToolAttachments(ctx context.Context, workspaceID pgtype.UUID, ids []pgtype.UUID) error {
+// this workspace uploaded by this user, then applies the mapped expert's input
+// rules — the same two checks the generation path performs. A foreign or
+// unknown id is a 400 rather than a silently dropped attachment; the counts
+// must match one for one, and the file list keeps the request order so the
+// rules (and the agent) see the files the way the caller selected them.
+func (h *Handler) validateAuroraToolAttachments(ctx context.Context, workspaceID, userID pgtype.UUID, expertSlug string, ids []pgtype.UUID) error {
+	policy, ok := aurora.ExecutionPolicy(expertSlug)
+	if !ok {
+		return invalidAuroraInput("expert not available")
+	}
 	if len(ids) == 0 {
+		if err := aurora.ValidateSkillInputs(policy, nil); err != nil {
+			return invalidAuroraInput("%s", err)
+		}
 		return nil
 	}
 	rows, err := h.Queries.ListAttachmentsByIDs(ctx, db.ListAttachmentsByIDsParams{
@@ -283,8 +294,23 @@ func (h *Handler) validateAuroraToolAttachments(ctx context.Context, workspaceID
 	if err != nil {
 		return fmt.Errorf("load attachments: %w", err)
 	}
-	if len(rows) != len(ids) {
-		return invalidAuroraInput("attachment not found")
+	byID := make(map[pgtype.UUID]db.Attachment, len(rows))
+	for _, row := range rows {
+		byID[row.ID] = row
+	}
+	files := make([]db.Attachment, 0, len(ids))
+	for _, id := range ids {
+		row, found := byID[id]
+		if !found {
+			return invalidAuroraInput("attachment not found")
+		}
+		files = append(files, row)
+	}
+	if err := aurora.ValidateSkillAttachmentScope(files, workspaceID, userID); err != nil {
+		return invalidAuroraInput("%s", err)
+	}
+	if err := aurora.ValidateSkillInputs(policy, files); err != nil {
+		return invalidAuroraInput("%s", err)
 	}
 	return nil
 }

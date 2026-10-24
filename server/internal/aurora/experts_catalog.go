@@ -54,7 +54,9 @@ var expertDefs = []expertDef{
 	// ecommerce
 	{Slug: "ecommerce-bidding-strategy", Category: "ecommerce", Credits: 80, Featured: true, Attachments: documentConstraint(0, 1)},
 	{Slug: "ecommerce-pricing-analysis", Category: "ecommerce", Credits: 80, Attachments: documentConstraint(0, 1)},
-	{Slug: "ecommerce-product-copywriting", Category: "ecommerce", Credits: 80, Attachments: documentConstraint(0, 1)},
+	// The product-images tool uploads one image; a generation may upload a
+	// document. Both are the same single-input slot.
+	{Slug: "ecommerce-product-copywriting", Category: "ecommerce", Credits: 80, Attachments: mediaConstraint(0, 1, AttachmentDocument, AttachmentImage)},
 	{Slug: "ecommerce-product-selection", Category: "ecommerce", Credits: 80, Attachments: documentConstraint(0, 1)},
 	{Slug: "ecommerce-promotion-planning", Category: "ecommerce", Credits: 80, Attachments: documentConstraint(0, 1)},
 	{Slug: "ecommerce-user-profiling", Category: "ecommerce", Credits: 80, Attachments: documentConstraint(0, 1)},
@@ -64,21 +66,29 @@ var expertDefs = []expertDef{
 	{Slug: "legal-legal-research", Category: "legal", Credits: 100, Attachments: documentConstraint(0, 1)},
 	{Slug: "legal-litigation-strategy", Category: "legal", Credits: 100, Attachments: documentConstraint(0, 1)},
 	// marketing
-	{Slug: "marketing-ad-copywriting", Category: "marketing", Credits: 80, Featured: true, Attachments: documentConstraint(0, 1)},
+	// poster and copywriting share this expert: poster uploads an image, the
+	// copy tool uploads nothing, a generation may upload a document.
+	{Slug: "marketing-ad-copywriting", Category: "marketing", Credits: 80, Featured: true, Attachments: mediaConstraint(0, 1, AttachmentDocument, AttachmentImage)},
 	{Slug: "marketing-competitor-analysis", Category: "marketing", Credits: 80, Attachments: documentConstraint(0, 1)},
 	{Slug: "marketing-event-planning", Category: "marketing", Credits: 80, Attachments: documentConstraint(0, 1)},
-	{Slug: "marketing-social-media-operation", Category: "marketing", Credits: 80, Attachments: documentConstraint(0, 1)},
+	// rednote-images uploads one image; a generation may upload a document.
+	{Slug: "marketing-social-media-operation", Category: "marketing", Credits: 80, Attachments: mediaConstraint(0, 1, AttachmentDocument, AttachmentImage)},
 	{Slug: "marketing-user-growth", Category: "marketing", Credits: 80, Attachments: documentConstraint(0, 1)},
 	// media
 	// media-face-swap delivers a plan, never a fabricated video: no verified
 	// face-swap model exists, so its only declared output is the text brief.
-	{Slug: "media-face-swap", Category: "media", Credits: 120, Inputs: []string{"text", "image"}, Attachments: mediaConstraint(0, 1, AttachmentImage)},
+	// The tool page submits one source video plus one face photo, so the slot
+	// holds two files of either kind.
+	{Slug: "media-face-swap", Category: "media", Credits: 120, Inputs: []string{"text", "image", "video"}, Attachments: mediaConstraint(0, 2, AttachmentImage, AttachmentVideo)},
 	{Slug: "media-image-retouch", Category: "media", Credits: 120, Inputs: []string{"text", "image"}, Outputs: []string{"text", "image"}, Attachments: mediaConstraint(0, 1, AttachmentImage)},
 	{Slug: "media-portrait-studio", Category: "media", Credits: 120, Inputs: []string{"text", "image"}, Outputs: []string{"text", "image"}, Attachments: mediaConstraint(0, 1, AttachmentImage)},
 	{Slug: "media-script-breakdown", Category: "media", Credits: 120, Featured: true, Attachments: documentConstraint(0, 1)},
-	{Slug: "media-short-video-copy", Category: "media", Credits: 120, Attachments: documentConstraint(0, 1)},
+	// video-transcript uploads a video or an audio file; avatar-video submits
+	// text only; a generation may upload a document.
+	{Slug: "media-short-video-copy", Category: "media", Credits: 120, Attachments: mediaConstraint(0, 1, AttachmentDocument, AttachmentVideo, AttachmentAudio)},
 	{Slug: "media-storyboard-design", Category: "media", Credits: 120, Attachments: documentConstraint(0, 1)},
-	{Slug: "media-video-editing", Category: "media", Credits: 120, Attachments: documentConstraint(0, 1)},
+	// video-edit uploads the source video; a generation may upload a document.
+	{Slug: "media-video-editing", Category: "media", Credits: 120, Attachments: mediaConstraint(0, 1, AttachmentDocument, AttachmentVideo)},
 	{Slug: "media-video-translation", Category: "media", Credits: 120, Inputs: []string{"text", "video", "audio"}, Outputs: []string{"text", "video"}, Attachments: mediaConstraint(0, 1, AttachmentVideo, AttachmentAudio)},
 	// media-voiceover declares text only: the artifact pipeline has no audio
 	// kind, so advertising audio would promise a deliverable it cannot carry.

@@ -12,7 +12,7 @@
 - 构建命令：在仓库根目录执行 `corepack pnpm install --frozen-lockfile`，再执行 `corepack pnpm --filter @multica/aurora build`。
 - 容器沿用 `Dockerfile.aurora`，其中已复制 Next.js 静态文件与 `apps/aurora/public`。请重新构建前端镜像，记录新的提交 SHA、镜像标签和 digest，并沿用部署环境现有配置。只更新后端或重启旧镜像不会更新页面。
 - `pnpm --filter @multica/aurora preview` 仅用于本地设计验收，不能代替正式构建；不要把其虚构账号、积分或模拟 API 部署到生产。
-- 不需要新增数据库迁移、模型密钥或新的环境变量。沿用现有登录、工作区和 API 配置。
+- **必须先跑数据库迁移**：本版新增 `server/migrations/5000_aurora_carrier_invocation`（把 Aurora 专家 carrier 改为 `public_to`、补 workspace 调用目标、把 carrier 与托管运行时的 owner 对齐到工作区 owner）。只加列不加表；`migrations.AllVersions()` 供 readiness 比对，漏跑会报 `migrations=out_of_date`。不需要新增模型密钥或环境变量，沿用现有登录、工作区和 API 配置。
 
 ## 正式访问入口
 
@@ -79,8 +79,9 @@ owner**（不是触发 seed 的人），因此任何成员都能提交；运行�
 后端是否配置了对应 provider。issue 描述会要求 agent 在无法生成真实媒体时说明限制并给出方案，
 这是对 agent 的指令而非平台保证，验收时以实际结果为准。
 映射的专家 carrier 不在可指派列表、已归档或失去运行环境时提交按钮禁用，
-因此不会出现“提交成功但迟迟不执行”的情况。映射或列表加载失败时页面报错并提供
-“重新加载”。
+因此不会出现“提交成功但迟迟不执行”的情况——前提是提交前预检与提交时的服务端检查
+一致；运行环境在提交瞬间掉线时，服务端返回 503 且不创建 issue。映射或列表加载失败、
+carrier 缺失或失去运行环境时，页面都提供“重新加载”。
 
 ## 本次验证记录
 

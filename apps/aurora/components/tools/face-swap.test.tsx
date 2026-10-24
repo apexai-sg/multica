@@ -126,6 +126,7 @@ describe("face swap design preview", () => {
 
     expect(screen.getByRole("button", { name: "生成换脸视频" })).toBeDisabled();
     expect(screen.getByText(/工作区的助手尚未连接运行环境/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "重新加载" })).toBeVisible();
   });
 
   it("names a tool the server has no expert for", async () => {

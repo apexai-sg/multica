@@ -96,8 +96,12 @@ export const auroraToolExecutorSchema = z
   }));
 export type AuroraToolExecutor = z.infer<typeof auroraToolExecutorSchema>;
 
+// No default: an object without `tools` is a body this client does not
+// understand, and parseWithFallback must mark it degraded so the tool page
+// reports a load failure. A default of `[]` would instead read as "this
+// workspace has no mapped tools" and surface as a wrong `no-expert` state.
 export const auroraToolsSchema = z.object({
-  tools: z.array(auroraToolExecutorSchema).default([]),
+  tools: z.array(auroraToolExecutorSchema),
 });
 
 /**
@@ -107,14 +111,19 @@ export const auroraToolsSchema = z.object({
  */
 export const auroraToolRunSchema = z
   .object({
-    identifier: z.string(),
-    issue_id: z.string(),
-    expert: z.object({
-      slug: z.string(),
-      name: z.string(),
-    }),
+    identifier: z.string().min(1),
+    // The client navigates by `identifier` and reads nothing else. `issue_id`
+    // and `expert` stay optional so a server that stops sending them cannot
+    // turn a created issue into a thrown error after the fact.
+    issue_id: z.string().optional(),
+    expert: z
+      .object({
+        slug: z.string(),
+        name: z.string(),
+      })
+      .optional(),
   })
-  .transform(({ issue_id, ...run }) => ({ ...run, issueId: issue_id }));
+  .transform(({ issue_id, ...run }) => ({ ...run, issueId: issue_id ?? null }));
 export type AuroraToolRun = z.infer<typeof auroraToolRunSchema>;
 
 export const auroraGenerationSchema = z.object({

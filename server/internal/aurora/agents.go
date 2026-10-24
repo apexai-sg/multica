@@ -30,8 +30,8 @@ func SkillIDFromSystemKey(systemKey string) (string, bool) {
 }
 
 // SystemAgentDef describes an Aurora expert carrier. Every carrier is
-// member-visible and assignable. The 24 definitions correspond one-to-one with
-// the 24 catalog entries; SystemKey is the agent's stable identity
+// member-visible and assignable. The definitions correspond one-to-one with
+// the catalog entries; SystemKey is the agent's stable identity
 // ("aurora:"+skillID), never its display name.
 type SystemAgentDef struct {
 	SkillID      string
@@ -45,7 +45,8 @@ type SystemAgentDef struct {
 	RequiredTools []string
 }
 
-// SystemAgents returns the 24 system-agent definitions in catalog order.
+// SystemAgents returns one system-agent definition per catalog entry, in
+// catalog order.
 func SystemAgents() []SystemAgentDef {
 	cat := Catalog()
 	defs := make([]SystemAgentDef, len(cat))
