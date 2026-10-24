@@ -15,7 +15,7 @@ export {
   AuroraAccountDialog,
 } from "./aurora-account-panel";
 export { SkillDirectory, type SkillDirectoryProps } from "./skill-directory";
-export { type DirectoryEntry } from "./aurora-agents";
+export { agentSkillId, AURORA_SYSTEM_KEY_PREFIX, type DirectoryEntry } from "./aurora-agents";
 export { WorksList, type WorksListProps } from "./works-list";
 export {
   AuroraAvatar,

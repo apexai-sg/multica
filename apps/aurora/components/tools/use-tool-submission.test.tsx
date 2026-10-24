@@ -155,7 +155,6 @@ describe("useToolSubmission", () => {
       "poster",
       expect.objectContaining({
         source: "海报",
-        fileNames: ["p.png"],
         attachmentIds: ["att-1"],
       }),
     );

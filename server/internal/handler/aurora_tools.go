@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -50,7 +49,6 @@ var auroraToolNames = map[string]string{
 type auroraToolRunRequest struct {
 	Source        string            `json:"source"`
 	Values        map[string]string `json:"values"`
-	FileNames     []string          `json:"file_names"`
 	AttachmentIDs []string          `json:"attachment_ids"`
 }
 
@@ -195,7 +193,8 @@ func (h *Handler) CreateAuroraToolRun(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.validateAuroraToolAttachments(r.Context(), workspaceID, userUUID, slug, attachmentIDs); err != nil {
+	fileNames, err := h.validateAuroraToolAttachments(r.Context(), workspaceID, userUUID, slug, attachmentIDs)
+	if err != nil {
 		var invalid auroraInputError
 		if errors.As(err, &invalid) {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -245,7 +244,7 @@ func (h *Handler) CreateAuroraToolRun(w http.ResponseWriter, r *http.Request) {
 	created, err := h.IssueService.Create(r.Context(), service.IssueCreateParams{
 		WorkspaceID:   workspaceID,
 		Title:         auroraToolTitle(toolName, req.Source),
-		Description:   pgtype.Text{String: auroraToolDescription(toolName, req, expert), Valid: true},
+		Description:   pgtype.Text{String: auroraToolDescription(toolName, req, fileNames, expert), Valid: true},
 		Status:        "todo",
 		Priority:      "none",
 		AssigneeType:  pgtype.Text{String: "agent", Valid: true},
@@ -273,46 +272,39 @@ func (h *Handler) CreateAuroraToolRun(w http.ResponseWriter, r *http.Request) {
 // validateAuroraToolAttachments proves every requested id resolves to a row in
 // this workspace uploaded by this user, then applies the mapped expert's input
 // rules — the same two checks the generation path performs. A foreign or
-// unknown id is a 400 rather than a silently dropped attachment; the counts
-// must match one for one, and the file list keeps the request order so the
-// rules (and the agent) see the files the way the caller selected them.
-func (h *Handler) validateAuroraToolAttachments(ctx context.Context, workspaceID, userID pgtype.UUID, expertSlug string, ids []pgtype.UUID) error {
+// unknown id is a 400 rather than a silently dropped attachment; the file list
+// keeps the request order so the rules (and the agent) see the files the way the
+// caller selected them.
+//
+// The returned names come from the stored rows, not from the request: the client
+// has no reason to send them, and a second copy would let the description name a
+// file the attachment is not.
+func (h *Handler) validateAuroraToolAttachments(ctx context.Context, workspaceID, userID pgtype.UUID, expertSlug string, ids []pgtype.UUID) ([]string, error) {
 	policy, ok := aurora.ExecutionPolicy(expertSlug)
 	if !ok {
-		return invalidAuroraInput("expert not available")
+		return nil, invalidAuroraInput("expert not available")
 	}
 	if len(ids) == 0 {
 		if err := aurora.ValidateSkillInputs(policy, nil); err != nil {
-			return invalidAuroraInput("%s", err)
+			return nil, invalidAuroraInput("%s", err)
 		}
-		return nil
+		return nil, nil
 	}
-	rows, err := h.Queries.ListAttachmentsByIDs(ctx, db.ListAttachmentsByIDsParams{
-		AttachmentIds: ids,
-		WorkspaceID:   workspaceID,
-	})
+	files, err := h.loadAuroraAttachments(ctx, workspaceID, ids)
 	if err != nil {
-		return fmt.Errorf("load attachments: %w", err)
-	}
-	byID := make(map[pgtype.UUID]db.Attachment, len(rows))
-	for _, row := range rows {
-		byID[row.ID] = row
-	}
-	files := make([]db.Attachment, 0, len(ids))
-	for _, id := range ids {
-		row, found := byID[id]
-		if !found {
-			return invalidAuroraInput("attachment not found")
-		}
-		files = append(files, row)
+		return nil, err
 	}
 	if err := aurora.ValidateSkillAttachmentScope(files, workspaceID, userID); err != nil {
-		return invalidAuroraInput("%s", err)
+		return nil, invalidAuroraInput("%s", err)
 	}
 	if err := aurora.ValidateSkillInputs(policy, files); err != nil {
-		return invalidAuroraInput("%s", err)
+		return nil, invalidAuroraInput("%s", err)
 	}
-	return nil
+	names := make([]string, 0, len(files))
+	for _, row := range files {
+		names = append(names, row.Filename)
+	}
+	return names, nil
 }
 
 // auroraToolName is the display name for a mapped tool id. An id without a name
@@ -330,25 +322,18 @@ func auroraToolName(toolID string) string {
 // Runes, not bytes: the title is Chinese, and a byte slice would cut a
 // multi-byte character in half.
 func auroraToolTitle(toolName, source string) string {
-	subject := []rune(strings.TrimSpace(source))
-	if len(subject) > 80 {
-		subject = subject[:80]
+	subject := aurora.TruncateRunes(strings.TrimSpace(source), 80)
+	if subject == "" {
+		return toolName + " · 任务"
 	}
-	title := toolName + " · " + string(subject)
-	if len(subject) == 0 {
-		title = toolName + " · 任务"
-	}
-	if runes := []rune(title); len(runes) > 120 {
-		title = string(runes[:120])
-	}
-	return title
+	return aurora.TruncateRunes(toolName+" · "+subject, 120)
 }
 
 // auroraToolDescription builds the issue body. The client used to do this; it
 // moved here so the mapping, the executor and the instruction have one owner.
 // Settings are sorted by field id so the same submission always describes
 // itself the same way (map iteration would not).
-func auroraToolDescription(toolName string, req auroraToolRunRequest, expert aurora.SkillCatalogEntry) string {
+func auroraToolDescription(toolName string, req auroraToolRunRequest, fileNames []string, expert aurora.SkillCatalogEntry) string {
 	sections := []string{"## 工具\n" + toolName}
 	if source := strings.TrimSpace(req.Source); source != "" {
 		sections = append(sections, "## 需求\n"+source)
@@ -365,8 +350,8 @@ func auroraToolDescription(toolName string, req auroraToolRunRequest, expert aur
 		}
 		sections = append(sections, "## 设置\n"+strings.Join(lines, "\n"))
 	}
-	if len(req.FileNames) > 0 {
-		sections = append(sections, "## 素材\n"+strings.Join(req.FileNames, "、")+"（见附件）")
+	if len(fileNames) > 0 {
+		sections = append(sections, "## 素材\n"+strings.Join(fileNames, "、")+"（见附件）")
 	}
 	sections = append(sections, "## 执行专家\n"+expert.Name+"（"+expert.ID+"）")
 	sections = append(sections, auroraToolMediaNote)

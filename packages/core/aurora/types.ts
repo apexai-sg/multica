@@ -45,7 +45,6 @@ export interface CreateAuroraGenerationRequest {
 export interface CreateAuroraToolRunRequest {
   source?: string;
   values?: Record<string, string>;
-  fileNames?: string[];
   attachmentIds?: string[];
 }
 

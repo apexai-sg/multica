@@ -10,7 +10,8 @@ import { Spinner } from "@multica/ui/components/ui/spinner";
 
 import { fileSize, useLocalFile as useLocalMedia } from "./local-file";
 import { findTool } from "./tool-definitions";
-import { toolSubmissionNotice, useToolSubmission } from "./use-tool-submission";
+import { ToolSubmissionNote } from "./tool-submission-note";
+import { useToolSubmission } from "./use-tool-submission";
 
 type MediaKind = "video" | "image";
 
@@ -170,14 +171,10 @@ export function FaceSwapWorkbench({ slug }: { slug: string }) {
           {submission.pending ? "提交中…" : `生成换脸${noun}`}
           {submission.pending ? null : <ArrowRight aria-hidden="true" />}
         </Button>
-        <p id="apex-generation-note">
+        <ToolSubmissionNote id="apex-generation-note" submission={submission}>
           <Info aria-hidden="true" />
           {ready ? "素材已就绪" : `请先选择原${noun}和人脸照片`}
-          <span>·</span>{toolSubmissionNotice(submission.status)}
-          {submission.status === "error" || submission.status === "no-agent" || submission.status === "no-runtime" ? <><span>·</span><Button type="button" variant="outline" size="sm" onClick={submission.reloadAgents}>重新加载</Button></> : null}
-        </p>
-        {submission.error ? <p className="apex-upload-error" role="alert">{submission.error}</p> : null}
-        {submission.createdIdentifier ? <p className="apex-sample-note" role="status">任务已创建：{submission.createdIdentifier}，请到任务列表查看。</p> : null}
+        </ToolSubmissionNote>
       </div>
 
       <section className="apex-result-panel" aria-labelledby="apex-result-title">

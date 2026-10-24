@@ -324,8 +324,8 @@ func expertConversationStarters(expert Expert) []byte {
 			continue
 		}
 		starters = append(starters, agentConversationStarter{
-			Label:  truncateRunes(label, expertStarterLabelMax),
-			Prompt: truncateRunes(prompt, expertStarterPromptMax),
+			Label:  TruncateRunes(label, expertStarterLabelMax),
+			Prompt: TruncateRunes(prompt, expertStarterPromptMax),
 		})
 	}
 	raw, err := json.Marshal(starters)
@@ -336,9 +336,9 @@ func expertConversationStarters(expert Expert) []byte {
 	return raw
 }
 
-// truncateRunes caps a string at max runes: the starter limits count
+// TruncateRunes caps a string at max runes: the starter limits count
 // characters, not bytes, and a Chinese label is three bytes per character.
-func truncateRunes(value string, max int) string {
+func TruncateRunes(value string, max int) string {
 	runes := []rune(value)
 	if len(runes) <= max {
 		return value

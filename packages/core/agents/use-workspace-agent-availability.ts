@@ -2,9 +2,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspaceId } from "../hooks";
-import { useAuthStore } from "../auth";
-import { agentListOptions, memberListOptions } from "../workspace/queries";
-import { canAssignAgentToIssue } from "../permissions";
+import { useCurrentMember } from "../permissions/use-current-member";
+import { agentListOptions } from "../workspace/queries";
+import { filterAssignableAgents } from "./assignable";
 
 /**
  * Three-state availability for "does the current user have any agent
@@ -34,27 +34,14 @@ export type WorkspaceAgentAvailability = "loading" | "none" | "available";
  */
 export function useWorkspaceAgentAvailability(): WorkspaceAgentAvailability {
   const wsId = useWorkspaceId();
-  const userId = useAuthStore((s) => s.user?.id);
+  const { userId, role, isFetched: memberFetched } = useCurrentMember(wsId);
   const { data: agents, isFetched: agentsFetched } = useQuery(
     agentListOptions(wsId),
   );
-  const { data: members, isFetched: membersFetched } = useQuery(
-    memberListOptions(wsId),
-  );
 
-  if (!agentsFetched || !membersFetched) return "loading";
+  if (!agentsFetched || !memberFetched) return "loading";
 
-  const rawRole = members?.find((m) => m.user_id === userId)?.role;
-  const role =
-    rawRole === "owner" || rawRole === "admin" || rawRole === "member"
-      ? rawRole
-      : null;
+  const assignable = filterAssignableAgents(agents, { userId, role });
 
-  const hasVisibleAgent = (agents ?? []).some(
-    (a) =>
-      !a.archived_at &&
-      canAssignAgentToIssue(a, { userId: userId ?? null, role }).allowed,
-  );
-
-  return hasVisibleAgent ? "available" : "none";
+  return assignable.length > 0 ? "available" : "none";
 }

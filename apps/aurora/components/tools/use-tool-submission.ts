@@ -3,22 +3,19 @@
 import { useCallback, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@multica/core/api";
-import { isAgentRuntimeBound } from "@multica/core/agents";
+import { filterAssignableAgents, isAgentRuntimeBound } from "@multica/core/agents";
 import {
   AuroraToolRunOutcomeUnknownError,
   auroraToolsOptions,
   createAuroraToolRun,
   isAuroraDegraded,
 } from "@multica/core/aurora";
-import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { useFileUpload } from "@multica/core/hooks/use-file-upload";
-import { canAssignAgentToIssue } from "@multica/core/permissions";
-import type { Agent, MemberRole } from "@multica/core/types";
-import {
-  agentListOptions,
-  memberListOptions,
-} from "@multica/core/workspace/queries";
+import { useCurrentMember } from "@multica/core/permissions";
+import type { Agent } from "@multica/core/types";
+import { agentListOptions } from "@multica/core/workspace/queries";
+import { agentSkillId } from "@multica/views/aurora";
 import { useNavigation } from "@multica/views/navigation";
 import { auroraIssueHrefFor } from "@/lib/issue-link";
 import type { ToolDefinition } from "./tool-definitions";
@@ -52,6 +49,31 @@ export type ToolSubmissionStatus =
  * Localized explanation for a non-ready submission state. Components render
  * this next to the submit button so a disabled button always says why.
  */
+/**
+ * The order of these checks is the availability contract: a load failure
+ * outranks a missing mapping, which outranks a missing carrier. Each branch
+ * below is one line so a new state has an obvious place to go.
+ */
+export function resolveToolSubmissionStatus({
+  loading,
+  failed,
+  hasExecutor,
+  hasCarrier,
+  runnable,
+}: {
+  loading: boolean;
+  failed: boolean;
+  hasExecutor: boolean;
+  hasCarrier: boolean;
+  runnable: boolean;
+}): ToolSubmissionStatus {
+  if (loading) return "loading";
+  if (failed) return "error";
+  if (!hasExecutor) return "no-expert";
+  if (!hasCarrier) return "no-agent";
+  return runnable ? "ready" : "no-runtime";
+}
+
 export function toolSubmissionNotice(status: ToolSubmissionStatus): string {
   switch (status) {
     case "loading":
@@ -92,7 +114,13 @@ export function toolSubmissionNotice(status: ToolSubmissionStatus): string {
  */
 export function useToolSubmission(tool: ToolDefinition, slug: string) {
   const wsId = useWorkspaceId();
-  const userId = useAuthStore((s) => s.user?.id ?? null);
+  const {
+    userId,
+    role,
+    isLoading: membersLoading,
+    isError: membersError,
+    refetch: refetchMembers,
+  } = useCurrentMember(wsId);
   const {
     data: tools,
     isLoading: toolsLoading,
@@ -109,12 +137,6 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
     isError: agentsError,
     refetch: refetchAgents,
   } = useQuery({ ...agentListOptions(wsId), enabled: !toolsLoading });
-  const {
-    data: members,
-    isLoading: membersLoading,
-    isError: membersError,
-    refetch: refetchMembers,
-  } = useQuery(memberListOptions(wsId));
   const { upload } = useFileUpload(api);
   const navigation = useNavigation();
   const [pending, setPending] = useState(false);
@@ -129,41 +151,27 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
   // lock; `pending` is only what the UI renders.
   const inFlight = useRef(false);
 
-  const rawRole = members?.find((m) => m.user_id === userId)?.role;
-  const role: MemberRole | null =
-    rawRole === "owner" || rawRole === "admin" || rawRole === "member"
-      ? rawRole
-      : null;
+  const assignable = filterAssignableAgents(agents, { userId, role });
 
   const executor = tools?.value.find((entry) => entry.id === tool.id) ?? null;
-  const assignable = (agents ?? []).filter(
-    (candidate) =>
-      !candidate.archived_at &&
-      canAssignAgentToIssue(candidate, { userId, role }).allowed,
-  );
   const carrier: Agent | null = executor
     ? (assignable.find(
-        (candidate) =>
-          candidate.system_key === `aurora:${executor.expertSlug}`,
+        (candidate) => agentSkillId(candidate) === executor.expertSlug,
       ) ?? null)
     : null;
   const runnable = carrier !== null && isAgentRuntimeBound(carrier);
 
-  // A degraded tools body parses to an empty directory. Reading that as
-  // "no-expert" would tell the user the server has no executor — a claim about
-  // configuration that is false, with no reload offered. It is a load failure.
-  const status: ToolSubmissionStatus =
-    toolsLoading || agentsLoading || membersLoading
-      ? "loading"
-      : toolsError || isAuroraDegraded(tools) || agentsError || membersError
-        ? "error"
-        : !executor
-          ? "no-expert"
-          : !carrier
-            ? "no-agent"
-            : !runnable
-              ? "no-runtime"
-              : "ready";
+  const status = resolveToolSubmissionStatus({
+    loading: toolsLoading || agentsLoading || membersLoading,
+    // A degraded tools body parses to an empty directory. Reading that as
+    // "no-expert" would tell the user the server has no executor — a claim
+    // about configuration that is false, with no reload offered. It is a load
+    // failure.
+    failed: toolsError || isAuroraDegraded(tools) || agentsError || membersError,
+    hasExecutor: executor !== null,
+    hasCarrier: carrier !== null,
+    runnable,
+  });
 
   const canSubmit = status === "ready" && !pending && !outcomeUnknown;
 
@@ -193,7 +201,6 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
         const run = await createAuroraToolRun(tool.id, {
           source,
           values,
-          fileNames: files.map((file) => file.name),
           attachmentIds: uploaded,
         });
         identifier = run.identifier;
@@ -223,28 +230,26 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
       setCreatedIdentifier(identifier);
 
       // Navigation is deliberately outside the try above: telling the user a
-      // created task failed would invite a retry that creates a second one.
+      // created task failed would invite a retry that creates a second one. The
+      // identifier is recorded above, so every exit below leaves the user with
+      // something to act on.
       const href = auroraIssueHrefFor(slug)(identifier);
-      if (!href) {
-        setPending(false);
-        inFlight.current = false;
-        return;
+      if (href) {
+        try {
+          navigation.push(href);
+          // Success: stay locked. The route replaces this page, and re-enabling
+          // the button before that commit would let the same click create a
+          // second issue and run the expert twice.
+          return;
+        } catch {
+          setError(`任务已创建（${identifier}），但打开详情页失败，请到任务列表查看。`);
+        }
       }
 
-      try {
-        navigation.push(href);
-      } catch {
-        setError(`任务已创建（${identifier}），但打开详情页失败，请到任务列表查看。`);
-        setPending(false);
-        inFlight.current = false;
-        return;
-      }
-
-      // Success: stay locked. The route replaces this page, and re-enabling the
-      // button before that commit would let the same click create a second
-      // issue and run the expert twice.
+      setPending(false);
+      inFlight.current = false;
     },
-    [executor, runnable, navigation, slug, status, tool.id, upload],
+    [navigation, slug, status, tool.id, upload],
   );
 
   const reloadAgents = useCallback(() => {
@@ -253,6 +258,8 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
     void refetchMembers();
   }, [refetchAgents, refetchMembers, refetchTools]);
 
+  // The carrier is deliberately not returned: the server decides the executor,
+  // and a client copy of that answer is what PR #17 removed.
   return {
     submit,
     pending,
@@ -261,7 +268,6 @@ export function useToolSubmission(tool: ToolDefinition, slug: string) {
     outcomeUnknown,
     canSubmit,
     status,
-    agent: carrier,
     reloadAgents,
   };
 }

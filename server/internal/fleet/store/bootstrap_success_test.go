@@ -149,7 +149,7 @@ func TestRecoveryBootstrapSuccessNegativeMatrix(t *testing.T) {
 			case "late-proof":
 				s.bootstrapSuccess.Observation.ObservedAt = s.Operation.BootstrapClaimedAt.Add(5 * time.Minute)
 			case "future-proof":
-				s.bootstrapSuccess.Observation.ObservedAt = s.SQLNow.Add(3 * time.Second)
+				s.bootstrapSuccess.Observation.ObservedAt = s.SQLNow.Add(observationClockSkew + time.Second)
 			case "preclaim-proof":
 				s.bootstrapSuccess.Observation.ObservedAt = s.Operation.BootstrapClaimedAt.Add(-time.Second)
 			case "old-epoch":
@@ -199,7 +199,7 @@ func TestRecoveryBootstrapSuccessFreshHealthNegativeMatrix(t *testing.T) {
 			case "stale":
 				o.ObservedAt = s.SQLNow.Add(-31 * time.Second)
 			case "future":
-				o.ObservedAt = s.SQLNow.Add(3 * time.Second)
+				o.ObservedAt = s.SQLNow.Add(observationClockSkew + time.Second)
 			case "unknown":
 				o.Ready = false
 				o.Status = "unknown"
@@ -243,7 +243,7 @@ func TestRecoveryBootstrapSuccessWithinClockSkew(t *testing.T) {
 	n := model.Node{Namespace: "owned", ID: uuid(t, "10000000-0000-0000-0000-000000000001"), OwnerID: uuid(t, "20000000-0000-0000-0000-000000000001"), Generation: 3, Desired: "running", DaemonID: "daemon", DataVolume: "data", SecretsVolume: "secrets", Image: "image", ProfileRef: "profile", Resources: model.Spec{CPUs: 2, MemoryBytes: 4 << 30, Pids: 256, MaxRuns: 1}}
 	op := model.Operation{ID: uuid(t, "30000000-0000-0000-0000-000000000001"), NodeID: n.ID, OwnerID: n.OwnerID, Generation: 3, Action: model.Create, Phase: "applying", BootstrapMinted: true, BootstrapClaimedAt: now.Add(-time.Minute), CreatedAt: now.Add(-6 * time.Minute)}
 	s := RecoverySnapshot{Node: n, Operation: op, SQLNow: now}
-	o := model.Observation{ContainerID: "cid", DaemonID: n.DaemonID, StartEpoch: now.Add(-30 * time.Second).Format(time.RFC3339Nano), Status: "running", Ready: true, Agents: []string{"claude"}, RuntimeCount: 1, ReportStatsKnown: true, ObservedAt: now.Add(1500 * time.Millisecond)}
+	o := model.Observation{ContainerID: "cid", DaemonID: n.DaemonID, StartEpoch: now.Add(-30 * time.Second).Format(time.RFC3339Nano), Status: "running", Ready: true, Agents: []string{"claude"}, RuntimeCount: 1, ReportStatsKnown: true, ObservedAt: now.Add(observationClockSkew / 2)}
 	p := confirmedBootstrapSuccess(s, o)
 	if p == nil {
 		t.Fatal("confirmation within clock skew produced no durable receipt")

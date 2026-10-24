@@ -18,7 +18,6 @@ vi.mock("../components/tools/use-tool-submission", async (importOriginal) => ({
     createdIdentifier: null,
     canSubmit: true,
     status: "ready" as const,
-    agent: { id: "agent-1" },
     reloadAgents: vi.fn(),
   }),
 }));
