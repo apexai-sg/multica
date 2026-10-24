@@ -24,7 +24,9 @@ const bootstrapLease = 5 * time.Minute
 
 // observationClockSkew bounds the comparison between an observation stamped by
 // the caller's clock and a timestamp read from PostgreSQL. The two are separate
-// clock domains; sub-second NTP skew is not evidence of a forged observation.
+// clock domains; a skew of up to two seconds is not evidence of a forged
+// observation, while a timestamp further ahead is still rejected. The bound is
+// small against the 30-second staleness window and the five-minute lease.
 const observationClockSkew = 2 * time.Second
 
 func bootstrapState(n model.Node, op model.Operation, now time.Time) string {
