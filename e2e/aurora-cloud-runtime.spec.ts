@@ -15,8 +15,9 @@
  * (the Go half names that prerequisite in aurora_test.go).
  */
 import { expect, test, type Page } from "@playwright/test";
+import { Client } from "pg";
 import { TestApiClient } from "./fixtures";
-import { createTestApi } from "./helpers";
+import { createTestApi, DEFAULT_E2E_EMAIL } from "./helpers";
 
 const GENERATION_TIMEOUT_MS = 900000;
 const ROUND_TRIP_PROMPT = "aurora e2e fleet round trip poster";
@@ -35,13 +36,40 @@ const AURORA_BASE_URL = (
 
 let api: TestApiClient | null = null;
 
+// The API origin the browser talks to. Aurora proxies /api /auth /ws to it, so
+// a cookie minted against this origin is sent to the app's own origin too.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? `http://localhost:${process.env.PORT || "8080"}`;
+const DATABASE_URL =
+  process.env.DATABASE_URL ?? "postgres://multica:multica@localhost:5432/multica?sslmode=disable";
+
+/**
+ * Aurora authenticates with an HttpOnly cookie, so the session has to be
+ * created inside the browser context. A localStorage token — enough for the web
+ * app's legacy path — is ignored by Aurora and leaves the page on the sign-in
+ * screen.
+ */
 async function loginFleetBrowser(page: Page, client: TestApiClient): Promise<void> {
-  const token = client.getToken();
-  if (!token) throw new Error("aurora E2E client is not logged in");
-  await page.addInitScript((value) => {
-    localStorage.setItem("multica_token", value);
-    localStorage.setItem("multica:chat:isOpen", "false");
-  }, token);
+  if (!client.getToken()) throw new Error("aurora E2E client is not logged in");
+  const db = new Client({ connectionString: DATABASE_URL });
+  await db.connect();
+  try {
+    await db.query("DELETE FROM verification_code WHERE email = $1", [DEFAULT_E2E_EMAIL]);
+    const send = await page.request.post(`${API_BASE}/auth/send-code`, {
+      data: { email: DEFAULT_E2E_EMAIL },
+    });
+    if (!send.ok()) throw new Error(`send-code failed: ${send.status()}`);
+    const result = await db.query(
+      "SELECT code FROM verification_code WHERE email = $1 AND used = FALSE ORDER BY created_at DESC LIMIT 1",
+      [DEFAULT_E2E_EMAIL],
+    );
+    if (result.rows.length === 0) throw new Error("no verification code");
+    const verify = await page.request.post(`${API_BASE}/auth/verify-code`, {
+      data: { email: DEFAULT_E2E_EMAIL, code: result.rows[0].code },
+    });
+    if (!verify.ok()) throw new Error(`verify-code failed: ${verify.status()}`);
+  } finally {
+    await db.end();
+  }
 }
 
 test.afterEach(async ({}, testInfo) => {
