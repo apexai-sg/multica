@@ -116,12 +116,8 @@ func TestMigrationNumericPrefixesAreUnique(t *testing.T) {
 		if !ok {
 			continue
 		}
-		prefix, _, ok := strings.Cut(stem, "_")
-		if !ok {
-			continue
-		}
-		number, err := strconv.Atoi(prefix)
-		if err != nil || number < firstUniqueMigrationNumber {
+		number, ok := migrationPrefix(stem)
+		if !ok || number < firstUniqueMigrationNumber {
 			continue
 		}
 		if previous, exists := stemByNumber[number]; exists {
@@ -131,7 +127,7 @@ func TestMigrationNumericPrefixesAreUnique(t *testing.T) {
 				// stems, so the collision is historical, not a new one.
 				continue
 			}
-			t.Errorf("migrations %s and %s share numeric prefix %s", previous, stem, prefix)
+			t.Errorf("migrations %s and %s share numeric prefix %d", previous, stem, number)
 			continue
 		}
 		stemByNumber[number] = stem
@@ -150,12 +146,8 @@ func TestGrandfatheredPrefixesStillCollide(t *testing.T) {
 		if !ok {
 			continue
 		}
-		prefix, _, ok := strings.Cut(stem, "_")
-		if !ok {
-			continue
-		}
-		if n, err := strconv.Atoi(prefix); err == nil {
-			count[n]++
+		if number, ok := migrationPrefix(stem); ok {
+			count[number]++
 		}
 	}
 	for number := range grandfatheredSharedPrefixes {
@@ -176,18 +168,38 @@ func TestAuroraMigrationsUseTheReservedRange(t *testing.T) {
 		if !ok || !(strings.Contains(stem, "aurora") || strings.Contains(stem, "fleet")) {
 			continue
 		}
-		prefix, _, ok := strings.Cut(stem, "_")
+		number, ok := migrationPrefix(stem)
 		if !ok {
-			continue
-		}
-		number, err := strconv.Atoi(prefix)
-		if err != nil {
 			continue
 		}
 		if number >= auroraMigrationReservedNumber || forkLegacyPrefixes[number] {
 			continue
 		}
 		t.Errorf("fork migration %s must use a number >= %d", stem, auroraMigrationReservedNumber)
+	}
+}
+
+// TestForkLegacyPrefixesStillExist keeps the legacy exemption list honest, the
+// same way TestGrandfatheredPrefixesStillCollide does for collisions. A deleted
+// or renumbered fork migration must leave the list too: otherwise the exemption
+// outlives the migration it was written for and a new fork migration could
+// silently reuse that number below the reserved range.
+func TestForkLegacyPrefixesStillExist(t *testing.T) {
+	files := migrationFilesForLint(t, "*.up.sql")
+	present := make(map[int]bool, len(forkLegacyPrefixes))
+	for _, file := range files {
+		stem, _, ok := splitMigrationFilename(filepath.Base(file))
+		if !ok || !(strings.Contains(stem, "aurora") || strings.Contains(stem, "fleet")) {
+			continue
+		}
+		if number, ok := migrationPrefix(stem); ok {
+			present[number] = true
+		}
+	}
+	for number := range forkLegacyPrefixes {
+		if !present[number] {
+			t.Errorf("legacy fork prefix %d no longer names an aurora/fleet migration; remove it", number)
+		}
 	}
 }
 
@@ -236,6 +248,21 @@ func realMigrationsDir(t *testing.T) string {
 		t.Fatal("resolve migration lint test path")
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(self), "..", "..", "migrations"))
+}
+
+// migrationPrefix parses the numeric prefix of a migration stem ("585" from
+// "585_aurora_agents_visible"). It is the one place the prefix convention is
+// read, so the naming rule and its parsing cannot drift apart between tests.
+func migrationPrefix(stem string) (int, bool) {
+	prefix, _, ok := strings.Cut(stem, "_")
+	if !ok {
+		return 0, false
+	}
+	number, err := strconv.Atoi(prefix)
+	if err != nil {
+		return 0, false
+	}
+	return number, true
 }
 
 func splitMigrationFilename(name string) (stem, direction string, ok bool) {
