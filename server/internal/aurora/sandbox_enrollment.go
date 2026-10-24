@@ -210,12 +210,20 @@ func (s *SandboxEnrollmentService) Consume(ctx context.Context, rawToken string)
 	if err != nil {
 		return ConsumedEnrollment{}, db.AgentRuntime{}, err
 	}
+	// The token must carry the runtime owner: the daemon register gate refuses
+	// an unbound token (MUL-8154), so a managed node without this binding
+	// enrolls, is pruned, and can never register its runtime.
+	runtime, err := qtx.GetAgentRuntime(ctx, node.RuntimeID)
+	if err != nil {
+		return ConsumedEnrollment{}, db.AgentRuntime{}, fmt.Errorf("load managed runtime %s: %w", util.UUIDToString(node.RuntimeID), err)
+	}
 	expiresAt := s.now().Add(daemonTokenTTL)
 	if _, err := qtx.CreateDaemonToken(ctx, db.CreateDaemonTokenParams{
 		TokenHash:   auth.HashToken(rawDaemon),
 		WorkspaceID: node.WorkspaceID,
 		DaemonID:    node.DaemonID,
 		ExpiresAt:   pgtype.Timestamptz{Time: expiresAt, Valid: true},
+		OwnerID:     runtime.OwnerID,
 	}); err != nil {
 		return ConsumedEnrollment{}, db.AgentRuntime{}, fmt.Errorf("create daemon token: %w", err)
 	}
