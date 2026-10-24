@@ -2,7 +2,7 @@ package aurora
 
 import "slices"
 
-// toolExperts is the one authority for which expert executes a tool page's
+// toolExpertTable is the one authority for which expert executes a tool page's
 // task. The Aurora client owns the tool definitions (ids, names, form fields)
 // and never decides the executor; it submits a tool id and the server resolves
 // the carrier agent through this table.
@@ -11,9 +11,10 @@ import "slices"
 // video-transcript/avatar-video each do), but no entry may name a slug outside
 // the catalog: ensureExpert refuses unknown ids, so a stale slug would make the
 // tool unexecutable.
-// toolExpertTable lists every tool page once, in the order the client ships
-// them (matching apps/aurora/components/tools/tool-definitions.ts). Lookup and
-// ordering are derived from this slice so a new tool is added in one place.
+//
+// Rows are listed in the order the client ships the pages (matching
+// apps/aurora/components/tools/tool-definitions.ts). The lookup map and the id
+// slice below are derived from this table, so a new tool is added here only.
 var toolExpertTable = []struct {
 	ID     string
 	Expert string
