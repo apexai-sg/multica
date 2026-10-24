@@ -388,7 +388,6 @@ export async function createAuroraToolRun(
   const body: Record<string, unknown> = {};
   if (request.source !== undefined) body.source = request.source;
   if (request.values) body.values = request.values;
-  if (request.fileNames?.length) body.file_names = request.fileNames;
   if (request.attachmentIds?.length) body.attachment_ids = request.attachmentIds;
 
   const raw = await api.requestJson(

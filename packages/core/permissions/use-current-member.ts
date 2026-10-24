@@ -13,20 +13,39 @@ import { memberListOptions } from "../workspace/queries";
  * `wsId` is explicit (not via `useWorkspaceId()` Context) so this hook stays
  * usable in components that may render before workspace context is wired,
  * matching the repo rule for workspace-aware hooks.
+ *
+ * `isError` and `refetch` are exposed for callers that must tell "still loading"
+ * from "the member list failed" and offer a retry; callers that only need the
+ * role can keep destructuring the three original fields.
  */
+function isMemberRole(value: string | undefined): value is MemberRole {
+  return value === "owner" || value === "admin" || value === "member";
+}
+
 export function useCurrentMember(wsId: string): {
   userId: string | null;
   role: MemberRole | null;
   member: MemberWithUser | null;
   isLoading: boolean;
+  isError: boolean;
+  isFetched: boolean;
+  refetch: () => void;
 } {
   const userId = useAuthStore((s) => s.user?.id ?? null);
-  const { data: members, isLoading } = useQuery(memberListOptions(wsId));
+  const { data: members, isLoading, isError, isFetched, refetch } = useQuery(
+    memberListOptions(wsId),
+  );
   const member = members?.find((m) => m.user_id === userId) ?? null;
   return {
     userId,
-    role: member?.role ?? null,
+    // Fail closed: a role this build does not know is treated as "no role",
+    // which every permission rule denies. The wire type says MemberRole, but a
+    // newer server can send a value this build predates.
+    role: isMemberRole(member?.role) ? member.role : null,
     member,
     isLoading,
+    isError,
+    isFetched,
+    refetch: () => void refetch(),
   };
 }

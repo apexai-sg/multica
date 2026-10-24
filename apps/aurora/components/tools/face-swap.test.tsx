@@ -11,7 +11,6 @@ const submission = vi.hoisted(() => ({
   createdIdentifier: null as string | null,
   canSubmit: true,
   status: "ready" as ToolSubmissionStatus,
-  agent: { id: "agent" },
   reloadAgents: vi.fn(),
 }));
 
