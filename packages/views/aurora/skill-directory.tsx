@@ -91,8 +91,13 @@ export function SkillDirectory({
   issueHref,
 }: SkillDirectoryProps = {}) {
   const { t } = useT("aurora");
-  const { agents, query: agentsQuery } = useAuroraAgentDirectory();
   const skillsQuery = useAuroraSkills();
+  // The catalog request is what seeds a workspace's carriers, so the agent list
+  // waits for it: reading both in parallel shows an empty directory on a
+  // workspace's first visit and never converges without a reload.
+  const { agents, query: agentsQuery } = useAuroraAgentDirectory({
+    enabled: !skillsQuery.isPending,
+  });
   const skills = skillsQuery.data?.value ?? EMPTY_SKILLS;
   const [query, setQuery] = useState("");
   const [output, setOutput] = useState<OutputFilter>("all");

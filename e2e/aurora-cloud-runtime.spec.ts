@@ -20,9 +20,9 @@ import { createTestApi } from "./helpers";
 
 const GENERATION_TIMEOUT_MS = 900000;
 const ROUND_TRIP_PROMPT = "aurora e2e fleet round trip poster";
-// The catalog's English name for the xhs-image skill, the same skill the gated
-// Go round trip submits. The default locale is en.
-const SKILL_NAME = "Xiaohongshu Image";
+// A current catalog expert (marketing-ad-copywriting), which the node image
+// carries. The fleet project pins locale zh-CN so these labels are stable.
+const EXPERT_NAME = "广告文案专家";
 
 // The Aurora app is a separate origin from the default Playwright baseURL. It
 // is read from the environment when the managed composition names it, and
@@ -60,27 +60,29 @@ test("Aurora generation completes on a Fleet node and shows its artifact in the 
   api = client;
   await loginFleetBrowser(page, client);
 
-  // Setup only: land on the Aurora Create directory for the resolved workspace.
-  await page.goto(`${AURORA_BASE_URL}/${client.getFleetWorkspaceSlug()}/skills`, {
-    waitUntil: "domcontentloaded",
-  });
+  // Setup only: land on the expert directory for the resolved workspace. The
+  // directory is `/skills/connected`; `/skills` is the static tool grid.
+  await page.goto(
+    `${AURORA_BASE_URL}/${client.getFleetWorkspaceSlug()}/skills/connected`,
+    { waitUntil: "domcontentloaded" },
+  );
 
-  // The prompt goes through the composer UI. Picking the skill opens the drawer.
-  await page.getByRole("button", { name: SKILL_NAME }).click();
+  // The prompt goes through the composer UI. Picking the expert opens the drawer.
+  await page.getByRole("button", { name: new RegExp(EXPERT_NAME) }).click();
   const drawer = page.locator('[data-slot="sheet-content"]');
   await expect(drawer).toBeVisible();
-  await drawer.getByLabel("What should it make?").fill(ROUND_TRIP_PROMPT);
-  await drawer.getByRole("button", { name: "Generate", exact: true }).click();
+  await drawer.getByLabel("想要生成什么？").fill(ROUND_TRIP_PROMPT);
+  await drawer.getByRole("button", { name: "开始生成", exact: true }).click();
 
   // The drawer follows the generation it started and renders the terminal
   // status itself. This is a browser assertion, not an API poll.
-  await expect(drawer.getByRole("status")).toHaveText("Done", {
+  await expect(drawer.getByRole("status")).toHaveText("完成", {
     timeout: GENERATION_TIMEOUT_MS,
   });
 
   // The artifact is observed in the UI: the composer's Result section lists the
   // asset's download link. A status-only check would also pass a completed
   // generation that produced no files, so the link is required.
-  await expect(drawer.getByRole("heading", { name: "Result" })).toBeVisible();
+  await expect(drawer.getByRole("heading", { name: "生成结果" })).toBeVisible();
   await expect(drawer.locator('ul li a[href$="/download"]').first()).toBeVisible();
 });

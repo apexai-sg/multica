@@ -31,7 +31,9 @@ export default defineConfig({
       ? [
           {
             name: "fleet-docker",
-            use: { browserName: "chromium" as const },
+            // The Aurora flow asserts on Chinese copy; pin the locale so the
+            // labels do not depend on the host's language settings.
+            use: { browserName: "chromium" as const, locale: "zh-CN" },
             testMatch: ["**/cloud-runtime.spec.ts", "**/aurora-cloud-runtime.spec.ts"],
           },
         ]
