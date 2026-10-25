@@ -91,10 +91,12 @@ matters:
   rate card and in the itemized charge.
 - **D6. Credits are the unit; currency is SGD.** 100 credits = S$1.00. The
   credit is not pegged to a provider cost.
-- **D7. Three paid tiers plus credit packs**, plus the existing free tier
-  outside that count.
-- **D8. The free tier survives** with its lazy monthly grant and month-end
-  expiry unchanged in shape.
+- **D7. Three paid tiers plus credit packs.**
+- **D8. No free tier.** New users get no monthly grant. The `free` row in
+  `TierCatalog`, the lazy free-monthly grant in `entitlement.go`, and the free
+  tier's part of the month-end settlement are removed. Using any metered skill
+  requires a subscription or a purchased pack; an account with no plan can sign
+  in but cannot generate.
 
 ## Design
 
@@ -452,10 +454,9 @@ Each phase ships independently; phase 1 is meaningful without 2 and 3.
    against the ARK invoice.
 3. **Tier names and prices.** Three tiers plus packs, in SGD, with the yearly
    discount (if any).
-4. **Free tier versus video caps.** Once the cap is a ceiling rather than a
-   price, a 200-credit free grant may not cover any video skill's reservation.
-   Either the free tier cannot open video skills, or its reservation ceiling is
-   lower than a paid user's. This becomes concrete once the rate numbers exist.
+4. **The signup bonus.** `auth.go` grants a one-time signup bonus
+   (`auroraSignupBonusMicro`). It is a free trial in everything but name. Keep
+   it, or does "no free tier" mean no free credits at all?
 
 ## What is left to the builder
 
