@@ -7,12 +7,10 @@
  * environment; a skip is not a pass.
  *
  * The behaviour under test is the browser flow: TestApiClient only signs in and
- * resolves the workspace (setup/teardown), then the Aurora Create directory
- * opens the composer, the prompt is typed and submitted in the UI, and the
- * generation's rendered status badge and artifact link are the evidence. No API
- * call creates or polls the generation. The same flow stays a real-engine skip
- * until the managed environment carries a fake-capable dual-contract node image
- * (the Go half names that prerequisite in aurora_test.go).
+ * resolves the workspace (setup/teardown), then the expert directory opens the
+ * composer, the prompt is typed and submitted in the UI, and the issue the
+ * generation runs on shows the daemon's completion comment naming its artifact.
+ * No API call creates or polls the generation.
  */
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
@@ -20,7 +18,13 @@ import { TestApiClient } from "./fixtures";
 import { createTestApi, DEFAULT_E2E_EMAIL } from "./helpers";
 
 const GENERATION_TIMEOUT_MS = 900000;
-const ROUND_TRIP_PROMPT = "aurora e2e fleet round trip poster";
+// A complete request: the ad-copywriting expert asks a clarifying question when
+// the audience or deliverable is missing, and this spec is about the artifact
+// path, not the question path.
+const ROUND_TRIP_PROMPT =
+  "为新加坡一家咖啡店写秋季新品「桂花拿铁」的中文营销文案。目标受众是 25-35 岁上班族，风格温暖、生活化。请输出 3 条小红书标题和一篇 200 字左右的正文。";
+// The daemon's completion comment names every artifact it accepted.
+const COMPLETION_COMMENT = /artifacts\/[a-z0-9-]+\.md/;
 // A current catalog expert (marketing-ad-copywriting), which the node image
 // carries. The fleet project pins locale zh-CN so these labels are stable.
 const EXPERT_NAME = "广告文案专家";
@@ -82,7 +86,7 @@ test.afterEach(async ({}, testInfo) => {
   await client?.cleanup().catch(() => {});
 });
 
-test("Aurora generation completes on a Fleet node and shows its artifact in the composer", async ({ page }) => {
+test("Aurora generation completes on a Fleet node and shows its artifact on the issue", async ({ page }) => {
   test.skip(process.env.MULTICA_RUN_DOCKER_INTEGRATION !== "1");
   const client = await createTestApi();
   api = client;
@@ -99,18 +103,19 @@ test("Aurora generation completes on a Fleet node and shows its artifact in the 
   await page.getByRole("button", { name: new RegExp(EXPERT_NAME) }).click();
   const drawer = page.locator('[data-slot="sheet-content"]');
   await expect(drawer).toBeVisible();
-  await drawer.getByLabel("想要生成什么？").fill(ROUND_TRIP_PROMPT);
+  await drawer.getByLabel(/想要生成什么/).fill(ROUND_TRIP_PROMPT);
   await drawer.getByRole("button", { name: "开始生成", exact: true }).click();
 
-  // The drawer follows the generation it started and renders the terminal
-  // status itself. This is a browser assertion, not an API poll.
-  await expect(drawer.getByRole("status")).toHaveText("完成", {
+  // A generation creates an issue and the app opens its detail page; the
+  // composer closes rather than following the run.
+  await page.waitForURL(/\/issues\//, { timeout: 60000 });
+
+  // The run's result is observed on that page: the daemon posts a completion
+  // comment naming the artifact it accepted, and the status pill goes away.
+  // A comment is required evidence — a task that ends without an artifact has
+  // nothing to show here.
+  await expect(page.getByText(COMPLETION_COMMENT).first()).toBeVisible({
     timeout: GENERATION_TIMEOUT_MS,
   });
-
-  // The artifact is observed in the UI: the composer's Result section lists the
-  // asset's download link. A status-only check would also pass a completed
-  // generation that produced no files, so the link is required.
-  await expect(drawer.getByRole("heading", { name: "生成结果" })).toBeVisible();
-  await expect(drawer.locator('ul li a[href$="/download"]').first()).toBeVisible();
+  await expect(page.getByRole("status")).toHaveCount(0);
 });
