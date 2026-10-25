@@ -28,11 +28,14 @@ shows balance plus ledger rows and already maps a generation row to its skill
 name; what it cannot show is the itemization — a deduction still carries one
 amount, not "3 images + one 5s 768P clip".
 
-The reference is MiniMax's media-plan subscribe page (`design.minimax.cn`,
-server-rendered data from its public combo-products API): three subscription
-tiers priced monthly, monthly credit grants that expire at month end, separately
-sold credit packs, and one shared credit pool with published per-unit rates for
-text, image, and video.
+The reference is MiniMax's media-plan subscribe page (`design.minimax.cn`):
+three tiers — Starter, Plus, Pro — sold monthly or yearly, each granting a
+monthly credit allowance that expires 31 days after it arrives; separately sold
+credit packs valid one year; one shared credit pool spent earliest-expiry-first;
+and, above all, a comparison table that translates a tier's credits into
+concrete output ("83 秒 2K 视频", "250 张高清图片"). That last table is the
+mechanic that answers "how much is left and what does it buy", and this design
+adopts it.
 
 ## Goal
 
@@ -91,7 +94,10 @@ matters:
   rate card and in the itemized charge.
 - **D6. Credits are the unit; currency is SGD.** 100 credits = S$1.00. The
   credit is not pegged to a provider cost.
-- **D7. Three paid tiers plus credit packs.**
+- **D7. Three paid tiers — Starter, Plus, Pro — plus credit packs**, sold
+  monthly or yearly (yearly = ten months' price, "立省2月"). The tier names,
+  the pack sizes, and the credits-to-output comparison table follow the
+  reference page.
 - **D8. No free tier.** New users get no monthly grant. The `free` row in
   `TierCatalog`, the lazy free-monthly grant in `entitlement.go`, and the free
   tier's part of the month-end settlement are removed. Using any metered skill
@@ -296,12 +302,13 @@ page can show per-batch expiry.
   without a special case.
 - `credit_balance.available_micro` remains the denormalized sum, so the hot
   path is unchanged.
-- Month-end expiry becomes: expire the `monthly` batches whose `expires_at`
-  passed, for their `remaining_micro`. Missing a tick self-heals because the
-  amount is stored, not derived.
+- **Monthly credits expire 31 days after they arrive**, not at month end (the
+  reference's rule, and a better fit for batches anyway): the monthly batch
+  carries `expires_at = granted_at + 31 days`. Expiring a batch retires its
+  stored `remaining_micro`, so a missed tick self-heals.
 - Topup packs get `expires_at = created_at + 1 year`.
-- Signup bonus keeps its existing rule (already `expires_at`-less today; owner
-  to confirm — see Open questions).
+- The signup bonus, if kept, gets the reference's 3-day expiry (see Open
+  questions).
 
 **Seeding the batches.** Every user with a non-zero balance at migration gets
 exactly one non-expiring `adjustment` batch equal to their current
@@ -382,6 +389,11 @@ Three surfaces, matching the success criteria:
   separately, balance split by expiry batch ("本月赠送 1,800，10-31 作废" /
   "积分包 5,000，2027-10 到期"), this month's spend split by kind, and the
   ledger with human labels carrying the itemization.
+- **Subscribe page** (`billing.tsx` or a sibling plan route): the monthly /
+  yearly toggle, the three tiers with their monthly credits, the four packs
+  with their validity, and the comparison table. Every number in the table is
+  computed from the rate card and the tier's credit grant; the page reads
+  rates from the API rather than carrying its own copy.
 
 Copy follows the repository UI-copy rules: no restatement, cost and expiry
 stated once beside the number.
@@ -440,7 +452,11 @@ Until then the entitlement path keeps working on today's numbers.
    kind if needed, but the pipeline is the new one.
 2. **Wallet batches** (section 6): expiry truth and the account-page split.
 3. **Currency, plans, and the subscribe page** (D6, D7): SGD price IDs, the
-   three tiers, credit packs, and the plan screen modelled on the reference.
+   three tiers, credit packs, and the plan screen modelled on the reference —
+   including the comparison table that renders each tier's credits as seconds
+   of video and numbers of images at the card's rates. That table is generated
+   from the rate card, never hand-written, so it cannot drift from what the
+   user is actually charged.
 
 Each phase ships independently; phase 1 is meaningful without 2 and 3.
 
@@ -449,14 +465,24 @@ Each phase ships independently; phase 1 is meaningful without 2 and 3.
 1. **Existing balances and subscriptions.** Re-denominate at a stated ratio,
    grandfather at the old value, or reset and re-grant? No correct answer
    without knowing whether any real money has been taken.
-2. **The rate numbers.** The design fixes the shape; the actual credits per
-   1,000 tokens, per image, and per second at each tier need a margin target
-   against the ARK invoice.
-3. **Tier names and prices.** Three tiers plus packs, in SGD, with the yearly
-   discount (if any).
-4. **The signup bonus.** `auth.go` grants a one-time signup bonus
-   (`auroraSignupBonusMicro`). It is a free trial in everything but name. Keep
-   it, or does "no free tier" mean no free credits at all?
+2. **The rate numbers.** The design fixes the shape; the numbers need a margin
+   target against the ARK invoice. The reference is a sanity anchor, not a
+   source: its published allotments imply about 40 credits per HD image and 70
+   per second of 768P / 120 per second of 2K video in *its* credit, which is
+   worth roughly ¥0.0065. This design's credit is worth S$0.01, so its rates
+   must be set from our own cost, not copied. Text has no reference rate at all
+   (the reference does not charge for the agent's text output).
+3. **SGD prices and credit grants.** The names and the shape come from the
+   reference; the numbers do not transfer, because the reference's credit is
+   worth about ¥0.0065 while this design's is worth S$0.01. A tier's monthly
+   credits, its price, and the rate card must satisfy one rule: the credits a
+   tier grants must not exceed what the same money buys in packs, or nobody
+   buys a pack. A coherent first set: Starter S$12/mo → 1,200 credits, Plus
+   S$89/mo → 9,000, Pro S$249/mo → 25,500, with packs at 100 credits per S$1
+   plus 0/5/10% volume bonus. The owner confirms or replaces these.
+4. **The signup bonus.** The reference gives new users free credits valid
+   three days. Keep that shape for `auroraSignupBonusMicro` (a real trial with
+   a hard expiry), or drop free credits entirely?
 
 ## What is left to the builder
 
