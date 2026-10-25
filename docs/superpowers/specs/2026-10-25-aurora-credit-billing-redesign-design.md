@@ -126,24 +126,41 @@ client renders the rates the API returns.
 ```go
 type RateCard struct {
     Version string
-    Text    TextRate    // micro-credits per 1,000 delivered tokens
-    Image   []ImageRate // per delivered image, matched by longest declared tier
-    Video   []VideoRate // micro-credits per second, matched by measured height
+    Models  map[string]ModelRate // keyed by provider model id
+}
+
+type ModelRate struct {
+    Kind  string    // text | image | video
+    Text  *TextRate // micro-credits per 1,000 delivered tokens
+    Image *ImageRate
+    Video []VideoRate // micro-credits per second, by measured height
 }
 ```
 
+**Rates are keyed by model, not by kind.** The default fleet is one model per
+kind (a cheap image model, MiniMax H3 for video, a small text model), but
+switching a skill to a higher-quality model must change its price without a code
+change. The tier table therefore hangs off the model entry, and the charge row
+records which model it priced.
+
+**The model is chosen server-side, at generation creation**, from the skill's
+configured model — not inferred from the artifact. The server cannot tell which
+model produced a file (it measures count, resolution, duration; the manifest's
+model claim is agent-written), so the declared model is the only trustworthy
+pricing key. If the run then uses something pricier, the difference is absorbed
+like any other over-cap cost and counted.
+
 - **Text**: `tokens = asciiRunes/4 + nonASCIIRunes*3/4`, rounded up. The
   coefficients are constants on the card, not scattered call sites.
-- **Image**: one rate per image in v1. The type is a slice so a per-model tier
-  can be added without a schema change; an image that matches no tier uses the
-  first entry.
+- **Image**: one rate per image per model; an image that carries no tier uses
+  the model's single rate.
 - **Video**: tiers by **measured height**: `<720` → 480P, `720–1079` → 720P,
   `1080–1439` → 1080P, `≥1440` → 2K. Height is measured from the file, not
   declared by the agent. All four tiers are reachable: MiniMax H3 outputs 2K.
 
 Exact numbers are the owner's call (see Open questions). The card ships with
 the structure plus placeholder values and fails closed: a missing rate for a
-delivered kind fails the settlement instead of charging zero.
+declared model fails the settlement instead of charging zero.
 
 ### 3. Metering happens at artifact staging
 
@@ -348,6 +365,7 @@ Aurora's fork-only migrations take numbers from 5000 upward. Every index is
 |---|---|
 | `generation_id`, `workspace_id`, `user_id` | attribution |
 | `kind` | `text` \| `image` \| `video` |
+| `model` | the provider model id the rate came from |
 | `quantity` | numeric(12,3): tokens/1000, images, seconds |
 | `unit_rate_micro` | the rate applied |
 | `amount_micro` | `quantity × rate`, rounded up at line level |
@@ -362,8 +380,8 @@ Aurora's fork-only migrations take numbers from 5000 upward. Every index is
   `max_credits` so an installed desktop client keeps rendering a number.
 - `POST /api/aurora/generations` — 402 body gains
   `required_credits` / `available_credits` / `shortfall_credits`.
-- `GET /api/aurora/generations/{id}` — gains `charges[]` (kind, quantity, unit
-  rate, amount, measured) and `rate_version`.
+- `GET /api/aurora/generations/{id}` — gains `charges[]` (kind, model, quantity,
+  unit rate, amount, measured) and `rate_version`.
 - `GET /api/aurora/billing/balance` — gains `reserved_micro` (money held by
   in-flight generations), `expires_at` on the per-batch breakdown, and
   `monthly_usage` split by kind for the current month. `available_micro` keeps
@@ -382,8 +400,8 @@ Three surfaces, matching the success criteria:
   `generation-composer.tsx`): "最多 X 积分" replaces "X 积分". The insufficient
   balance dialog shows the shortfall, not just a failure.
 - **Result page** (`generation-detail.tsx`): a charge block — one row per line
-  (`3 张图 × 2 积分`, `1 段视频 768P × 5 秒 × 4 积分/秒`), a total, and a link to
-  the account page. When `over_cap` is false and the refund occurred, show the
+  (`3 张图 × 9 积分（seedream-5-0-lite）`, `1 段视频 768P × 5 秒 × 24 积分/秒
+  （MiniMax H3）`), a total, and a link to the account page. When `over_cap` is false and the refund occurred, show the
   actual charge only; never show the reservation.
 - **Account page** (`billing.tsx`): available and held-in-flight shown
   separately, balance split by expiry batch ("本月赠送 1,800，10-31 作废" /
