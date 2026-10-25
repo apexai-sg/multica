@@ -139,7 +139,8 @@ type RateCard struct {
   first entry.
 - **Video**: tiers by **measured height**: `<720` → 480P, `720–1079` → 720P,
   `1080–1439` → 1080P, `≥1440` → 2K. Height is measured from the file, not
-  declared by the agent.
+  declared by the agent. The 2K row stays in the card's shape but has no rate
+  until a provider that outputs 2K is wired (Seedance 2.5 tops out at 1080P).
 
 Exact numbers are the owner's call (see Open questions). The card ships with
 the structure plus placeholder values and fails closed: a missing rate for a
@@ -472,6 +473,33 @@ Each phase ships independently; phase 1 is meaningful without 2 and 3.
    worth roughly ¥0.0065. This design's credit is worth S$0.01, so its rates
    must be set from our own cost, not copied. Text has no reference rate at all
    (the reference does not charge for the agent's text output).
+
+### Cost basis (verified 2026-10-25, list prices)
+
+At 1 CNY ≈ S$0.19 and 100 credits = S$1, one credit is about 0.19 CNY of
+provider cost. ARK list prices, converted:
+
+| line | ARK price | cost / credit-value | at 3× margin |
+|---|---|---|---|
+| image, Seedream 5.0 Pro ≤2.36 MP | ¥0.30/image | 5.7 credits | 17 credits |
+| image, Seedream 5.0 Pro >2.36 MP | ¥0.60/image | 11.4 credits | 34 credits |
+| video 480P | ¥0.67/s (70/M tok × 9,608 tok/s) | 12.8 credits | 38 credits |
+| video 720P | ¥1.51/s (70/M tok × 21,600 tok/s) | 28.7 credits | 86 credits |
+| video 1080P | ¥3.74/s (77/M tok × 48,600 tok/s) | 71.1 credits | 213 credits |
+
+Two consequences the owner must price around:
+
+- **Seedance 2.5 tops out at 1080P**, so the 2K tier in section 2 has no
+  provider behind it today. Drop it from the card until a 2K model is wired.
+- **Our video cost is several times the reference's retail price.** The
+  reference sells 768P at roughly ¥0.23–0.29/s (≈S$0.05/s); Seedance 2.5's 720P
+  costs S$0.29/s before margin. The reference's plan economics — ¥65 for 143
+  seconds of 768P — cannot be reproduced on this provider. Either the video
+  price is visibly higher than the reference's, or video leans on the 480P
+  draft-then-upscale route, or the margin on video is thin.
+
+Account-specific discounts are unknown: `arkcli auth status` reports an invalid
+SSO refresh token, so `Price` versus `OriginalPrice` could not be read.
 3. **SGD prices and credit grants.** The names and the shape come from the
    reference; the numbers do not transfer, because the reference's credit is
    worth about ¥0.0065 while this design's is worth S$0.01. A tier's monthly
