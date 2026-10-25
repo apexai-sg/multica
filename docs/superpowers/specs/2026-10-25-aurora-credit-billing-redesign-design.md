@@ -139,8 +139,7 @@ type RateCard struct {
   first entry.
 - **Video**: tiers by **measured height**: `<720` → 480P, `720–1079` → 720P,
   `1080–1439` → 1080P, `≥1440` → 2K. Height is measured from the file, not
-  declared by the agent. The 2K row stays in the card's shape but has no rate
-  until a provider that outputs 2K is wired (Seedance 2.5 tops out at 1080P).
+  declared by the agent. All four tiers are reachable: MiniMax H3 outputs 2K.
 
 Exact numbers are the owner's call (see Open questions). The card ships with
 the structure plus placeholder values and fails closed: a missing rate for a
@@ -467,39 +466,52 @@ Each phase ships independently; phase 1 is meaningful without 2 and 3.
    grandfather at the old value, or reset and re-grant? No correct answer
    without knowing whether any real money has been taken.
 2. **The rate numbers.** The design fixes the shape; the numbers need a margin
-   target against the ARK invoice. The reference is a sanity anchor, not a
+   target against the HopBase invoice. The reference is a sanity anchor, not a
    source: its published allotments imply about 40 credits per HD image and 70
    per second of 768P / 120 per second of 2K video in *its* credit, which is
    worth roughly ¥0.0065. This design's credit is worth S$0.01, so its rates
    must be set from our own cost, not copied. Text has no reference rate at all
    (the reference does not charge for the agent's text output).
 
-### Cost basis (verified 2026-10-25, list prices)
+### Cost basis (HopBase ToB quote 2026-10-12, valid to 2026-11-11)
 
-At 1 CNY ≈ S$0.19 and 100 credits = S$1, one credit is about 0.19 CNY of
-provider cost. ARK list prices, converted:
+The provider is HopBase (`api.hop-base.com`), not a direct Volcengine
+integration. The quote's settlement terms already match this design: video is
+billed only for finished output, and a failed generation is not charged.
 
-| line | ARK price | cost / credit-value | at 3× margin |
-|---|---|---|---|
-| image, Seedream 5.0 Pro ≤2.36 MP | ¥0.30/image | 5.7 credits | 17 credits |
-| image, Seedream 5.0 Pro >2.36 MP | ¥0.60/image | 11.4 credits | 34 credits |
-| video 480P | ¥0.67/s (70/M tok × 9,608 tok/s) | 12.8 credits | 38 credits |
-| video 720P | ¥1.51/s (70/M tok × 21,600 tok/s) | 28.7 credits | 86 credits |
-| video 1080P | ¥3.74/s (77/M tok × 48,600 tok/s) | 71.1 credits | 213 credits |
+At 1 USD ≈ S$1.28, 1 CNY ≈ S$0.19, and 100 credits = S$1:
 
-Two consequences the owner must price around:
+| line | HopBase price | cost / credits |
+|---|---|---|
+| image, `seedream-5-0-lite` | $0.0238/image | 3.0 credits |
+| image, `seedream-5-0-pro` ≤2.61 MP | $0.0306/image | 3.9 credits |
+| image, `nano-banana-2.1` 1K | $0.0153/image | 2.0 credits |
+| image, `gemini-3-pro-image` | $0.0941/image | 12.0 credits |
+| video, MiniMax H3 768P | ¥0.425/s | 8.1 credits/s |
+| video, MiniMax H3 2K | ¥0.68/s | 13.0 credits/s |
+| video, MiniMax H3-Max fast 480P | ¥0.34/s | 6.5 credits/s |
+| video, Kling v3 omni silent 720P / 1080P / 2K | ¥0.45 / ¥0.60 / ¥0.75 per s | 8.6 / 11.5 / 14.4 credits/s |
+| text, `claude-haiku-5-5` output | $0.14/M tokens | 0.018 credits per 1k tokens |
+| text, `claude-sonnet-5-5` output | $2.80/M tokens | 0.36 credits per 1k tokens |
 
-- **Seedance 2.5 tops out at 1080P**, so the 2K tier in section 2 has no
-  provider behind it today. Drop it from the card until a 2K model is wired.
-- **Our video cost is several times the reference's retail price.** The
-  reference sells 768P at roughly ¥0.23–0.29/s (≈S$0.05/s); Seedance 2.5's 720P
-  costs S$0.29/s before margin. The reference's plan economics — ¥65 for 143
-  seconds of 768P — cannot be reproduced on this provider. Either the video
-  price is visibly higher than the reference's, or video leans on the 480P
-  draft-then-upscale route, or the margin on video is thin.
+Three consequences the owner must price around:
 
-Account-specific discounts are unknown: `arkcli auth status` reports an invalid
-SSO refresh token, so `Price` versus `OriginalPrice` could not be read.
+- **The server cannot tell which model produced an artifact.** It measures
+  bytes — count, resolution, duration — and the manifest's model claim is
+  agent-written. So one rate must cover every model a skill may reach, and each
+  skill's brief has to pin the model it runs. A skill that silently picks
+  `gemini-3-pro-image` costs 4× the rate set for `seedream-5-0-lite`.
+- **MiniMax's own retail is below our wholesale on video.** Its page sells 2K
+  at roughly ¥0.40–0.50/s; HopBase's H3 2K is ¥0.68/s. Matching the reference's
+  video pricing is impossible on this sheet; video has to be priced on our cost,
+  not on the reference's numbers.
+- **Text is cheap enough to be effectively free at low volume.** At
+  `claude-haiku-5-5` output rates, 1,000 tokens costs 0.018 credits. Any
+  per-1,000-token rate above 1 credit is a ~50× markup, which is fine as a
+  product decision but should be a deliberate one.
+
+The quote expires 2026-11-11; the card versions make a re-quote a config change
+rather than a code change.
 3. **SGD prices and credit grants.** The names and the shape come from the
    reference; the numbers do not transfer, because the reference's credit is
    worth about ¥0.0065 while this design's is worth S$0.01. A tier's monthly
