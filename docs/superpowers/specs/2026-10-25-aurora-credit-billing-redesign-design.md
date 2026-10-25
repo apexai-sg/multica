@@ -7,7 +7,8 @@ Branch: `feat/credit-refactor`.
 ## Context
 
 Aurora charges one fixed price per skill run. `SkillCatalogEntry.Credits` is a
-constant per expert (60–100 today, `server/internal/aurora/experts_catalog.go`),
+constant per expert (60, 80, 90, 100, or 120 today,
+`server/internal/aurora/experts_catalog.go`),
 the create handler reserves `credits × 1e6` micro-credits before enqueueing
 (`server/internal/handler/aurora.go:285`), and settlement records
 `credits_charged = credits_reserved` with no reconciliation
@@ -23,8 +24,9 @@ charge and the cost have no relationship at all.
 The user-visible result is the reported problem: a single balance number, a
 transaction list of bare amounts, and no way to answer "how much is left, what
 did I spend it on, when does it expire". `packages/views/aurora/billing.tsx`
-shows balance plus ledger rows; a deduction row carries an amount and a
-reference id, not "3 images + one 5s 768P clip".
+shows balance plus ledger rows and already maps a generation row to its skill
+name; what it cannot show is the itemization — a deduction still carries one
+amount, not "3 images + one 5s 768P clip".
 
 The reference is MiniMax's media-plan subscribe page (`design.minimax.cn`,
 server-rendered data from its public combo-products API): three subscription
@@ -135,13 +137,28 @@ Exact numbers are the owner's call (see Open questions). The card ships with
 the structure plus placeholder values and fails closed: a missing rate for a
 delivered kind fails the settlement instead of charging zero.
 
-### 3. Metering happens at artifact commit
+### 3. Metering happens at artifact staging
 
-`server/internal/handler/aurora_artifact.go` already streams every artifact to
-compute its digest and sniff its MIME. Measure there, once, while the bytes are
-in hand — do not re-read the file at settlement.
+The bytes are streamed in `server/internal/handler/aurora_artifact_upload.go`
+(both the upload and the provider-import paths go through
+`streamAuroraArtifact`), which computes the SHA-256 as it reads and sniffs only
+the first 512 bytes. The commit path (`ReportTaskArtifacts` in
+`aurora_artifact.go`) never sees the bytes. Measure in the streaming path,
+once, while the bytes are in hand — do not re-read the object at settlement.
 
-New server-owned column `aurora_asset.measured jsonb NOT NULL DEFAULT '{}'`
+Video needs a seekable file: the duration lives in the `moov` atom, which may
+sit at the end of the object, and `Storage` exposes only a sequential
+`GetReader`. The streaming path therefore spills the artifact to a temporary
+file (bounded by the existing per-kind byte cap) and probes that file. Any
+other approach requires adding range reads to `Storage`; the temp file is the
+cheaper, local change.
+
+Rejection happens at **staging**, where the agent can still convert or re-export
+the file. A staging rejection is a 400 the agent sees while it still owns the
+run; rejection at commit would only fail the whole generation and refund it.
+
+New server-owned column `measured jsonb NOT NULL DEFAULT '{}'` on
+`aurora_artifact_staging`, copied to `aurora_asset.measured` at commit
 (separate from the existing model-written `metadata`):
 
 | kind  | measured fields |
@@ -154,12 +171,17 @@ New server-owned column `aurora_asset.measured jsonb NOT NULL DEFAULT '{}'`
 Rules:
 
 - A **video whose duration or dimensions cannot be measured is rejected** with
-  400 at commit. Fail-closed at the boundary, while the agent can still correct
+  400 at staging. Fail-closed at the boundary, while the agent can still correct
   the artifact, instead of guessing a charge later. This requires a probe in the
   API image (`ffprobe`) or a pure-Go MP4/WebM reader; the builder picks the
   cheaper one that covers `mp4`, `mov`, and `webm`.
 - An **image whose header cannot be decoded** is rejected the same way.
 - Text is counted from the bytes already streamed; no extra storage read.
+- **Text scope**: every `role=primary` and `role=supporting` text artifact is
+  billed; `role=transcript` is not. A transcript is a byproduct of another
+  skill's route (video-captions publishes the ASR text beside the video), and
+  billing it would charge twice for one deliverable. Issue comments are not
+  artifacts and are never billed.
 - `pdf` artifacts are delivered but cost nothing. Stated in the account page
   copy so it is not a surprise.
 
@@ -190,6 +212,25 @@ Create-time flow (`CreateAuroraGeneration`):
 A skill with `MaxImages = 0` and `MaxVideoSecs = 0` is a text-only skill and
 reserves only its text ceiling.
 
+**The cap is per generation, not per round.** A generation can end a round in
+`needs_input`, take a follow-up comment, and re-enter `queued` on the *same*
+reservation (`UpdateAuroraGenerationRound`, `server/pkg/db/queries/aurora.sql`).
+Every round of that conversation delivers artifacts into the same generation,
+so the cap has to cover the whole conversation and settlement sums all rounds.
+The consequence is deliberate: a long conversation can exceed its cap, and the
+overage is absorbed like any other over-cap output.
+
+**Abandoned holds are released.** A generation parked in `needs_input` with no
+reply settles nothing and would hold its reservation forever — harmless when
+the reservation equalled the price, a permanently frozen balance once it is a
+ceiling. A sweeper fails such a generation after 24 hours without activity,
+refunding the full reservation through the normal failure path.
+
+The `rate_version` in force at creation is written onto the generation row, so
+both the rounds and the eventual settlement price against the card the user was
+quoted. `pricing.go` therefore keeps a versioned map, not a single struct, and
+a missing version fails settlement rather than falling back to today's rates.
+
 ### 5. Settlement
 
 On success, in `aurora_completion.go`:
@@ -204,12 +245,27 @@ On success, in `aurora_completion.go`:
    no-op.
 6. Record `credits_charged = actual_micro`.
 
-On failure, refund the reservation in full (unchanged behaviour).
+On failure, refund the reservation in full (unchanged behaviour) — and it keeps
+its existing reference, the bare generation id. Only the successful-settlement
+partial refund uses `settle:<generationID>`, so the two paths cannot collide and
+a replayed terminal event is still a no-op.
 
-If `actual_micro > reserved` — the agent ignored its cap — charge the
-reservation and record the overage on the charge row (`over_cap = true`, the
-measured quantity preserved). Never debit below zero. Log and count it as
-`aurora_charge_over_cap`; a rising counter means the cap table is wrong.
+**Runs in flight across the deploy.** A generation created before this ships
+carries `rate_version = 'legacy'`, which prices the whole reservation at the
+skill's old flat `Credits` value and charges exactly that, ignoring
+measurements. That also covers a run that was mid-flight when the migration
+landed and therefore has assets with no `measured` row.
+
+**Settlement failure is not a charge decision.** A read or write failure leaves
+the generation non-terminal so the next terminal event or tick retries, exactly
+as `settleAuroraOnCompleted` does today. It never falls back to "charge the
+reservation" or "refund everything" as a guess.
+
+If `actual_micro > reserved` — the agent ignored its cap, or a multi-round
+conversation outran it — charge the reservation and record the overage on the
+charge row (`over_cap = true`, the measured quantity preserved). Never debit
+below zero. Log and count it as `aurora_charge_over_cap`; a rising counter means
+the cap table is wrong or the cap needs to grow with conversation length.
 
 ### 6. Wallet: batches, expiry, and spend order
 
@@ -245,22 +301,36 @@ page can show per-batch expiry.
 - Signup bonus keeps its existing rule (already `expires_at`-less today; owner
   to confirm — see Open questions).
 
-Runs and subscriptions predating the batch table get one `adjustment` batch
-each, created by the data migration.
+**Seeding the batches.** Every user with a non-zero balance at migration gets
+exactly one non-expiring `adjustment` batch equal to their current
+`credit_balance.available_micro`. Historical grants cannot be replayed
+faithfully — month-end expiry was computed as `granted + netSpend`, not from
+stored remainders — so per-batch allocation history begins at the migration
+instant and existing ledger rows stay untouched. The invariant
+`balance == Σ remaining` holds on day one by construction.
+
+The local `source` vocabulary (`monthly | topup | signup | adjustment`) is
+deliberately not the cloud `BillingBatch` one (`purchase | bonus | adjustment`);
+the local table is the authority and the API boundary maps onto the cloud
+vocabulary where the two meet.
 
 ### 7. Schema changes
 
 Aurora's fork-only migrations take numbers from 5000 upward. Every index is
 `CREATE [UNIQUE] INDEX CONCURRENTLY` in its own single-statement file.
 
-- `5000_aurora_asset_measured` — add `measured jsonb`.
-- `5001_credit_batch` — table.
-- `5002_credit_batch_user_expiry_idx` — concurrent index.
-- `5003_credit_batch_allocation` — table.
-- `5004_credit_batch_allocation_ledger_idx` — concurrent index.
-- `5005_aurora_generation_charge` — table.
-- `5006_aurora_generation_charge_generation_idx` — concurrent index.
-- `5007_aurora_generation_rate_version` — add `rate_version text` to
+`5000` is taken (`5000_aurora_carrier_invocation`), so this series starts at
+5001 alongside it.
+
+- `5001_aurora_artifact_measured` — add `measured jsonb` to
+  `aurora_artifact_staging` and `aurora_asset`.
+- `5002_credit_batch` — table.
+- `5003_credit_batch_user_expiry_idx` — concurrent index.
+- `5004_credit_batch_allocation` — table.
+- `5005_credit_batch_allocation_ledger_idx` — concurrent index.
+- `5006_aurora_generation_charge` — table.
+- `5007_aurora_generation_charge_generation_idx` — concurrent index.
+- `5008_aurora_generation_rate_version` — add `rate_version text` to
   `aurora_generation` so a settled run keeps the card it was priced with.
 
 `aurora_generation_charge`:
@@ -285,8 +355,11 @@ Aurora's fork-only migrations take numbers from 5000 upward. Every index is
   `required_credits` / `available_credits` / `shortfall_credits`.
 - `GET /api/aurora/generations/{id}` — gains `charges[]` (kind, quantity, unit
   rate, amount, measured) and `rate_version`.
-- `GET /api/aurora/billing/balance` — gains `expires_at` on the per-batch
-  breakdown and `monthly_usage` split by kind for the current month.
+- `GET /api/aurora/billing/balance` — gains `reserved_micro` (money held by
+  in-flight generations), `expires_at` on the per-batch breakdown, and
+  `monthly_usage` split by kind for the current month. `available_micro` keeps
+  meaning "spendable right now"; the account page shows available and reserved
+  separately, because a run in flight must not look like a spend.
 - `GET /api/aurora/billing/transactions` — each row gains the charge summary
   the transaction screen renders.
 - Zod schemas in `packages/core/api/schema.ts` (or the aurora schema module)
@@ -303,9 +376,10 @@ Three surfaces, matching the success criteria:
   (`3 张图 × 2 积分`, `1 段视频 768P × 5 秒 × 4 积分/秒`), a total, and a link to
   the account page. When `over_cap` is false and the refund occurred, show the
   actual charge only; never show the reservation.
-- **Account page** (`billing.tsx`): balance split by expiry batch ("本月赠送
-  1,800，10-31 作废" / "积分包 5,000，2027-10 到期"), this month's spend split
-  by kind, and the ledger with human labels carrying the itemization.
+- **Account page** (`billing.tsx`): available and held-in-flight shown
+  separately, balance split by expiry batch ("本月赠送 1,800，10-31 作废" /
+  "积分包 5,000，2027-10 到期"), this month's spend split by kind, and the
+  ledger with human labels carrying the itemization.
 
 Copy follows the repository UI-copy rules: no restatement, cost and expiry
 stated once beside the number.
@@ -331,6 +405,9 @@ Until then the entitlement path keeps working on today's numbers.
   `settle:<generationID>`, expiry on the batch id. Replayed terminal events and
   rerun settlement ticks are no-ops.
 - **No negative balance.** Over-cap output is absorbed, not debited.
+- **The cap covers the whole conversation.** Every round of a `needs_input`
+  generation counts against the one reservation made at creation, and an
+  abandoned generation releases that reservation after 24 hours idle.
 - **Rates are frozen per run.** `rate_version` on the generation means a card
   change never reprices history.
 - **Same rate card on both sides.** Reservation and settlement call one
@@ -375,13 +452,20 @@ Each phase ships independently; phase 1 is meaningful without 2 and 3.
    against the ARK invoice.
 3. **Tier names and prices.** Three tiers plus packs, in SGD, with the yearly
    discount (if any).
+4. **Free tier versus video caps.** Once the cap is a ceiling rather than a
+   price, a 200-credit free grant may not cover any video skill's reservation.
+   Either the free tier cannot open video skills, or its reservation ceiling is
+   lower than a paid user's. This becomes concrete once the rate numbers exist.
 
 ## What is left to the builder
 
-- The probe implementation (ffprobe versus a pure-Go reader) and the exact
-  400 responses for unmeasurable artifacts.
+- The probe implementation (ffprobe versus a pure-Go reader) inside the
+  streaming path's temp file, and the exact 400 bodies for unmeasurable
+  artifacts.
 - The per-skill cap values for all 33 experts.
 - The exact JSON shape of the itemization on both API and UI, within the
   constraints above.
 - Whether `expire` ledger rows survive as a kind once batches carry expiry, or
   whether batch expiry becomes its own write with its own label.
+- The idle timeout that releases an abandoned `needs_input` hold (24 hours is a
+  starting value, not a requirement).
