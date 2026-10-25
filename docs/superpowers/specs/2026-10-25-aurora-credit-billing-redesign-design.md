@@ -150,6 +150,12 @@ model claim is agent-written), so the declared model is the only trustworthy
 pricing key. If the run then uses something pricier, the difference is absorbed
 like any other over-cap cost and counted.
 
+v1 exposes no user-facing model picker: a skill's configured model is the only
+input, so "switch to a better model" is an operator change. A per-request
+"standard / high quality" choice is a later phase; it would become an explicit
+request field priced from the same card, never a free-form model name from the
+client.
+
 - **Text**: `tokens = asciiRunes/4 + nonASCIIRunes*3/4`, rounded up. The
   coefficients are constants on the card, not scattered call sites.
 - **Image**: one rate per image per model; an image that carries no tier uses
@@ -497,6 +503,10 @@ The provider is HopBase (`api.hop-base.com`), not a direct Volcengine
 integration. The quote's settlement terms already match this design: video is
 billed only for finished output, and a failed generation is not charged.
 
+The default fleet is `deepseek-v4.1-flash` for text, `seedream-5-0-lite` for
+image, and MiniMax H3 for video. A skill may be configured onto a better model;
+its rate follows the model.
+
 At 1 USD ≈ S$1.28, 1 CNY ≈ S$0.19, and 100 credits = S$1:
 
 | line | HopBase price | cost / credits |
@@ -509,6 +519,8 @@ At 1 USD ≈ S$1.28, 1 CNY ≈ S$0.19, and 100 credits = S$1:
 | video, MiniMax H3 2K | ¥0.68/s | 13.0 credits/s |
 | video, MiniMax H3-Max fast 480P | ¥0.34/s | 6.5 credits/s |
 | video, Kling v3 omni silent 720P / 1080P / 2K | ¥0.45 / ¥0.60 / ¥0.75 per s | 8.6 / 11.5 / 14.4 credits/s |
+| text, `deepseek-v4.1-flash` output (default) | ¥5.20/M tokens | 0.099 credits per 1k tokens |
+| text, `deepseek-v4.1-flash` input | ¥1.30/M tokens | 0.025 credits per 1k tokens |
 | text, `claude-haiku-5-5` output | $0.14/M tokens | 0.018 credits per 1k tokens |
 | text, `claude-sonnet-5-5` output | $2.80/M tokens | 0.36 credits per 1k tokens |
 
