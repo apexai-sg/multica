@@ -164,9 +164,27 @@ client.
   `1080–1439` → 1080P, `≥1440` → 2K. Height is measured from the file, not
   declared by the agent. All four tiers are reachable: MiniMax H3 outputs 2K.
 
-Exact numbers are the owner's call (see Open questions). The card ships with
-the structure plus placeholder values and fails closed: a missing rate for a
-declared model fails the settlement instead of charging zero.
+**Pricing (decided 2026-10-25).** A 3× multiple on the HopBase quote, rounded to
+whole credits:
+
+| line | model | rate |
+|---|---|---|
+| image | `seedream-5-0-lite` | 9 credits/image |
+| video 768P | MiniMax H3 | 24 credits/second |
+| video 2K | MiniMax H3 | 39 credits/second |
+| text | `deepseek-v4.1-flash` | 1 credit / 1,000 tokens |
+
+| tier | monthly | credits/month |
+|---|---|---|
+| Starter | S$12 | 1,200 |
+| Plus | S$89 | 9,000 |
+| Pro | S$249 | 25,500 |
+
+Yearly is ten months' price. Credit packs sell at 100 credits per S$1 with a
+volume bonus on the two large packs.
+
+The card fails closed: a missing rate for a declared model fails the settlement
+instead of charging zero.
 
 ### 3. Metering happens at artifact staging
 
@@ -484,20 +502,7 @@ Until then the entitlement path keeps working on today's numbers.
 
 Each phase ships independently; phase 1 is meaningful without 2 and 3.
 
-## Open questions for the owner
-
-1. **Existing balances and subscriptions.** Re-denominate at a stated ratio,
-   grandfather at the old value, or reset and re-grant? No correct answer
-   without knowing whether any real money has been taken.
-2. **The rate numbers.** The design fixes the shape; the numbers need a margin
-   target against the HopBase invoice. The reference is a sanity anchor, not a
-   source: its published allotments imply about 40 credits per HD image and 70
-   per second of 768P / 120 per second of 2K video in *its* credit, which is
-   worth roughly ¥0.0065. This design's credit is worth S$0.01, so its rates
-   must be set from our own cost, not copied. Text has no reference rate at all
-   (the reference does not charge for the agent's text output).
-
-### Cost basis (HopBase ToB quote 2026-10-12, valid to 2026-11-11)
+## Cost basis (HopBase ToB quote 2026-10-12, valid to 2026-11-11)
 
 The provider is HopBase (`api.hop-base.com`), not a direct Volcengine
 integration. The quote's settlement terms already match this design: video is
@@ -535,24 +540,22 @@ Three consequences the owner must price around:
   at roughly ¥0.40–0.50/s; HopBase's H3 2K is ¥0.68/s. Matching the reference's
   video pricing is impossible on this sheet; video has to be priced on our cost,
   not on the reference's numbers.
-- **Text is cheap enough to be effectively free at low volume.** At
-  `claude-haiku-5-5` output rates, 1,000 tokens costs 0.018 credits. Any
-  per-1,000-token rate above 1 credit is a ~50× markup, which is fine as a
-  product decision but should be a deliberate one.
+- **Text is cheap enough to be effectively free at low volume.** At the default
+  model's output rate, 1,000 tokens costs 0.099 credits, so the 1-credit rate
+  is a ~10× markup — and because input tokens are not billed, the realized
+  margin is lower than that.
 
 The quote expires 2026-11-11; the card versions make a re-quote a config change
 rather than a code change.
-3. **SGD prices and credit grants.** The names and the shape come from the
-   reference; the numbers do not transfer, because the reference's credit is
-   worth about ¥0.0065 while this design's is worth S$0.01. A tier's monthly
-   credits, its price, and the rate card must satisfy one rule: the credits a
-   tier grants must not exceed what the same money buys in packs, or nobody
-   buys a pack. A coherent first set: Starter S$12/mo → 1,200 credits, Plus
-   S$89/mo → 9,000, Pro S$249/mo → 25,500, with packs at 100 credits per S$1
-   plus 0/5/10% volume bonus. The owner confirms or replaces these.
-4. **The signup bonus.** The reference gives new users free credits valid
-   three days. Keep that shape for `auroraSignupBonusMicro` (a real trial with
-   a hard expiry), or drop free credits entirely?
+
+## Open questions for the owner
+
+1. **Existing balances and subscriptions.** Re-denominate at a stated ratio,
+   grandfather at the old value, or reset and re-grant? No correct answer
+   without knowing whether any real money has been taken.
+2. **The signup bonus.** The reference gives new users free credits valid three
+   days. Keep that shape for `auroraSignupBonusMicro` (a real trial with a hard
+   expiry), or drop free credits entirely?
 
 ## What is left to the builder
 
