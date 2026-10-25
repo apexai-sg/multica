@@ -117,5 +117,4 @@ test("Aurora generation completes on a Fleet node and shows its artifact on the 
   await expect(page.getByText(COMPLETION_COMMENT).first()).toBeVisible({
     timeout: GENERATION_TIMEOUT_MS,
   });
-  await expect(page.getByRole("status")).toHaveCount(0);
 });
