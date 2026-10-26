@@ -122,9 +122,9 @@ export function FaceSwapWorkbench({ slug }: { slug: string }) {
     <main className="apex-face-workbench" onDragOver={(event) => event.preventDefault()} onDrop={(event) => event.preventDefault()}>
       <section className="apex-tool-hero" aria-labelledby="apex-face-title">
         <div className="apex-tool-avatar">
-          {/* The avatar is a fictional local design fixture. */}
+          {/* The portrait is the bundled expert art for this tool's executor. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/avatars/person-2.svg" alt="" />
+          <img src="/avatars/experts/media-face-swap.png" alt="" />
           <span aria-hidden="true"><Sparkles /></span>
         </div>
         <div className="apex-tool-intro">

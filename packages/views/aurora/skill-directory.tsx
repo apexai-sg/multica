@@ -28,6 +28,7 @@ import {
 } from "@multica/core/aurora";
 import { AuroraAvatar } from "./aurora-avatar";
 import { AuroraPageState } from "./aurora-page-header";
+import { expertAvatarUrl } from "./expert-avatars";
 import { useLocale, useT } from "../i18n";
 import { GenerationComposer } from "./generation-composer";
 import { formatCredits } from "./format";
@@ -356,6 +357,11 @@ function DirectoryHero({
               name={entry.agent.name}
               id={entry.agent.id}
               avatarUrl={entry.agent.avatar_url}
+              bundledAvatarUrl={
+                entry.mode === "generation"
+                  ? expertAvatarUrl(entry.skill.id)
+                  : null
+              }
               available
             />
           </span>
@@ -388,6 +394,7 @@ function AgentCard({
           name={agent.name}
           id={agent.id}
           avatarUrl={agent.avatar_url}
+          bundledAvatarUrl={skill ? expertAvatarUrl(skill.id) : null}
           size="lg"
           available
         />

@@ -215,9 +215,12 @@ describe("SkillDirectory", () => {
     expect(first).toHaveTextContent("Writes short lyrics.");
     expect(first).toHaveTextContent("歌词创作");
     expect(first).not.toHaveTextContent("歌词创作专家");
+    // A catalog expert wears its bundled portrait, not the carrier agent's
+    // workspace avatar; the PNG ships with the app, so it is not resolved
+    // against the API base.
     expect(first.querySelector(".aurora-avatar-img")).toHaveAttribute(
       "src",
-      "/uploads/lyrics.png",
+      "/avatars/experts/content-creation-lyrics-songwriting.png",
     );
   });
 

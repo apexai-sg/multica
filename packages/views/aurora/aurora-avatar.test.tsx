@@ -77,6 +77,36 @@ describe("AuroraAvatar", () => {
     expect(tile.querySelector(".aurora-avatar-dot")).toBeInTheDocument();
   });
 
+  it("prefers a bundled expert portrait over the carrier avatar", () => {
+    const { container } = render(
+      <AuroraAvatar
+        name="Lyrics helper"
+        id="a-lyrics"
+        avatarUrl="/uploads/lyrics.png"
+        bundledAvatarUrl="/avatars/experts/content-creation-lyrics-songwriting.png"
+      />,
+    );
+    // The bundled portrait ships with the app, so it is used verbatim rather
+    // than resolved against the API base like the carrier's upload would be.
+    expect(container.querySelector("img")!.getAttribute("src")).toBe(
+      "/avatars/experts/content-creation-lyrics-songwriting.png",
+    );
+  });
+
+  it("falls back to the initials when the bundled portrait cannot load", () => {
+    const { container } = render(
+      <AuroraAvatar
+        name="Lyrics helper"
+        id="a-lyrics"
+        bundledAvatarUrl="/avatars/experts/gone.png"
+      />,
+    );
+    fireEvent.error(container.querySelector("img")!);
+    const tile = container.querySelector(".aurora-avatar")!;
+    expect(tile.querySelector("img")).toBeNull();
+    expect(tile).toHaveTextContent("L");
+  });
+
   it("falls back to the initials when the portrait cannot load", () => {
     const { container } = render(
       <AuroraAvatar name="Poster" id="poster" avatarUrl="/uploads/gone.png" />,

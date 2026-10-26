@@ -14,12 +14,14 @@ export {
 } from "./aurora-avatar-helpers";
 
 /**
- * The design's avatar: the carrier agent's portrait when the workspace has one,
- * initials on a pastel tile when it does not.
+ * The design's avatar: a portrait when one is available, initials on a pastel
+ * tile when it is not.
  *
- * The portrait is whatever a member set on the skill's carrier agent in the
- * Agents settings, so the directory shows the same face that agent wears
- * everywhere else in Multica. The tint stays derived from the id (see
+ * A bundled portrait (`bundledAvatarUrl`) wins: it belongs to the expert
+ * catalog, so every Aurora screen shows the same face for a catalog expert. A
+ * user-created agent has no bundled portrait and falls back to the carrier
+ * agent's workspace portrait (`avatarUrl`), the face that agent wears elsewhere
+ * in Multica. The tint stays derived from the id (see
  * ./aurora-avatar-helpers): it is the fallback identity, and it must not change
  * as a portrait comes and goes.
  */
@@ -27,6 +29,7 @@ export function AuroraAvatar({
   name,
   id,
   avatarUrl,
+  bundledAvatarUrl,
   size = "md",
   available = false,
   className,
@@ -38,6 +41,12 @@ export function AuroraAvatar({
    * all mean "no portrait" and draw the initials.
    */
   avatarUrl?: string | null;
+  /**
+   * A portrait bundled with the frontend, addressed relative to the app origin.
+   * It is not a backend object, so it never goes through the API base
+   * resolution. Null and undefined mean "no bundled portrait".
+   */
+  bundledAvatarUrl?: string | null;
   size?: "md" | "lg";
   /** Draws the state dot. Only a runnable skill gets one. */
   available?: boolean;
@@ -48,12 +57,15 @@ export function AuroraAvatar({
   // portrait must not stay hidden behind the previous one's error. Keeping the
   // URL makes that fall out of the comparison instead of needing a reset effect.
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const emoji = parseAvatarEmoji(avatarUrl);
+  const bundledUrl = bundledAvatarUrl ?? null;
+  const emoji = bundledUrl === null ? parseAvatarEmoji(avatarUrl) : null;
   // A relative path is one of the backend's own objects (`/uploads/...`), so
   // resolvePublicFileUrl anchors it on the API base; an absolute URL passes
   // through untouched. "No portrait" never reaches the API client at all, so a
   // skill without one cannot depend on it being initialised.
-  const resolvedUrl = !emoji && avatarUrl ? resolvePublicFileUrl(avatarUrl) : null;
+  const resolvedUrl =
+    bundledUrl ??
+    (!emoji && avatarUrl ? resolvePublicFileUrl(avatarUrl) : null);
   const imageUrl =
     resolvedUrl !== null && resolvedUrl !== failedUrl ? resolvedUrl : null;
 
