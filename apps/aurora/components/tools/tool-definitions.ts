@@ -20,9 +20,11 @@ export type ToolDefinition = {
   category: ToolCategory;
   added?: boolean;
   /**
-   * Bundled expert portrait under `apps/aurora/public/avatars/experts/`. The
-   * file is named after the expert the server maps to this tool, so the tool
-   * page and that expert's directory card show the same face.
+   * Bundled expert portrait under `apps/aurora/public/avatars/experts/`, named
+   * after the SkillHub package that the expert behind this tool uses. The
+   * directory ships all 54 package portraits, and a tool reuses the portrait of
+   * the expert the server maps to it (`tool_experts.go`), so the tool page and
+   * that expert's directory card show the same face.
    */
   avatar: string;
   description: string;
@@ -41,7 +43,7 @@ export type ToolDefinition = {
 // executor, and the tool page only pre-checks the mapped carrier.
 export const apexTools: ToolDefinition[] = [
   {
-    id: "face-swap", name: "图片／视频换脸", category: "video", avatar: "/avatars/experts/media-face-swap.png",
+    id: "face-swap", name: "图片／视频换脸", category: "video", avatar: "/avatars/experts/media-video-editing.png",
     description: "放入原视频或图片，再放入一张人脸照片，制作新的图片或视频。",
     tagline: "两份素材，一个新作品。", chips: ["视频换脸", "图片换脸", "双框上传"],
     fields: [], action: "生成换脸视频",
@@ -101,7 +103,7 @@ export const apexTools: ToolDefinition[] = [
     action: "制作笔记配图", result: { kind: "image", title: "笔记配图", description: "按封面、内页顺序查看整组图片。", items: ["封面", "内容页", "整组下载"] },
   },
   {
-    id: "image-retouch", name: "图片精修", category: "image", added: true, avatar: "/avatars/experts/media-image-retouch.png",
+    id: "image-retouch", name: "图片精修", category: "image", added: true, avatar: "/avatars/experts/media-storyboard-design.png",
     description: "给图片换背景、去杂物、调光线，让普通照片更干净好看。",
     tagline: "保留你喜欢的，修好不满意的。", chips: ["抠图换背景", "去除杂物", "清晰修复"],
     upload: { kind: "image", title: "上传要修改的图片", hint: "产品、人像或生活照片都可以" },
@@ -114,7 +116,7 @@ export const apexTools: ToolDefinition[] = [
     action: "开始精修", result: { kind: "image", title: "修图前后", description: "对照原图与修图效果，再选择下载。", items: ["原图", "精修结果", "对比查看"] },
   },
   {
-    id: "portraits", name: "人像写真", category: "image", added: true, avatar: "/avatars/experts/media-portrait-studio.png",
+    id: "portraits", name: "人像写真", category: "image", added: true, avatar: "/avatars/experts/media-storyboard-design.png",
     description: "用一张清晰的人像照片，制作职业照、个人形象照和风格写真。",
     tagline: "换一种风格，记录更好的自己。", chips: ["职业形象", "社交头像", "风格写真"],
     upload: { kind: "image", title: "上传人像照片", hint: "清晰、无遮挡的正面照片更合适" },
@@ -165,7 +167,7 @@ export const apexTools: ToolDefinition[] = [
     action: "制作口播视频", result: { kind: "video", title: "数字人口播预览", description: "预览人物、声音和字幕组合后的效果。", items: ["口播视频", "字幕", "视频下载"] },
   },
   {
-    id: "video-translate", name: "视频翻译", category: "video", added: true, avatar: "/avatars/experts/media-video-translation.png",
+    id: "video-translate", name: "视频翻译", category: "video", added: true, avatar: "/avatars/experts/media-video-editing.png",
     description: "把视频翻译成另一种语言，搭配新配音和双语字幕。",
     tagline: "让你的内容，被更多人听懂。", chips: ["多语翻译", "配音替换", "双语字幕"],
     upload: { kind: "video", title: "上传要翻译的视频", hint: "选择人声清晰的视频" },
@@ -190,7 +192,7 @@ export const apexTools: ToolDefinition[] = [
     action: "制作 PPT", result: { kind: "slides", title: "演示文稿", description: "左侧查看目录，右侧预览每一页，完成后导出 PPT。", items: ["演示大纲", "逐页预览", "PPT 导出"] },
   },
   {
-    id: "spreadsheet", name: "Excel 助手", category: "office", added: true, avatar: "/avatars/experts/office-spreadsheet-analysis.png",
+    id: "spreadsheet", name: "Excel 助手", category: "office", added: true, avatar: "/avatars/experts/finance-financial-report-analysis.png",
     description: "上传表格，整理数据、解释公式、汇总重点或制作图表。",
     tagline: "把复杂表格，变成看得懂的结果。", chips: ["数据整理", "公式帮助", "图表汇总"],
     upload: { kind: "sheet", title: "上传 Excel 或 CSV", hint: "选择要整理、分析的表格" },
@@ -202,7 +204,7 @@ export const apexTools: ToolDefinition[] = [
     action: "处理表格", result: { kind: "table", title: "表格处理结果", description: "查看整理后的表格、分析说明和图表。", items: ["结果表格", "图表", "处理说明"] },
   },
   {
-    id: "pdf-reader", name: "PDF 阅读助手", category: "office", added: true, avatar: "/avatars/experts/office-document-reading.png",
+    id: "pdf-reader", name: "PDF 阅读助手", category: "office", added: true, avatar: "/avatars/experts/academic-paper-search.png",
     description: "上传 PDF，快速读懂重点，针对内容提问并定位引用页码。",
     tagline: "长文档的重点，一眼就能找到。", chips: ["重点摘要", "文档问答", "页码引用"],
     upload: { kind: "pdf", title: "上传 PDF", hint: "报告、说明书、课程资料或论文" },
@@ -226,7 +228,7 @@ export const apexTools: ToolDefinition[] = [
     action: "创作文案", result: { kind: "document", title: "文案草稿", description: "选择喜欢的版本，继续修改或复制使用。", items: ["标题", "正文", "话题标签"] },
   },
   {
-    id: "voiceover", name: "音频配音", category: "audio", avatar: "/avatars/experts/media-voiceover.png",
+    id: "voiceover", name: "音频配音", category: "audio", avatar: "/avatars/experts/media-short-video-copy.png",
     description: "把文字变成自然的语音，为视频、课程和产品介绍配音。",
     tagline: "让每一句文案，都有合适的声音。", chips: ["中文配音", "英文配音", "语速调整"],
     source: { label: "配音文案", placeholder: "输入希望朗读的文字…", example: "一杯好咖啡，开启美好的一天。欢迎来到我们的咖啡小店，让今天的忙碌慢下来。" },
@@ -238,7 +240,7 @@ export const apexTools: ToolDefinition[] = [
     action: "生成配音", result: { kind: "audio", title: "配音试听", description: "试听声音和节奏，再下载音频。", items: ["音频试听", "配音文案", "音频下载"] },
   },
   {
-    id: "website", name: "网站设计助手", category: "website", added: true, avatar: "/avatars/experts/design-website-build.png",
+    id: "website", name: "网站设计助手", category: "website", added: true, avatar: "/avatars/experts/design-ui-prototype.png",
     description: "描述业务和网站目的，安排页面结构、文案和视觉样式。",
     tagline: "把你的业务，放进一个好看又清楚的网站。", chips: ["页面结构", "网站文案", "视觉设计"],
     source: { label: "网站需求", placeholder: "你的业务是什么？希望访客看完后做什么？", example: "做一个新加坡亲子旅行服务网站。展示定制行程、服务优势和客户故事，让家长能留下出行日期和联系方式。风格温暖清晰。" },
@@ -250,7 +252,7 @@ export const apexTools: ToolDefinition[] = [
     action: "设计网站", result: { kind: "website", title: "网站方案", description: "切换电脑和手机视图，查看页面布局。", items: ["电脑端", "手机端", "页面说明"] },
   },
   {
-    id: "resume", name: "简历优化", category: "office", added: true, avatar: "/avatars/experts/office-resume-optimization.png",
+    id: "resume", name: "简历优化", category: "office", added: true, avatar: "/avatars/experts/hr-resume-screening.png",
     description: "结合目标岗位，整理简历结构、突出经历亮点并优化表达。",
     tagline: "让你的经历，更准确地被看见。", chips: ["岗位匹配", "经历润色", "简历排版"],
     upload: { kind: "resume", title: "上传现有简历", hint: "支持 PDF 或 Word 简历" },

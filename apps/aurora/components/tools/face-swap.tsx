@@ -124,7 +124,7 @@ export function FaceSwapWorkbench({ slug }: { slug: string }) {
         <div className="apex-tool-avatar">
           {/* The portrait is the bundled expert art for this tool's executor. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/avatars/experts/media-face-swap.png" alt="" />
+          <img src="/avatars/experts/media-video-editing.png" alt="" />
           <span aria-hidden="true"><Sparkles /></span>
         </div>
         <div className="apex-tool-intro">
