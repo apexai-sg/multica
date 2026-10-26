@@ -164,15 +164,23 @@ client.
   `1080–1439` → 1080P, `≥1440` → 2K. Height is measured from the file, not
   declared by the agent. All four tiers are reachable: MiniMax H3 outputs 2K.
 
-**Pricing (decided 2026-10-25).** A 3× multiple on the HopBase quote, rounded to
-whole credits:
+**Pricing (revised 2026-10-27, owner-requested MiniMax H3 adjustment).** The MiniMax H3 video output prices are set between the HopBase quote and MiniMax's official API list prices, rather than applying a flat 3× markup. The image and text rates remain unchanged:
 
 | line | model | rate |
 |---|---|---|
 | image | `seedream-5-0-lite` | 9 credits/image |
-| video 768P | MiniMax H3 | 24 credits/second |
-| video 2K | MiniMax H3 | 39 credits/second |
+| video 768P | MiniMax H3 | 9 credits/second |
+| video 2K | MiniMax H3 | 15 credits/second |
 | text | `deepseek-v4.1-flash` | 1 credit / 1,000 tokens |
+
+**MiniMax H3 video price check (output only; 100 credits = S$1).** Official API reference: https://platform.minimax.io/subscribe/token-plan?tab=api-enterprise ; HopBase ToB quote dated 2026-10-12; reference FX below. The customer rate is cheaper than the comparable **official API list price**, not necessarily every consumer membership or promotional package.
+
+| H3 video output | HopBase cost | Official API list | Apex AI rate | Discount to official API | Output-only gross margin |
+|---|---:|---:|---:|---:|---:|
+| 768P / s | ¥0.425 ≈ S$0.08075 | US$0.08 ≈ S$0.1024 | 9 credits = S$0.09 | 12.1% below list (87.9% of list) | 10.3% |
+| 2K / s | ¥0.68 ≈ S$0.12920 | US$0.13 ≈ S$0.1664 | 15 credits = S$0.15 | 9.9% below list (90.1% of list) | 13.9% |
+
+**Margin warning:** these rates leave little headroom for fees, infrastructure, retries, or separately billed video/reference-image input. MiniMax's official API prices additional reference images beyond the first five and charges input video separately. Track those costs and either explicitly price such modes or block them until the cost model is implemented. Revalidate supplier charges, model availability, FX and official list price before publishing a discount claim; never advertise a blanket "official 30–70% off" across models on this basis.
 
 | tier | monthly | credits/month |
 |---|---|---|
@@ -424,7 +432,7 @@ Three surfaces, matching the success criteria:
   `generation-composer.tsx`): "最多 X 积分" replaces "X 积分". The insufficient
   balance dialog shows the shortfall, not just a failure.
 - **Result page** (`generation-detail.tsx`): a charge block — one row per line
-  (`3 张图 × 9 积分（seedream-5-0-lite）`, `1 段视频 768P × 5 秒 × 24 积分/秒
+  (`3 张图 × 9 积分（seedream-5-0-lite）`, `1 段视频 768P × 5 秒 × 9 积分/秒
   （MiniMax H3）`), a total, and a link to the account page. When `over_cap` is false and the refund occurred, show the
   actual charge only; never show the reservation.
 - **Account page** (`billing.tsx`): available and held-in-flight shown
@@ -536,10 +544,7 @@ Three consequences the owner must price around:
   agent-written. So one rate must cover every model a skill may reach, and each
   skill's brief has to pin the model it runs. A skill that silently picks
   `gemini-3-pro-image` costs 4× the rate set for `seedream-5-0-lite`.
-- **MiniMax's own retail is below our wholesale on video.** Its page sells 2K
-  at roughly ¥0.40–0.50/s; HopBase's H3 2K is ¥0.68/s. Matching the reference's
-  video pricing is impossible on this sheet; video has to be priced on our cost,
-  not on the reference's numbers.
+- **Differentiate MiniMax consumer subscriptions from MiniMax's official API list.** The official H3 API lists 768P at US$0.08/s and 2K at US$0.13/s; both are above our quoted HopBase unit cost at the reference FX. The revised 9/15-credit rates are below those API list prices, but output-only gross margins are just 10.3%/13.9%. Do not claim a discount against MiniMax's consumer subscription effective rate or other models without verifying the comparable use case; separately billed inputs or retries may erase margin.
 - **Text is cheap enough to be effectively free at low volume.** At the default
   model's output rate, 1,000 tokens costs 0.099 credits, so the 1-credit rate
   is a ~10× markup — and because input tokens are not billed, the realized
