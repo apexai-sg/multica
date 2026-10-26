@@ -20,11 +20,15 @@ export type ToolDefinition = {
   category: ToolCategory;
   added?: boolean;
   /**
-   * Bundled expert portrait under `apps/aurora/public/avatars/experts/`, named
-   * after the SkillHub package that the expert behind this tool uses. The
-   * directory ships all 54 package portraits, and a tool reuses the portrait of
-   * the expert the server maps to it (`tool_experts.go`), so the tool page and
-   * that expert's directory card show the same face.
+   * Bundled expert portrait under `apps/aurora/public/avatars/experts/`. The
+   * asset folder ships all 54 SkillHub package portraits, and a tool reuses the
+   * portrait of the expert the server maps to it
+   * (`server/internal/aurora/tool_experts.go`), so the tool page and that
+   * expert's directory card show the same face. The value must equal
+   * `expertAvatarUrl(<executor>)` from
+   * `packages/views/aurora/expert-avatars.ts`; ten catalog experts borrow a
+   * sibling package's portrait, so the file name is not always the executor's
+   * own slug.
    */
   avatar: string;
   description: string;

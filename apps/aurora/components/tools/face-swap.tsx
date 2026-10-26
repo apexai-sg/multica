@@ -116,15 +116,17 @@ export function FaceSwapWorkbench({ slug }: { slug: string }) {
   const source = mode === "video" ? video : picture;
   const ready = !!(source.media && face.media && !source.error && !face.error);
   const noun = mode === "video" ? "视频" : "图片";
-  const submission = useToolSubmission(findTool("face-swap")!, slug);
+  const tool = findTool("face-swap")!;
+  const submission = useToolSubmission(tool, slug);
 
   return (
     <main className="apex-face-workbench" onDragOver={(event) => event.preventDefault()} onDrop={(event) => event.preventDefault()}>
       <section className="apex-tool-hero" aria-labelledby="apex-face-title">
         <div className="apex-tool-avatar">
-          {/* The portrait is the bundled expert art for this tool's executor. */}
+          {/* The portrait comes from the tool registry so this header and the
+              directory card cannot drift apart. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/avatars/experts/media-video-editing.png" alt="" />
+          <img src={tool.avatar} alt="" />
           <span aria-hidden="true"><Sparkles /></span>
         </div>
         <div className="apex-tool-intro">

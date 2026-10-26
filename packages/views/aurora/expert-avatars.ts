@@ -2,14 +2,16 @@
  * Bundled portraits for the SkillHub expert packages, shipped with the Aurora
  * app under `apps/aurora/public/avatars/experts/`.
  *
- * The directory carries one PNG per package (54 at the current snapshot, named
- * after the package slug) so the whole catalog artwork stays available even
- * when an expert is not part of the local catalog yet. `EXPERT_PACKS` maps each
- * catalog expert to the package whose portrait it wears: an expert that is
- * itself a package points at its own slug, and the ten experts without a
- * dedicated package borrow the closest one.
+ * The asset folder carries one PNG per package (54 at the current snapshot,
+ * named after the package slug) so the whole catalog artwork stays available
+ * even when an expert is not part of the local catalog yet. `EXPERT_PACKS` maps
+ * each catalog expert to the package whose portrait it wears. An expert that is
+ * itself a package points at its own slug; the nine local-only experts have no
+ * package of their own and reuse the portrait of a sibling package;
+ * `ecommerce-bidding-strategy` points at `ecommerce-pricing-analysis` because
+ * the two packages ship identical artwork, so the duplicate file was dropped.
  *
- * The directory and the composer show that portrait instead of the carrier
+ * The directory page and the composer show that portrait instead of the carrier
  * agent's workspace avatar, so a tool page and the expert card that executes it
  * wear the same face. An id outside this map belongs to a user-created agent,
  * which keeps its own avatar.

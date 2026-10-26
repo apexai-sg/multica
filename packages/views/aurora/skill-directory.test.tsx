@@ -207,7 +207,7 @@ describe("SkillDirectory", () => {
     expect(mocks.createIssue).not.toHaveBeenCalled();
   });
 
-  it("lists backend agents with their own name, description, avatar, and skills", () => {
+  it("lists backend agents with their own name and description, wearing the bundled expert portrait", () => {
     renderDirectory();
     expect(cards()).toHaveLength(2);
     const first = cards()[0]!;
