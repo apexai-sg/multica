@@ -63,9 +63,10 @@ export function AuroraAvatar({
   // resolvePublicFileUrl anchors it on the API base; an absolute URL passes
   // through untouched. "No portrait" never reaches the API client at all, so a
   // skill without one cannot depend on it being initialised.
-  const resolvedUrl =
-    bundledUrl ??
-    (!emoji && avatarUrl ? resolvePublicFileUrl(avatarUrl) : null);
+  let resolvedUrl: string | null = bundledUrl;
+  if (resolvedUrl === null && !emoji && avatarUrl) {
+    resolvedUrl = resolvePublicFileUrl(avatarUrl);
+  }
   const imageUrl =
     resolvedUrl !== null && resolvedUrl !== failedUrl ? resolvedUrl : null;
 
