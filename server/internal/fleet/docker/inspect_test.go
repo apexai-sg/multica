@@ -158,3 +158,73 @@ func TestInspectStrictHealthIdentityAndCounts(t *testing.T) {
 		t.Fatal("inspect epoch drift accepted")
 	}
 }
+
+// decideAdoption decides whether an already-running container is this Fleet's
+// own, built from the previous image, and may be replaced in place. Only the
+// image may differ; every other field validateNodeInspection compares must
+// match, or a drift the operator did not approve would be silently destroyed.
+func TestDecideAdoptionReplacesOnlyAnImageChange(t *testing.T) {
+	node := func() model.Node {
+		n := fixtureNode()
+		n.ContainerID = ""
+		n.Maintenance = false
+		n.Status = "creating"
+		return n
+	}
+	snapshot := func(n model.Node, mutate func(*container.InspectResponse, *container.HostConfig)) Inspection {
+		h := NodeHostConfig(n.Resources, true, nil)
+		h.NetworkMode = "node-net"
+		r := &container.InspectResponse{
+			ContainerJSONBase: &container.ContainerJSONBase{ID: "cid", HostConfig: &h},
+			Config:            &container.Config{Image: n.Image, User: "10001:10001", Env: []string{"HOME=/data/home", "FLEET_NODE_MAX_RUNS=1"}, Entrypoint: []string{"/usr/local/bin/fleet-node"}, Cmd: []string{"run"}},
+			NetworkSettings:   &container.NetworkSettings{Networks: map[string]*network.EndpointSettings{"node-net": {}}},
+			Mounts:            []container.MountPoint{{Type: mount.TypeVolume, Name: n.DataVolume, Destination: model.DataMount, RW: true}, {Type: mount.TypeVolume, Name: n.SecretsVolume, Destination: "/secrets", RW: false}},
+		}
+		if mutate != nil {
+			mutate(r, &h)
+		}
+		return Inspection{ID: "cid", State: "running", sdk: r}
+	}
+
+	cases := []struct {
+		name   string
+		mutate func(*container.InspectResponse, *container.HostConfig)
+		node   func(model.Node) model.Node
+		want   adoptionDecision
+	}{
+		{name: "new image only", mutate: func(r *container.InspectResponse, _ *container.HostConfig) { r.Config.Image = "new-image" }, want: adoptionReplaceImage},
+		{name: "same image", want: adoptionRefuse},
+		{name: "image and resources", mutate: func(r *container.InspectResponse, h *container.HostConfig) {
+			r.Config.Image = "new-image"
+			h.Memory = 1
+		}, want: adoptionRefuse},
+		{name: "image and environment", mutate: func(r *container.InspectResponse, _ *container.HostConfig) {
+			r.Config.Image = "new-image"
+			r.Config.Env = append(r.Config.Env, "EXTRA=1")
+		}, want: adoptionRefuse},
+		{name: "image and network", mutate: func(r *container.InspectResponse, h *container.HostConfig) {
+			r.Config.Image = "new-image"
+			h.NetworkMode = "host"
+		}, want: adoptionRefuse},
+		{name: "image and volume", mutate: func(r *container.InspectResponse, _ *container.HostConfig) {
+			r.Config.Image = "new-image"
+			r.Mounts[0].Name = "foreign"
+		}, want: adoptionRefuse},
+		{name: "empty image", mutate: func(r *container.InspectResponse, _ *container.HostConfig) { r.Config.Image = "" }, want: adoptionRefuse},
+		{name: "already confirmed container", node: func(n model.Node) model.Node {
+			n.ContainerID = "cid"
+			return n
+		}, want: adoptionRefuse},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			n := node()
+			if tc.node != nil {
+				n = tc.node(n)
+			}
+			if got := decideAdoption(n, snapshot(n, tc.mutate), "node-net", fixtureConfig()); got != tc.want {
+				t.Fatalf("decideAdoption = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
