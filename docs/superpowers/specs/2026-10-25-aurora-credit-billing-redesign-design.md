@@ -256,8 +256,7 @@ Create-time flow (`CreateAuroraGeneration`):
 4. The cap is written into the task brief so the model knows its budget. The
    brief instruction is advisory; the charge does not depend on it.
 
-A skill with `MaxImages = 0` and `MaxVideoSecs = 0` is a text-only skill and
-reserves only its text ceiling.
+A skill with `MaxImages = 0` and `MaxVideoSecs = 0` is text-only and remains **commercially HOLD** until actual provider input/output/cache usage, supplier costs and a defensible under-official retail price can be quoted; no live ceiling should be reserved for such a skill prematurely.
 
 **The cap is per generation, not per round.** A generation can end a round in
 `needs_input`, take a follow-up comment, and re-enter `queued` on the *same*
@@ -422,7 +421,7 @@ Three surfaces, matching the success criteria:
   `generation-composer.tsx`): "最多 X 积分" replaces "X 积分". The insufficient
   balance dialog shows the shortfall, not just a failure.
 - **Result page** (`generation-detail.tsx`): a charge block — one row per line
-  (`3 张图 × 9 积分（seedream-5-0-lite）`, `1 段视频 768P × 5 秒 × 9 积分/秒
+  (`3 张图 × 4 积分（seedream-5-0-lite）`, `1 段视频 768P × 5 秒 × 9 积分/秒
   （MiniMax H3）`), a total, and a link to the account page. When `over_cap` is false and the refund occurred, show the
   actual charge only; never show the reservation.
 - **Account page** (`billing.tsx`): available and held-in-flight shown
@@ -464,8 +463,8 @@ Until then the entitlement path keeps working on today's numbers.
   abandoned generation releases that reservation after 24 hours idle.
 - **Rates are frozen per run.** `rate_version` on the generation means a card
   change never reprices history.
-- **Same rate card on both sides.** Reservation and settlement call one
-  function; a second implementation is a bug.
+- **Same approved SKU rate card on both sides.** Reservation and settlement call one frozen version of the model/variant rate function; a second implementation, unapproved fallback or model-switch during execution is a bug.
+- **Effective-credit profitability.** Check the lowest real SGD received per credit among all allowed membership and pack funding sources; reject any SKU/plan combination with nonpositive contribution margin, even if its nominal S$0.01-credit price looks viable.
 
 ## Testing
 
