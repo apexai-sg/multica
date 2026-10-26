@@ -23,7 +23,7 @@ export const FACE_SWAP_PATH = "/preview/tools/face-swap";
 export const agents: Agent[] = apexTools.map((tool) => ({
   id: toolAgentId(tool), workspace_id: workspace.id, runtime_id: "preview-runtime",
   name: tool.name, description: tool.description, instructions: "",
-  avatar_url: `/avatars/person-${tool.avatar}.svg`, runtime_mode: "local", runtime_config: {},
+  avatar_url: tool.avatar, runtime_mode: "local", runtime_config: {},
   max_concurrent_tasks: 1, owner_id: user.id, archived_at: null, custom_args: [],
   visibility: "private", permission_mode: "private", invocation_targets: [], model: "",
   created_at: time, updated_at: time, status: "idle", archived_by: null,
