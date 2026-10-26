@@ -28,6 +28,12 @@ func TestWorkspaceNetworkSubnetIsPinnedInsideTheConfiguredPool(t *testing.T) {
 	if ones, bits := subnet.Mask.Size(); bits != 32 || ones != 24 {
 		t.Fatalf("subnet %q is not a /24", first)
 	}
+	// Docker rejects a /24 whose host part is non-zero, so the pinned subnet
+	// must already be the network address. ParseCIDR normalizes, so comparing
+	// its spelling catches an index that landed in the fourth octet.
+	if subnet.String() != first {
+		t.Fatalf("subnet %q is not a canonical network address (%q)", first, subnet.String())
+	}
 	_, pool, err := net.ParseCIDR("10.213.0.0/16")
 	if err != nil || !pool.Contains(subnet.IP) {
 		t.Fatalf("subnet %q escaped the configured pool", first)

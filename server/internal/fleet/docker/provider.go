@@ -93,10 +93,12 @@ func (p *Provider) workspaceSubnet(n model.Node) string {
 	count := 1 << uint(24-ones)
 	sum := sha256.Sum256([]byte(p.cfg.Namespace + "\x00" + p.cfg.FleetID + "\x00" + nodeID(n) + "\x00subnet"))
 	index := int(binary.BigEndian.Uint32(sum[:4]) % uint32(count))
+	// Step in whole /24 blocks: the fourth octet of a /24 network address is
+	// always zero, so the index advances the third octet (and the second for
+	// pools wider than /16) rather than landing in the host part.
+	base := binary.BigEndian.Uint32(pool.IP.To4())
 	subnet := make(net.IP, net.IPv4len)
-	copy(subnet, pool.IP.To4())
-	subnet[2] = byte(index >> 8)
-	subnet[3] = byte(index)
+	binary.BigEndian.PutUint32(subnet, base+uint32(index)<<8)
 	return (&net.IPNet{IP: subnet, Mask: net.CIDRMask(24, 32)}).String()
 }
 
