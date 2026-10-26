@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Charge every Aurora run for what it actually delivered — text by delivered tokens, image per image, video by measured resolution × measured seconds — against a per-model rate card, with a per-skill ceiling reserved up front.
+**Goal:** Introduce server-measured and itemized charging by explicitly approved provider/model/SKU, not a generic 3× markup. Image count and resolved video resolution × measured seconds are the phase-1 demonstrable output meters. Text commercial charging requires actual provider input/output/cache usage and approved whole-request economics; text SKUs remain HOLD until then.
 
 **Architecture:** A versioned, server-owned rate card prices measured usage. Usage is measured once, at artifact staging, where the bytes already stream. Settlement sums the generation's assets, writes itemized `aurora_generation_charge` rows, and refunds the difference between the reserved ceiling and the actual charge. Runs created before this change carry `rate_version = 'legacy'` and settle at the old flat skill price.
 
 **Tech Stack:** Go 1.27 (Chi, pgx, sqlc), PostgreSQL migrations, Next.js + React + TanStack Query, vitest.
 
-**Spec:** `docs/superpowers/specs/2026-10-25-aurora-credit-billing-redesign-design.md`
+**Spec:** `docs/superpowers/specs/2026-10-25-aurora-credit-billing-redesign-design.md`. **Mandatory owner pricing override:** `docs/superpowers/specs/2026-10-27-aurora-all-provider-pricing-audit.md`. The audit covers every model with a quoted HopBase cost, marks unquoted models HOLD, and includes effective subscriber-credit revenue checks. **Do not deploy any retail rates in this documentation-only PR.**
 
 **Scope:** Phase 1 only (spec §Rollout item 1). The batch wallet (spec §6) and the SGD plan catalogue (spec §Rollout item 3) get their own plans; this one ships and is meaningful without them. Phase 2 takes migration numbers 5002–5005.
 
@@ -16,9 +16,9 @@
 
 - `1 credit = 1_000_000 micro-credits`; `100 credits = S$1.00`.
 - All money is `int64` micro-credits. No float ever touches a balance or a rate.
-- Each charge line rounds **up** to a whole credit: `amount_micro = ceilUpToCredit(raw_micro)`.
+- Charge exact **integer microcredits**, not up to the next whole credit per line. Text/fractional video rounding to whole credits could price short requests above official; use integer fixed-point arithmetic and explicitly prevent overflow.
 - Rates are integers in `micro-credits per unit`: per 1,000 text tokens, per image, per video second.
-- Rates are keyed by **model id**. An unconfigured model fails settlement; it never charges zero.
+- Rates are keyed by **model plus SKU variant** (image pixels; video tier, audio, reference inputs; text input/output/cache/context). An unconfigured/HOLD/expired model fails **before reservation**, never settles at zero or inherits another model's price.
 - Model selection is server-side at generation creation. A request never supplies a model name.
 - The reserved ceiling is the maximum a user can be charged for that generation; actual > reserved is absorbed and flagged, never debited.
 - Migrations for this fork take numbers from 5000; `5000` is taken, so this plan uses 5001 and 5006–5008. Every index is `CREATE [UNIQUE] INDEX CONCURRENTLY` in its own single-statement file.
@@ -32,6 +32,7 @@
 3. **A multi-round `needs_input` conversation.** Every round's assets belong to the same generation; settlement must sum all of them, not the last round's. (Task 6)
 4. **An agent that ignores its ceiling.** The charge is capped at the reservation, the line is marked `over_cap`, the balance never goes negative, and the event is logged. (Task 6)
 5. **A replayed terminal callback.** Completion and failure are each idempotent: no second refund, no second charge row. (Tasks 6, 8)
+6. **Commercial guardrails.** Before any paid generation, verify supplier output/input cost < realized sale proceeds < comparable OEM API list at the current FX **across all allowed funding sources**, including discounted subscription credits and topups. The earlier S$49/5,500 & S$149/18,000 draft plans would lose money on MiniMax 9/15 credits/s; do not activate them (or video for those funding sources) without renegotiating cost.
 
 ---
 
@@ -45,7 +46,7 @@
 - Produces:
   - `type OutputCaps struct { MaxTextTokens int64; MaxImages int; MaxVideoMilli int64; MaxVideoHeight int }` (JSON `max_text_tokens`, `max_images`, `max_video_milli`, `max_video_height`). Task 2 attaches this type to the catalog entry; it is declared here because the ceiling is priced from it.
   - `type Measured struct { Tokens int64; Width int; Height int; DurationMS int64 }` (JSON tags `tokens`, `width`, `height`, `duration_ms`, all `omitempty`).
-  - `type Usage struct { Kind, Model string; Tokens int64; Images int; SecondsMilli int64; Height int }`.
+  - `type Usage struct { Kind, Model string; Variant string; Tokens int64; Images int; SecondsMilli int64; Height int }` — variant is an explicit server-approved SKU, not an agent-written label.
   - `type ChargeLine struct { Kind, Model string; QuantityMilli int64; UnitRateMicro int64; AmountMicro int64 }`.
   - `type VideoRate struct { Tier string; MaxHeight int; MicroPerSecond int64 }`.
   - `type ModelRate struct { Kind string; Text *TextRate; Image *ImageRate; Video []VideoRate }`.
@@ -61,21 +62,18 @@
 - Consumes: nothing.
 
 Quantity convention (one rule, used everywhere):
-- text: `QuantityMilli` = delivered tokens.
+- text: **HOLD for billing** until provider-reported input/output/cache usage and all supplier rates are available; display-only token estimates are not billing quantities.
 - image: `QuantityMilli` = image count × 1000.
-- video: `QuantityMilli` = milliseconds.
+- video: `QuantityMilli` = measured milliseconds, validated against the requested official SKU.
 
-`raw = QuantityMilli * UnitRateMicro / 1000`; `AmountMicro = ceil(raw / 1e6) * 1e6`.
+`raw_micro = ceil(QuantityMilli * UnitRateMicro / 1000)` using overflow-safe integer math; `AmountMicro = raw_micro`. Do **not** round to full credits. Refunds and displays must reconcile to the exact microcredit ledger.
 
 - [ ] **Step 1: Write the failing tests**
 
 ```go
-func TestChargeTextRoundsUpToWholeCredits(t *testing.T) {
-	line, err := DefaultRateCard().Charge(Usage{Kind: "text", Model: "deepseek-v4.1-flash", Tokens: 3500})
-	// 3.5k tokens × 1 credit/k = 3.5 credits → 4
-	if err != nil || line.AmountMicro != 4_000_000 || line.QuantityMilli != 3500 {
-		t.Fatalf("got %+v, err %v", line, err)
-	}
+func TestUnpricedTextFailsClosed(t *testing.T) {
+    _, err := DefaultRateCard().Charge(Usage{Kind: "text", Model: "deepseek-v4.1-flash", Tokens: 3500})
+    if !errors.Is(err, ErrRateMissing) { t.Fatalf("unapproved text must be HOLD, got %v", err) }
 }
 
 func TestChargeVideoMatchesMeasuredHeight(t *testing.T) {
@@ -94,7 +92,7 @@ func TestChargeVideoMatchesMeasuredHeight(t *testing.T) {
 
 func TestChargeImages(t *testing.T) {
 	line, err := DefaultRateCard().Charge(Usage{Kind: "image", Model: "seedream-5-0-lite", Images: 3})
-	if err != nil || line.AmountMicro != 27_000_000 || line.QuantityMilli != 3000 {
+	if err != nil || line.AmountMicro != 12_000_000 || line.QuantityMilli != 3000 {
 		t.Fatalf("got %+v, err %v", line, err)
 	}
 }
@@ -106,10 +104,10 @@ func TestChargeUnknownModelFailsClosed(t *testing.T) {
 }
 
 func TestCeilingSumsPerKindMaxima(t *testing.T) {
-	caps := OutputCaps{MaxTextTokens: 2000, MaxImages: 4, MaxVideoMilli: 10_000, MaxVideoHeight: 1440}
-	got, err := DefaultRateCard().Ceiling("deepseek-v4.1-flash", "seedream-5-0-lite", "MiniMax-H3", caps)
-	// 2 + 36 + 150 credits
-	if err != nil || got != 188_000_000 {
+	caps := OutputCaps{MaxTextTokens: 0, MaxImages: 4, MaxVideoMilli: 10_000, MaxVideoHeight: 1440}
+	got, err := DefaultRateCard().Ceiling("", "seedream-5-0-lite", "MiniMax-H3", caps)
+	// 16 image + 150 video credits; a text-only SKU remains unavailable
+	if err != nil || got != 166_000_000 {
 		t.Fatalf("got %d, err %v", got, err)
 	}
 }
@@ -132,21 +130,26 @@ Expected: FAIL — `undefined: DefaultRateCard`.
 
 - [ ] **Step 3: Implement `pricing.go`**
 
-`DefaultRateCard()` returns `Version: "2026-10-25"` with exactly:
+`DefaultRateCard()` returns `Version: "2026-10-27-provisional"` containing only audited non-HOLD output SKU candidates for development (see audit for margins, input-cost restrictions and rollout gates):
 
-| model | kind | rate |
+| model / SKU | kind | proposed rate |
 |---|---|---|
-| `deepseek-v4.1-flash` | text | `MicroPerKToken: 1_000_000` (1 credit / 1k tokens) |
-| `seedream-5-0-lite` | image | `MicroPerImage: 9_000_000` (9 credits) |
-| `MiniMax-H3` | video | `{Tier: "768P", MaxHeight: 1079, MicroPerSecond: 9_000_000}`, `{Tier: "2K", MaxHeight: 2160, MicroPerSecond: 15_000_000}` |
+| `seedream-5-0-lite` / standard output image | image | `MicroPerImage: 4_000_000` (4 credits) |
+| `seedream-5-0-pro` / ≤2.61 MP single-image mode | image | `MicroPerImage: 5_000_000` (5 credits) |
+| `nano-banana-2.1` / 1K | image | `MicroPerImage: 3_000_000` (3 credits), verify upstream mapping |
+| `gemini-3-pro-image` / 1K–2K | image | `MicroPerImage: 15_000_000` (15 credits), verify input charges |
+| `MiniMax-H3` / 768P | video | `MicroPerSecond: 9_000_000` |
+| `MiniMax-H3` / 2K | video | `MicroPerSecond: 15_000_000` |
+| `kling-v3-omni` 720P/1080P silent, no reference video | video | **PROVISIONAL, 10/14 credits/s, not eligible for launch until OEM validated** |
+| DeepSeek, Claude text, H3-Max 480P, Kling 2K, all unquoted models | any | **HOLD / not in live rate book** |
 
-`VideoRateForHeight` picks the first `VideoRate` whose `MaxHeight >= height`, ordered ascending; a height above every tier is `false`.
+**Video lookup uses the requested/authorized provider SKU** (e.g. H3 768P or H3 2K), with measured height/duration validating the delivered artifact. Do not choose a 2K rate merely because `height >= 1080`; an unconfigured 1080P variant must be held or rejected.
 
 **Owner-requested MiniMax H3 pricing revision (2026-10-27):** 9 credits/s (768P) and 15 credits/s (2K), replacing 24/39. At the spec's reference FX and 100 credits = S$1, these are respectively 12.1% and 9.9% below MiniMax's official API list prices (US$0.08/s and US$0.13/s) and above quoted HopBase costs (¥0.425/s and ¥0.68/s). **Gross output-only margin is approximately 10.3% / 13.9%**; additional reference/input costs, retries, fees, and infrastructure may eliminate profit. Pricing for input-video/reference-heavy workflows needs an explicit surcharge or restriction before production. Verify both source prices before external discount advertising; this is not a blanket model discount.
 
-The 2K tier currently starts at height 1080 in this phase-1 implementation; **do not label a 1080P output as 2K or silently charge a 2K price for an unsupported 1080P tier**. Resolve the previously flagged resolution-to-price mapping before launch.
+The old height-based 1080P→2K lookup is removed as a pricing shortcut. Define exact provider SKU boundaries and test mismatched/unsupported output dimensions before enabling each mode.
 
-`CountTextTokens` counts runes: `ascii*1/4 + nonASCII*3/4`, rounded up, with a minimum of 1 for a non-empty body and 0 for an empty one.
+`CountTextTokens` is a **non-billing preview heuristic only**: `ascii*1/4 + nonASCII*3/4`, rounded up, with a minimum of 1 for a non-empty body. No paid text requests may be admitted before usage-derived, provider-authoritative input/output/cache metering is added.
 
 `Charge` returns `ErrRateMissing` when the model is absent or when the kind has no rate on that model.
 
@@ -176,16 +179,16 @@ git commit -m "feat(aurora): add the model-keyed rate card"
 - Consumes: `RateCard.Ceiling` from Task 1.
 - Produces:
   - `type OutputModels struct { Text, Image, Video string }` (JSON tags `text`, `image`, `video`).
-  - `SkillCatalogEntry` gains `Caps OutputCaps` (`json:"caps"`), `Models OutputModels` (`json:"models"`), `MaxCredits int64` (`json:"max_credits"`). `Credits` stays, now equal to `MaxCredits/1e6` for older clients.
+  - `SkillCatalogEntry` gains `Caps OutputCaps` (`json:"caps"`), `Models OutputModels` (`json:"models"`), `MaxCredits int64` (`json:"max_credits"`), `PricingStatus string` (`json:"pricing_status"`, approved/provisional/hold), and `MeteredEnabled bool` (`json:"metered_enabled"`). `Credits` remains a deprecated alias where an approved ceiling exists; HOLD entries must not masquerade as paid-available skills.
   - `func DefaultCaps(outputs []string) OutputCaps`
   - `func (e SkillCatalogEntry) ModelsOrDefault() OutputModels`
 
 Caps come from the skill's declared `Output` kinds, not 33 hand-edited rows:
-`video` present → `{MaxTextTokens: 2000, MaxVideoMilli: 10000, MaxVideoHeight: 2160}`;
-else `image` present → `{MaxTextTokens: 2000, MaxImages: 4}`;
-else → `{MaxTextTokens: 8000}`.
+`video` present → `{MaxTextTokens: 0, MaxVideoMilli: 10000, MaxVideoHeight: 2160}` **only if any additional text/tool costs are accounted for**;
+else `image` present → `{MaxTextTokens: 0, MaxImages: 4}` under the same restriction;
+else text-only → `{MaxTextTokens: 8000}`, but its **commercial status is HOLD** pending actual provider input/output cost metering.
 
-`ModelsOrDefault()` returns `{Text: "deepseek-v4.1-flash", Image: "seedream-5-0-lite", Video: "MiniMax-H3"}` for any empty field.
+`ModelsOrDefault()` may keep a development-only default mapping, but **never** select `deepseek-v4.1-flash` for live metered text; it is HOLD. For paid generations, model+SKU must resolve to an explicit approved rate, or the skill is unavailable (do not silently fall back to another model).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -201,9 +204,12 @@ func TestCatalogCapsFollowDeclaredOutputs(t *testing.T) {
 		case !hasVideo && !hasImage && entry.Caps.MaxTextTokens != 8000:
 			t.Fatalf("%s: text cap %d", entry.ID, entry.Caps.MaxTextTokens)
 		}
-		if entry.MaxCredits <= 0 || entry.Credits != entry.MaxCredits/1_000_000 {
-			t.Fatalf("%s: max=%d credits=%d", entry.ID, entry.MaxCredits, entry.Credits)
-		}
+		if entry.PricingStatus == "approved" && (entry.MaxCredits <= 0 || entry.Credits != entry.MaxCredits/1_000_000) {
+            t.Fatalf("%s: approved but no safe cap: max=%d credits=%d", entry.ID, entry.MaxCredits, entry.Credits)
+        }
+        if entry.PricingStatus != "approved" && entry.MeteredEnabled {
+            t.Fatalf("%s: HOLD or provisional SKU cannot be sold", entry.ID)
+        }
 	}
 }
 ```
@@ -215,7 +221,7 @@ Expected: FAIL — `entry.Caps undefined`.
 
 - [ ] **Step 3: Implement the caps and projection**
 
-Add the types to `catalog.go`, fill `Caps`/`Models`/`MaxCredits` in `buildCatalog()` using `DefaultCaps(expert.Output)` and `DefaultRateCard().Ceiling(...)`. `attachAttachmentRules` must copy the new fields (it builds a copy). Update `cloneEntry` so the copy keeps caps and models.
+Add the types to `catalog.go`, fill `Caps`/`Models`/`MaxCredits` only for actually eligible price-book configurations; set `PricingStatus` and `MeteredEnabled=false` for HOLD/provisional/unpriced skills. Never crash the catalog because a HOLD text model has no rate: represent it as unavailable. `attachAttachmentRules` and `cloneEntry` must copy pricing fields correctly.
 
 Then extend the client schema so the new fields survive parsing: add `max_credits: z.number().default(0)`, `caps` (all fields defaulted to 0) and `models` (all fields defaulted to `""`) to the skill schema in `packages/core/aurora/schema.ts`, and a malformed-response case to `packages/core/aurora/api.test.ts` asserting a payload without the new fields still parses.
 
@@ -447,7 +453,7 @@ git commit -m "feat(aurora): carry measured usage onto the asset"
 
 Behaviour:
 - `gen.RateVersion == "legacy"` → one line at the old flat price: `AmountMicro = gen.CreditsReserved`, `Kind = "legacy"`, `Model = "legacy"`, `QuantityMilli = 1000`. No model lookup.
-- Otherwise: group assets by kind; text sums `measured.tokens` over `role != "transcript"`; images count; video sums `measured.duration_ms` and prices each asset by its own `measured.height`.
+- Otherwise: charge only approved exact image/video SKUs from the frozen quote, price images by number and video by measured milliseconds plus server-authorized SKU resolution; retain usage records for actual provider costs and charged reference inputs. **Do not** sum delivered Unicode text into paid output tokens; text models remain HOLD until input/output/cache metering and supplier input quotes are implemented. A paid job that used an unpriced model/variant should have been rejected at creation.
 - `actual = min(sum, gen.CreditsReserved)`. `over_cap = sum > gen.CreditsReserved`.
 - Write the charge rows (idempotent via the unique index), then `Refund(gen.CreditsReserved - actual)` when positive, with reference `settle:<generationID>`.
 - Then `UpdateAuroraGenerationTerminal` with `CreditsCharged: actual`.
@@ -456,8 +462,8 @@ Behaviour:
 
 ```go
 func TestSettlementRefundsTheDifference(t *testing.T) {
-	// reserved 428 credits; assets: one 5s 2K video + 1,200 text tokens.
-	// → actual = 195 + 2 = 197 credits, refund 231 credits, one refund row.
+	// reserved 166 credits; assets: one 5s 2K H3 video + one Seedream Lite image.
+    // → actual = 75 + 4 = 79 credits, refund 87 credits, one refund row.
 }
 
 func TestSettlementChargesReservationWhenOverCap(t *testing.T) {
@@ -516,7 +522,7 @@ git commit -m "feat(aurora): settle generations by measured usage"
   - `CreateAuroraGeneration` writes `rate_version` when inserting the generation row.
 
 Behaviour:
-1. `amountMicro := entry.MaxCredits` (already the ceiling).
+1. Resolve an approved model+variant with verified supplier/OEM rates, source expiration, and funding-source contribution-margin guard. If HOLD/unpriced or the proposed credit grant makes the job loss-making, reject **before** reserving. For approved SKUs, `amountMicro := entry.MaxCredits` is the user-visible ceiling; choose per-request variants/size where supported.
 2. If `balance < amountMicro` → 402 with the three figures; nothing is created.
 3. Otherwise reserve `amountMicro` as today.
 4. The task brief gains one line: `本次最多可交付：图片 N 张 / 视频 N 秒（上限，超出不额外计费）。` — the caps, not the price.
@@ -525,8 +531,8 @@ Behaviour:
 
 ```go
 func TestCreateRefusesWhenBalanceBelowCeiling(t *testing.T) {
-	// balance 100 credits, video skill ceiling 428 → 402 and body carries
-	// requiredCredits 428, availableCredits 100, shortfallCredits 328;
+	// balance 100 credits, priced combined image+video ceiling 166 → 402 and body carries
+    // requiredCredits 166, availableCredits 100, shortfallCredits 66;
 	// no generation row, no issue, no reservation.
 }
 
@@ -617,8 +623,8 @@ git commit -m "feat(aurora): return the charge breakdown with a generation"
 Behaviour:
 - Skill card and composer show `最多 {maxCredits} 积分` instead of `{credits} 积分`.
 - The insufficient-credits dialog shows the shortfall from the 402 body.
-- The result page renders one row per charge: `3 张图 × 9 积分（seedream-5-0-lite）`,
-  `视频 2K × 5.0 秒 × 15 积分/秒（MiniMax-H3）`, `文本 3,500 tokens × 1 积分/千 token（deepseek-v4.1-flash）`,
+- The result page renders one row per approved charge: `3 张图 × 4 积分（seedream-5-0-lite）`,
+  `视频 2K × 5.0 秒 × 15 积分/秒（MiniMax-H3）`; HOLD text SKUs are not shown as purchasable,
   then the total. A `legacy` line renders as `本次 90 积分`.
 - Never show the reserved ceiling on the result page.
 
@@ -628,7 +634,7 @@ Behaviour:
 it("itemizes a settled generation", () => {
   renderDetail({ creditsCharged: 79_000_000, charges: [
     { kind: "video", model: "MiniMax-H3", quantityMilli: 5000, unitRateMicro: 15_000_000, amountMicro: 75_000_000, overCap: false },
-    { kind: "text",  model: "deepseek-v4.1-flash", quantityMilli: 3500, unitRateMicro: 1_000_000, amountMicro: 4_000_000, overCap: false },
+    { kind: "image", model: "seedream-5-0-lite", quantityMilli: 1000, unitRateMicro: 4_000_000, amountMicro: 4_000_000, overCap: false },
   ]});
   expect(screen.getByText(/5\.0 秒/)).toBeTruthy();
   expect(screen.getByText(/79/)).toBeTruthy();
@@ -721,6 +727,8 @@ Expected: PASS.
 - [ ] **Step 3: Confirm the money invariant**
 
 Run: `cd server && go test ./internal/aurora ./internal/service ./internal/handler -run 'Aurora|Settlement|Charge|RateCard' -count=1`
+
+**Additional release blocker tests**: no live rate for HOLD/unquoted/expired/unsafe SKUs; validated upstream aliases; no 1080P-as-2K; no 1-credit minimum on subcredit text; refund/idempotency; fail before reserving for unavailable models; provider input/reference/retry cost metering; and minimum realized SGD/credit across subscription grants, topups, bonuses and FX fluctuation. The `S$49/5,500` and `S$149/18,000` promotional plan candidates must fail MiniMax H3 margin gating at 9/15 credits/s.
 Expected: PASS.
 
 - [ ] **Step 4: Commit any fixes as their own commits**
