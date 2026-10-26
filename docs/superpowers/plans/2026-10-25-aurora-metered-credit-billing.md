@@ -79,15 +79,15 @@ func TestChargeTextRoundsUpToWholeCredits(t *testing.T) {
 }
 
 func TestChargeVideoMatchesMeasuredHeight(t *testing.T) {
-	// 768P output measures 720 or 768; both must land on the 768P rate (24/s).
+	// 768P output measures 720 or 768; both must land on the 768P rate (9/s).
 	for _, h := range []int{720, 768, 1079} {
 		line, err := DefaultRateCard().Charge(Usage{Kind: "video", Model: "MiniMax-H3", SecondsMilli: 5000, Height: h})
-		if err != nil || line.UnitRateMicro != 24_000_000 || line.AmountMicro != 120_000_000 {
+		if err != nil || line.UnitRateMicro != 9_000_000 || line.AmountMicro != 45_000_000 {
 			t.Fatalf("height %d: got %+v, err %v", h, line, err)
 		}
 	}
 	line, _ := DefaultRateCard().Charge(Usage{Kind: "video", Model: "MiniMax-H3", SecondsMilli: 5000, Height: 1440})
-	if line.UnitRateMicro != 39_000_000 || line.AmountMicro != 195_000_000 {
+	if line.UnitRateMicro != 15_000_000 || line.AmountMicro != 75_000_000 {
 		t.Fatalf("2K: got %+v", line)
 	}
 }
@@ -108,8 +108,8 @@ func TestChargeUnknownModelFailsClosed(t *testing.T) {
 func TestCeilingSumsPerKindMaxima(t *testing.T) {
 	caps := OutputCaps{MaxTextTokens: 2000, MaxImages: 4, MaxVideoMilli: 10_000, MaxVideoHeight: 1440}
 	got, err := DefaultRateCard().Ceiling("deepseek-v4.1-flash", "seedream-5-0-lite", "MiniMax-H3", caps)
-	// 2 + 36 + 390 credits
-	if err != nil || got != 428_000_000 {
+	// 2 + 36 + 150 credits
+	if err != nil || got != 188_000_000 {
 		t.Fatalf("got %d, err %v", got, err)
 	}
 }
@@ -138,9 +138,13 @@ Expected: FAIL — `undefined: DefaultRateCard`.
 |---|---|---|
 | `deepseek-v4.1-flash` | text | `MicroPerKToken: 1_000_000` (1 credit / 1k tokens) |
 | `seedream-5-0-lite` | image | `MicroPerImage: 9_000_000` (9 credits) |
-| `MiniMax-H3` | video | `{Tier: "768P", MaxHeight: 1079, MicroPerSecond: 24_000_000}`, `{Tier: "2K", MaxHeight: 2160, MicroPerSecond: 39_000_000}` |
+| `MiniMax-H3` | video | `{Tier: "768P", MaxHeight: 1079, MicroPerSecond: 9_000_000}`, `{Tier: "2K", MaxHeight: 2160, MicroPerSecond: 15_000_000}` |
 
 `VideoRateForHeight` picks the first `VideoRate` whose `MaxHeight >= height`, ordered ascending; a height above every tier is `false`.
+
+**Owner-requested MiniMax H3 pricing revision (2026-10-27):** 9 credits/s (768P) and 15 credits/s (2K), replacing 24/39. At the spec's reference FX and 100 credits = S$1, these are respectively 12.1% and 9.9% below MiniMax's official API list prices (US$0.08/s and US$0.13/s) and above quoted HopBase costs (¥0.425/s and ¥0.68/s). **Gross output-only margin is approximately 10.3% / 13.9%**; additional reference/input costs, retries, fees, and infrastructure may eliminate profit. Pricing for input-video/reference-heavy workflows needs an explicit surcharge or restriction before production. Verify both source prices before external discount advertising; this is not a blanket model discount.
+
+The 2K tier currently starts at height 1080 in this phase-1 implementation; **do not label a 1080P output as 2K or silently charge a 2K price for an unsupported 1080P tier**. Resolve the previously flagged resolution-to-price mapping before launch.
 
 `CountTextTokens` counts runes: `ascii*1/4 + nonASCII*3/4`, rounded up, with a minimum of 1 for a non-empty body and 0 for an empty one.
 
@@ -614,7 +618,7 @@ Behaviour:
 - Skill card and composer show `最多 {maxCredits} 积分` instead of `{credits} 积分`.
 - The insufficient-credits dialog shows the shortfall from the 402 body.
 - The result page renders one row per charge: `3 张图 × 9 积分（seedream-5-0-lite）`,
-  `视频 2K × 5.0 秒 × 39 积分/秒（MiniMax-H3）`, `文本 3,500 tokens × 1 积分/千 token（deepseek-v4.1-flash）`,
+  `视频 2K × 5.0 秒 × 15 积分/秒（MiniMax-H3）`, `文本 3,500 tokens × 1 积分/千 token（deepseek-v4.1-flash）`,
   then the total. A `legacy` line renders as `本次 90 积分`.
 - Never show the reserved ceiling on the result page.
 
@@ -622,12 +626,12 @@ Behaviour:
 
 ```tsx
 it("itemizes a settled generation", () => {
-  renderDetail({ creditsCharged: 197_000_000, charges: [
-    { kind: "video", model: "MiniMax-H3", quantityMilli: 5000, unitRateMicro: 39_000_000, amountMicro: 195_000_000, overCap: false },
-    { kind: "text",  model: "deepseek-v4.1-flash", quantityMilli: 3500, unitRateMicro: 1_000_000, amountMicro: 2_000_000, overCap: false },
+  renderDetail({ creditsCharged: 79_000_000, charges: [
+    { kind: "video", model: "MiniMax-H3", quantityMilli: 5000, unitRateMicro: 15_000_000, amountMicro: 75_000_000, overCap: false },
+    { kind: "text",  model: "deepseek-v4.1-flash", quantityMilli: 3500, unitRateMicro: 1_000_000, amountMicro: 4_000_000, overCap: false },
   ]});
   expect(screen.getByText(/5\.0 秒/)).toBeTruthy();
-  expect(screen.getByText(/197/)).toBeTruthy();
+  expect(screen.getByText(/79/)).toBeTruthy();
 });
 ```
 
