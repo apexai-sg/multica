@@ -1,8 +1,10 @@
 # Aurora credit billing: metered by delivered output
 
 Status: draft design, pending owner approval.
-Date: 2026-10-25.
+Date: 2026-10-25; all-provider commercial review updated 2026-10-27.
 Branch: `feat/credit-refactor`.
+
+**Pricing override and production gate:** The owner-requested complete supplier-vs-official audit is [2026-10-27-aurora-all-provider-pricing-audit.md](./2026-10-27-aurora-all-provider-pricing-audit.md). That SKU-level table supersedes earlier image/text/other-model price assumptions in this file. PR #38 is documentation-only; rates marked HOLD/PROVISIONAL must not be publicly sold. A positive single-output margin is insufficient if subscriptions, input materials, retries or fees make the full job loss-making.
 
 ## Context
 
@@ -62,8 +64,7 @@ matters:
 
 ## Non-goals
 
-- Charging by provider spend. The platform's ARK bill is not the user's bill,
-  and provider calls are invisible to the server.
+- Passing through the provider's fluctuating invoice as an unquoted customer charge. Published customer prices remain the authority, but actual provider request-level usage and costs must be captured internally and used to prevent loss-making sales.
 - Enforcing the cap inside the runtime. Aurora runs on ordinary agents with
   shell access and no tool allowlist or turn cap; the server cannot stop a run
   mid-flight.
@@ -83,10 +84,8 @@ matters:
 - **D1. Meter by delivered output, settle after the run.** The reserved amount
   is a ceiling; the charge is what the artifacts add up to; the difference is
   refunded.
-- **D2. Three kinds, three meters.** Text by delivered tokens; image per image;
-  video by resolution × seconds.
-- **D3. Text is metered, not free.** Output only, converted from the delivered
-  text artifact. Internal reasoning and tool-loop tokens are not billed.
+- **D2. Three output categories, SKU-specific meters.** Images per output image; video by the exact provider-supported resolution/audio/input configuration and measured seconds; text by provider-reported input, output, cache and reasoning usage (not approximations of output text).
+- **D3. Text is commercially HOLD until its whole-request cost can be quoted.** The old output-only 1-credit/1K-token rate exceeds relevant official API list prices and ignores billable input. Do not silently bill text by a Unicode heuristic; distinguish free displayed transcript artifacts from priced model token usage.
 - **D4. Reservation is by a per-skill declared cap.** The catalog declares an
   output cap per skill; submit freezes the worst-case charge; a balance below
   the cap is refused with the shortfall.
@@ -114,8 +113,7 @@ matters:
   S$0.01 and one micro-credit is S$1e-8.
 - Every rate in the card is an integer number of micro-credits per unit, so all
   arithmetic is integer and no float ever touches a balance.
-- Charges round **up** to the next whole credit at the line level, so a partial
-  unit never rounds to free.
+- **No whole-credit rounding for metered text or fractional video seconds.** Use exact fixed-point integer microcredit arithmetic, round only to the minimum internal microcredit precision where necessary, and make the posted price and line-item amount consistent. A whole-credit charge may be used for an expressly per-image SKU, not as a generic minimum.
 
 ### 2. The rate card
 
@@ -126,22 +124,18 @@ client renders the rates the API returns.
 ```go
 type RateCard struct {
     Version string
-    Models  map[string]ModelRate // keyed by provider model id
+    Models  map[string]ModelRate // keyed by provider model id; each has SKU variants
 }
 
 type ModelRate struct {
     Kind  string    // text | image | video
-    Text  *TextRate // micro-credits per 1,000 delivered tokens
+    Text  *TextRate // requires provider input/output/cache usage; HOLD in this phase
     Image *ImageRate
     Video []VideoRate // micro-credits per second, by measured height
 }
 ```
 
-**Rates are keyed by model, not by kind.** The default fleet is one model per
-kind (a cheap image model, MiniMax H3 for video, a small text model), but
-switching a skill to a higher-quality model must change its price without a code
-change. The tier table therefore hangs off the model entry, and the charge row
-records which model it priced.
+**Rates require an exact model and SKU variant**, not just a kind. Variant includes image resolution, video resolution/audio/reference inputs and text token category/context tier. The earlier one-model-per-kind fleet is useful only as an implementation fixture. Any unsupported model/variant is HOLD and must fail at generation creation; do not make the runtime quietly switch to a pricier provider while charging a cheaper one.
 
 **The model is chosen server-side, at generation creation**, from the skill's
 configured model — not inferred from the artifact. The server cannot tell which
@@ -156,22 +150,25 @@ input, so "switch to a better model" is an operator change. A per-request
 request field priced from the same card, never a free-form model name from the
 client.
 
-- **Text**: `tokens = asciiRunes/4 + nonASCIIRunes*3/4`, rounded up. The
-  coefficients are constants on the card, not scattered call sites.
+- **Text**: bill via the provider's actual input/output/cache/thinking token counts and separately agreed rates. `asciiRunes/4 + nonASCIIRunes*3/4` can be used only for a **non-billing UI estimate**; it is not a provider token meter.
 - **Image**: one rate per image per model; an image that carries no tier uses
   the model's single rate.
-- **Video**: tiers by **measured height**: `<720` → 480P, `720–1079` → 720P,
-  `1080–1439` → 1080P, `≥1440` → 2K. Height is measured from the file, not
-  declared by the agent. All four tiers are reachable: MiniMax H3 outputs 2K.
+- **Video**: charge by an explicitly requested and server-authorized provider-specific SKU, then validate the delivered duration/dimensions against that SKU. Do **not** infer 2K solely from output height ≥1080 or charge 1080P at a 2K tier. Unquoted video tiers are HOLD.
 
-**Pricing (revised 2026-10-27, owner-requested MiniMax H3 adjustment).** The MiniMax H3 video output prices are set between the HopBase quote and MiniMax's official API list prices, rather than applying a flat 3× markup. The image and text rates remain unchanged:
+**Pricing (owner-requested model-wide recheck, 2026-10-27).** Indicative output-only candidate rate card below. These are SKU-specific and are NOT active production prices. The [all-provider audit](./2026-10-27-aurora-all-provider-pricing-audit.md) contains every HopBase-quoted SKU, official comparisons, discounts, per-output gross margins, and reasons for HOLD.
 
-| line | model | rate |
+| line / exact SKU | proposed rate | status |
 |---|---|---|
-| image | `seedream-5-0-lite` | 9 credits/image |
-| video 768P | MiniMax H3 | 9 credits/second |
-| video 2K | MiniMax H3 | 15 credits/second |
-| text | `deepseek-v4.1-flash` | 1 credit / 1,000 tokens |
+| image `seedream-5-0-lite` | **4 credits/image** | CANDIDATE |
+| image `seedream-5-0-pro` ≤2.61 MP | **5 credits/image** | CANDIDATE |
+| image `nano-banana-2.1` 1K | **3 credits/image** | CANDIDATE, upstream ID verification |
+| image `gemini-3-pro-image` 1K/2K | **15 credits/image** | CANDIDATE, input fees separate |
+| MiniMax H3 video 768P | **9 credits/second** | CANDIDATE, thin margin |
+| MiniMax H3 video 2K | **15 credits/second** | CANDIDATE, thin margin |
+| Kling v3 Omni silent, no reference video, 720P / 1080P | **10 / 14 credits/second** | PROVISIONAL: OEM pricing confirmation needed |
+| `claude-haiku-5-5` output ≤100K prompt / `claude-sonnet-5-5` output | **40 / 750 credits per 1M output tokens**, output component only | HOLD until input/caching/total job cost verified |
+| `deepseek-v4.1-flash` text, MiniMax H3-Max 480P, Kling 2K | **no qualifying live rate** | HOLD |
+| all other models/variants including GPT/Opus/Kimi/Qwen | **unpriced** | HOLD pending procurement quote and OEM match |
 
 **MiniMax H3 video price check (output only; 100 credits = S$1).** Official API reference: https://platform.minimax.io/subscribe/token-plan?tab=api-enterprise ; HopBase ToB quote dated 2026-10-12; reference FX below. The customer rate is cheaper than the comparable **official API list price**, not necessarily every consumer membership or promotional package.
 
@@ -180,7 +177,7 @@ client.
 | 768P / s | ¥0.425 ≈ S$0.08075 | US$0.08 ≈ S$0.1024 | 9 credits = S$0.09 | 12.1% below list (87.9% of list) | 10.3% |
 | 2K / s | ¥0.68 ≈ S$0.12920 | US$0.13 ≈ S$0.1664 | 15 credits = S$0.15 | 9.9% below list (90.1% of list) | 13.9% |
 
-**Margin warning:** these rates leave little headroom for fees, infrastructure, retries, or separately billed video/reference-image input. MiniMax's official API prices additional reference images beyond the first five and charges input video separately. Track those costs and either explicitly price such modes or block them until the cost model is implemented. Revalidate supplier charges, model availability, FX and official list price before publishing a discount claim; never advertise a blanket "official 30–70% off" across models on this basis.
+**Margin warning and subscription-unit economics:** Output-only comparisons are not the same as end-to-end contribution profit. With 100 credits = S$1, MiniMax H3 9/15 credits/s has only ~10.3%/~13.9% output margin before costs. Importantly, a subscriber who pays **S$149 for 18,000 credits** (proposed in an earlier review comment, not approved) supplies only S$0.00828 revenue/credit: both H3 SKUs would lose money at 9/15 credits/s. This plan is NOT approved alongside these rates. The single wallet must check realized revenue per credit across all funded sources including discounted plans and topup bonuses (audit §E) and block loss-making combinations, or renegotiate supplier rates. Revalidate FX and official list prices, and never claim blanket "official 30–70% off".
 
 | tier | monthly | credits/month |
 |---|---|---|
@@ -188,11 +185,9 @@ client.
 | Plus | S$89 | 9,000 |
 | Pro | S$249 | 25,500 |
 
-Yearly is ten months' price. Credit packs sell at 100 credits per S$1 with a
-volume bonus on the two large packs.
+Existing **unapproved** proposal: annual pricing equals ten monthly payments, and large packs add bonus credits. **Do not implement or publish these plan/pack terms** until effective realized SGD/credit across every funding source is reconciled with the lowest-margin active SKU. Earlier S$49/5,500 and S$149/18,000 alternatives create negative H3 video output margins; see audit §E.
 
-The card fails closed: a missing rate for a declared model fails the settlement
-instead of charging zero.
+Fail closed **before reservation** when a model/SKU is absent, unquoted, expired, under margin floor, or HOLD; re-check price-version consistency at settlement rather than guessing a different amount.
 
 ### 3. Metering happens at artifact staging
 
@@ -233,12 +228,8 @@ Rules:
   API image (`ffprobe`) or a pure-Go MP4/WebM reader; the builder picks the
   cheaper one that covers `mp4`, `mov`, and `webm`.
 - An **image whose header cannot be decoded** is rejected the same way.
-- Text is counted from the bytes already streamed; no extra storage read.
-- **Text scope**: every `role=primary` and `role=supporting` text artifact is
-  billed; `role=transcript` is not. A transcript is a byproduct of another
-  skill's route (video-captions publishes the ASR text beside the video), and
-  billing it would charge twice for one deliverable. Issue comments are not
-  artifacts and are never billed.
+- Text file bytes may be counted for display/estimates, but are **not authoritative token billing**. The provider call must supply server-trusted actual input/output/caching/reasoning usage before any text SKU becomes a paid metered product.
+- **Text scope**: primary/supporting text outputs are delivered artifacts, but **none are charged using their display length**. Once a text model is approved, bill actual provider-request usage including input/cached/reasoning and generated output according to the accepted quote; distinguish incidental transcripts so they cannot be double-billed. Issue comments are not billable artifacts.
 - `pdf` artifacts are delivered but cost nothing. Stated in the account page
   copy so it is not a surprise.
 
@@ -257,8 +248,7 @@ type OutputCaps struct {
 
 Create-time flow (`CreateAuroraGeneration`):
 
-1. `cap_micro = text(max_text_tokens) + images(max_images) + video(max_video_secs, max_video_tier)`,
-   using the same rate card the settlement will use.
+1. Resolve the *approved* model+variant+input mode; if HOLD, unquoted or uneconomic for the user's funding source, reject before reserve. For enabled requests, compute `cap_micro` from user-selected maximum output and all chargeable inputs/attempt limits at a frozen rate version, using the same rate card used for settlement.
 2. Balance `< cap_micro` → 402 `insufficient_credits` with `required_credits`,
    `available_credits`, and `shortfall_credits` in the body.
 3. Otherwise `Reserve(cap_micro)` exactly as today, with the generation id as
@@ -479,8 +469,7 @@ Until then the entitlement path keeps working on today's numbers.
 
 ## Testing
 
-- Go table tests for the rate card: token conversion boundaries, video tier
-  edges (719/720/1079/1080/1439/1440), rounding up, missing rates fail closed.
+- Go tests: exact fixed-point microcredits for small text/video quantities; video requested-tier vs measured-dimension boundaries (719/720/768/1079/1080/1439/1440); missing/HOLD/expired provider SKUs fail before reservation; per-model official-versus-supplier guards; supplier FX movement and discounted wallet credits cannot yield a negative permitted margin.
 - Handler tests for the commit-time measurements with real fixture files
   (a tiny PNG, a 1-second MP4) — measured values come from the file, and an
   agent-supplied `metadata.duration` never wins.
@@ -516,9 +505,7 @@ The provider is HopBase (`api.hop-base.com`), not a direct Volcengine
 integration. The quote's settlement terms already match this design: video is
 billed only for finished output, and a failed generation is not charged.
 
-The default fleet is `deepseek-v4.1-flash` for text, `seedream-5-0-lite` for
-image, and MiniMax H3 for video. A skill may be configured onto a better model;
-its rate follows the model.
+Previously envisioned fixture fleet was `deepseek-v4.1-flash` for text, `seedream-5-0-lite` for image, and MiniMax H3 for video. **DeepSeek text is now commercial HOLD** at the quoted buy rate vs the OEM off-peak API list; no paid default text SKU may be silently selected. Per-model/variant activation is governed by the new pricing audit.
 
 At 1 USD ≈ S$1.28, 1 CNY ≈ S$0.19, and 100 credits = S$1:
 
@@ -545,10 +532,7 @@ Three consequences the owner must price around:
   skill's brief has to pin the model it runs. A skill that silently picks
   `gemini-3-pro-image` costs 4× the rate set for `seedream-5-0-lite`.
 - **Differentiate MiniMax consumer subscriptions from MiniMax's official API list.** The official H3 API lists 768P at US$0.08/s and 2K at US$0.13/s; both are above our quoted HopBase unit cost at the reference FX. The revised 9/15-credit rates are below those API list prices, but output-only gross margins are just 10.3%/13.9%. Do not claim a discount against MiniMax's consumer subscription effective rate or other models without verifying the comparable use case; separately billed inputs or retries may erase margin.
-- **Text is cheap enough to be effectively free at low volume.** At the default
-  model's output rate, 1,000 tokens costs 0.099 credits, so the 1-credit rate
-  is a ~10× markup — and because input tokens are not billed, the realized
-  margin is lower than that.
+- **The old text rate is neither competitively priced nor safe.** At S$0.01/1K output (S$10/M), generic DeepSeek/Haiku text would be above official API output rates; long inputs could also cost more than short outputs earn. DeepSeek's own off-peak Flash cost can undercut the HopBase quote. Claude output has headroom but supplier input/cache costs are missing; those text SKUs remain HOLD.
 
 The quote expires 2026-11-11; the card versions make a re-quote a config change
 rather than a code change.
@@ -558,9 +542,8 @@ rather than a code change.
 1. **Existing balances and subscriptions.** Re-denominate at a stated ratio,
    grandfather at the old value, or reset and re-grant? No correct answer
    without knowing whether any real money has been taken.
-2. **The signup bonus.** The reference gives new users free credits valid three
-   days. Keep that shape for `auroraSignupBonusMicro` (a real trial with a hard
-   expiry), or drop free credits entirely?
+2. **The signup bonus.** The reference gives new users free credits valid three days. Keep a small expiry-limited bonus, or drop it? Count its effective revenue as zero when computing allowed SKU contribution margin.
+3. **Approve actual supplier quote coverage and active model list.** Confirm HopBase mapping, SKU-specific input costs, official comparator, rate validity, contribution margin floor and treatment of plan/pack bonuses before enabling any of the new output-only candidates.
 
 ## What is left to the builder
 
