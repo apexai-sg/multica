@@ -69,7 +69,7 @@ The two-bound tests above assume a paid credit is worth **S$0.01** to the platfo
 | **Earlier review suggestion** Plus, S$49 for 5,500 | **S$0.008909** | **S$0.08018 (loss)** | S$0.13364 (3.3%) | **fails** |
 | **Earlier review suggestion** Pro, S$149 for 18,000 | **S$0.008278** | **S$0.07450 (loss)** | **S$0.12417 (loss)** | **fails** |
 
-The S$49/5,500 and S$149/18,000 figures were **discussion proposals**, not an approved plan or merged feature. They **must NOT** be adopted together with 9/15 video rates and a fungible wallet. Bonus packs and year-end promotions can cause a similar problem.
+The S$49/5,500 and S$149/18,000 figures were **discussion proposals**, not an approved plan or merged feature. They **must NOT** be adopted together with 9/15 video rates and a fungible wallet. Bonus packs and year-end promotions can cause a similar problem. **Owner decision 2026-10-27: billing is credit-only** — every plan is just a credit grant, with no per-plan SKU gating — so these two rows are rejected outright unless the supplier cost is renegotiated.
 
 **Revised guardrail:** the system must use a conservative **minimum realized SGD per credit over every allowed funding source/plan** (or model separate entitlements for promotional credits) when checking profitability, not the nominal S$0.01. If any supported plan/credit-pack/bonus source can produce negative contribution margin for an SKU, do not activate that SKU/plan pair. Yearly prepayments, taxes, refunds and processing fees require separate consideration. If the owner wants meaningful plan-based credit bonuses plus prices below the official API, renegotiate the supplier unit price first.
 

@@ -21,7 +21,7 @@ follows; every row names the place a reviewer can check.
 | P0-2 resolve the video-tier contradiction; no 1080P-as-2K | spec §2 SKU boundary table; Task 1 tests; Task 2 cap 1440 |
 | P0-3 capture provider cost, pin the model, count retries, alert | spec §5.1; Task 11 |
 | P1-4 keep the old 9/24/39 and 1-credit/1K launch rates | **Superseded** by the owner's 2026-10-27 audit (4/5/3/15 image, 9/15 video); old blanket rates are documented as replaced in the spec and audit |
-| P1-5 membership tiers, Business plan, margin scenarios | spec §2 plan catalogue (proposals, not activated); Open question 4 |
+| P1-5 membership tiers, Business plan, margin scenarios | spec §2 credit-only rule (D5: no per-plan SKU gating); S$49/5,500 and S$149/18,000 **rejected** under current cost; Open question 3 |
 | P1-6 annual 11/12 and abuse-controlled signup trial | spec §2 |
 | P0-7 auditable old-balance conversion, preserve prepaid value | **Resolved 2026-10-27:** there are no paying users; existing rows are test data. spec §10 is a pre-launch cleanup, not a conversion |
 | P0-8 re-verify HopBase before 2026-11-11; fail closed | spec §2 rate metadata; plan Global Constraints; Tasks 1, 12 |
@@ -57,7 +57,7 @@ them. The wallet phase takes migration numbers 5002–5005; this plan uses 5001,
 3. **A multi-round `needs_input` conversation.** Every round's assets belong to the same generation; settlement must sum all of them, not the last round's. (Task 6)
 4. **An agent that ignores its ceiling.** The charge is capped at the reservation, the line is marked `over_cap`, the balance never goes negative, and the event is logged. (Task 6)
 5. **A replayed terminal callback.** Completion and failure are each idempotent: no second refund, no second charge row. (Tasks 6, 8)
-6. **Commercial guardrails.** Before any paid generation, verify supplier output/input cost < realized sale proceeds < comparable OEM API list at the current FX **across all allowed funding sources**, including discounted subscription credits and topups. The S$49/5,500 and S$149/18,000 plan rows are documented as owner-pending proposals, not approved plans; at 9/15 credits/s they lose money on MiniMax H3 output and must not be activated together with those rates (spec §2, audit §E).
+6. **Commercial guardrails.** Before any paid generation, verify supplier output/input cost < realized sale proceeds < comparable OEM API list at the current FX **across all allowed funding sources**, including discounted subscription credits and topups. Billing is credit-only (D5): every plan is just a credit grant, and the minimum effective SGD/credit across all offered plans must clear the most expensive active SKU. The S$49/5,500 and S$149/18,000 rows are rejected under that rule; at 9/15 credits/s they realize less than the MiniMax H3 output cost (spec §2, audit §E).
 7. **A request that selects 5 s of 768P.** It must quote and reserve 5 s of 768P, not 10 s of 2K. The same selected output drives the pre-submit quote, the reservation and settlement; a test asserts all three agree. (Tasks 7, 9)
 8. **A 1080P artifact against a H3 2K SKU.** It must be rejected as a mismatch, never settled at the 2K rate. Boundary heights 719/720/768/1079/1080/1439/1440 are covered by the requested-SKU tests. (Task 1)
 9. **An expensive model reached by an agent.** The dispatched model is pinned in the task payload, the runtime's provider-run record must match, and the run's actual provider cost is recorded per attempt. A mismatch settles at the reserved ceiling and raises an alarm. (Task 11)
@@ -958,9 +958,9 @@ borrowing; no 1-credit minimum on subcredit text; refund/idempotency; fail
 before reserving for unavailable models; provider cost recorded per attempt
 with cost < realized revenue < official list at the lowest permitted
 SGD/credit; model-mismatch settles at the ceiling; missing usage disables the
-SKU. The S$49/5,500 and S$149/18,000 plan rows are documented as unapproved
-proposals and must fail MiniMax H3 margin gating at 9/15 credits/s; they are
-not activated by this plan.
+SKU. The S$49/5,500 and S$149/18,000 plan rows are rejected under the
+credit-only rule and must fail MiniMax H3 margin gating at 9/15 credits/s; they
+are not activated by this plan.
 Expected: PASS.
 
 - [ ] **Step 4: Commit any fixes as their own commits**

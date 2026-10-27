@@ -94,8 +94,11 @@ matters:
   duration / video mode, submit quotes and reserves that selection, not the
   generic worst case. A skill with no selectable shape declares a visible fixed
   budget. A balance below the quote is refused with the shortfall.
-- **D5. One credit pool.** No per-kind wallets. Kind differences live in the
-  rate card and in the itemized charge.
+- **D5. One credit pool, credit-only billing.** No per-kind wallets. Kind
+  differences live in the rate card and in the itemized charge. Every plan,
+  pack and entitlement is expressed only as a credit deduction from this pool:
+  no per-plan SKU gating, no second wallet and no separate entitlement object
+  (owner decision, 2026-10-27).
 - **D6. Credits are the unit; currency is SGD.** 100 credits = S$1.00. The
   credit is not pegged to a provider cost.
 - **D7. Three paid tiers — Starter, Plus, Pro — plus credit packs**, sold
@@ -221,7 +224,16 @@ stay disabled until its OEM tier table is verified.
 | 768P / s | ¥0.425 ≈ S$0.08075 | US$0.08 ≈ S$0.1024 | 9 credits = S$0.09 | 12.1% below list (87.9% of list) | 10.3% |
 | 2K / s | ¥0.68 ≈ S$0.12920 | US$0.13 ≈ S$0.1664 | 15 credits = S$0.15 | 9.9% below list (90.1% of list) | 13.9% |
 
-**Margin warning and subscription-unit economics:** Output-only comparisons are not the same as end-to-end contribution profit. With 100 credits = S$1, MiniMax H3 9/15 credits/s has only ~10.3%/~13.9% output margin before costs. Importantly, a subscriber who pays **S$149 for 18,000 credits** (proposed in an earlier review comment, not approved) supplies only S$0.00828 revenue/credit: both H3 SKUs would lose money at 9/15 credits/s. This plan is NOT approved alongside these rates. The single wallet must check realized revenue per credit across all funded sources including discounted plans and topup bonuses (audit §E) and block loss-making combinations, or renegotiate supplier rates. Revalidate FX and official list prices, and never claim blanket "official 30–70% off".
+**Margin warning and subscription-unit economics:** Output-only comparisons are not the same as end-to-end contribution profit. With 100 credits = S$1, MiniMax H3 9/15 credits/s has only ~10.3%/~13.9% output margin before costs. Importantly, a subscriber who pays **S$149 for 18,000 credits** (proposed in an earlier review comment, not approved) supplies only S$0.00828 revenue/credit: both H3 SKUs would lose money at 9/15 credits/s. This plan is NOT approved alongside these rates. The single wallet must check realized revenue per credit across all funded sources including discounted plans and topup bonuses (audit §E); under credit-only billing the fix is to refuse that plan or renegotiate supplier rates, **not** to gate SKUs per plan. Revalidate FX and official list prices, and never claim blanket "official 30–70% off".
+
+**Credit-only billing rule (owner decision, 2026-10-27).** Every entitlement,
+plan and charge is expressed only as a credit deduction from the single pool
+(D5). There is no per-plan SKU gating, no second wallet and no separate
+entitlement object. Consequently the **minimum effective SGD/credit across all
+offered plans and packs must clear the most expensive active SKU's provider
+cost**; a plan that cannot is not offered. If a Business plan exists, its
+benefit is a larger credit grant (and its price), not a separate feature
+entitlement.
 
 **Plan catalogue — proposals for owner sign-off, none activated.** The
 currently implemented rows are shown for contrast; the review-proposed rows are
@@ -233,13 +245,17 @@ for every active SKU.
 | Starter | S$12 | S$12 | 1,200 | 0.010000 |
 | Plus | S$89 | **S$49** | 5,500 | **0.008909** |
 | Pro | S$249 | **S$149** | 18,000 | **0.008278** |
-| Business | — | S$249 (team/workspace + priority benefits, boundaries undefined) | 25,500 | 0.009765 |
+| Business | — | S$249 (larger credit grant only; no separate entitlement) | 25,500 | 0.009765 |
 
-The S$49/5,500 and S$149/18,000 rows make MiniMax H3 768P/2K loss-making on
-output alone (audit §E); they stay documented as a **rejected-until-repriced**
-proposal, not a plan. Retaining S$249 as a separate Business plan requires
-defined entitlement boundaries (team seats/workspace, priority workflows); do
-not silently rename the old Pro tier.
+Under the credit-only rule the S$49/5,500 and S$149/18,000 rows are
+**rejected**: at 9 credits/s the H3 768P run realizes S$0.0802 / S$0.0745
+against a S$0.08075 output cost, and no per-plan switch can keep video off
+those plans. The current rows all clear the H3 output cost (S$0.0900 /
+S$0.0890 / S$0.0879 per 768P second) and remain the catalogue candidates.
+Adopting the cheaper rows would require a renegotiated supplier cost or a
+higher video rate; neither is approved. The S$249 row, if kept as "Business",
+is only a larger credit grant — do not invent team/priority entitlements that
+the credit-only rule cannot express.
 
 **Annual billing:** 11 months paid for 12 served (one month free), replacing
 the earlier ten-month proposal, pending owner approval and contribution-margin
@@ -692,10 +708,12 @@ instead.
 
 1. **The signup bonus.** The reference gives new users free credits valid three days. Keep a small expiry-limited bonus, or drop it? If kept: exact credit amount, the abuse controls, and the rule that it counts as zero realized revenue in every margin check.
 2. **Approve actual supplier quote coverage and active model list.** Confirm HopBase mapping, SKU-specific input costs, official comparator, rate validity, contribution margin floor and treatment of plan/pack bonuses before enabling any of the new output-only candidates.
-3. **Plan catalogue and Business boundaries.** Approve or reject the
-   S$49/5,500 and S$149/18,000 rows, define what the S$249 Business plan
-   entitles (seats, workspace features, priority workflows), and confirm
-   annual 11/12 plus the signup trial amount.
+3. **Final plan price/credit numbers.** The credit-only rule is fixed (D5,
+   §2): no per-plan SKU gating. What remains is the final price and credit
+   amount per plan and whether a S$249 "Business" row (larger grant only)
+   exists. S$49/5,500 and S$149/18,000 are rejected under the current supplier
+   cost; revisit only after a renegotiated quote. Annual 11/12 is part of the
+   same commercial sign-off.
 4. **Cost-accounting fields.** Confirm the exact provider usage signals the
    runtime can report per attempt (tokens, cache, media counts, model id), since
    an unreported field disables the affected SKU rather than falling back to an
