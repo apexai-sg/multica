@@ -15,14 +15,14 @@ below are recomputed from that sheet.
 
 ## Policy and comparison basis
 
-- **Commercial rule:** compare the exact same model, resolution, audio mode, token direction, context tier, API region and pay-as-you-go channel. For an eligible SKU, require **supplier actual cost < Apex retail < official standard API list**, in matching units. Where equality, absent quotes, unverified specifications, or other provider charges undermine this rule, **disable the SKU rather than invent a price**.
+- **Commercial rule:** compare the exact same model, resolution, audio mode, token direction, context tier, API region and pay-as-you-go channel. For an eligible SKU, require **supplier actual cost < Apex retail < official standard API list**, in matching units. Where equality, absent quotes, unverified specifications, or other provider charges undermine this rule, **disable the SKU rather than invent a price**. **Owner override (2026-10-27):** standard MiniMax H3 is priced above the official list to reach a 20% output margin (section B). It is a deliberate exception, not a pattern: it must carry no discount claim and must not be cited as evidence that other SKUs may break the bound.
 - **Currencies:** fixed reference FX from PR #38 (USD 1 = SGD 1.28); 100 credits = SGD 1. The 2026-10-26 sheet is all-USD, so `S$ = US$ × 1.28` and `credits = US$ × 128`. Prices are indicative; checkout must use a versioned SGD rate card refreshed against procurement/official data and FX.
 - **Scope:** official **standard online pay-as-you-go API list** only; not consumer subscriptions, negotiated contracts, resource packs, promotional coupons, batch discounts, off-peak/peak arbitrage, or other resellers. Such alternatives can be cheaper. Never advertise "cheaper than official" without naming this comparator and qualifying the variant.
 - **Profit metric:** gross margin shown is `(Apex output price − HopBase quoted output cost) / Apex output price`. It is **not net profit**: input tokens, reference images/videos, retry charges, payment fees, infrastructure, tax, fraud and FX changes may consume it. A price above the supplier's *single output* cost is not proof that a whole generation makes money. Published retail should be evaluated at the **lowest actual realized revenue per credit**, accounting for subscription grants and pack bonuses (see section E).
 - **Supplier basis:** HopBase ToB quote dated **2026-10-26**, valid through
   **2026-11-25**. Video is billed only on delivered output; failed generations
   are not charged.
-- **Status:** `CANDIDATE` = arithmetic meets the two bounds for the **specified output-only** SKU; `PROVISIONAL` = official tier data is corroborated but the official developer page could not be text-verified, or the tier is a self-deployed variant without a direct official comparator; `HOLD` = no defensible commercial price under the owner's constraints or missing cost component. Even CANDIDATE requires the common launch gates below.
+- **Status:** `CANDIDATE` = arithmetic meets the two bounds for the **specified output-only** SKU (except the owner-overridden standard H3 rows, which meet the margin floor but sit above the official list); `PROVISIONAL` = official tier data is corroborated but the official developer page could not be text-verified, or the tier is a self-deployed variant without a direct official comparator; `HOLD` = no defensible commercial price under the owner's constraints or missing cost component. Even CANDIDATE requires the common launch gates below.
 
 ## A. Image generation — proposed output unit rates
 
@@ -49,8 +49,8 @@ margin, so a lower retail price is possible but not approved.
 
 | Model / scope | HopBase 2026-10-26 | Official reference | Apex candidate | Of official | Output gross margin | Status |
 |---|---:|---:|---:|---:|---:|---|
-| MiniMax H3 768P | US$0.068/s = **S$0.08704/s** | US$0.08/s = S$0.1024/s | **9 credits/s = S$0.09/s** | 12.1% less | **3.3%** | **HOLD/REVIEW: post-fee unsafe** |
-| MiniMax H3 2K | US$0.111/s = **S$0.14208/s** | US$0.13/s = S$0.1664/s | **15 credits/s = S$0.15/s** | 9.9% less | **5.3%** | **HOLD/REVIEW: post-fee unsafe** |
+| MiniMax H3 768P | US$0.068/s = **S$0.08704/s** | US$0.08/s = S$0.1024/s | **11 credits/s = S$0.11/s** | **7.4% ABOVE** | **20.9%** | CANDIDATE by owner override (2026-10-27); no discount claim |
+| MiniMax H3 2K | US$0.111/s = **S$0.14208/s** | US$0.13/s = S$0.1664/s | **18 credits/s = S$0.18/s** | **8.2% ABOVE** | **21.1%** | CANDIDATE by owner override (2026-10-27); no discount claim |
 | H3 self-deployed Lite 480P | US$0.015/s = **S$0.0192/s** | US$0.05/s = S$0.064/s | 3 credits/s = S$0.03/s | 53.1% less | **36.0%** | CANDIDATE, pending availability |
 | H3 self-deployed Lite 768P | US$0.024/s = **S$0.03072/s** | US$0.08/s = S$0.1024/s | **9 credits/s = S$0.09/s** | 12.1% less | **65.9%** | CANDIDATE, pending availability |
 | H3 self-deployed Lite 2K | US$0.039/s = **S$0.04992/s** | US$0.13/s = S$0.1664/s | **15 credits/s = S$0.15/s** | 9.9% less | **66.7%** | CANDIDATE, pending availability |
@@ -67,16 +67,22 @@ margin, so a lower retail price is possible but not approved.
 | Grok Imagine video 720P | US$0.084/s = **S$0.10752/s** | US$0.14/s = S$0.1792/s | **12 credits/s = S$0.12/s** (11 = 2.3%) | 33.0% less | **10.4%** | CANDIDATE |
 | Grok Imagine video 1080P | US$0.15/s = **S$0.192/s** | US$0.25/s = S$0.32/s | **22 credits/s = S$0.22/s** | 31.3% less | **12.7%** | CANDIDATE |
 
-- **Standard H3 is no longer viable at 9/15 credits/s.** The 2026-10-26 cost
-  rose to US$0.068/0.111 per second (S$0.08704/0.14208), leaving only
-  3.3%/5.3% output margin before reference inputs, retries, fees and FX. Under
-  the audit's own rule (nonpositive or unsafe post-fee margin blocks the SKU),
-  these two rows are **HOLD/REVIEW**, not candidates. The cheaper H3
-  self-deployed Lite tier (US$0.024/0.039) restores ~66% margin at the same
-  9/15 retail and is the preferred default **if the runtime can use that tier**
-  and its product limits (text/image-to-video, 16:9/9:16, ≤6 reference images,
-  batch output) are acceptable. The self-deployed tier (US$0.0331/0.0551) is a
-  middle option at ~53%.
+- **Standard H3 cannot reach the owner's 20% margin at 9/15 credits/s, and the
+  repriced 11/18 rows break the two-bound rule.** The 2026-10-26 cost is
+  US$0.068/0.111 per second (S$0.08704/0.14208): at 9/15 the output margin is
+  only 3.3%/5.3%, while a 20% margin needs S$0.1088/0.1776 per second —
+  **above** the official list of S$0.1024/0.1664. In other words no price can
+  be both ≥20% gross and cheaper than the official API; the maximum margin
+  below the official list is 15.0%/14.6%. At the owner's direction the rows are
+  priced at **11/18 credits/s (20.9%/21.1%)**, which is 7.4%/8.2% **above** the
+  official list, so **no "cheaper than official" claim may be made for standard
+  H3** and its discount label must be suppressed. The H3 self-deployed Lite
+  tier (US$0.024/0.039) still dominates commercially: the same 9/15 retail
+  yields ~66% and stays below the official list, so Lite remains the preferred
+  default **if the runtime can use that tier** and its product limits
+  (text/image-to-video, 16:9/9:16, ≤6 reference images, batch output) are
+  acceptable. The self-deployed tier (US$0.0331/0.0551) is a middle option at
+  ~53%.
 - MiniMax H3: additional reference images and input video may be billed
   separately; the sheet says the first 5 input images are free. Exclude these
   modes from the output-only price unless also metered.
@@ -151,29 +157,31 @@ one fungible credit pool. **Owner decision 2026-10-27: billing is credit-only**
 — every plan is just a credit grant, with no per-plan SKU gating — so a plan
 that cannot clear the most expensive active SKU is simply not offered.
 
-| Plan / scenario | Effective SGD/credit | H3 768P at 9 cr/s vs **S$0.08704** cost | H3 2K at 15 cr/s vs **S$0.14208** cost | Standard H3 viability |
+| Plan / scenario | Effective SGD/credit | H3 768P at 11 cr/s vs **S$0.08704** cost | H3 2K at 18 cr/s vs **S$0.14208** cost | Standard H3 viability |
 |---|---:|---:|---:|---|
-| Face-value topup, S$1/100 | S$0.010000 | S$0.09000 (**3.3%**) | S$0.15000 (**5.3%**) | unsafe |
-| Current S$89/9,000 | S$0.009889 | S$0.08900 (**2.2%**) | S$0.14833 (**4.2%**) | unsafe |
-| Current S$249/25,500 | S$0.009765 | S$0.08788 (**1.0%**) | S$0.14647 (**3.0%**) | unsafe |
-| Proposed S$49/5,500 | S$0.008909 | **S$0.08018 (loss)** | **S$0.13364 (loss)** | fails |
-| Proposed S$149/18,000 | S$0.008278 | **S$0.07450 (loss)** | **S$0.12417 (loss)** | fails |
+| Face-value topup, S$1/100 | S$0.010000 | S$0.11000 (**20.9%**) | S$0.18000 (**21.1%**) | meets 20% |
+| Current S$89/9,000 | S$0.009889 | S$0.10878 (**20.0%**) | S$0.17800 (**20.2%**) | meets 20% |
+| Current S$249/25,500 | S$0.009765 | S$0.10741 (**19.0%**) | S$0.17577 (**19.2%**) | ~19%, just below |
+| Proposed S$49/5,500 | S$0.008909 | S$0.09800 (**11.2%**) | S$0.16036 (**11.4%**) | fails |
+| Proposed S$149/18,000 | S$0.008278 | S$0.09106 (**4.4%**) | S$0.14900 (**4.6%**) | fails |
 
 - The S$49/5,500 and S$149/18,000 rows remain **rejected** under the credit-only
   rule.
-- More importantly, **every current plan now fails the safe-margin test for
-  standard H3**: even face-value topup leaves 3.3%/5.3% before fees. The fix is
-  not another price increase (the 10/16-credit ceiling is already near the
-  official list); it is to **use the H3 self-deployed Lite or self-deployed
-  tier**, or renegotiate the supplier price.
-- With H3 Lite (US$0.024/0.039), the same 9/15 retail earns ~66% output margin
-  at every plan row above, so the plan catalogue and the Lite tier can coexist.
-  The Business row remains only a larger credit grant.
+- The 11/18 repricing clears the 20% output target at face value and on the
+  S$89 plan, but the S$249 row lands at ~19% and the two rejected rows are far
+  below it. Reaching 20% **at the lowest permitted revenue per credit** (the
+  S$249 row) needs 12/19 credits/s — realized S$0.11718/S$0.18554, or 14.4%/11.5%
+  above the official list — and no integer price satisfies the rejected rows at
+  all.
+- This is why the two H3 tiers should not be the default video path: the Lite
+  tier (US$0.024/0.039) earns ~66% at the *old* 9/15 retail on every plan row
+  above, stays below the official list, and is the intended default once its
+  availability is confirmed.
 
 ## F. Engineering acceptance and release gates (PR #38)
 
 1. **Rate book keyed by exact provider model + SKU variant:** image model, size and count; video model, resolution, audio, reference inputs and duration; text model, input/output tokens, context tier and caching. Every rate has official URL, supplier quote revision, FX, `effective_at`, `expires_at` and approval status. Unknown/model-mismatched/unapproved SKUs **fail closed before payment**, not silently at zero or at another model's price.
-2. **Cost & comparator validation:** `provider_cost_SGD < realized_public_sale_SGD < matching_official_API_list_SGD` for the chosen mode at effective FX and the most discounted permitted funding source, plus an operator-set minimum **contribution** margin after fees/retries. A nonpositive or unsafe post-fee margin blocks the SKU even when the two simple bounds pass. Suppress discount labels when batch/promotional/off-peak/region tiers cannot support the claim.
+2. **Cost & comparator validation:** `provider_cost_SGD < realized_public_sale_SGD < matching_official_API_list_SGD` for the chosen mode at effective FX and the most discounted permitted funding source, plus an operator-set minimum **contribution** margin after fees/retries. The only sanctioned exception is standard MiniMax H3, priced above the official list by owner override and therefore barred from any discount claim. A nonpositive or unsafe post-fee margin blocks the SKU even when the two simple bounds pass. Suppress discount labels when batch/promotional/off-peak/region tiers cannot support the claim.
 3. **Input billing:** charge/reserve all paid input modalities and true provider usage (tokens, image reference count, input video duration, thinking, tools and retries). If provider metering is unavailable, disable affected modes.
 4. **Rounding:** ledger uses int64 microcredits and precise fixed-point rate arithmetic, **no full-credit per-charge-line ceiling** on text or millisecond video. Display may round while persisted debits must not.
 5. **Quality and billing boundaries:** keep one consistent map from requested/resolved SKU to delivered measured artifact; never charge 1080P as "2K"; preserve per-run max/hold/refund and the pre-launch test-data cleanup. Require per-SKU before/after tests, output quantity examples, and price guardrail tests for supplier changes, official cuts and FX movements.

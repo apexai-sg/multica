@@ -194,8 +194,8 @@ artifact at staging (400) rather than selecting another tier.
 | MiniMax H3 **Lite** (self-deployed) | 480P | 480 | 3 credits/s (CANDIDATE, availability unconfirmed) |
 | MiniMax H3 **Lite** (self-deployed) | 768P | 720–1079 | 9 credits/s (CANDIDATE, availability unconfirmed) |
 | MiniMax H3 **Lite** (self-deployed) | 2K | 1440 | 15 credits/s (CANDIDATE, availability unconfirmed) |
-| MiniMax H3 (standard) | 768P | 720–1079 | **HOLD**: 3.3% output margin at 9 credits/s |
-| MiniMax H3 (standard) | 2K | 1440 | **HOLD**: 5.3% output margin at 15 credits/s |
+| MiniMax H3 (standard) | 768P | 720–1079 | 11 credits/s (CANDIDATE by owner override; 20.9% margin, above official list) |
+| MiniMax H3 (standard) | 2K | 1440 | 18 credits/s (CANDIDATE by owner override; 21.1% margin, above official list) |
 | Kling v3 Omni (silent, no reference video) | 720P | 720 | 10 credits/s (PROVISIONAL) |
 | Kling v3 Omni (silent, no reference video) | 1080P | 1080 | 14 credits/s (PROVISIONAL) |
 | any model | 480P without an approved row, 1440-not-2K shapes, 2160/4K, or no configured SKU | — | HOLD / reject before reserve |
@@ -204,11 +204,14 @@ Boundary values (`719`, `720`, `768`, `1079`, `1080`, `1439`, `1440`) are
 tested against the requested SKU: `1080`–`1439` is **not** silently priced as
 2K, and `2160` is not silently priced as anything. Kling's provisional rows
 stay disabled until its OEM tier table is verified. The 2026-10-26 quote
-raised standard H3 to US$0.068/0.111 per second, which makes its 9/15-credit
-rows unsafe after fees; the Lite tier (US$0.024/0.039) keeps the same retail
-with ~66% output margin and is the intended default **once its availability and
-product limits are confirmed**. Do not silently map a Lite request to the
-standard tier or vice versa: the model id is part of the rate key.
+raised standard H3 to US$0.068/0.111 per second, which would leave only
+3.3%/5.3% at the old 9/15 retail; the owner raised those two tiers to 11/18
+credits/s to reach ~20% output margin, which puts them **above** the official
+list and bars any discount claim for standard H3. The Lite tier (US$0.024/0.039)
+keeps the 9/15 retail at ~66% and stays below the official list, so it is the
+intended default **once its availability and product limits are confirmed**. Do
+not silently map a Lite request to the standard tier or vice versa: the model id
+is part of the rate key.
 
 **Pricing (recomputed from the HopBase quote dated 2026-10-26, valid to 2026-11-25).** Indicative output-only candidate rate card below. These are SKU-specific and are NOT active production prices. The [all-provider audit](./2026-10-27-aurora-all-provider-pricing-audit.md) contains every HopBase-quoted SKU, the official comparator, the discount, per-output gross margin and the reason for each HOLD.
 
@@ -220,7 +223,7 @@ standard tier or vice versa: the model id is part of the rate key.
 | image `gemini-3-pro-image` 1K/2K/4K | **15 credits/image** | CANDIDATE, one-price including input tokens |
 | image `gemini-3.1-flash-image` | 8 credits/image (max) | HOLD: 5.9% margin, post-fee unsafe |
 | MiniMax H3 **Lite** video 480P / 768P / 2K | **3 / 9 / 15 credits/second** | CANDIDATE, pending availability and product limits |
-| MiniMax H3 **standard** video 768P / 2K | 9 / 15 credits/second | **HOLD**: 3.3% / 5.3% output margin, post-fee unsafe |
+| MiniMax H3 **standard** video 768P / 2K | **11 / 18 credits/second** | CANDIDATE by owner override: 20.9% / 21.1% margin, 7.4% / 8.2% **above** official list |
 | H3 self-deployed 768P / 2K | 9 / 15 credits/second | PROVISIONAL: self-deployed tier, approximate official comparator |
 | H3 self-deployed 1080P / 4K | 14 / 16 credits/second | HOLD: no official comparator |
 | Kling v3 Omni silent, no reference video, 720P / 1080P | **10 / 14 credits/second** | PROVISIONAL: OEM pricing confirmation needed |
@@ -230,16 +233,21 @@ standard tier or vice versa: the model id is part of the rate key.
 | `deepseek-v4.1-flash` text, H3-Max 480P/768P, Kling 2K, Seedance | **no qualifying live rate** | HOLD |
 | all other models/variants including GPT/Gemini text/Opus/Kimi/Qwen | **unpriced** | HOLD pending usage metering and OEM match |
 
-**MiniMax H3 video price check (output only; 100 credits = S$1).** Official API reference: https://platform.minimax.io/subscribe/token-plan?tab=api-enterprise ; HopBase ToB quote dated 2026-10-26; reference FX below (USD 1 = SGD 1.28, so `credits/s = US$/s × 128`). The customer rate is cheaper than the comparable **official API list price**, not necessarily every consumer membership or promotional package.
+**MiniMax H3 video price check (output only; 100 credits = S$1).** Official API reference: https://platform.minimax.io/subscribe/token-plan?tab=api-enterprise ; HopBase ToB quote dated 2026-10-26; reference FX below (USD 1 = SGD 1.28, so `credits/s = US$/s × 128`). The **Lite** rate is cheaper than the comparable **official API list price** (not necessarily every consumer membership or promotional package). The **standard** tier is deliberately priced **above** the official list to reach the owner's 20% margin target.
 
-| H3 video output | HopBase cost | Official API list | Apex AI rate | Discount to official API | Output-only gross margin |
+| H3 video output | HopBase cost | Official API list | Apex AI rate | vs official API | Output-only gross margin |
 |---|---:|---:|---:|---:|---:|
-| **standard** 768P / s | US$0.068 ≈ S$0.08704 | US$0.08 ≈ S$0.1024 | 9 credits = S$0.09 | 12.1% below list | **3.3%** |
-| **standard** 2K / s | US$0.111 ≈ S$0.14208 | US$0.13 ≈ S$0.1664 | 15 credits = S$0.15 | 9.9% below list | **5.3%** |
+| **standard** 768P / s | US$0.068 ≈ S$0.08704 | US$0.08 ≈ S$0.1024 | 11 credits = S$0.11 | **7.4% above list** | **20.9%** |
+| **standard** 2K / s | US$0.111 ≈ S$0.14208 | US$0.13 ≈ S$0.1664 | 18 credits = S$0.18 | **8.2% above list** | **21.1%** |
 | **Lite** 768P / s | US$0.024 ≈ S$0.03072 | US$0.08 ≈ S$0.1024 | 9 credits = S$0.09 | 12.1% below list | **65.9%** |
 | **Lite** 2K / s | US$0.039 ≈ S$0.04992 | US$0.13 ≈ S$0.1664 | 15 credits = S$0.15 | 9.9% below list | **66.7%** |
 
-**Margin warning and subscription-unit economics:** Output-only comparisons are not end-to-end contribution profit. Even before fees, standard H3 at 9/15 credits/s now earns only 3.3%/5.3%; the 2026-10-26 quote raised its cost by ~8–10% versus the 2026-10-12 sheet. Reference images, retries, payment fees and FX can turn that negative, so standard H3 is HOLD and only the Lite/self-deployed tiers keep the 9/15 retail viable. Separately, a subscriber who pays **S$149 for 18,000 credits** (proposed in an earlier review comment, not approved) supplies only S$0.00828 revenue/credit: even the Lite tier's S$0.09 per 768P second would net ~8% there, and standard H3 loses money at every plan row. The single wallet must check realized revenue per credit across all funded sources including discounted plans and topup bonuses (audit §E); under credit-only billing the fix is to refuse that plan or renegotiate supplier rates, **not** to gate SKUs per plan. Revalidate FX and official list prices, and never claim blanket "official 30–70% off".
+The 20% target and the "below official" bound are mutually exclusive for
+standard H3: at this cost the maximum margin below the official list is
+15.0% (768P) / 14.6% (2K). The owner chose margin, so standard H3 must carry no
+discount label and must not be marketed as cheaper than the official API.
+
+**Margin warning and subscription-unit economics:** Output-only comparisons are not end-to-end contribution profit. The 11/18 rates clear 20% only at face value and on the S$89 plan; the S$249 grant realizes ~19%, and reference images, retries, payment fees and FX can erode that further. Separately, a subscriber who pays **S$149 for 18,000 credits** (proposed in an earlier review comment, not approved) supplies only S$0.00828 revenue/credit: standard H3 would earn ~4.4% and even the Lite tier's S$0.09 per 768P second would net ~8% there. The single wallet must check realized revenue per credit across all funded sources including discounted plans and topup bonuses (audit §E); under credit-only billing the fix is to refuse that plan or renegotiate supplier rates, **not** to gate SKUs per plan. Revalidate FX and official list prices, and never claim blanket "official 30–70% off".
 
 **Credit-only billing rule (owner decision, 2026-10-27).** Every entitlement,
 plan and charge is expressed only as a credit deduction from the single pool
@@ -263,18 +271,18 @@ for every active SKU.
 | Business | — | S$249 (larger credit grant only; no separate entitlement) | 25,500 | 0.009765 |
 
 Under the credit-only rule the S$49/5,500 and S$149/18,000 rows are
-**rejected**: at 9 credits/s the H3 768P run realizes S$0.0802 / S$0.0745
-against a Lite-tier output cost of S$0.03072 and a standard-tier cost of
-S$0.08704 — the Lite tier survives, the standard tier does not — and no
-per-plan switch can keep video off those plans. More urgently, the
-2026-10-26 quote makes **every current plan row fail the safe-margin test for
-standard H3**: face-value topup leaves 3.3%, S$89/9,000 leaves 2.2%, and
-S$249/25,500 leaves 1.0%, all before fees. The catalogue therefore only works
-alongside the H3 Lite or self-deployed tier, where the same 9/15 retail earns
-~52–67%. Choosing standard H3 instead requires a renegotiated supplier cost or
-a higher video rate; neither is approved. The S$249 row, if kept as "Business",
-is only a larger credit grant — do not invent team/priority entitlements that
-the credit-only rule cannot express.
+**rejected**: at the standard H3 11/18 rates they realize S$0.0980 / 0.1604 and
+S$0.0911 / 0.1490 per second, i.e. 11.2%/11.4% and 4.4%/4.6% output margin, and
+no integer rate reaches 20% on them. With standard H3 repriced to 11/18,
+face-value topup earns 20.9%/21.1%, S$89/9,000 earns 20.0%/20.2%, and
+S$249/25,500 earns 19.0%/19.2%; the catalogue therefore clears the 20% target
+on the first two rows and lands just below it on Business. The Lite tier at the
+original 9/15 still earns ~66% on every plan row and remains the better
+default. Choosing standard H3 instead means accepting that it is no longer
+cheaper than the official list; that trade-off is approved but must not be
+advertised as a discount. The S$249 row, if kept as "Business", is only a larger
+credit grant — do not invent team/priority entitlements that the credit-only
+rule cannot express.
 
 **Annual billing:** 11 months paid for 12 served (one month free), replacing
 the earlier ten-month proposal, pending owner approval and contribution-margin
@@ -718,7 +726,7 @@ Three consequences the owner must price around:
   agent-written. So one rate must cover every model a skill may reach, and each
   skill's brief has to pin the model it runs. A skill that silently picks
   `gemini-3-pro-image` costs 2.5× the rate set for `seedream-5-0-lite`.
-- **MiniMax changed its quoted cost on 2026-10-26, and standard H3 no longer clears a safe margin.** The official H3 API lists 768P at US$0.08/s and 2K at US$0.13/s; the supplier now charges US$0.068/US$0.111, leaving only 3.3%/5.3% on the 9/15-credit rows. The self-deployed Lite tier (US$0.024/US$0.039) restores ~66% at the same retail and is the intended default once its availability and product limits are confirmed. Do not claim a discount against MiniMax's consumer subscription effective rate or other models without verifying the comparable use case; separately billed inputs or retries may erase margin.
+- **MiniMax changed its quoted cost on 2026-10-26, forcing standard H3 above the official list.** The official H3 API lists 768P at US$0.08/s and 2K at US$0.13/s; the supplier now charges US$0.068/US$0.111, leaving only 3.3%/5.3% at 9/15 credits. Reaching the owner's 20% target needs 11/18 credits/s, which is 7.4%/8.2% **above** the official list — so standard H3 can no longer be described as cheaper than the official API. The self-deployed Lite tier (US$0.024/US$0.039) earns ~66% at 9/15 and stays below the official list, making it the intended default once its availability and product limits are confirmed. Do not claim a discount against MiniMax's consumer subscription effective rate or other models without verifying the comparable use case; separately billed inputs or retries may erase margin.
 - **The old text rate is neither competitively priced nor safe.** At S$0.01/1K output (S$10/M), generic DeepSeek/Haiku text would be above official API output rates; long inputs could also cost more than short outputs earn. DeepSeek's own off-peak Flash list ($0.147/$0.59 per M) still undercuts its HopBase quote ($0.176/$0.706). Claude input and output costs are now quoted, but cache read/write and >100K prompt tiers are not, so those text SKUs remain HOLD.
 
 The quote expires 2026-11-25; the card versions make a re-quote a config change

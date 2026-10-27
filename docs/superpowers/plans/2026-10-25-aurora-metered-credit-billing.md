@@ -20,7 +20,7 @@ follows; every row names the place a reviewer can check.
 | P0-1 reserve the user's selected output, not a worst-case skill cap | spec D4/§4; Task 2 `Quote`, Task 7 quote+reserve, Task 9 composer |
 | P0-2 resolve the video-tier contradiction; no 1080P-as-2K | spec §2 SKU boundary table; Task 1 tests; Task 2 cap 1440 |
 | P0-3 capture provider cost, pin the model, count retries, alert | spec §5.1; Task 11 |
-| P1-4 keep the old 9/24/39 and 1-credit/1K launch rates | **Superseded** by the owner's 2026-10-27 audit (4/5/3/15 image, 9/15 video); old blanket rates are documented as replaced in the spec and audit |
+| P1-4 keep the old 9/24/39 and 1-credit/1K launch rates | **Superseded** by the owner's 2026-10-27 audit (4/5/3/15 image; H3 Lite 9/15, standard 11/18); old blanket rates are documented as replaced in the spec and audit |
 | P1-5 membership tiers, Business plan, margin scenarios | spec §2 credit-only rule (D5: no per-plan SKU gating); S$49/5,500 and S$149/18,000 **rejected** under current cost; Open question 3 |
 | P1-6 annual 11/12 and abuse-controlled signup trial | spec §2 |
 | P0-7 auditable old-balance conversion, preserve prepaid value | **Resolved 2026-10-27:** there are no paying users; existing rows are test data. spec §10 is a pre-launch cleanup, not a conversion |
@@ -57,10 +57,11 @@ them. The wallet phase takes migration numbers 5002–5005; this plan uses 5001,
 3. **A multi-round `needs_input` conversation.** Every round's assets belong to the same generation; settlement must sum all of them, not the last round's. (Task 6)
 4. **An agent that ignores its ceiling.** The charge is capped at the reservation, the line is marked `over_cap`, the balance never goes negative, and the event is logged. (Task 6)
 5. **A replayed terminal callback.** Completion and failure are each idempotent: no second refund, no second charge row. (Tasks 6, 8)
-6. **Commercial guardrails.** Before any paid generation, verify supplier output/input cost < realized sale proceeds < comparable OEM API list at the current FX **across all allowed funding sources**, including discounted subscription credits and topups. Billing is credit-only (D5): every plan is just a credit grant, and the minimum effective SGD/credit across all offered plans must clear the most expensive active SKU. The S$49/5,500 and S$149/18,000 rows are rejected under that rule; even the
-current rows fail safe-margin gating against **standard** MiniMax H3 after the
-2026-10-26 cost rise, so video only ships on the H3 Lite/self-deployed tier
-(spec §2, audit §E).
+6. **Commercial guardrails.** Before any paid generation, verify supplier output/input cost < realized sale proceeds < comparable OEM API list at the current FX **across all allowed funding sources**, including discounted subscription credits and topups. Billing is credit-only (D5): every plan is just a credit grant, and the minimum effective SGD/credit across all offered plans must clear the most expensive active SKU. The S$49/5,500 and S$149/18,000 rows are rejected under that rule. Standard
+MiniMax H3 is priced above the OEM list by explicit owner override to reach
+20% output margin; that exception is limited to those two rows, must suppress
+any discount label, and does not relax the bound for any other SKU (spec §2,
+audit §E).
 7. **A request that selects 5 s of 768P.** It must quote and reserve 5 s of 768P, not 10 s of 2K. The same selected output drives the pre-submit quote, the reservation and settlement; a test asserts all three agree. (Tasks 7, 9)
 8. **A 1080P artifact against a H3 2K SKU.** It must be rejected as a mismatch, never settled at the 2K rate. Boundary heights 719/720/768/1079/1080/1439/1440 are covered by the requested-SKU tests. (Task 1)
 9. **An expensive model reached by an agent.** The dispatched model is pinned in the task payload, the runtime's provider-run record must match, and the run's actual provider cost is recorded per attempt. A mismatch settles at the reserved ceiling and raises an alarm. (Task 11)
@@ -215,13 +216,19 @@ Expected: FAIL — `undefined: DefaultRateCard`.
 | `MiniMax-H3-Lite` / `768P` | video | `MicroPerSecond: 9_000_000`, accepted heights 720–1079 |
 | `MiniMax-H3-Lite` / `2K` | video | `MicroPerSecond: 15_000_000`, accepted height 1440 |
 | `kling-v3-omni` / `720P`, `1080P` silent, no reference video | video | **PROVISIONAL, 10/14 credits/s, not priceable until OEM validated** |
-| `MiniMax-H3` standard 768P/2K, H3 self-deployed 1080P/4K, H3-Max, Kling with audio, Grok video, DeepSeek/Claude text, all unquoted models | any | **HOLD / not in live rate book** |
+| `MiniMax-H3` / `768P`, `2K` | video | `MicroPerSecond: 11_000_000 / 18_000_000` (20.9%/21.1%), **CANDIDATE by owner override: above the official list, no discount claim** |
+| `MiniMax-H3` self-deployed 1080P/4K, H3-Max, Kling with audio, Grok video, DeepSeek/Claude text, all unquoted models | any | **HOLD / not in live rate book** |
 
-The tests above use `MiniMax-H3-Lite` because the **standard** H3 tier is now HOLD: the 2026-10-26 quote raised it to US$0.068/0.111 per second, so 9/15 credits/s leaves only 3.3%/5.3% before fees. The Lite tier carries the same retail rate with ~66% output margin; the model id stays part of the rate key so a request can never borrow one tier's price for the other.
+The tests above use `MiniMax-H3-Lite` because the Lite tier is the intended
+default: at 9/15 credits/s it earns ~66% and stays below MiniMax's official
+list. The **standard** tier was repriced to 11/18 credits/s to reach ~20% after
+the 2026-10-26 cost rise, which puts it **above** the official list; it remains
+sellable only without any discount claim. The model id stays part of the rate
+key so a request can never borrow one tier's price for the other.
 
 **Video lookup uses the requested/authorized provider SKU** (e.g. H3 768P or H3 2K), with measured height/duration validating the delivered artifact. Do not choose a 2K rate merely because `height >= 1080`; an unconfigured 1080P variant must be held or rejected.
 
-**Owner-requested MiniMax H3 pricing revision (2026-10-27, recosted 2026-10-26 quote):** 9 credits/s (768P) and 15 credits/s (2K), replacing 24/39. At the spec's reference FX and 100 credits = S$1, these are respectively 12.1% and 9.9% below MiniMax's official API list prices (US$0.08/s and US$0.13/s). Against the **Lite** supplier cost (US$0.024 / 0.039 per s) the output-only margin is **65.9% / 66.7%**; against the **standard** tier (US$0.068 / 0.111) it is only **3.3% / 5.3%**, which is why standard H3 is HOLD. Additional reference/input costs, retries, fees, and infrastructure still apply. Pricing for input-video/reference-heavy workflows needs an explicit surcharge or restriction before production. Verify both source prices before external discount advertising; this is not a blanket model discount.
+**Owner-requested MiniMax H3 pricing (2026-10-27, recosted against the 2026-10-26 quote):** the Lite tier is 9 credits/s (768P) and 15 credits/s (2K), replacing 24/39; at the spec's reference FX these are 12.1% and 9.9% below MiniMax's official API list (US$0.08/s and US$0.13/s) and earn **65.9% / 66.7%** against the Lite supplier cost (US$0.024 / 0.039 per s). The **standard** tier costs US$0.068 / 0.111 per s, so 9/15 would leave only 3.3% / 5.3%; at the owner's direction it prices at **11 / 18 credits/s**, earning **20.9% / 21.1%** — but that is 7.4% / 8.2% **above** the official list, so standard H3 must carry no discount claim and must not be described as cheaper than the official API. The 20% target and the "below official" bound are mutually exclusive at this cost (the maximum below-list margin is 15.0% / 14.6%). Additional reference/input costs, retries, fees, and infrastructure still apply. Pricing for input-video/reference-heavy workflows needs an explicit surcharge or restriction before production. Verify both source prices before any external price advertising; this is not a blanket model discount.
 
 The old height-based 1080P→2K lookup is removed as a pricing shortcut. Define exact provider SKU boundaries and test mismatched/unsupported output dimensions before enabling each mode.
 
@@ -965,8 +972,10 @@ before reserving for unavailable models; provider cost recorded per attempt
 with cost < realized revenue < official list at the lowest permitted
 SGD/credit; model-mismatch settles at the ceiling; missing usage disables the
 SKU. The S$49/5,500 and S$149/18,000 plan rows are rejected under the
-credit-only rule; the margin gate must also reject **standard** MiniMax H3 at
-9/15 credits/s (3.3%/5.3%) and accept the Lite tier (65.9%/66.7%). Neither plan
+credit-only rule; the margin gate must reject standard MiniMax H3 at 9/15
+credits/s (3.3%/5.3%), accept it at 11/18 (20.9%/21.1%) only with the
+official-list-bound override recorded and the discount label suppressed, and
+accept the Lite tier at 9/15 (65.9%/66.7%) under the normal bound. Neither plan
 row is activated by this plan.
 Expected: PASS.
 
