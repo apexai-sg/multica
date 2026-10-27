@@ -327,7 +327,24 @@ func (h *Handler) CreateAuroraGeneration(w http.ResponseWriter, r *http.Request)
 		if errors.Is(err, aurora.ErrInsufficientCredits) {
 			h.abandonAuroraIssue(r.Context(), issue)
 			h.markGenerationFailed(r.Context(), workspaceID, row.ID, "insufficient credits")
-			writeError(w, http.StatusPaymentRequired, "insufficient credits")
+			// The 402 names the shortfall so the client can show what a top-up
+			// has to cover. Reading the wallet can fail independently of the
+			// refusal; the wallet state is then unknown, so fail loudly rather
+			// than answer with a shortfall derived from nothing.
+			balance, balanceErr := h.Credit.Balance(r.Context(), userUUID)
+			if balanceErr != nil {
+				slog.Error("failed to load aurora balance after insufficient credits", "user_id", userID, "error", balanceErr)
+				writeError(w, http.StatusInternalServerError, "failed to load balance")
+				return
+			}
+			requiredCredits := float64(amountMicro) / microCreditsPerCredit
+			availableCredits := float64(balance) / microCreditsPerCredit
+			writeJSON(w, http.StatusPaymentRequired, map[string]any{
+				"error":            "insufficient credits",
+				"requiredCredits":  requiredCredits,
+				"availableCredits": availableCredits,
+				"shortfallCredits": max(0, requiredCredits-availableCredits),
+			})
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "failed to reserve credits")

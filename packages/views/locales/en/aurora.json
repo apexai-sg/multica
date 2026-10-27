@@ -65,6 +65,7 @@
     "insufficient_title": "Not enough credits",
     "insufficient_description": "This tool costs {{cost}} credits and you have {{balance}}.",
     "insufficient_cost_only": "This tool costs {{cost}} credits.",
+    "shortfall": "You are {{credits}} credits short.",
     "rate_limited_title": "Limit reached",
     "rate_limited_description": "You have used this month's generations, or have too many still running. Try again later.",
     "create_failed": "Could not start the generation. Try again.",

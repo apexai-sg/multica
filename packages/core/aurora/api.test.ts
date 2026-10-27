@@ -10,6 +10,7 @@ import {
   createAuroraToolRun,
   createAuroraTopupCheckout,
   deleteAuroraAsset,
+  getAuroraInsufficientCreditsDetails,
   getAuroraRuntime,
   getAuroraSubscription,
   isAuroraCheckoutConflictError,
@@ -697,6 +698,53 @@ describe("error classification", () => {
     expect(
       isAuroraPaymentsUnavailableError(new ApiError("boom", 409, "Conflict")),
     ).toBe(false);
+  });
+
+  it("reads the shortfall a 402 carries", () => {
+    const error = new ApiError("insufficient credits", 402, "Payment Required", {
+      error: "insufficient credits",
+      requiredCredits: 60,
+      availableCredits: 50,
+      shortfallCredits: 10,
+    });
+
+    expect(getAuroraInsufficientCreditsDetails(error)).toEqual({
+      requiredCredits: 60,
+      availableCredits: 50,
+      shortfallCredits: 10,
+    });
+  });
+
+  it("reports no shortfall for a 402 without a body", () => {
+    expect(
+      getAuroraInsufficientCreditsDetails(
+        new ApiError("insufficient credits", 402, "Payment Required"),
+      ),
+    ).toBeNull();
+  });
+
+  it("degrades malformed shortfall fields to null", () => {
+    const error = new ApiError("insufficient credits", 402, "Payment Required", {
+      requiredCredits: 60,
+      availableCredits: "50",
+      shortfallCredits: Number.NaN,
+    });
+
+    expect(getAuroraInsufficientCreditsDetails(error)).toEqual({
+      requiredCredits: 60,
+      availableCredits: null,
+      shortfallCredits: null,
+    });
+  });
+
+  it("reads no shortfall from a non-402 failure", () => {
+    expect(
+      getAuroraInsufficientCreditsDetails(
+        new ApiError("server error", 500, "Server Error", {
+          shortfallCredits: 10,
+        }),
+      ),
+    ).toBeNull();
   });
 });
 

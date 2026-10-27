@@ -67,6 +67,7 @@
     "insufficient_title": "Crédits insuffisants",
     "insufficient_description": "Cet outil coûte {{cost}} crédits et vous en avez {{balance}}.",
     "insufficient_cost_only": "Cet outil coûte {{cost}} crédits.",
+    "shortfall": "Il vous manque {{credits}} crédits.",
     "rate_limited_title": "Limite atteinte",
     "rate_limited_description": "Vous avez épuisé les générations du mois, ou trop de générations sont encore en cours. Réessayez plus tard.",
     "create_failed": "Impossible de démarrer la génération. Réessayez.",

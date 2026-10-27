@@ -580,6 +580,43 @@ export function isAuroraInsufficientCreditsError(error: unknown): boolean {
   return error instanceof ApiError && error.status === 402;
 }
 
+/** The 402's structured shortfall, in whole credits. */
+export type AuroraInsufficientCreditsDetails = {
+  requiredCredits: number | null;
+  availableCredits: number | null;
+  shortfallCredits: number | null;
+};
+
+/**
+ * Reads the shortfall a 402 carries, or null when the failure is not a 402 or
+ * has no decoded body.
+ *
+ * The fields arrived with the payable-subscription launch; an older server
+ * still answers the documented `{"error":"insufficient credits"}`, and any one
+ * field can be missing or malformed. They degrade to `null` rather than throw
+ * or coerce, so the caller falls back to copy it can support instead of quoting
+ * a number the server never sent. Classification stays status-based in
+ * `isAuroraInsufficientCreditsError`.
+ */
+export function getAuroraInsufficientCreditsDetails(
+  error: unknown,
+): AuroraInsufficientCreditsDetails | null {
+  if (!isAuroraInsufficientCreditsError(error)) return null;
+  const body = (error as ApiError).body;
+  if (!body || typeof body !== "object") return null;
+  const fields = body as Record<string, unknown>;
+  return {
+    requiredCredits: creditAmount(fields.requiredCredits),
+    availableCredits: creditAmount(fields.availableCredits),
+    shortfallCredits: creditAmount(fields.shortfallCredits),
+  };
+}
+
+/** A JSON number usable as a credit amount; anything else reads as absent. */
+function creditAmount(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 /**
  * 429: one of the three server gates refused the request — the monthly
  * generation quota, the concurrency cap, or the per-user frequency limit. They

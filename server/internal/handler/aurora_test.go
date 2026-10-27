@@ -319,9 +319,10 @@ func TestCreateAuroraGenerationRejectsInsufficientCredits(t *testing.T) {
 
 	// Every skill now costs less than the free monthly grant, so an empty wallet
 	// would afford the fixture expert once the lazy grant tops it up to 200.
-	// Open the wallet with a debt instead: 200 - 150 = 50 is still short of 62,
-	// so this request remains the insufficient-credit case it pins. The debt is
-	// fixture-only; the service API can never drive a balance negative.
+	// Open the wallet with a debt instead: 200 - 150 = 50 credits is still short
+	// of the expert's price, so this request remains the insufficient-credit
+	// case it pins. The debt is fixture-only; the service API can never drive a
+	// balance negative.
 	const openingDebtMicro = -150_000_000
 	if _, err := testPool.Exec(ctx,
 		`INSERT INTO credit_balance (user_id, available_micro) VALUES ($1, $2)`,
@@ -333,7 +334,36 @@ func TestCreateAuroraGenerationRejectsInsufficientCredits(t *testing.T) {
 		"skillId": "ecommerce-bidding-strategy",
 		"prompt":  "余额不足的生成请求",
 	})
-	testutil.Call(t, testHandler.CreateAuroraGeneration, req).Want(http.StatusPaymentRequired)
+	response := testutil.Call(t, testHandler.CreateAuroraGeneration, req).Want(http.StatusPaymentRequired)
+
+	// The 402 carries the shortfall in whole credits: what the skill costs, what
+	// the wallet held, and the difference a top-up has to cover. The message
+	// stays for clients that only read `error`.
+	var rejection struct {
+		Error            string  `json:"error"`
+		RequiredCredits  float64 `json:"requiredCredits"`
+		AvailableCredits float64 `json:"availableCredits"`
+		ShortfallCredits float64 `json:"shortfallCredits"`
+	}
+	response.JSON(&rejection)
+	if rejection.Error != "insufficient credits" {
+		t.Fatalf("error = %q, want 'insufficient credits'", rejection.Error)
+	}
+	entry, ok := aurora.Lookup("ecommerce-bidding-strategy")
+	if !ok {
+		t.Fatal("catalog lost ecommerce-bidding-strategy")
+	}
+	wantRequired := float64(entry.Credits)
+	wantAvailable := float64(testHandler.Tiers.FreeMonthlyMicro()+openingDebtMicro) / microCreditsPerCredit
+	if rejection.RequiredCredits != wantRequired {
+		t.Fatalf("requiredCredits = %v, want %v", rejection.RequiredCredits, wantRequired)
+	}
+	if rejection.AvailableCredits != wantAvailable {
+		t.Fatalf("availableCredits = %v, want %v", rejection.AvailableCredits, wantAvailable)
+	}
+	if want := wantRequired - wantAvailable; rejection.ShortfallCredits != want {
+		t.Fatalf("shortfallCredits = %v, want %v", rejection.ShortfallCredits, want)
+	}
 
 	// The aborted generation must be terminal with the documented reason...
 	var status string

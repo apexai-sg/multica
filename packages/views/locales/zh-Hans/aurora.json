@@ -63,6 +63,7 @@
     "insufficient_title": "积分不足",
     "insufficient_description": "该功能需要 {{cost}} 积分，当前可用 {{balance}}。",
     "insufficient_cost_only": "该功能需要 {{cost}} 积分。",
+    "shortfall": "还差 {{credits}} 积分。",
     "rate_limited_title": "已达上限",
     "rate_limited_description": "本月生成次数已用完，或进行中的任务过多。请稍后再试。",
     "create_failed": "无法开始生成，请重试。",

@@ -63,6 +63,7 @@
     "insufficient_title": "クレジットが足りません",
     "insufficient_description": "このツールには {{cost}} クレジットが必要ですが、残高は {{balance}} です。",
     "insufficient_cost_only": "このツールには {{cost}} クレジットが必要です。",
+    "shortfall": "あと {{credits}} クレジット必要です。",
     "rate_limited_title": "上限に達しました",
     "rate_limited_description": "今月の生成回数を使い切ったか、実行中の生成が多すぎます。しばらくしてからお試しください。",
     "create_failed": "生成を開始できませんでした。再試行してください。",

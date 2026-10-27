@@ -321,7 +321,27 @@ describe("GenerationComposer", () => {
     expect(submit).toBeEnabled();
   });
 
-  it("turns a 402 into the top-up prompt, with the shortfall", async () => {
+  it("shows the shortfall a 402 carries", async () => {
+    mocks.create.mockRejectedValue(
+      new ApiError("insufficient credits", 402, "Payment Required", {
+        error: "insufficient credits",
+        requiredCredits: 60,
+        availableCredits: 50,
+        shortfallCredits: 10,
+      }),
+    );
+
+    renderComposer({});
+    await submitPrompt();
+
+    expect(await screen.findByText("Not enough credits")).toBeInTheDocument();
+    expect(screen.getByText("You are 10 credits short.")).toBeInTheDocument();
+    expect(
+      screen.queryByText("This tool costs 60 credits and you have 50."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("turns a 402 without a shortfall into the top-up prompt", async () => {
     mocks.create.mockRejectedValue(
       new ApiError("insufficient credits", 402, "Payment Required"),
     );
