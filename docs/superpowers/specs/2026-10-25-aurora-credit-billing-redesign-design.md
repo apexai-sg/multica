@@ -12,7 +12,7 @@ Aurora charges one fixed price per skill run. `SkillCatalogEntry.Credits` is a
 constant per expert (60, 80, 90, 100, or 120 today,
 `server/internal/aurora/experts_catalog.go`),
 the create handler reserves `credits × 1e6` micro-credits before enqueueing
-(`server/internal/handler/aurora.go:285`), and settlement records
+(`server/internal/handler/aurora.go:281`), and settlement records
 `credits_charged = credits_reserved` with no reconciliation
 (`server/internal/service/aurora_completion.go:136`). Only a failed or
 moderation-blocked generation refunds.
@@ -56,7 +56,10 @@ matters:
 
 - A run that delivers three images costs three times a run that delivers one,
   and the result page names both the count and the rate.
-- A text-only run costs by delivered output length, not a flat fee.
+- Once a text SKU is approved, a text run costs by provider-reported
+  input/output/cache usage, not by delivered Unicode length and not a flat fee.
+  Until then every text-only skill is commercially HOLD and cannot be sold
+  metered.
 - A video run costs by measured resolution and measured duration; the numbers
   shown are measured by the server, not reported by the agent.
 - No user can be charged more than the amount quoted before submit.
@@ -86,17 +89,20 @@ matters:
   refunded.
 - **D2. Three output categories, SKU-specific meters.** Images per output image; video by the exact provider-supported resolution/audio/input configuration and measured seconds; text by provider-reported input, output, cache and reasoning usage (not approximations of output text).
 - **D3. Text is commercially HOLD until its whole-request cost can be quoted.** The old output-only 1-credit/1K-token rate exceeds relevant official API list prices and ignores billable input. Do not silently bill text by a Unicode heuristic; distinguish free displayed transcript artifacts from priced model token usage.
-- **D4. Reservation is by a per-skill declared cap.** The catalog declares an
-  output cap per skill; submit freezes the worst-case charge; a balance below
-  the cap is refused with the shortfall.
+- **D4. Reservation is by the per-request requested output, bounded by the
+  skill's declared maximum.** Where the skill exposes image count / video
+  duration / video mode, submit quotes and reserves that selection, not the
+  generic worst case. A skill with no selectable shape declares a visible fixed
+  budget. A balance below the quote is refused with the shortfall.
 - **D5. One credit pool.** No per-kind wallets. Kind differences live in the
   rate card and in the itemized charge.
 - **D6. Credits are the unit; currency is SGD.** 100 credits = S$1.00. The
   credit is not pegged to a provider cost.
 - **D7. Three paid tiers — Starter, Plus, Pro — plus credit packs**, sold
-  monthly or yearly (yearly = ten months' price, "立省2月"). The tier names,
-  the pack sizes, and the credits-to-output comparison table follow the
-  reference page.
+  monthly or yearly. The tier names, pack sizes and credits-to-output
+  comparison table follow the reference page. The per-credit catalogue remains
+  **owner-approval gated** (see §2): the monthly plan discount cannot be
+  adopted while it makes an active SKU loss-making at its realized SGD/credit.
 - **D8. No free tier.** New users get no monthly grant. The `free` row in
   `TierCatalog`, the lazy free-monthly grant in `entitlement.go`, and the free
   tier's part of the month-end settlement are removed. Using any metered skill
@@ -137,6 +143,18 @@ type ModelRate struct {
 
 **Rates require an exact model and SKU variant**, not just a kind. Variant includes image resolution, video resolution/audio/reference inputs and text token category/context tier. The earlier one-model-per-kind fleet is useful only as an implementation fixture. Any unsupported model/variant is HOLD and must fail at generation creation; do not make the runtime quietly switch to a pricier provider while charging a cheaper one.
 
+**Every rate record carries its own provenance and validity window**, not
+just a number: `approval` (`approved` \| `candidate` \| `provisional` \|
+`hold`), `official_url`, `supplier_quote_revision`, `fx`, `effective_at` and
+`expires_at`. Reservation and settlement fail closed when a record is
+`provisional`/`hold`, unquoted, not yet effective, or expired; a `candidate`
+record may be priced only by the disabled metered pipeline and is not sellable
+until the owner approves it and the catalog sets `metered_enabled`. The current
+HopBase quote expires 2026-11-11 and must be re-verified before any candidate
+is enabled. A rate's version string (`rate_version`) is frozen onto each
+generation at creation; changing a rate is a new card version, never an edit
+that reprices settled history.
+
 **The model is chosen server-side, at generation creation**, from the skill's
 configured model — not inferred from the artifact. The server cannot tell which
 model produced a file (it measures count, resolution, duration; the manifest's
@@ -144,16 +162,42 @@ model claim is agent-written), so the declared model is the only trustworthy
 pricing key. If the run then uses something pricier, the difference is absorbed
 like any other over-cap cost and counted.
 
-v1 exposes no user-facing model picker: a skill's configured model is the only
-input, so "switch to a better model" is an operator change. A per-request
+v1 exposes no user-facing **model** picker: a skill's configured model is the
+only input, so "switch to a better model" is an operator change. A per-request
 "standard / high quality" choice is a later phase; it would become an explicit
 request field priced from the same card, never a free-form model name from the
 client.
+
+v1 **does** expose the billable output shape where the skill supports it:
+image count, video duration and the provider-supported video mode/resolution.
+The client sends those values as enumerated request fields (never a price and
+never a model name), the server validates them against the skill's `Caps` and
+the approved SKU list, and the same values produce the pre-submit quote and the
+reservation. A skill that cannot express its output shape — including an
+open-ended conversation — declares a visible fixed budget instead (see §4).
 
 - **Text**: bill via the provider's actual input/output/cache/thinking token counts and separately agreed rates. `asciiRunes/4 + nonASCIIRunes*3/4` can be used only for a **non-billing UI estimate**; it is not a provider token meter.
 - **Image**: one rate per image per model; an image that carries no tier uses
   the model's single rate.
 - **Video**: charge by an explicitly requested and server-authorized provider-specific SKU, then validate the delivered duration/dimensions against that SKU. Do **not** infer 2K solely from output height ≥1080 or charge 1080P at a 2K tier. Unquoted video tiers are HOLD.
+
+**Video SKU boundaries.** The rate is keyed by the requested/authorized SKU,
+not derived from the delivered file. The measured height only validates that
+the delivered artifact matches the SKU that was priced; a mismatch fails the
+artifact at staging (400) rather than selecting another tier.
+
+| model | requested SKU | accepted measured height | rate |
+|---|---|---:|---|
+| MiniMax H3 | 768P | 720–1079 | 9 credits/s |
+| MiniMax H3 | 2K | 1440 | 15 credits/s |
+| Kling v3 Omni (silent, no reference video) | 720P | 720 | 10 credits/s (PROVISIONAL) |
+| Kling v3 Omni (silent, no reference video) | 1080P | 1080 | 14 credits/s (PROVISIONAL) |
+| any model | 480P, 1440-not-2K shapes, 2160/4K, or no configured SKU | — | HOLD / reject before reserve |
+
+Boundary values (`719`, `720`, `768`, `1079`, `1080`, `1439`, `1440`) are
+tested against the requested SKU: `1080`–`1439` is **not** silently priced as
+2K, and `2160` is not silently priced as anything. Kling's provisional rows
+stay disabled until its OEM tier table is verified.
 
 **Pricing (owner-requested model-wide recheck, 2026-10-27).** Indicative output-only candidate rate card below. These are SKU-specific and are NOT active production prices. The [all-provider audit](./2026-10-27-aurora-all-provider-pricing-audit.md) contains every HopBase-quoted SKU, official comparisons, discounts, per-output gross margins, and reasons for HOLD.
 
@@ -179,13 +223,30 @@ client.
 
 **Margin warning and subscription-unit economics:** Output-only comparisons are not the same as end-to-end contribution profit. With 100 credits = S$1, MiniMax H3 9/15 credits/s has only ~10.3%/~13.9% output margin before costs. Importantly, a subscriber who pays **S$149 for 18,000 credits** (proposed in an earlier review comment, not approved) supplies only S$0.00828 revenue/credit: both H3 SKUs would lose money at 9/15 credits/s. This plan is NOT approved alongside these rates. The single wallet must check realized revenue per credit across all funded sources including discounted plans and topup bonuses (audit §E) and block loss-making combinations, or renegotiate supplier rates. Revalidate FX and official list prices, and never claim blanket "official 30–70% off".
 
-| tier | monthly | credits/month |
-|---|---|---|
-| Starter | S$12 | 1,200 |
-| Plus | S$89 | 9,000 |
-| Pro | S$249 | 25,500 |
+**Plan catalogue — proposals for owner sign-off, none activated.** The
+currently implemented rows are shown for contrast; the review-proposed rows are
+not approved and must not ship until the effective-SGD-per-credit check passes
+for every active SKU.
 
-Existing **unapproved** proposal: annual pricing equals ten monthly payments, and large packs add bonus credits. **Do not implement or publish these plan/pack terms** until effective realized SGD/credit across every funding source is reconciled with the lowest-margin active SKU. Earlier S$49/5,500 and S$149/18,000 alternatives create negative H3 video output margins; see audit §E.
+| plan | current | review-proposed (NOT approved) | credits/month | effective S$/credit |
+|---|---:|---:|---:|---:|
+| Starter | S$12 | S$12 | 1,200 | 0.010000 |
+| Plus | S$89 | **S$49** | 5,500 | **0.008909** |
+| Pro | S$249 | **S$149** | 18,000 | **0.008278** |
+| Business | — | S$249 (team/workspace + priority benefits, boundaries undefined) | 25,500 | 0.009765 |
+
+The S$49/5,500 and S$149/18,000 rows make MiniMax H3 768P/2K loss-making on
+output alone (audit §E); they stay documented as a **rejected-until-repriced**
+proposal, not a plan. Retaining S$249 as a separate Business plan requires
+defined entitlement boundaries (team seats/workspace, priority workflows); do
+not silently rename the old Pro tier.
+
+**Annual billing:** 11 months paid for 12 served (one month free), replacing
+the earlier ten-month proposal, pending owner approval and contribution-margin
+validation. **Signup trial:** a single small credit grant, 3-day expiry, exact
+amount set by the owner, granted once per verified identity; repeated signups,
+device/account reuse and expired-grant re-requests must be blocked, and the
+grant counts as zero realized revenue in every margin check.
 
 Fail closed **before reservation** when a model/SKU is absent, unquoted, expired, under margin floor, or HOLD; re-check price-version consistency at settlement rather than guessing a different amount.
 
@@ -235,28 +296,52 @@ Rules:
 
 ### 4. Output caps and reservation
 
-`SkillCatalogEntry.Credits` is replaced by `Caps`:
+`SkillCatalogEntry.Credits` is replaced by `Caps`, expressed in integer units
+so no float reaches a balance:
 
 ```go
 type OutputCaps struct {
-    MaxTextTokens int64
-    MaxImages     int
-    MaxVideoSecs  float64
-    MaxVideoTier  string // 480P | 720P | 1080P | 2K
+    MaxTextTokens  int64
+    MaxImages      int
+    MaxVideoMilli  int64 // 10_000 = 10 s
+    MaxVideoHeight int   // the highest configured SKU height; 0 = no video
 }
 ```
 
+A per-request selection (`imageCount`, `videoSeconds`, `videoMode`) is clamped
+to these caps and priced by the SKU table in §2. The catalog cap is a bound,
+not the reservation: a request for 5 s of 768P reserves 5 s of 768P, not 10 s
+of 2K.
+
+For an **open-ended/conversational skill** that cannot express its output shape
+server-side, the visible budget is the full cap; the submit surface states that
+the cap covers the whole conversation, and the drain/over-cap behaviour is
+documented where the user chooses to continue.
+
 Create-time flow (`CreateAuroraGeneration`):
 
-1. Resolve the *approved* model+variant+input mode; if HOLD, unquoted or uneconomic for the user's funding source, reject before reserve. For enabled requests, compute `cap_micro` from user-selected maximum output and all chargeable inputs/attempt limits at a frozen rate version, using the same rate card used for settlement.
-2. Balance `< cap_micro` → 402 `insufficient_credits` with `required_credits`,
-   `available_credits`, and `shortfall_credits` in the body.
+1. Resolve the *approved* model+variant+input mode; if HOLD, unquoted, expired
+   or uneconomic for the user's funding source, reject before reserve. For
+   enabled requests, compute `cap_micro` from the **selected** output and all
+   chargeable inputs/attempt limits at a frozen rate version, using the same
+   rate card the pre-submit quote returned and the same one settlement uses.
+2. Balance `< cap_micro` → 402 `insufficient_credits` with `requiredCredits`,
+   `availableCredits`, and `shortfallCredits` in the body (the wire uses the
+   handler's existing camelCase convention).
 3. Otherwise `Reserve(cap_micro)` exactly as today, with the generation id as
    reference.
 4. The cap is written into the task brief so the model knows its budget. The
    brief instruction is advisory; the charge does not depend on it.
 
-A skill with `MaxImages = 0` and `MaxVideoSecs = 0` is text-only and remains **commercially HOLD** until actual provider input/output/cache usage, supplier costs and a defensible under-official retail price can be quoted; no live ceiling should be reserved for such a skill prematurely.
+A separate read-only `POST /api/aurora/generations/quote` (same body as create,
+no side effects) returns the same `requiredCredits` / `availableCredits` /
+`shortfallCredits`, so the composer can show the number before submit; create
+recomputes it transactionally rather than trusting the client.
+
+A skill with `MaxImages = 0` and `MaxVideoMilli = 0` is text-only and remains
+**commercially HOLD** until actual provider input/output/cache usage, supplier
+costs and a defensible under-official retail price can be quoted; no live
+ceiling should be reserved for such a skill prematurely.
 
 **The cap is per generation, not per round.** A generation can end a round in
 `needs_input`, take a follow-up comment, and re-enter `queued` on the *same*
@@ -282,14 +367,35 @@ a missing version fails settlement rather than falling back to today's rates.
 On success, in `aurora_completion.go`:
 
 1. Load the generation's delivered assets with their `measured` usage.
-2. Compute one line per (kind, rate tier): `quantity`, `unit_rate_micro`,
-   `amount_micro`.
+2. Compute one line per (kind, rate tier): `quantity_milli`, `unit_rate_micro`,
+   `amount_micro`, using integer microcredit arithmetic (§1).
 3. `actual_micro = Σ amount_micro`, capped at `credits_reserved`.
 4. Write `aurora_generation_charge` rows.
-5. If `actual_micro < reserved`, `Refund(reserved - actual)` with reference
+5. Write the internal cost record for the run (actual provider/model, token and
+   media usage, attempts and cumulative provider cost) — see §5.1.
+6. If `actual_micro < reserved`, `Refund(reserved - actual)` with reference
    `settle:<generationID>` — idempotent, so a replayed terminal event is a
    no-op.
-6. Record `credits_charged = actual_micro`.
+7. Record `credits_charged = actual_micro`.
+
+### 5.1 Internal provider cost accounting
+
+Customer billing stays output-based, but the platform must know what each run
+cost, or the pricing rules cannot be enforced. On every terminal event
+(success **and** failure, including chargeable failed attempts), record one
+internal row: resolved provider and exact model id, input/output/cache/thinking
+tokens, video seconds and resolution, reference-image/video counts, retry
+attempts, cumulative provider cost in micro-SGD, the FX and quote revision used,
+and the generation id. This record is never exposed as a customer charge.
+
+Settlement compares the run's realized revenue (the actual charge, in the
+currency the credits were funded at) with its recorded provider cost and blocks
+or flags any run whose contribution margin is nonpositive. Model identity is
+pinned at dispatch: the model the server chose is written into the task payload
+and the runtime's provider-run record must match it. A mismatch is recorded,
+settled at the reserved ceiling (never refunded as if a cheaper model ran), and
+counted as `aurora_model_mismatch`; it is a release blocker, not a pricing
+choice made by the agent.
 
 On failure, refund the reservation in full (unchanged behaviour) — and it keeps
 its existing reference, the bare generation id. Only the successful-settlement
@@ -377,8 +483,12 @@ Aurora's fork-only migrations take numbers from 5000 upward. Every index is
 - `5005_credit_batch_allocation_ledger_idx` — concurrent index.
 - `5006_aurora_generation_charge` — table.
 - `5007_aurora_generation_charge_generation_idx` — concurrent index.
-- `5008_aurora_generation_rate_version` — add `rate_version text` to
-  `aurora_generation` so a settled run keeps the card it was priced with.
+- `5008_aurora_generation_rate_version` — add `rate_version text` and
+  `output_selection jsonb` to `aurora_generation`, so a settled run keeps the
+  card and the selected SKU it was priced with.
+- `5009_aurora_generation_cost` — internal provider-cost record per run
+  (never a customer charge).
+- `5010_aurora_generation_cost_generation_idx` — concurrent index.
 
 `aurora_generation_charge`:
 
@@ -387,31 +497,50 @@ Aurora's fork-only migrations take numbers from 5000 upward. Every index is
 | `generation_id`, `workspace_id`, `user_id` | attribution |
 | `kind` | `text` \| `image` \| `video` |
 | `model` | the provider model id the rate came from |
-| `quantity` | numeric(12,3): tokens/1000, images, seconds |
-| `unit_rate_micro` | the rate applied |
-| `amount_micro` | `quantity × rate`, rounded up at line level |
-| `measured` | the measurement backing `quantity` (height, duration, tokens) |
+| `quantity_milli` | integer: images × 1000, video milliseconds, text tokens × 1000 |
+| `unit_rate_micro` | the rate applied, micro-credits per 1000 units |
+| `amount_micro` | `ceil(quantity_milli × unit_rate_micro / 1000)`, exact microcredits, never rounded up to a whole credit |
+| `measured` | the measurement backing `quantity_milli` (height, duration, tokens) |
 | `rate_version` | the card version |
 | `over_cap` | boolean |
 
+`aurora_generation_cost` (internal, not billable):
+
+| column | meaning |
+|---|---|
+| `generation_id`, `workspace_id`, `user_id` | attribution |
+| `provider`, `model` | exact dispatched provider and model id |
+| `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `thinking_tokens` | provider-reported usage |
+| `video_milli`, `video_height`, `image_count`, `reference_count` | media usage |
+| `attempts`, `chargeable_attempts` | retry accounting |
+| `provider_cost_micro_sgd`, `fx`, `supplier_quote_revision` | cost basis |
+| `model_mismatch` | the runtime ran a different model than the one priced |
+
 ### 8. API changes
 
-- `GET /api/aurora/skills` — each entry gains `max_credits` (the reservation
-  ceiling, in credits) and `caps`; `credits` stays as a deprecated alias of
-  `max_credits` so an installed desktop client keeps rendering a number.
-- `POST /api/aurora/generations` — 402 body gains
-  `required_credits` / `available_credits` / `shortfall_credits`.
-- `GET /api/aurora/generations/{id}` — gains `charges[]` (kind, model, quantity,
-  unit rate, amount, measured) and `rate_version`.
-- `GET /api/aurora/billing/balance` — gains `reserved_micro` (money held by
-  in-flight generations), `expires_at` on the per-batch breakdown, and
-  `monthly_usage` split by kind for the current month. `available_micro` keeps
+- `GET /api/aurora/skills` — each entry gains `maxCredits` (the maximum
+  reservation, in credits), `caps`, `pricingStatus` and `meteredEnabled`;
+  `credits` stays as a deprecated alias of `maxCredits` so an installed desktop
+  client keeps rendering a number. HOLD/PROVISIONAL entries report
+  `meteredEnabled: false` and are not selectable for a paid run.
+- `POST /api/aurora/generations/quote` — read-only; same body as create
+  (including the selected output), returns `requiredCredits`,
+  `availableCredits`, `shortfallCredits` and the resolved `rateVersion`.
+- `POST /api/aurora/generations` — accepts the selected output fields; 402 body
+  carries `requiredCredits` / `availableCredits` / `shortfallCredits`.
+- `GET /api/aurora/generations/{id}` — gains `charges[]` (`kind`, `model`,
+  `sku`, `quantityMilli`, `unitRateMicro`, `amountMicro`, `measured`,
+  `overCap`) and `rateVersion`.
+- `GET /api/aurora/billing/balance` — gains `reservedMicro` (money held by
+  in-flight generations), `expiresAt` on the per-batch breakdown, and
+  `monthlyUsage` split by kind for the current month. `availableMicro` keeps
   meaning "spendable right now"; the account page shows available and reserved
   separately, because a run in flight must not look like a spend.
 - `GET /api/aurora/billing/transactions` — each row gains the charge summary
   the transaction screen renders.
-- Zod schemas in `packages/core/api/schema.ts` (or the aurora schema module)
-  are updated with defaults and malformed-response tests.
+- The wire follows the handler's existing camelCase convention; the client
+  schemas mirror it. Zod schemas in `packages/core/api/schema.ts` (or the
+  aurora schema module) are updated with defaults and malformed-response tests.
 
 ### 9. UI changes
 
@@ -440,10 +569,35 @@ stated once beside the number.
 ### 10. Migration of existing money
 
 The unit is being re-denominated: today `1 USD = 1000 credits`; tomorrow
-`100 credits = S$1`. Existing balances, subscription prices, and topup packs
+`100 credits = S$1`. Existing balances, subscription prices and topup packs
 were all priced under the old unit. This design does **not** settle how they
-convert (see Open questions); the data migration that creates the starting
-`adjustment` batches is written once that answer exists.
+convert (see Open questions), and **phase 1 does not touch existing money**.
+The data migration that creates the starting `adjustment` batches is written
+once that answer exists, in the wallet/currency phase.
+
+**Proposed conversion for owner decision** (not approved, recorded here so the
+decision is concrete): preserve prepaid value by *paid amount*, not by credit
+count. At the reference FX (US$1 = S$1.28), one old credit (US$0.001) is worth
+S$0.00128, i.e. **0.128 new credits**; 1,000 old credits → 128 new credits. The
+same ratio applies to unused subscription allowances, and paid plans/packs keep
+their remaining term with the new credit amount. A quantity-preserving
+re-denomination would multiply customer value by 10 and is rejected.
+
+- **In-flight holds at migration time** stay in the old unit on their
+  `rate_version = 'legacy'` generation. They settle or refund in the old unit;
+  the conversion applies only to spendable balance, never to a reservation the
+  user already made. No generation is repriced by the migration.
+- **Auditability:** the migration writes one `adjustment` batch per user
+  carrying the old amount, FX, ratio and migration id, plus a ledger row with
+  the same reference, so every converted credit is traceable.
+- **Fixtures and rollback:** migration tests cover non-zero balance, zero
+  balance, an active subscription, a pack with remaining validity, and an
+  in-flight hold; the down migration restores the old unit from the recorded
+  reference. A dry-run report of affected users/amounts is produced before the
+  real run.
+- **Gate:** no customer-visible SGD price, plan or pack goes live until the
+  owner approves this ratio (or an alternative), the migration dry run is
+  reviewed, and every active SKU passes the effective-SGD-per-credit check.
 
 Until then the entitlement path keeps working on today's numbers.
 
@@ -465,16 +619,24 @@ Until then the entitlement path keeps working on today's numbers.
   change never reprices history.
 - **Same approved SKU rate card on both sides.** Reservation and settlement call one frozen version of the model/variant rate function; a second implementation, unapproved fallback or model-switch during execution is a bug.
 - **Effective-credit profitability.** Check the lowest real SGD received per credit among all allowed membership and pack funding sources; reject any SKU/plan combination with nonpositive contribution margin, even if its nominal S$0.01-credit price looks viable.
+- **No sale without a cost record.** A run that cannot record its provider/model and usage cost is not metered-sold; the SKU is disabled instead. A model mismatch settles at the reserved ceiling and raises an alarm.
+- **Quote equals settlement.** The pre-submit quote, the reservation and the settlement price line use one frozen rate version and one arithmetic; a test asserts they agree for the same selection.
 
 ## Testing
 
 - Go tests: exact fixed-point microcredits for small text/video quantities; video requested-tier vs measured-dimension boundaries (719/720/768/1079/1080/1439/1440); missing/HOLD/expired provider SKUs fail before reservation; per-model official-versus-supplier guards; supplier FX movement and discounted wallet credits cannot yield a negative permitted margin.
+- Quote/reservation/settlement agreement for the same selected output; an expired rate record fails closed; a 1080P artifact is never settled at the 2K rate.
+- Provider cost tests: a multi-attempt job records every attempt and its cumulative cost; a model mismatch settles at the ceiling and flags; a run whose cost exceeds its realized revenue is flagged and cannot be silently sold again.
 - Handler tests for the commit-time measurements with real fixture files
   (a tiny PNG, a 1-second MP4) — measured values come from the file, and an
   agent-supplied `metadata.duration` never wins.
 - Settlement tests: actual < reserved refunds the difference; actual > reserved
   charges the reservation and flags `over_cap`; a replayed completion does not
-  double-charge; a failed run refunds in full.
+  double-charge; a failed run refunds in full; a charge line is idempotent on
+  replay.
+- Migration tests for the wallet/currency phase: the conversion fixtures and
+  down-migration check above are written before that phase ships; they are not
+  part of phase 1.
 - Wallet tests: FEFO ordering, expiry of a monthly batch, a topup surviving a
   month boundary, and the sum invariant `balance == Σ remaining`.
 - Frontend tests beside the existing ones in `packages/views/aurora/` for the
@@ -538,11 +700,20 @@ rather than a code change.
 
 ## Open questions for the owner
 
-1. **Existing balances and subscriptions.** Re-denominate at a stated ratio,
-   grandfather at the old value, or reset and re-grant? No correct answer
-   without knowing whether any real money has been taken.
-2. **The signup bonus.** The reference gives new users free credits valid three days. Keep a small expiry-limited bonus, or drop it? Count its effective revenue as zero when computing allowed SKU contribution margin.
+1. **Existing balances and subscriptions.** Approve the paid-amount conversion
+   in §10 (0.128 new credits per old credit at the reference FX), or state
+   another ratio, grandfather rule, or reset-and-regrant. The answer depends on
+   whether any real money has been taken and in which currency it was charged.
+2. **The signup bonus.** The reference gives new users free credits valid three days. Keep a small expiry-limited bonus, or drop it? If kept: exact credit amount, the abuse controls, and the rule that it counts as zero realized revenue in every margin check.
 3. **Approve actual supplier quote coverage and active model list.** Confirm HopBase mapping, SKU-specific input costs, official comparator, rate validity, contribution margin floor and treatment of plan/pack bonuses before enabling any of the new output-only candidates.
+4. **Plan catalogue and Business boundaries.** Approve or reject the
+   S$49/5,500 and S$149/18,000 rows, define what the S$249 Business plan
+   entitles (seats, workspace features, priority workflows), and confirm
+   annual 11/12 plus the signup trial amount.
+5. **Cost-accounting fields.** Confirm the exact provider usage signals the
+   runtime can report per attempt (tokens, cache, media counts, model id), since
+   an unreported field disables the affected SKU rather than falling back to an
+   estimate.
 
 ## What is left to the builder
 
