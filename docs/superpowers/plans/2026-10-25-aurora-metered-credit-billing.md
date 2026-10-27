@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Introduce server-measured and itemized charging by explicitly approved provider/model/SKU, not a generic 3× markup. Image count and resolved video resolution × measured seconds are the phase-1 demonstrable output meters. Text commercial charging requires actual provider input/output/cache usage and approved whole-request economics; text SKUs remain HOLD until then.
+**Goal:** Introduce server-measured and itemized charging by explicitly approved provider/model/SKU, not a generic 3× markup. Image count and resolved video resolution × measured seconds are the media meters; text bills from the daemon's `task_usage` token rows, with `deepseek-v4.1-flash` as the default text model. Every SKU is gated on approved whole-request economics.
 
-**Architecture:** A versioned, server-owned rate card prices measured usage. Usage is measured once, at artifact staging, where the bytes already stream. The create request selects the output shape (within the skill's caps); one quote/reserve path prices that selection; settlement sums the generation's assets at the same frozen SKU, writes itemized `aurora_generation_charge` rows, and refunds the difference between the reserved maximum and the actual charge. Internal `aurora_generation_cost` rows record what the provider actually cost. Runs created before this change carry `rate_version = 'legacy'` and settle at the old flat skill price.
+**Architecture:** A versioned, server-owned rate card prices measured usage. Media usage is measured once, at artifact staging, where the bytes already stream; text usage is read from the `task_usage` row for the generation's own task. The create request selects the output shape (within the skill's caps); one quote/reserve path prices that selection; settlement sums the generation's assets and token rows at the same frozen SKU, writes itemized `aurora_generation_charge` rows, and refunds the difference between the reserved maximum and the actual charge. Internal `aurora_generation_cost` rows record what the provider actually cost. Runs created before this change carry `rate_version = 'legacy'` and settle at the old flat skill price.
 
 **Tech Stack:** Go 1.27 (Chi, pgx, sqlc), PostgreSQL migrations, Next.js + React + TanStack Query, vitest.
 
@@ -56,19 +56,23 @@ them. The wallet phase takes migration numbers 5002–5005; this plan uses 5001,
 ## Review Focus
 
 1. **A video whose probe fails at staging.** A file that cannot be probed must be rejected with 400 before it is stored — never stored unmeasured and settled at zero. (Task 4)
-2. **A generation created before the deploy.** It carries `rate_version = 'legacy'` and must charge its old flat `credits_reserved`, never look up a model, and never re-price. (Task 6)
-3. **A multi-round `needs_input` conversation.** Every round's assets belong to the same generation; settlement must sum all of them, not the last round's. (Task 6)
-4. **An agent that ignores its ceiling.** The charge is capped at the reservation, the line is marked `over_cap`, the balance never goes negative, and the event is logged. (Task 6)
-5. **A replayed terminal callback.** Completion and failure are each idempotent: no second refund, no second charge row. (Tasks 6, 8)
-6. **Commercial guardrails.** Before any paid generation, verify supplier output/input cost < realized sale proceeds < comparable OEM API list at the current FX **across all allowed funding sources**, including discounted subscription credits and topups. Billing is credit-only (D5): every plan is just a credit grant, and the minimum effective SGD/credit across all offered plans must clear the most expensive active SKU. The S$49/5,500 and S$149/18,000 rows are rejected under that rule. Standard
+2. **A text generation with no `task_usage` row.** Settlement must charge the reserved ceiling and flag `aurora_usage_missing`; it must never fall back to zero, to the delivered text length, or to another model's rate. (Task 6)
+3. **Cached tokens counted twice.** `input_tokens` excludes cached tokens; `cache_read` must be billed as its own line at the cache rate or, when unquoted (DeepSeek today), at the input rate — never folded back into input and never free. (Tasks 1, 6)
+4. **A resumed round reporting the same usage again.** `task_usage` is one cumulative row per `(task, provider, model)`; settlement must emit one line per `(model, category)` and a replayed terminal callback must not add a second charge. A daemon that reported per-round deltas instead of cumulative totals would undercount, which the settlement cannot detect — hold the report contract in review. (Task 6)
+5. **A skill pinned to a HOLD model.** A Claude-pinned text skill must render unavailable; the default `deepseek-v4.1-flash` must not be silently substituted for it. (Task 2)
+6. **A generation created before the deploy.** It carries `rate_version = 'legacy'` and must charge its old flat `credits_reserved`, never look up a model, and never re-price. (Task 6)
+7. **A multi-round `needs_input` conversation.** Every round's assets belong to the same generation; settlement must sum all of them, not the last round's. (Task 6)
+8. **An agent that ignores its ceiling.** The charge is capped at the reservation, the line is marked `over_cap`, the balance never goes negative, and the event is logged. (Task 6)
+9. **A replayed terminal callback.** Completion and failure are each idempotent: no second refund, no second charge row. (Tasks 6, 8)
+10. **Commercial guardrails.** Before any paid generation, verify supplier output/input cost < realized sale proceeds < comparable OEM API list at the current FX **across all allowed funding sources**, including discounted subscription credits and topups. Billing is credit-only (D5): every plan is just a credit grant, and the minimum effective SGD/credit across all offered plans must clear the most expensive active SKU. The S$49/5,500 and S$149/18,000 rows are rejected under that rule. Standard
 MiniMax H3 is priced above the OEM list by explicit owner override to reach
 20% output margin; that exception is limited to those two rows, must suppress
 any discount label, and does not relax the bound for any other SKU (spec §2,
 audit §E).
-7. **A request that selects 5 s of 768P.** It must quote and reserve 5 s of 768P, not 10 s of 2K. The same selected output drives the pre-submit quote, the reservation and settlement; a test asserts all three agree. (Tasks 7, 9)
-8. **A 1080P artifact against a H3 2K SKU.** It must be rejected as a mismatch, never settled at the 2K rate. Boundary heights 719/720/768/1079/1080/1439/1440 are covered by the requested-SKU tests. (Task 1)
-9. **An expensive model reached by an agent.** The dispatched model is pinned in the task payload, the runtime's provider-run record must match, and the run's actual provider cost is recorded per attempt. A mismatch settles at the reserved ceiling and raises an alarm. (Task 11)
-10. **A rate record past its quote window.** It fails closed before reservation; a HOLD or PROVISIONAL SKU is not selectable in any client. (Tasks 1, 2, 7)
+11. **A request that selects 5 s of 768P.** It must quote and reserve 5 s of 768P, not 10 s of 2K. The same selected output drives the pre-submit quote, the reservation and settlement; a test asserts all three agree. (Tasks 7, 9)
+12. **A 1080P artifact against a H3 2K SKU.** It must be rejected as a mismatch, never settled at the 2K rate. Boundary heights 719/720/768/1079/1080/1439/1440 are covered by the requested-SKU tests. (Task 1)
+13. **An expensive model reached by an agent.** The dispatched model is pinned in the task payload, the runtime's provider-run record must match, and the run's actual provider cost is recorded per attempt. A mismatch settles at the reserved ceiling and raises an alarm. (Task 11)
+14. **A rate record past its quote window.** It fails closed before reservation; a HOLD or PROVISIONAL SKU is not selectable in any client. (Tasks 1, 2, 7)
 
 ---
 
@@ -101,7 +105,7 @@ audit §E).
 - Consumes: nothing.
 
 Quantity convention (one rule, used everywhere):
-- text: **HOLD for billing** until provider-reported input/output/cache usage and all supplier rates are available; display-only token estimates are not billing quantities.
+- text: `QuantityMilli` = token count (one milli-unit of the 1,000-token rate unit is one token), so `amount = tokens × micro_per_1K / 1000`. `SKU` is the token category: `input`, `output`, `cache_read`, `cache_write`.
 - image: `QuantityMilli` = image count × 1000.
 - video: `QuantityMilli` = measured milliseconds, validated against the **requested** SKU. The SKU's accepted measured heights are: H3 Lite 768P = 720–1079, H3 Lite 2K = 1440, Kling 720P = 720, Kling 1080P = 1080. A measured height outside its SKU is `ErrSKUMismatch` (rejected at staging), never repriced at a neighbouring tier; 2160/4K and 1080–1439 H3 output are HOLD.
 
@@ -153,6 +157,27 @@ func TestChargeImages(t *testing.T) {
 	line, err := DefaultRateCard().Charge(Usage{Kind: "image", Model: "seedream-5-0-lite", Images: 3}, now)
 	if err != nil || line.AmountMicro != 12_000_000 || line.QuantityMilli != 3000 {
 		t.Fatalf("got %+v, err %v", line, err)
+	}
+}
+
+func TestChargeTextUsesInputAndOutputRates(t *testing.T) {
+	// 29 credits/M input, 113 credits/M output (DeepSeek default).
+	in, err := DefaultRateCard().Charge(Usage{Kind: "text", Model: "deepseek-v4.1-flash", SKU: "input", InputTokens: 1_000_000}, now)
+	if err != nil || in.AmountMicro != 29_000_000 {
+		t.Fatalf("input: got %+v, err %v", in, err)
+	}
+	out, err := DefaultRateCard().Charge(Usage{Kind: "text", Model: "deepseek-v4.1-flash", SKU: "output", OutputTokens: 100_000}, now)
+	if err != nil || out.AmountMicro != 11_300_000 {
+		t.Fatalf("output: want 11.3 credits, got %+v, err %v", out, err)
+	}
+}
+
+func TestChargeTextBillsCacheReadAtInputRate(t *testing.T) {
+	// DeepSeek has no cache-hit quote: cache_read falls back to the input rate
+	// and is never free and never folded into input.
+	line, err := DefaultRateCard().Charge(Usage{Kind: "text", Model: "deepseek-v4.1-flash", SKU: "cache_read", CacheReadTokens: 1_000_000}, now)
+	if err != nil || line.AmountMicro != 29_000_000 || line.SKU != "cache_read" {
+		t.Fatalf("cache_read: got %+v, err %v", line, err)
 	}
 }
 
@@ -220,7 +245,7 @@ Expected: FAIL — `undefined: DefaultRateCard`.
 | `MiniMax-H3-Lite` / `2K` | video | `MicroPerSecond: 15_000_000`, accepted height 1440 |
 | `kling-v3-omni` / `720P`, `1080P` silent, no reference video | video | **PROVISIONAL, 10/14 credits/s, not priceable until OEM validated** |
 | `MiniMax-H3` / `768P`, `2K` | video | `MicroPerSecond: 11_000_000 / 18_000_000` (20.9%/21.1%), **CANDIDATE by owner override: above the official list, no discount claim** |
-| `deepseek-v4.1-flash` / input, output (**default text model**) | text | `MicroPer1KTokensInput: 29_000`, `MicroPer1KTokensOutput: 113_000`; cache read bills at the input rate until a cache-hit quote exists |
+| `deepseek-v4.1-flash` / input, output (**default text model**) | text | `MicroPerKTokenInput: 29_000`, `MicroPerKTokenOutput: 113_000`; cache read bills at the input rate until a cache-hit quote exists |
 | `MiniMax-H3` self-deployed 1080P/4K, H3-Max, Kling with audio, Grok video, Claude text, all unquoted models | any | **HOLD / not in live rate book** |
 
 The tests above use `MiniMax-H3-Lite` because the Lite tier is the intended
@@ -307,11 +332,23 @@ func TestCatalogCapsFollowDeclaredOutputs(t *testing.T) {
         }
 	}
 }
+
+func TestHoldModelSkillIsUnavailable(t *testing.T) {
+	// Pinned to a HOLD model: no sale and no silent fallback to the default.
+	pinned := SkillCatalogEntry{ID: "hold-text", Output: []string{"text"}, Models: OutputModels{Text: "claude-haiku-5-5"}}
+	if _, err := pinned.Quote(OutputCaps{MaxTextTokens: 8000}, DefaultRateCard(), now); !errors.Is(err, ErrRateMissing) {
+		t.Fatalf("HOLD text model must be unavailable, got %v", err)
+	}
+	// Unpinned text skills default to the approved model.
+	if got := (SkillCatalogEntry{ID: "default-text", Output: []string{"text"}}).ModelsOrDefault().Text; got != "deepseek-v4.1-flash" {
+		t.Fatalf("default text model = %q, want deepseek-v4.1-flash", got)
+	}
+}
 ```
 
 - [ ] **Step 2: Run it and confirm it fails**
 
-Run: `cd server && go test ./internal/aurora -run TestCatalogCaps -count=1`
+Run: `cd server && go test ./internal/aurora -run 'TestCatalogCaps|TestHoldModel' -count=1`
 Expected: FAIL — `entry.Caps undefined`.
 
 - [ ] **Step 3: Implement the caps and projection**
@@ -322,7 +359,7 @@ Then extend the client schema so the new fields survive parsing: add `maxCredits
 
 - [ ] **Step 4: Run the tests**
 
-Run: `cd server && go test ./internal/aurora -run TestCatalogCaps -count=1 && cd .. && pnpm exec vitest run packages/core/aurora/api.test.ts`
+Run: `cd server && go test ./internal/aurora -run 'TestCatalogCaps|TestHoldModel' -count=1 && cd .. && pnpm exec vitest run packages/core/aurora/api.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -370,8 +407,10 @@ ALTER TABLE aurora_asset ADD COLUMN IF NOT EXISTS measured jsonb NOT NULL DEFAUL
 `5006_aurora_generation_charge.up.sql`
 
 ```sql
--- One row per (kind, model) charge line of a settled generation. `quantity_milli`
--- counts tokens (text), images × 1000, or milliseconds (video).
+-- One row per (kind, model, sku) charge line of a settled generation. For text,
+-- sku is the token category (input/output/cache_read/cache_write) and
+-- `quantity_milli` is the token count; images use count × 1000, video uses
+-- milliseconds.
 CREATE TABLE IF NOT EXISTS aurora_generation_charge (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     generation_id uuid NOT NULL,
@@ -798,8 +837,10 @@ Behaviour:
   unapproved-candidate skills render as unavailable, not as purchasable.
 - The insufficient-credits dialog shows the shortfall from the 402 body.
 - The result page renders one row per charge: `3 张图 × 4 积分（seedream-5-0-lite）`,
-  `视频 768P × 5.0 秒 × 9 积分/秒（MiniMax-H3-Lite）`; HOLD text SKUs are not shown as
-  purchasable, then the total. A `legacy` line renders as `本次 90 积分`.
+  `视频 768P × 5.0 秒 × 9 积分/秒（MiniMax-H3-Lite）`,
+  `文本 输入 1.0M tokens × 29 积分/M（deepseek-v4.1-flash）`; HOLD text SKUs are
+  not shown as purchasable, then the total. A `legacy` line renders as
+  `本次 90 积分`. Token rows show `quantityMilli` as tokens, not credits.
 - Never show the reserved ceiling on the result page.
 
 - [ ] **Step 1: Write the failing component test**
@@ -812,6 +853,14 @@ it("itemizes a settled generation", () => {
   ]});
   expect(screen.getByText(/5\.0 秒/)).toBeTruthy();
   expect(screen.getByText(/49/)).toBeTruthy();
+});
+
+it("renders a text token line", () => {
+  renderDetail({ creditsCharged: 29_000_000, charges: [
+    { kind: "text", model: "deepseek-v4.1-flash", sku: "input", quantityMilli: 1_000_000, unitRateMicro: 29_000, amountMicro: 29_000_000, overCap: false },
+  ]});
+  expect(screen.getByText(/输入 1\.0M/)).toBeTruthy();
+  expect(screen.getByText(/29/)).toBeTruthy();
 });
 
 it("shows the server quote before submit", async () => {

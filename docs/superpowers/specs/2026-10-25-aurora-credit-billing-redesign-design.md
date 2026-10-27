@@ -566,7 +566,7 @@ Aurora's fork-only migrations take numbers from 5000 upward. Every index is
 | `generation_id`, `workspace_id`, `user_id` | attribution |
 | `kind` | `text` \| `image` \| `video` |
 | `model` | the provider model id the rate came from |
-| `quantity_milli` | integer: images × 1000, video milliseconds, text tokens × 1000 |
+| `quantity_milli` | integer: images × 1000, video milliseconds, text tokens (one milli-unit of the 1,000-token rate unit is one token) |
 | `unit_rate_micro` | the rate applied, micro-credits per 1000 units |
 | `amount_micro` | `ceil(quantity_milli × unit_rate_micro / 1000)`, exact microcredits, never rounded up to a whole credit |
 | `measured` | the measurement backing `quantity_milli` (height, duration, tokens) |
