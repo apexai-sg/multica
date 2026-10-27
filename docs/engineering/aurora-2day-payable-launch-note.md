@@ -34,7 +34,7 @@
 
 **状态：owner/ops — 本环境未执行。**
 
-要在 Stripe 里创建五个对象（三个订阅 + 两个一次性积分包），价格与积分必须和 `server/internal/aurora/tiers.go` 的目录一致：`creator` 1,900 / `pro` 5,900 / `business` 16,900；top-up `t5` 500 / `t20` 2,000。
+要在 Stripe 里创建五个对象（三个订阅 + 两个一次性积分包）。`server/internal/aurora/tiers.go` 持有月额度授予与 price-id 槽位：`creator` 1,900 / `pro` 5,900 / `business` 16,900；top-up `t5` 500 / `t20` 2,000。金额与币种不在这份 Go 目录里：它们来自计划 §Decisions and what remains open（S$19 / S$59 / S$169，100 credits = S$1）和 `packages/views/locales/*/aurora.json` 的 `billing.subscription.tiers` 与 `billing.topup.packs` 文案。建 Stripe price 时这三处必须一致。
 
 | 对象 | env 变量（价目 id 填入处） | 金额 | 币种 | 类型 | 目录授予 |
 |---|---|---|---|---|---|
@@ -207,22 +207,24 @@ Dashboard → Webhooks → 选该 endpoint → Send test event（例如 `checkou
 | # | 操作 | 期望的可观察证据 | 对应验收清单行 |
 |---|---|---|---|
 | 1 | 新用户进入 `/{workspaceSlug}/billing` | 免费版卡片显示 200 credits 与 10 runs/月 | “A new user lands on `/{workspaceSlug}/billing`…” |
-| 2 | 用测试卡订阅 Creator | 回到 `?checkout=success`；页面在约 1 分钟内自动 refetch（`billing.tsx` 的 checkout 返回轮询），套餐显示 `creator`；钱包 +1,900，且**只有一次**；流水一行 `kind=adjustment`、`reference=sub:<userID>:<YYYY-MM>`。若本月已先领过免费 200，则按差额补到 1,900（流水仍只有一行，金额 1,700，这是 `EnsureMonthlyAllowance` 的语义） | “Subscribing with a test card returns to `?checkout=success`…” |
+| 2 | 用测试卡订阅 Creator | 回到 `?checkout=success`；页面在约 1 分钟内自动 refetch（`billing.tsx` 的 checkout 返回轮询），套餐显示 `creator`；钱包 +1,900，且**只有一次**；流水为 `kind=adjustment`、`reference=sub:<userID>:<YYYY-MM>`。若本月已先领过免费 200，升级按差额补到 1,900：同一 `reference` 下留有两行 `adjustment`（200 与 1,700），幂等键不同（免费额 `grant:...:allowance:200000000`、付费额 `grant:...:allowance:1900000000`，见 `EnsureMonthlyAllowance`）；本月尚未领过免费额则只有一行 1,900 | “Subscribing with a test card returns to `?checkout=success`…” |
 | 3 | 跑一次文本技能（如 60 credits 的 `content-creation-*` 或 `office-*`） | 创建即扣 60：流水一行 `kind=deduction`、`reference=<generationID>`；完成后 generation 为 `completed`；流水里该行能显示技能名（页面用 generation→skill 映射） | “A text generation debits 60–100 credits…” |
 | 4 | 重投第 2 步的 `checkout.session.completed`：Dashboard → Events → 该事件 → Resend，或 `stripe events resend evt_...` | `200`；余额不变；不新增流水行（月度授予按 `grant:sub:<userID>:<YYYY-MM>:allowance:<micro>` 幂等，`EnsureMonthlyAllowance` 发现已授予即 no-op） | “the wallet gains the tier's monthly credits exactly once” |
 | 5 | 制造一次失败生成（见下方触发方式） | 流水出现一行 `kind=refund`、`reference=<generationID>`；generation 为 `failed` | “A failed generation releases its reservation…” |
 | 6 | 重投该任务的终态回调（daemon 的 complete/fail 重放，或让 sweeper 再跑一遍） | `200`；不再出现第二行 refund（settlement 只处理仍为 `queued` 的 generation；refund 以 generation id 为幂等键） | “…a replayed terminal callback releases nothing further” |
 | 7 | 买 `t5` top-up | +500 一次；流水一行 `kind=topup`、`reference=cs_...` | “A top-up purchase adds exactly its credits once…” |
 | 8 | 重投第 7 步的 Checkout 事件 | `200`；余额不变、无新行（grant 以 Checkout Session id 为键） | “…replaying the webhook adds nothing” |
-| 9 | 把余额花到不足一次生成（验收清单写的是 0） | HTTP `402`，body `{"error":"insufficient credits"}`；composer 显示积分不足与 top-up 入口 | “With the balance at zero, create returns 402…”（**有偏差，见下**） |
+| 9 | 把余额花到不足一次生成（验收清单写的是 0） | HTTP `402`，body 含 `error: "insufficient credits"` 与 `requiredCredits` / `availableCredits` / `shortfallCredits`（单位是 credits 而非 micro；`shortfall = max(0, required - available)`，见 `aurora.go` 的 `ErrInsufficientCredits` 分支）；composer 显示差多少 credits，没有这三个字段时回落到技能价格/余额文案；该挂载没有 top-up 链接（见下） | “With the balance at zero, create returns 402…” |
 | 10 | Dashboard 发一次测试事件 | `200`，日志无 `invalid signature` | “The webhook answers 200 to a Stripe test event…” |
 | 11 | 24h 结算循环（`server/cmd/server/aurora_settlement.go`，`auroraSettlementInterval = 24h`） | 当日已授予的月额度不会重复追加；上月未用余额在次月第一次结算时按 `expire` 扣减（如有） | —（补充观察，不在验收清单内） |
 | 12 | 在 checkout 卡片上核对条款 | 两个购买控件旁都显示 `billing.checkout.no_refund`（见 T10） | “The checkout page states that all purchases are final…” |
 | 13 | 一次完整文本生成到产物 | 生成详情有已提交 artifact；作品库可见 | “A text generation on the chosen model produces its artifact end-to-end” |
 
+验收清单里另有两行不在 T4 的步骤内：一行是 “Deleting the subscription in Stripe flips the app to the free tier on the next read”，由 T6 第 2–3 步覆盖；一行是 “Unsetting `STRIPE_SECRET_KEY` makes checkout answer 503, not a broken button”，由 T2 的验证覆盖（在 test/staging 执行）。
+
 失败生成的触发方式（test 环境）：最可控的是让后台任务失败——停掉/断开该 workspace 的 runtime，让任务被 sweeper 判失败，或让 daemon 上报 fail。失败结算路径是 `server/internal/service/aurora_completion.go` 的 `settleAuroraOnFailed`（任务失败时由 `server/internal/service/task.go` 的 `FailTask` 与 sweeper 汇总点调用）；成功但无产物的回调也会被判失败并退款。
 
-**第 9 步的偏差（必须记录，不能当成已满足）**：验收清单写的是 402 带 `requiredCredits` / `availableCredits` / `shortfallCredits`，但本分支实现返回的是 `{"error":"insufficient credits"}`（`aurora.go` 的 `CreateAuroraGeneration` 中 `writeError(w, http.StatusPaymentRequired, "insufficient credits")`；`writeError` 只写 `error` 字段，见 `server/internal/handler/handler.go`）。客户端在 402 时显示技能价格与 top-up 入口，不回显这三个数字。launch review 要么改清单，要么另开票补字段，不要声称已观察。
+**第 9 步说明（T4a 已落地）**：402 的三字段契约在本说明第一稿之后实现（T4a；`server/internal/handler/aurora.go` 的 `ErrInsufficientCredits` 分支）。`writeJSON` 返回 `error` 与 `requiredCredits` / `availableCredits` / `shortfallCredits`；若拒绝后的余额读取失败，则改为 `500 failed to load balance`。客户端 `getAuroraInsufficientCreditsDetails` 解析这三个字段，composer 用 `shortfallCredits` 显示差多少（`composer.shortfall`，中文文案“还差 N 积分。”），字段缺失（旧服务端/无法解码的 body）时回落到技能价格与钱包余额文案。**top-up 链接未接**：`GenerationComposer` 只在传入 `topUpHref` 时渲染那个 `AlertAction`，而本挂载 `apps/aurora/app/[workspaceSlug]/skills/connected/page.tsx` 没有传；把接上 `topUpHref` 作为后续改动，不要写进本次验收。
 
 **第 11 步说明**：结算循环每天跑，`EnsureMonthlyAllowance` 与 `Expire` 都以月度为键幂等；当月重投 webhook 不会叠加授予。
 
@@ -239,8 +241,10 @@ Dashboard → Webhooks → 选该 endpoint → Send test event（例如 `checkou
 ### 步骤
 
 1. 按 T4 完成一次订阅购买，回到 billing 页。期望：套餐卡显示付费 tier（creator/pro/business）、本期结束时间、当月 generation 用量（如 `/30`、`/100`、`/300`）；钱包里已有该 tier 的月额度（1,900 / 5,900 / 16,900）。
-2. 在 Stripe 侧取消订阅：Dashboard → 该订阅 → Cancel immediately（或用 `stripe subscriptions cancel sub_...`）。如果 #53 的 Customer Portal 已上线，也可以从订阅页跳转 Portal 取消（`POST /api/aurora/billing/portal`）。两种方式都会发 `customer.subscription.deleted`。
-3. 再读一次（重载页面或 refetch）。期望：生效 tier 回 `free`，上限 200 credits / 10 runs/月；已发的月额度**不回收**，可继续花到该月窗口结束（`handleSubscriptionDeleted` 的注释即此语义）。
+2. 在 Stripe 侧取消订阅，有两条路径、行为不同：
+   - Customer Portal（`POST /api/aurora/billing/portal`，若 #53 已上线）默认是**到期取消**：发 `customer.subscription.updated` 且 `cancel_at_period_end=true`；`handleSubscriptionUpsert` 仍把 status 记为 `active`，所以付费权益保留到当期结束（billing 页显示“到期后结束”）。
+   - Dashboard → 该订阅 → Cancel immediately（或 `stripe subscriptions cancel sub_...`）是**立即取消**：发 `customer.subscription.deleted`，`handleSubscriptionDeleted` 把 status 记为 `canceled`。
+3. 到期取消的订阅要等到期日 Stripe 发出 `customer.subscription.deleted`（立即取消则在 `deleted` 到达后）再读一次（重载页面或 refetch）。期望：生效 tier 回 `free`，上限 200 credits / 10 runs/月；已发的月额度**不回收**，可继续花到该月窗口结束（`handleSubscriptionDeleted` 的注释即此语义）。
 4. 到期未付（past_due）：Stripe 把非 `active`/`trialing`/`canceled` 的状态一律映射为 `past_due`（`stripeSubscriptionStatus`），同样回落 free。要在测试里主动造出这个状态，需要 Stripe test clock 或一张续费会失败的测试卡，属可选步骤；本分支没有“把某订阅改成 past_due”的运维开关，若无法造出，就在 launch review 里记“past-due 仅有单元测试覆盖、未现场观察”，不要写成已验证。
 5. 负向检查：从未订阅的账号 → free；`aurora_subscription` 行存在但 tier 已从目录移除 → free（`LimitsForUser` 的 fallback）。
 
@@ -324,7 +328,7 @@ Dashboard → Webhooks → 选该 endpoint → Send test event（例如 `checkou
 | S$5 top-up | S$0.670 | 13.40% | S$0.695 | 13.90% |
 | S$20 top-up | S$1.180 | 5.90% | S$1.280 | 6.40% |
 
-**小额 top-up 的费率最重**（S$5 有 13.4% 被手续费吃掉，是 S$169 订阅的 3.6 倍）。此前材料里 S$20 ≈9.2% 的估计无法用 3.4% + S$0.50 复现（按此式是 5.9%）；以 Stripe 账号实际费率页为准，但“小额 top-up 费率显著偏高”的结论不因此改变。订阅侧的积分按面值授予（100 credits = S$1），所以手续费直接压在每次收费的毛利上，不与 token 成本混算。
+**小额 top-up 的费率最重**（S$5 有 13.4% 被手续费吃掉，是 S$169 订阅的 3.6 倍；S$20 按 3.4% + S$0.50 算是 5.9%，见上表）。以 Stripe 账号实际费率页为准；“小额 top-up 费率显著偏高”的结论不因此改变。订阅侧的积分按面值授予（100 credits = S$1），所以手续费直接压在每次收费的毛利上，不与 token 成本混算。
 
 ## T10 — No-refund operations (#54)
 
@@ -345,7 +349,7 @@ Dashboard → Webhooks → 选该 endpoint → Send test event（例如 `checkou
 **2. “扣款了但没有积分”**
 
 1. 先在 Stripe 找到对应的 Checkout Session / 事件，从 Dashboard → Events → Resend（或 `stripe events resend evt_...`）重投。
-2. 确认响应 `200`、日志无签名错误，再看该用户的流水：`GET /api/aurora/billing/transactions`（或按 `credit_ledger.idempotency_key` 查）。
+2. 确认响应 `200`、日志无签名错误，再核对该用户的流水。`GET /api/aurora/billing/transactions` 只解析会话里的调用者（`auroraBillingUser`，`aurora.go`），客服不能用它读别人的账本：要么用该用户自己的会话打开账单页，要么按 user id / `credit_ledger.idempotency_key` 直接查 `credit_ledger` 表。
 3. 如果已有授予行：什么都不用做——积分已经在账上（前端可能只是没刷新）。
 4. 如果确实没有：只有工程能补，且必须使用 webhook 会用的同一个身份，否则之后的正常重投会二次发放：
    - top-up：`kind = 'topup'`，`reference = <Checkout Session id，cs_...>`，`idempotency_key = 'grant:' + <同一个 cs_...>`，金额 = 包 credits × 1e6 micro。这与 `CreditService.Grant` 的键完全一致（`server/internal/aurora/credit.go:76-90`），`InsertCreditLedger` 的 `ON CONFLICT (idempotency_key) DO NOTHING` 会让后续重投变成 no-op。
@@ -405,4 +409,4 @@ Dashboard → Webhooks → 选该 endpoint → Send test event（例如 `checkou
 - **币种**：SGD 还是 USD（计划 §Still to confirm）。Price 的币种不可变，必须在创建 live 价格前决定；UI 目前用 `$`，定价数字不变，仅币种改变。
 - **DeepSeek 凭证**：owner 未提供 endpoint/key。T7 阻塞，上线继续用 Claude；切换为独立改动。
 - **年付 11/12**：不在本次范围；`AURORA_STRIPE_PRICE_*_YEARLY` 保持空，`business` 无年付槽位。
-- **本说明核出的偏差，需在 launch review 处理**：(a) 402 的 `requiredCredits`/`availableCredits`/`shortfallCredits` 在实现里不存在，只有 `{"error":"insufficient credits"}`；(b) past-due 状态没有可用的现场造法，只有单元测试覆盖；(c) T8 的模型路由是假设，需与 daemon/provider 配置核对。
+- **本说明核出的偏差与后续，需在 launch review 处理**：(a) 402 的 `requiredCredits`/`availableCredits`/`shortfallCredits` 已由 T4a 落地（见 T4 第 9 步），composer 在本挂载没有 top-up 链接（`topUpHref` 未传），接上属后续改动；(b) past-due 状态没有可用的现场造法，只有单元测试覆盖；(c) T8 的模型路由是假设，需与 daemon/provider 配置核对。
