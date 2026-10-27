@@ -188,15 +188,17 @@ type Config struct {
 	//   - AuroraStripePriceCreatorMonthly -> AURORA_STRIPE_PRICE_CREATOR_MONTHLY
 	//   - AuroraStripePriceCreatorYearly  -> AURORA_STRIPE_PRICE_CREATOR_YEARLY
 	//   - AuroraStripePriceProMonthly     -> AURORA_STRIPE_PRICE_PRO_MONTHLY
+	//   - AuroraStripePriceBusinessMonthly -> AURORA_STRIPE_PRICE_BUSINESS_MONTHLY
 	//   - AuroraStripePriceProYearly      -> AURORA_STRIPE_PRICE_PRO_YEARLY
 	//   - AuroraStripePriceTopup5         -> AURORA_STRIPE_PRICE_TOPUP_5
 	//   - AuroraStripePriceTopup20        -> AURORA_STRIPE_PRICE_TOPUP_20
-	AuroraStripePriceCreatorMonthly string
-	AuroraStripePriceCreatorYearly  string
-	AuroraStripePriceProMonthly     string
-	AuroraStripePriceProYearly      string
-	AuroraStripePriceTopup5         string
-	AuroraStripePriceTopup20        string
+	AuroraStripePriceCreatorMonthly  string
+	AuroraStripePriceCreatorYearly   string
+	AuroraStripePriceProMonthly      string
+	AuroraStripePriceBusinessMonthly string
+	AuroraStripePriceProYearly       string
+	AuroraStripePriceTopup5          string
+	AuroraStripePriceTopup20         string
 	// GitExtraCACerts is the PEM of the private CAs the operator added to the
 	// backend's trust store through SSL_CERT_DIR (see internal/gitca). It is
 	// handed to daemons with the workspace repos so their git can reach a
@@ -598,6 +600,7 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 			cfg.AuroraStripePriceCreatorMonthly,
 			cfg.AuroraStripePriceCreatorYearly,
 			cfg.AuroraStripePriceProMonthly,
+			cfg.AuroraStripePriceBusinessMonthly,
 			cfg.AuroraStripePriceProYearly,
 			cfg.AuroraStripePriceTopup5,
 			cfg.AuroraStripePriceTopup20,

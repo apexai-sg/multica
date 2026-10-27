@@ -181,8 +181,8 @@ describe("AuroraBilling", () => {
     });
     mocks.topups.mockReturnValue({
       data: [
-        { id: "t5", credits: 5000 },
-        { id: "t20", credits: 20000 },
+        { id: "t5", credits: 500 },
+        { id: "t20", credits: 2000 },
       ],
       isPending: false,
       refetch: vi.fn(),
@@ -243,7 +243,7 @@ describe("AuroraBilling", () => {
     mocks.createTopupCheckout.mockReturnValue(checkout);
     renderBilling();
 
-    for (const name of ["5,000 credits · $5", "20,000 credits · $20"]) {
+    for (const name of ["500 credits · $5", "2,000 credits · $20"]) {
       const pack = screen.getByRole("button", { name });
       expect(pack).toHaveAttribute("type", "button");
       expect(pack).toHaveAttribute("aria-busy", "true");
@@ -263,8 +263,8 @@ describe("AuroraBilling", () => {
     mocks.createTopupCheckout.mockReturnValue(checkout);
     renderBilling();
 
-    const pack = screen.getByRole("button", { name: "20,000 credits · $20" });
-    expect(within(pack).getByText("20,000 credits")).toBeVisible();
+    const pack = screen.getByRole("button", { name: "2,000 credits · $20" });
+    expect(within(pack).getByText("2,000 credits")).toBeVisible();
     expect(within(pack).getByText("$20")).toBeVisible();
     expect(pack).toHaveAttribute("aria-busy", "false");
     await user.click(pack);
@@ -287,7 +287,7 @@ describe("AuroraBilling", () => {
         <AuroraBilling />
       </NavigationProvider>,
     );
-    const pack = screen.getByRole("button", { name: "5,000 credits · $5" });
+    const pack = screen.getByRole("button", { name: "500 credits · $5" });
     expect(pack).toBeDisabled();
     expect(pack).toHaveAttribute("aria-busy", "false");
     await user.click(pack);
@@ -582,10 +582,14 @@ describe("AuroraBilling", () => {
     expect(screen.getAllByText("Free")).toHaveLength(2);
     expect(screen.getByText("$0")).toBeInTheDocument();
     expect(screen.getByText("200 credits a month")).toBeInTheDocument();
-    expect(screen.getByText("$9.90/mo")).toBeInTheDocument();
-    expect(screen.getByText("$29/mo")).toBeInTheDocument();
+    expect(screen.getByText("$19/mo")).toBeInTheDocument();
+    expect(screen.getByText("1,900 credits a month")).toBeInTheDocument();
+    expect(screen.getByText("$59/mo")).toBeInTheDocument();
+    expect(screen.getByText("5,900 credits a month")).toBeInTheDocument();
+    expect(screen.getByText("$169/mo")).toBeInTheDocument();
+    expect(screen.getByText("16,900 credits a month")).toBeInTheDocument();
     // The free plan is the one they are on; only the paid plans are for sale.
-    expect(screen.getAllByRole("button", { name: "Subscribe" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Subscribe" })).toHaveLength(3);
   });
 
   it("starts a subscription checkout with the workspace's return URLs", async () => {
@@ -613,7 +617,7 @@ describe("AuroraBilling", () => {
 
     renderBilling();
     await user.click(
-      screen.getByRole("button", { name: "5,000 credits · $5" }),
+      screen.getByRole("button", { name: "500 credits · $5" }),
     );
 
     expect(createTopupCheckout.mutate.mock.calls[0]?.[0]).toEqual({

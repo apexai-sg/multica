@@ -182,13 +182,18 @@
         },
         "creator": {
           "name": "创作者版",
-          "price": "$9.90/月",
-          "summary": "每月 3,000 积分"
+          "price": "$19/月",
+          "summary": "每月 1,900 积分"
         },
         "pro": {
           "name": "专业版",
-          "price": "$29/月",
-          "summary": "每月 12,000 积分"
+          "price": "$59/月",
+          "summary": "每月 5,900 积分"
+        },
+        "business": {
+          "name": "商业版",
+          "price": "$169/月",
+          "summary": "每月 16,900 积分"
         },
         "unknown": {
           "name": "未知套餐",

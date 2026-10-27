@@ -182,13 +182,18 @@
         },
         "creator": {
           "name": "크리에이터",
-          "price": "$9.90/월",
-          "summary": "월 3,000 크레딧"
+          "price": "$19/월",
+          "summary": "월 1,900 크레딧"
         },
         "pro": {
           "name": "프로",
-          "price": "$29/월",
-          "summary": "월 12,000 크레딧"
+          "price": "$59/월",
+          "summary": "월 5,900 크레딧"
+        },
+        "business": {
+          "name": "비즈니스",
+          "price": "$169/월",
+          "summary": "월 16,900 크레딧"
         },
         "unknown": {
           "name": "알 수 없는 요금제",

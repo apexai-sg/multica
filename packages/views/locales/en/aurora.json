@@ -184,13 +184,18 @@
         },
         "creator": {
           "name": "Creator",
-          "price": "$9.90/mo",
-          "summary": "3,000 credits a month"
+          "price": "$19/mo",
+          "summary": "1,900 credits a month"
         },
         "pro": {
           "name": "Pro",
-          "price": "$29/mo",
-          "summary": "12,000 credits a month"
+          "price": "$59/mo",
+          "summary": "5,900 credits a month"
+        },
+        "business": {
+          "name": "Business",
+          "price": "$169/mo",
+          "summary": "16,900 credits a month"
         },
         "unknown": {
           "name": "Unknown plan",

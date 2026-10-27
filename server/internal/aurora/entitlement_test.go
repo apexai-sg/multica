@@ -11,7 +11,7 @@ import (
 // entitlementTiers has empty price ids: the gates read plan numbers, never
 // prices.
 func entitlementTiers() *aurora.TierCatalog {
-	return aurora.NewTierCatalog("", "", "", "", "", "")
+	return aurora.NewTierCatalog("", "", "", "", "", "", "")
 }
 
 func TestLimitsForUserDefaultsToFree(t *testing.T) {

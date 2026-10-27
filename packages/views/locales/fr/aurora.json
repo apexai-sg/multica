@@ -186,13 +186,18 @@
         },
         "creator": {
           "name": "Créateur",
-          "price": "$9,90/mois",
-          "summary": "3 000 crédits par mois"
+          "price": "$19/mois",
+          "summary": "1 900 crédits par mois"
         },
         "pro": {
           "name": "Pro",
-          "price": "$29/mois",
-          "summary": "12 000 crédits par mois"
+          "price": "$59/mois",
+          "summary": "5 900 crédits par mois"
+        },
+        "business": {
+          "name": "Entreprise",
+          "price": "$169/mois",
+          "summary": "16 900 crédits par mois"
         },
         "unknown": {
           "name": "Forfait inconnu",

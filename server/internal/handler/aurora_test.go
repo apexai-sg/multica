@@ -1751,7 +1751,7 @@ func installAuroraPayments(t *testing.T, fp aurora.PaymentProvider) {
 	testHandler.Payments = fp
 	testHandler.Tiers = aurora.NewTierCatalog(
 		"price_creator_monthly", "price_creator_yearly",
-		"price_pro_monthly", "price_pro_yearly",
+		"price_pro_monthly", "price_business_monthly", "price_pro_yearly",
 		"price_topup_5", "price_topup_20",
 	)
 	testHandler.cfg.CheckoutReturnOrigins = []string{"https://aurora.example.com"}
@@ -1933,7 +1933,7 @@ func TestCreateSubscriptionCheckoutRejectsUnknownBillingCycle(t *testing.T) {
 // whatever price Stripe's default happens to be.
 func TestCreateSubscriptionCheckoutRejectsUnconfiguredPrice(t *testing.T) {
 	installAuroraPayments(t, &fakePayments{checkoutURL: "https://checkout.stripe.com/c/test"})
-	testHandler.Tiers = aurora.NewTierCatalog("", "", "", "", "", "")
+	testHandler.Tiers = aurora.NewTierCatalog("", "", "", "", "", "", "")
 
 	req := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
 		"tier": "creator", "billingCycle": "monthly",
@@ -2110,7 +2110,7 @@ func TestStripeWebhookSubscriptionCompleted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Balance: %v", err)
 	}
-	if want := int64(3000) * microCreditsPerCredit; bal != want {
+	if want := int64(1900) * microCreditsPerCredit; bal != want {
 		t.Fatalf("balance = %d, want %d (one month of creator credits)", bal, want)
 	}
 }
@@ -2172,7 +2172,7 @@ func TestStripeWebhookSubscriptionCompletedTopsUpFreeAllowance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Balance: %v", err)
 	}
-	if want := int64(3000) * microCreditsPerCredit; bal != want {
+	if want := int64(1900) * microCreditsPerCredit; bal != want {
 		t.Fatalf("balance after Free-to-Creator upgrade = %d, want %d", bal, want)
 	}
 }
@@ -2193,7 +2193,7 @@ func TestStripeWebhookTopupCompleted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Balance: %v", err)
 	}
-	if want := int64(5000) * microCreditsPerCredit; bal != want {
+	if want := int64(500) * microCreditsPerCredit; bal != want {
 		t.Fatalf("balance = %d, want %d", bal, want)
 	}
 
@@ -2236,7 +2236,7 @@ func TestStripeWebhookTopupWaitsForDelayedPayment(t *testing.T) {
 	}
 
 	postStripeWebhook(t, `{"type":"checkout.session.async_payment_succeeded"}`, http.StatusOK)
-	want := int64(5000) * microCreditsPerCredit
+	want := int64(500) * microCreditsPerCredit
 	if bal, err := testHandler.Credit.Balance(context.Background(), parseUUID(testUserID)); err != nil || bal != want {
 		t.Fatalf("balance after delayed payment = %d, err=%v, want %d", bal, err, want)
 	}
@@ -2795,7 +2795,7 @@ func TestListAuroraTopups(t *testing.T) {
 // The response must not carry the price id, whatever a future field is called.
 func TestListAuroraTopupsHidesPriceIDs(t *testing.T) {
 	oldTiers := testHandler.Tiers
-	testHandler.Tiers = aurora.NewTierCatalog("", "", "", "", "price_secret_5", "price_secret_20")
+	testHandler.Tiers = aurora.NewTierCatalog("", "", "", "", "", "price_secret_5", "price_secret_20")
 	t.Cleanup(func() { testHandler.Tiers = oldTiers })
 
 	req := newRequest(http.MethodGet, "/api/aurora/billing/topups", nil)

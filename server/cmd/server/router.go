@@ -461,14 +461,15 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 		// the webhook secret unset disables payments entirely (503), and leaving
 		// a price id unset disables just that one checkout, so a half-configured
 		// deployment cannot charge the wrong price.
-		StripeSecretKey:                 strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
-		StripeWebhookSecret:             strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
-		AuroraStripePriceCreatorMonthly: strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_CREATOR_MONTHLY")),
-		AuroraStripePriceCreatorYearly:  strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_CREATOR_YEARLY")),
-		AuroraStripePriceProMonthly:     strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_PRO_MONTHLY")),
-		AuroraStripePriceProYearly:      strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_PRO_YEARLY")),
-		AuroraStripePriceTopup5:         strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_TOPUP_5")),
-		AuroraStripePriceTopup20:        strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_TOPUP_20")),
+		StripeSecretKey:                  strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
+		StripeWebhookSecret:              strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
+		AuroraStripePriceCreatorMonthly:  strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_CREATOR_MONTHLY")),
+		AuroraStripePriceCreatorYearly:   strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_CREATOR_YEARLY")),
+		AuroraStripePriceProMonthly:      strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_PRO_MONTHLY")),
+		AuroraStripePriceBusinessMonthly: strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_BUSINESS_MONTHLY")),
+		AuroraStripePriceProYearly:       strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_PRO_YEARLY")),
+		AuroraStripePriceTopup5:          strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_TOPUP_5")),
+		AuroraStripePriceTopup20:         strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_TOPUP_20")),
 	}
 	h := handler.New(queries, pool, hub, bus, emailSvc, store, cfSigner, analyticsClient, signupConfig, daemonHub)
 	invitationRateLimits := handler.DefaultInvitationRateLimits()

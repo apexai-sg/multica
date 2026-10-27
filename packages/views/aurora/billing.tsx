@@ -343,7 +343,7 @@ export function AuroraBilling() {
  * `tier`); the prices and credit allowances beside them are copy, because the
  * server returns neither for a plan it has not sold.
  */
-const TIER_ORDER = ["free", "creator", "pro"] as const;
+const TIER_ORDER = ["free", "creator", "pro", "business"] as const;
 
 /**
  * The plan card: which plan the caller is on, what it allows, how much of that

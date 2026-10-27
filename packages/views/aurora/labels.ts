@@ -111,12 +111,13 @@ export function skillDisplayNamesById(
 }
 
 /** A plan, as `aurora.billing.subscription.tiers.*`. */
-export type AuroraTierLabel = "free" | "creator" | "pro" | "unknown";
+export type AuroraTierLabel = "free" | "creator" | "pro" | "business" | "unknown";
 
 const TIER_LABELS: Record<string, AuroraTierLabel> = {
   free: "free",
   creator: "creator",
   pro: "pro",
+  business: "business",
 };
 
 /**
