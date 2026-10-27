@@ -314,6 +314,7 @@ func TestCreateAuroraGenerationReservesAndEnqueues(t *testing.T) {
 
 func TestCreateAuroraGenerationRejectsInsufficientCredits(t *testing.T) {
 	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
 	cleanupAuroraSystemAgents(t)
 	ctx := context.Background()
 

@@ -213,7 +213,8 @@
       "usage_label": "本月生成次数",
       "usage_value": "{{used}} / {{limit}}",
       "subscribe": "订阅",
-      "manage": "管理订阅"
+      "manage": "管理订阅",
+      "manage_failed": "无法打开订阅管理，请稍后再试。"
     },
     "topup": {
       "title": "购买积分",
@@ -235,7 +236,7 @@
       "failed": "无法发起购买，请重试。",
       "already_subscribed": "你已经有订阅了。",
       "unavailable": "该实例未开通支付。",
-      "no_refund": "所有购买均为最终购买，不可退款。"
+      "no_refund": "所有购买即为最终交易，不可退款。"
     }
   },
   "runtime": {

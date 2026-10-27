@@ -213,7 +213,8 @@
       "usage_label": "이번 달 생성 횟수",
       "usage_value": "{{used}} / {{limit}}",
       "subscribe": "구독",
-      "manage": "구독 관리"
+      "manage": "구독 관리",
+      "manage_failed": "구독 관리를 열지 못했습니다. 잠시 후 다시 시도해 주세요."
     },
     "topup": {
       "title": "크레딧 구매",

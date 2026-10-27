@@ -52,9 +52,14 @@ Settlement `result` is `ok` or `failed`; a failed run means paying users were
 not granted and the next tick retries (see
 `server/cmd/server/aurora_settlement.go`). A run aborted by a cancelled context
 (graceful shutdown) is logged but not recorded as failed, so a restart does not
-page before the next tick. The 402 counter has no labels on
-purpose: it is a rate, not an attribution. A spike is diagnosed from the
-generation rows the refusal terminalizes, not from a log line: the
+page before the next tick. This rule only sees a run that returned an error:
+`RunMonthlySettlement` logs and skips per-user grant failures — a user with no
+personal workspace, an `EnsureMonthlyAllowance` error, or an unknown or
+zero-credit tier — and still returns nil, so those users count as `ok` and never
+page. To notice them, watch the server log for `aurora monthly grant skipped for
+user` and `aurora monthly grant skipped for unknown tier`. The 402 counter has
+no labels on purpose: it is a rate, not an attribution. A spike is diagnosed
+from the generation rows the refusal terminalizes, not from a log line: the
 `ErrInsufficientCredits` branch calls `markGenerationFailed` with reason
 `insufficient credits`, which lands in the database as
 `aurora_generation.status = 'failed'` with
@@ -107,7 +112,9 @@ groups:
             a call site that was added without classifying its result.
 
       # A settlement run failed. One run covers every subscription, so a single
-      # failure is a whole month of grants missing until the next tick.
+      # failure is a whole month of grants missing until the next tick. Per-user
+      # grant skips return nil and land in result="ok", so this rule cannot see
+      # them; see the settlement caveat above.
       - alert: AuroraBillingSettlementFailed
         expr: sum(increase(multica_aurora_billing_settlement_runs_total{result="failed"}[25h])) > 0
         for: 0m

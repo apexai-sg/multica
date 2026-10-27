@@ -185,13 +185,13 @@ type Config struct {
 	// live modes use different ids, so they are configuration rather than
 	// constants; an empty id makes that specific checkout fail closed with 503
 	// instead of charging whatever price happens to be default.
-	//   - AuroraStripePriceCreatorMonthly -> AURORA_STRIPE_PRICE_CREATOR_MONTHLY
-	//   - AuroraStripePriceCreatorYearly  -> AURORA_STRIPE_PRICE_CREATOR_YEARLY
-	//   - AuroraStripePriceProMonthly     -> AURORA_STRIPE_PRICE_PRO_MONTHLY
+	//   - AuroraStripePriceCreatorMonthly  -> AURORA_STRIPE_PRICE_CREATOR_MONTHLY
+	//   - AuroraStripePriceCreatorYearly   -> AURORA_STRIPE_PRICE_CREATOR_YEARLY
+	//   - AuroraStripePriceProMonthly      -> AURORA_STRIPE_PRICE_PRO_MONTHLY
 	//   - AuroraStripePriceBusinessMonthly -> AURORA_STRIPE_PRICE_BUSINESS_MONTHLY
-	//   - AuroraStripePriceProYearly      -> AURORA_STRIPE_PRICE_PRO_YEARLY
-	//   - AuroraStripePriceTopup5         -> AURORA_STRIPE_PRICE_TOPUP_5
-	//   - AuroraStripePriceTopup20        -> AURORA_STRIPE_PRICE_TOPUP_20
+	//   - AuroraStripePriceProYearly       -> AURORA_STRIPE_PRICE_PRO_YEARLY
+	//   - AuroraStripePriceTopup5          -> AURORA_STRIPE_PRICE_TOPUP_5
+	//   - AuroraStripePriceTopup20         -> AURORA_STRIPE_PRICE_TOPUP_20
 	AuroraStripePriceCreatorMonthly  string
 	AuroraStripePriceCreatorYearly   string
 	AuroraStripePriceProMonthly      string

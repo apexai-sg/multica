@@ -272,7 +272,7 @@ export function AuroraBilling() {
             <p role="alert" className="text-caption text-destructive">
               {isAuroraPaymentsUnavailableError(portalError)
                 ? t(($) => $.billing.checkout.unavailable)
-                : t(($) => $.billing.checkout.failed)}
+                : t(($) => $.billing.subscription.manage_failed)}
             </p>
           ) : null}
 

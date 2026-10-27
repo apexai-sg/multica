@@ -215,7 +215,8 @@
       "usage_label": "Generations this month",
       "usage_value": "{{used}} of {{limit}}",
       "subscribe": "Subscribe",
-      "manage": "Manage subscription"
+      "manage": "Manage subscription",
+      "manage_failed": "Could not open subscription management. Try again shortly."
     },
     "topup": {
       "title": "Buy credits",

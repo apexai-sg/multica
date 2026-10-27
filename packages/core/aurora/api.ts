@@ -580,7 +580,7 @@ export function isAuroraInsufficientCreditsError(error: unknown): boolean {
   return error instanceof ApiError && error.status === 402;
 }
 
-/** The 402's structured shortfall, in whole credits. */
+/** The 402's structured shortfall, in credits (fractional). */
 export type AuroraInsufficientCreditsDetails = {
   requiredCredits: number | null;
   availableCredits: number | null;

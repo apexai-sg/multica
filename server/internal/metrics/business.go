@@ -104,7 +104,7 @@ type BusinessMetrics struct {
 // return per value (a rejected body covers both 400 and 413), so the result
 // label is the classification of how a webhook request ended. Two of them are
 // expected: ok, and not_configured while STRIPE_SECRET_KEY is unset. The other
-// four mean the webhook could not do its job.
+// five mean the webhook could not do its job.
 const (
 	AuroraWebhookResultOK               = "ok"
 	AuroraWebhookResultInvalidSignature = "invalid_signature"

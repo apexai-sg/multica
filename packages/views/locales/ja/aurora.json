@@ -213,7 +213,8 @@
       "usage_label": "今月の生成回数",
       "usage_value": "{{used}} / {{limit}}",
       "subscribe": "購読する",
-      "manage": "サブスクリプションを管理"
+      "manage": "サブスクリプションを管理",
+      "manage_failed": "サブスクリプション管理を開けませんでした。しばらくしてからもう一度お試しください。"
     },
     "topup": {
       "title": "クレジットを購入",

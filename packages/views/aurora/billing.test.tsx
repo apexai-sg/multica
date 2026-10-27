@@ -653,6 +653,22 @@ describe("AuroraBilling", () => {
     });
   });
 
+  it("starts a Business subscription checkout", async () => {
+    const user = userEvent.setup();
+    const createCheckout = mutation();
+    mocks.createCheckout.mockReturnValue(createCheckout);
+
+    renderBilling();
+    await user.click(subscribeButtonFor("Business"));
+
+    expect(createCheckout.mutate.mock.calls[0]?.[0]).toEqual({
+      tier: "business",
+      billingCycle: "monthly",
+      successUrl: "https://app.example.com/acme/billing?checkout=success",
+      cancelUrl: "https://app.example.com/acme/billing?checkout=cancel",
+    });
+  });
+
   it("starts a top-up checkout for the pack that was clicked", async () => {
     const user = userEvent.setup();
     const createTopupCheckout = mutation();

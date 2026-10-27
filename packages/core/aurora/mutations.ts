@@ -116,8 +116,10 @@ export function useCreateAuroraTopupCheckout() {
  * Core returns the validated portal URL but does not navigate, exactly like the
  * checkout mutations: external navigation is platform behavior, so the view
  * hands it to its platform adapter. Stripe's cancellation webhook can land
- * while the portal is open, so the plan and the wallet are invalidated — the
- * return trip re-reads both.
+ * while the portal is open, so creating the session invalidates the plan and
+ * the wallet. That invalidation does not itself refetch anything: the fresh
+ * read comes from the full navigation back to the app, which remounts the
+ * billing view.
  *
  * A 409 (no subscription to manage) and a 503 (no Stripe configuration) are
  * left to the caller; neither is retryable.

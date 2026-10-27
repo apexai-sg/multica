@@ -1006,8 +1006,11 @@ function SubmitFailure({
               the 402 itself is what makes the prompt true, so the price alone
               is a complete sentence, and the balance is added only when there
               is one to show — while the wallet query is pending, failed, or
-              unreadable "you have 0" would be a claim the client never read. */}
-          {shortfallCredits !== null
+              unreadable "you have 0" would be a claim the client never read.
+              Only a positive shortfall is quoted: a top-up racing the
+              post-refusal balance read can leave the server-computed 0, and
+              "you are 0 credits short" would contradict the refusal. */}
+          {shortfallCredits !== null && shortfallCredits > 0
             ? t(($) => $.composer.shortfall, {
                 credits: formatCredits(shortfallCredits, locale),
               })

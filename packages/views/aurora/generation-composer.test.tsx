@@ -341,6 +341,30 @@ describe("GenerationComposer", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("falls back to the cost and balance when the shortfall is zero", async () => {
+    // A top-up racing the post-refusal balance read can leave a 0 shortfall;
+    // "You are 0 credits short." would contradict the refusal it explains.
+    mocks.create.mockRejectedValue(
+      new ApiError("insufficient credits", 402, "Payment Required", {
+        error: "insufficient credits",
+        requiredCredits: 60,
+        availableCredits: 50,
+        shortfallCredits: 0,
+      }),
+    );
+
+    renderComposer({});
+    await submitPrompt();
+
+    expect(await screen.findByText("Not enough credits")).toBeInTheDocument();
+    expect(
+      screen.getByText("This tool costs 60 credits and you have 50."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("You are 0 credits short."),
+    ).not.toBeInTheDocument();
+  });
+
   it("turns a 402 without a shortfall into the top-up prompt", async () => {
     mocks.create.mockRejectedValue(
       new ApiError("insufficient credits", 402, "Payment Required"),

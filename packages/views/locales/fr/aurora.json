@@ -217,7 +217,8 @@
       "usage_label": "Générations ce mois-ci",
       "usage_value": "{{used}} sur {{limit}}",
       "subscribe": "S'abonner",
-      "manage": "Gérer l'abonnement"
+      "manage": "Gérer l'abonnement",
+      "manage_failed": "Impossible d'ouvrir la gestion de l'abonnement. Réessayez dans un instant."
     },
     "topup": {
       "title": "Acheter des crédits",
