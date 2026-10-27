@@ -56,10 +56,10 @@ matters:
 
 - A run that delivers three images costs three times a run that delivers one,
   and the result page names both the count and the rate.
-- Once a text SKU is approved, a text run costs by the `task_usage` rows for
-  its own task — provider-reported input/output/cache tokens, not delivered
-  Unicode length and not a flat fee. Until then every text-only skill is
-  commercially HOLD and cannot be sold metered.
+- A text run costs by the `task_usage` rows for its own task — provider-reported
+  input/output/cache tokens, not delivered Unicode length and not a flat fee.
+  `deepseek-v4.1-flash` is the default; Claude text stays HOLD until its cache
+  and long-context rates are quoted.
 - A video run costs by measured resolution and measured duration; the numbers
   shown are measured by the server, not reported by the agent.
 - No user can be charged more than the amount quoted before submit.
@@ -88,7 +88,7 @@ matters:
   is a ceiling; the charge is what the artifacts add up to; the difference is
   refunded.
 - **D2. Three output categories, SKU-specific meters.** Images per output image; video by the exact provider-supported resolution/audio/input configuration and measured seconds; text by the `task_usage` tokens (input, output, cache read, cache write) recorded for the generation's own task — not approximations of output text.
-- **D3. Text is commercially HOLD until its whole-request cost can be quoted.** The old output-only 1-credit/1K-token rate exceeds relevant official API list prices and ignores billable input. The **metering source is settled** (owner decision 2026-10-27: `task_usage`); what still blocks sale is pricing — cache read/write and >100K prompt tiers have no supplier quote. Do not silently bill text by a Unicode heuristic; distinguish free displayed transcript artifacts from priced model token usage.
+- **D3. Text is metered from `task_usage` and sold only where the whole-request cost is covered.** `deepseek-v4.1-flash` is the default text model at 29 / 113 credits per M tokens (22.3% / 20.0% margin, below the official standard list). The old output-only 1-credit/1K-token rate exceeded relevant official API list prices and ignored billable input, so it is gone. Claude text stays HOLD until cache and long-context rates are quoted. Do not silently bill text by a Unicode heuristic; distinguish free displayed transcript artifacts from priced model token usage.
 - **D4. Reservation is by the per-request requested output, bounded by the
   skill's declared maximum.** Where the skill exposes image count / video
   duration / video mode, submit quotes and reserves that selection, not the
@@ -229,8 +229,9 @@ is part of the rate key.
 | Kling v3 Omni silent, no reference video, 720P / 1080P | **10 / 14 credits/second** | PROVISIONAL: OEM pricing confirmation needed |
 | Kling v3 Omni **with audio**, 720P / 1080P | 12 / 15 credits/second | HOLD: 5.9% / 6.1% margin |
 | Grok Imagine video 480P / 720P / 1080P (if that provider is wired) | **8 / 12 / 22 credits/second** | CANDIDATE, provider not currently integrated |
+| `deepseek-v4.1-flash` text (**default**) in/out | **29 / 113 credits per 1M tokens** | CANDIDATE: 22.3% / 20.0% margin, below the official standard list |
 | `claude-haiku-5-5` ≤100K prompt in/out / `claude-sonnet-5-5` in/out | **8 / 40 and 150 / 750 credits per 1M tokens**, output and input components only | HOLD until cache and >100K prompt tiers are quoted |
-| `deepseek-v4.1-flash` text, H3-Max 480P/768P, Kling 2K, Seedance | **no qualifying live rate** | HOLD |
+| H3-Max 480P/768P, Kling 2K, Seedance | **no qualifying live rate** | HOLD |
 | all other models/variants including GPT/Gemini text/Opus/Kimi/Qwen | **unpriced** | HOLD pending an approved rate and OEM match |
 
 **MiniMax H3 video price check (output only; 100 credits = S$1).** Official API reference: https://platform.minimax.io/subscribe/token-plan?tab=api-enterprise ; HopBase ToB quote dated 2026-10-26; reference FX below (USD 1 = SGD 1.28, so `credits/s = US$/s × 128`). The **Lite** rate is cheaper than the comparable **official API list price** (not necessarily every consumer membership or promotional package). The **standard** tier is deliberately priced **above** the official list to reach the owner's 20% margin target.
@@ -347,6 +348,9 @@ Rules:
   enforced at the write path: `input_tokens` excludes cached tokens, and the
   total input side is `input + cache_read + cache_write`. The artifact's text
   bytes are still counted for display only and must never set a charge.
+  `deepseek-v4.1-flash` is the default text model; while its cache-hit price is
+  unquoted, `cache_read_tokens` bill at the input rate (never free), and
+  `cache_write_tokens` are 0 for providers that do not report them.
 - **Missing usage fails closed, not free.** A text generation whose task has no
   `task_usage` row (an unreported or pre-report run — `GetIssueUsageSummary`
   already tracks this gap as `unreported_task_count`) must not settle at zero:
@@ -403,11 +407,11 @@ no side effects) returns the same `requiredCredits` / `availableCredits` /
 `shortfallCredits`, so the composer can show the number before submit; create
 recomputes it transactionally rather than trusting the client.
 
-A skill with `MaxImages = 0` and `MaxVideoMilli = 0` is text-only and remains
-**commercially HOLD** until supplier cache/long-context costs and a defensible
-under-official retail price can be quoted; the token meter (`task_usage`) is
-already settled, so no live ceiling should be reserved for such a skill
-prematurely.
+A skill with `MaxImages = 0` and `MaxVideoMilli = 0` is text-only. With
+`deepseek-v4.1-flash` as the default text model it can be sold against the
+`MaxTextTokens` ceiling (spec §2, §3); a skill pinned to a Claude model stays
+**commercially HOLD** until that model's cache and long-context rates are
+quoted.
 
 **The cap is per generation, not per round.** A generation can end a round in
 `needs_input`, take a follow-up comment, and re-enter `queued` on the *same*
@@ -726,7 +730,7 @@ integration. The 2026-10-26 sheet is denominated in **USD** (it supersedes the
 assumes: video is billed only for finished output, and a failed generation is
 not charged.
 
-Previously envisioned fixture fleet was `deepseek-v4.1-flash` for text, `seedream-5-0-lite` for image, and MiniMax H3 for video. **DeepSeek text is still commercial HOLD** at the quoted buy rate vs the OEM off-peak API list; no paid default text SKU may be silently selected. Per-model/variant activation is governed by the new pricing audit.
+Previously envisioned fixture fleet was `deepseek-v4.1-flash` for text, `seedream-5-0-lite` for image, and MiniMax H3 for video. **`deepseek-v4.1-flash` is now the confirmed default text model**, priced at 29 / 113 credits per M tokens (audit §C); it is sellable at that rate, not a silent fallback. Per-model/variant activation is governed by the pricing audit.
 
 At 1 USD ≈ S$1.28 and 100 credits = S$1 (`credits = US$ × 128`):
 
@@ -756,7 +760,7 @@ Three consequences the owner must price around:
   skill's brief has to pin the model it runs. A skill that silently picks
   `gemini-3-pro-image` costs 2.5× the rate set for `seedream-5-0-lite`.
 - **MiniMax changed its quoted cost on 2026-10-26, forcing standard H3 above the official list.** The official H3 API lists 768P at US$0.08/s and 2K at US$0.13/s; the supplier now charges US$0.068/US$0.111, leaving only 3.3%/5.3% at 9/15 credits. Reaching the owner's 20% target needs 11/18 credits/s, which is 7.4%/8.2% **above** the official list — so standard H3 can no longer be described as cheaper than the official API. The self-deployed Lite tier (US$0.024/US$0.039) earns ~66% at 9/15 and stays below the official list, making it the intended default once its availability and product limits are confirmed. Do not claim a discount against MiniMax's consumer subscription effective rate or other models without verifying the comparable use case; separately billed inputs or retries may erase margin.
-- **The old text rate is neither competitively priced nor safe.** At S$0.01/1K output (S$10/M), generic DeepSeek/Haiku text would be above official API output rates; long inputs could also cost more than short outputs earn. DeepSeek's own off-peak Flash list ($0.147/$0.59 per M) still undercuts its HopBase quote ($0.176/$0.706). Claude input and output costs are now quoted, but cache read/write and >100K prompt tiers are not, so those text SKUs remain HOLD.
+- **The old text rate is neither competitively priced nor safe.** At S$0.01/1K output (S$10/M), generic text would be above official API output rates; long inputs could also cost more than short outputs earn. The replacement prices DeepSeek at 29 / 113 credits per M: above the supplier cost (22.53 / 90.37) and below the official standard list (37.63 / 151.04), but above the **off-peak** promotional price (18.82 / 75.52), so no "always cheaper" claim is allowed. Claude input and output costs are quoted, but cache read/write and >100K prompt tiers are not, so those text SKUs remain HOLD.
 
 The quote expires 2026-11-25; the card versions make a re-quote a config change
 rather than a code change.
@@ -789,11 +793,12 @@ billable.
    exists. S$49/5,500 and S$149/18,000 are rejected under the current supplier
    cost; revisit only after a renegotiated quote. Annual 11/12 is part of the
    same commercial sign-off.
-3. **Cache and long-context text rates.** `task_usage` supplies the tokens, but
-   the supplier quote covers only Claude input/output at ≤100K prompt. Cache
-   read/write and >100K tiers must be quoted (or explicitly zero-rated) before
-   any text SKU leaves HOLD; until then Haiku/Sonnet stay unsellable and
-   DeepSeek stays HOLD for exceeding the official off-peak list.
+3. **Claude cache and long-context text rates.** `task_usage` supplies the
+   tokens and DeepSeek ships at 29/113, but the supplier quote covers Claude
+   only at input/output ≤100K prompt. Haiku/Sonnet cache read/write and >100K
+   tiers must be quoted (or explicitly zero-rated) before either leaves HOLD.
+   DeepSeek has no cache-hit quote today; its cache reads bill at the input
+   rate (conservative) until one arrives.
 
 ## What is left to the builder
 

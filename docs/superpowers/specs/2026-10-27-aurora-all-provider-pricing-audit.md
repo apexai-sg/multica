@@ -102,18 +102,23 @@ margin, so a lower retail price is possible but not approved.
 The 2026-10-26 sheet now gives **input and output** costs for Claude and most
 other families. **The metering question is settled** (owner decision
 2026-10-27): text bills from the `task_usage` rows the daemon already reports
-for each task, so no new usage protocol is needed. What still blocks sale is
-pricing — cache read/write and >100K prompt tiers have no supplier quote.
-DeepSeek is still commercially blocked because its supplier price exceeds the
-official off-peak list.
+for each task, so no new usage protocol is needed. **Default text model
+(owner decision 2026-10-27): `deepseek-v4.1-flash`.** Its supplier cost
+(US$0.176/0.706 per M) sits above DeepSeek's **off-peak promotional** price but
+well below the official **standard (peak) list** (US$0.294/1.18), which is the
+comparator this audit's scope uses — off-peak and batch discounts are excluded
+from the bound. Earlier revisions marked DeepSeek HOLD by comparing against the
+off-peak discount; that contradicted the stated scope and is corrected here.
+Claude still blocks on pricing: cache read/write and >100K prompt tiers have no
+supplier quote.
 
-| Model / scope | HopBase in/out per M | Official std in/out per M | Apex candidate (in/out, per M) | Of official | Output gross margin | Status |
+| Model / scope | HopBase in/out per M | Official std in/out per M | Apex candidate (in/out, per M) | Of official | Gross margin (in / out) | Status |
 |---|---:|---:|---:|---:|---:|---|
+| `deepseek-v4.1-flash` / `-1017` (**default**) | US$0.176 / 0.706 | US$0.294 / 1.18 (standard) | **29 / 113 credits** | 22.9% / 25.2% less | **22.3% / 20.0%** | **CANDIDATE**; cache-read billed at the input rate until a cache-hit quote exists |
 | `claude-haiku-5-5`, ≤100K prompt | US$0.0279 / 0.14 | US$0.10 / 0.50 | **8 / 40 credits** | 37.5% less both | **55.4% / 55.2%** | **HOLD** until cache + >100K prompt rates are quoted |
 | `claude-sonnet-5-5` | US$0.559 / 2.79 | US$2 / 10 | **150 / 750 credits** | 41.4% less both | **52.3% / 52.4%** | **HOLD** until cache + long-context rates |
 | `claude-fable-5-1` (optional) | US$2.79 / 14 | US$10 / 50 | 640 / 3,200 credits (50%) | 50% less | 50% | HOLD until cache/long-context rates are quoted |
 | `claude-opus-5-5` (optional) | US$1.12 / 5.59 | US$4 / 20 | 256 / 1,280 credits (50%) | 50% less | 50% | HOLD until cache/long-context rates are quoted |
-| `deepseek-v4.1-flash` / `-1017` | US$0.176 / 0.706 | peak US$0.294/1.18; off-peak US$0.147/0.59 | **NO ALWAYS-CHEAPER RATE** | — | — | **HOLD**: supplier > official off-peak |
 | all other text families (GPT, Gemini, GLM, Grok, Kimi, Qwen) | quoted | quoted | not priced here | — | — | HOLD: no approved per-model rate |
 
 - Claude official output is **US$2.50/M for prompts >100K**, not the ≤100K
@@ -121,10 +126,15 @@ official off-peak list.
   only for fable/opus; Haiku and Sonnet cache write/read are still unquoted.
   Treat the 8/40 and 150/750 candidates as provisional arithmetic, not a live
   price.
-- DeepSeek's supplier output (US$0.706) and input (US$0.176) both exceed the
-  official **off-peak** list (US$0.59 output, US$0.147 input). A 20% margin
-  would require a supplier price below US$0.472/M output and US$0.118/M input;
-  the current sheet does not provide it. Keep HOLD.
+- DeepSeek is the default text model at **29 / 113 credits per M tokens**.
+  Both rows are above the supplier cost (22.53 / 90.37 credits per M) and below
+  the official standard list (37.63 / 151.04), so they satisfy both bounds with
+  22.3% / 20.0% gross margin. They are **above the off-peak promotional price**
+  (18.82 / 75.52), so no "always cheaper than DeepSeek" claim is allowed;
+  compare only against the standard list and say so. Cache reads have no
+  supplier quote, so they bill at the input rate — conservative for us, never
+  a loss, and revisited when a cache-hit price arrives. There is no separate
+  long-context tier in this quote.
 - **DO NOT** sell any text output at the old generic `1 credit / 1K` rate: that
   is S$10/M and exceeds the official standard output rate for Claude Haiku and
   DeepSeek; it also ignores billable input. Per-model **input, output, cache

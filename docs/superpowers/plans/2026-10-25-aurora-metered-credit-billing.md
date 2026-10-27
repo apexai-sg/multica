@@ -82,12 +82,12 @@ audit §E).
 - Produces:
   - `type OutputCaps struct { MaxTextTokens int64; MaxImages int; MaxVideoMilli int64; MaxVideoHeight int }` (JSON `maxTextTokens`, `maxImages`, `maxVideoMilli`, `maxVideoHeight`). Task 2 attaches this type to the catalog entry; it is declared here because the ceiling is priced from it.
   - `type Measured struct { Tokens int64; Width int; Height int; DurationMS int64 }` (JSON tags `tokens`, `width`, `height`, `durationMs`, all `omitempty`).
-  - `type Usage struct { Kind, Model, SKU string; Tokens int64; Images int; SecondsMilli int64; Height int }` — `SKU` is the explicitly requested/authorized provider variant, not an agent-written label and not inferred from the file.
+  - `type Usage struct { Kind, Model, SKU string; InputTokens, OutputTokens, CacheReadTokens, CacheWriteTokens int64; Images int; SecondsMilli int64; Height int }` — `SKU` is the explicitly requested/authorized provider variant, not an agent-written label and not inferred from the file. For text it is the token category (`input`, `output`, `cache_read`, `cache_write`), so each category becomes its own charge line.
   - `type ChargeLine struct { Kind, Model, SKU string; QuantityMilli int64; UnitRateMicro int64; AmountMicro int64 }`.
   - `type RateMeta struct { Approval string; OfficialURL string; SupplierQuoteRevision string; FX string; EffectiveAt, ExpiresAt time.Time }` — `Approval` is `approved` \| `candidate` \| `provisional` \| `hold`; only `approved` and `candidate` are priceable, and `candidate` stays unsellable in production until the owner approves it and the catalog marks the skill `metered_enabled`.
   - `type VideoRate struct { SKU string; Height int; MicroPerSecond int64; Meta RateMeta }` — `Height` is the exact accepted measured height (720, 768-range, 1080 or 1440), not an open-ended threshold.
   - `type ModelRate struct { Kind string; Meta RateMeta; Text *TextRate; Image *ImageRate; Video []VideoRate }`.
-  - `type TextRate struct { MicroPerKToken int64 }`.
+  - `type TextRate struct { MicroPerKTokenInput, MicroPerKTokenOutput, MicroPerKTokenCacheRead, MicroPerKTokenCacheWrite int64 }` — a zero cache rate means the category is not separately priced and is billed at the input rate (DeepSeek today).
   - `type ImageRate struct { MicroPerImage int64 }`.
   - `type RateCard struct { Version string; Models map[string]ModelRate }`.
   - `func DefaultRateCard() *RateCard`
@@ -121,7 +121,7 @@ approves it (Task 2), so no client can sell it.
 var now = time.Date(2026, 10, 27, 0, 0, 0, 0, time.UTC)
 
 func TestUnpricedTextFailsClosed(t *testing.T) {
-    _, err := DefaultRateCard().Charge(Usage{Kind: "text", Model: "deepseek-v4.1-flash", Tokens: 3500}, now)
+    _, err := DefaultRateCard().Charge(Usage{Kind: "text", Model: "claude-haiku-5-5", Tokens: 3500}, now)
     if !errors.Is(err, ErrRateMissing) { t.Fatalf("unapproved text must be HOLD, got %v", err) }
 }
 
@@ -220,7 +220,8 @@ Expected: FAIL — `undefined: DefaultRateCard`.
 | `MiniMax-H3-Lite` / `2K` | video | `MicroPerSecond: 15_000_000`, accepted height 1440 |
 | `kling-v3-omni` / `720P`, `1080P` silent, no reference video | video | **PROVISIONAL, 10/14 credits/s, not priceable until OEM validated** |
 | `MiniMax-H3` / `768P`, `2K` | video | `MicroPerSecond: 11_000_000 / 18_000_000` (20.9%/21.1%), **CANDIDATE by owner override: above the official list, no discount claim** |
-| `MiniMax-H3` self-deployed 1080P/4K, H3-Max, Kling with audio, Grok video, DeepSeek/Claude text, all unquoted models | any | **HOLD / not in live rate book** |
+| `deepseek-v4.1-flash` / input, output (**default text model**) | text | `MicroPer1KTokensInput: 29_000`, `MicroPer1KTokensOutput: 113_000`; cache read bills at the input rate until a cache-hit quote exists |
+| `MiniMax-H3` self-deployed 1080P/4K, H3-Max, Kling with audio, Grok video, Claude text, all unquoted models | any | **HOLD / not in live rate book** |
 
 The tests above use `MiniMax-H3-Lite` because the Lite tier is the intended
 default: at 9/15 credits/s it earns ~66% and stays below MiniMax's official
@@ -237,7 +238,7 @@ The old height-based 1080P→2K lookup is removed as a pricing shortcut. Define 
 
 `CountTextTokens` is a **non-billing preview heuristic only**: `ascii*1/4 + nonASCII*3/4`, rounded up, with a minimum of 1 for a non-empty body. It never feeds a charge. Text billing reads the `task_usage` rows described in spec §3 (owner decision 2026-10-27), so no new usage-reporting protocol is built here; text SKUs still stay out of the live card until cache/long-context rates are quoted.
 
-`Charge` returns `ErrRateMissing` when the model is absent or when the kind has no rate on that model.
+`Charge` returns `ErrRateMissing` when the model is absent or when the kind has no rate on that model. For text, `Ceiling` prices `MaxTextTokens` at the **output** rate, the most expensive category, so the reserved ceiling can never undershoot a real run.
 
 - [ ] **Step 4: Run the tests and confirm they pass**
 
@@ -273,14 +274,16 @@ git commit -m "feat(aurora): add the model-keyed rate card"
 Caps come from the skill's declared `Output` kinds, not 33 hand-edited rows:
 `video` present → `{MaxTextTokens: 0, MaxVideoMilli: 10000, MaxVideoHeight: 1440}` **only if any additional text/tool costs are accounted for**;
 else `image` present → `{MaxTextTokens: 0, MaxImages: 4}` under the same restriction;
-else text-only → `{MaxTextTokens: 8000}`, but its **commercial status is HOLD** until the cache and long-context rates are quoted; the token meter itself is `task_usage` (spec §3).
+else text-only → `{MaxTextTokens: 8000}` and it is sellable when pinned to
+`deepseek-v4.1-flash` (the default text model); a skill pinned to a Claude
+model stays HOLD until that model's cache and long-context rates are quoted.
 
 `MaxVideoHeight` is the highest **configured** SKU height (1440 for H3 2K). A
 2160/4K request is not covered by a cap or a rate, so it is rejected rather
 than silently priced as 2K. `MaxCredits` is `Quote(Caps)` for a sellable entry
 (the visible upper bound); it is `0` for HOLD entries.
 
-`ModelsOrDefault()` may keep a development-only default mapping, but **never** select `deepseek-v4.1-flash` for live metered text; it is HOLD. For paid generations, model+SKU must resolve to an explicit approved rate, or the skill is unavailable (do not silently fall back to another model).
+`ModelsOrDefault()` selects `deepseek-v4.1-flash` for text skills — it is the approved default text model at 29 / 113 credits per M tokens (audit §C). A skill pinned to a Claude model stays unavailable while that model is HOLD. For paid generations, model+SKU must still resolve to an explicit priceable rate, or the skill is unavailable (do not silently fall back to another model).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -594,7 +597,7 @@ git commit -m "feat(aurora): carry measured usage onto the asset"
 
 Behaviour:
 - `gen.RateVersion == "legacy"` → one line at the old flat price: `AmountMicro = gen.CreditsReserved`, `Kind = "legacy"`, `Model = "legacy"`, `QuantityMilli = 1000`. No model lookup.
-- Otherwise decode `gen.OutputSelection` (the frozen selected output/SKU) and price that exact SKU, never a tier inferred from the delivered height alone. Images are priced by count, video by measured milliseconds at the selected SKU's rate. A measured height outside the selected SKU is a settlement error (non-terminal, logged, `aurora_sku_mismatch`), never a repricing. **Text is priced from `task_usage`**, not from delivered Unicode length: read the rows for `gen.TaskID` (`db.GetTaskUsage`), emit one charge line per `(provider, model)` with `input_tokens` at the input rate and `output_tokens` at the output rate (cache read/write only when the card carries those rates). No row → charge `gen.CreditsReserved`, flag `aurora_usage_missing`, and alert; never settle a text generation at zero because the report is absent. A paid job that used an unpriced model/variant should have been rejected at creation.
+- Otherwise decode `gen.OutputSelection` (the frozen selected output/SKU) and price that exact SKU, never a tier inferred from the delivered height alone. Images are priced by count, video by measured milliseconds at the selected SKU's rate. A measured height outside the selected SKU is a settlement error (non-terminal, logged, `aurora_sku_mismatch`), never a repricing. **Text is priced from `task_usage`**, not from delivered Unicode length: read the rows for `gen.TaskID` (`db.GetTaskUsage`), and emit one charge line per `(provider, model, category)` — `input`, `output`, and `cache_read` when the row reports cache tokens. Input and output use their own rates; `cache_read` uses the card's cache rate when set, otherwise the input rate (never zero, never free); `cache_write` is 0 for DeepSeek. No row → charge `gen.CreditsReserved`, flag `aurora_usage_missing`, and alert; never settle a text generation at zero because the report is absent. A paid job that used an unpriced model/variant should have been rejected at creation.
 - `actual = min(sum, gen.CreditsReserved)`. `over_cap = sum > gen.CreditsReserved`.
 - Write the charge rows (idempotent via the unique index), then `Refund(gen.CreditsReserved - actual)` when positive, with reference `settle:<generationID>`.
 - Then `UpdateAuroraGenerationTerminal` with `CreditsCharged: actual`.
@@ -622,8 +625,8 @@ func TestSettlementSumsAllRounds(t *testing.T) {
 }
 
 func TestSettlementPricesTextFromTaskUsage(t *testing.T) {
-	// task_usage: (anthropic, claude-haiku-5-5, in 1_000_000, out 100_000)
-	// → 8 input + 4 output credits = 12 credits, one text line per (provider, model).
+	// task_usage: (deepseek, deepseek-v4.1-flash, in 1_000_000, out 1_000_000)
+	// → 29 input + 113 output credits = 142 credits, one text line per (provider, model).
 }
 
 func TestSettlementChargesCeilingWhenUsageMissing(t *testing.T) {
@@ -985,10 +988,12 @@ borrowing; no 1-credit minimum on subcredit text; refund/idempotency; fail
 before reserving for unavailable models; provider cost recorded per attempt
 with cost < realized revenue < official list at the lowest permitted
 SGD/credit; model-mismatch settles at the ceiling; missing usage disables the
-SKU. Text settlement is covered by its own blockers: charges agree with the
-`task_usage` rows, a missing row charges the ceiling with
-`aurora_usage_missing`, cache tokens never bill at the input rate by accident,
-and no signup credit grant exists. The S$49/5,500 and S$149/18,000 plan rows are
+SKU. Text settlement is covered by its own blockers: `deepseek-v4.1-flash` is
+the default text model and its charge lines equal the `task_usage` rows at
+29 / 113 credits per M tokens, a missing row charges the ceiling with
+`aurora_usage_missing`, `cache_read` bills at the card's cache rate when set and
+the input rate otherwise (never zero), and no signup credit grant exists. The
+S$49/5,500 and S$149/18,000 plan rows are
 rejected under the
 credit-only rule; the margin gate must reject standard MiniMax H3 at 9/15
 credits/s (3.3%/5.3%), accept it at 11/18 (20.9%/21.1%) only with the
