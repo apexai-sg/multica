@@ -21,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/aurora"
+	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
 	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/storage"
 	"github.com/multica-ai/multica/server/internal/util"
@@ -339,6 +340,9 @@ func (h *Handler) CreateAuroraGeneration(w http.ResponseWriter, r *http.Request)
 			}
 			requiredCredits := float64(amountMicro) / microCreditsPerCredit
 			availableCredits := float64(balance) / microCreditsPerCredit
+			// Count the refusal here, not at the Reserve error: only this branch
+			// actually answers 402, and the alert is on the 402 rate.
+			h.Metrics.RecordAuroraCreditShortfall()
 			writeJSON(w, http.StatusPaymentRequired, map[string]any{
 				"error":            "insufficient credits",
 				"requiredCredits":  requiredCredits,
@@ -1674,6 +1678,7 @@ func (h *Handler) CreateAuroraBillingPortal(w http.ResponseWriter, r *http.Reque
 // read as anything but bytes.
 func (h *Handler) StripeWebhook(w http.ResponseWriter, r *http.Request) {
 	if h.Payments == nil {
+		h.Metrics.RecordAuroraWebhookEvent(obsmetrics.AuroraWebhookEventUnknown, obsmetrics.AuroraWebhookResultNotConfigured)
 		writeError(w, http.StatusServiceUnavailable, "payments not configured")
 		return
 	}
@@ -1681,11 +1686,13 @@ func (h *Handler) StripeWebhook(w http.ResponseWriter, r *http.Request) {
 	// reading or hashing a body, and reject requests that cannot be Stripe at all.
 	if h.WebhookIPRateLimiter != nil {
 		if ip := h.clientIPForRateLimit(r); ip != "" && !h.WebhookIPRateLimiter.Allow(r.Context(), ip) {
+			h.Metrics.RecordAuroraWebhookEvent(obsmetrics.AuroraWebhookEventUnknown, obsmetrics.AuroraWebhookResultRateLimited)
 			writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
 			return
 		}
 	}
 	if len(r.Header.Values(stripeSignatureHeader)) == 0 {
+		h.Metrics.RecordAuroraWebhookEvent(obsmetrics.AuroraWebhookEventUnknown, obsmetrics.AuroraWebhookResultInvalidSignature)
 		writeError(w, http.StatusUnauthorized, "missing Stripe-Signature header")
 		return
 	}
@@ -1693,6 +1700,9 @@ func (h *Handler) StripeWebhook(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxStripeWebhookBodySize)
 	payload, err := io.ReadAll(r.Body)
 	if err != nil {
+		// Both the size cap and an unreadable body mean the request never
+		// reached signature verification.
+		h.Metrics.RecordAuroraWebhookEvent(obsmetrics.AuroraWebhookEventUnknown, obsmetrics.AuroraWebhookResultBadRequest)
 		var maxErr *http.MaxBytesError
 		if errors.As(err, &maxErr) {
 			writeError(w, http.StatusRequestEntityTooLarge, "request body is too large")
@@ -1703,17 +1713,21 @@ func (h *Handler) StripeWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	event, err := h.Payments.ConstructEvent(payload, r.Header.Get(stripeSignatureHeader))
 	if err != nil {
+		h.Metrics.RecordAuroraWebhookEvent(obsmetrics.AuroraWebhookEventUnknown, obsmetrics.AuroraWebhookResultInvalidSignature)
 		writeError(w, http.StatusBadRequest, "invalid signature")
 		return
 	}
 	if err := h.handleStripeEvent(r.Context(), event); err != nil {
 		// A failure here is retryable by Stripe (a transient database error,
 		// say), so it must not be acked — the ledger's idempotency keys make
-		// the retry safe.
+		// the retry safe. It is also the outcome ops alert on: a sustained
+		// non-2xx rate means the grant is not landing.
+		h.Metrics.RecordAuroraWebhookEvent(event.Type, obsmetrics.AuroraWebhookResultHandlerError)
 		slog.Error("stripe webhook handling failed", "event_id", event.ID, "type", event.Type, "error", err)
 		writeError(w, http.StatusInternalServerError, "webhook failed")
 		return
 	}
+	h.Metrics.RecordAuroraWebhookEvent(event.Type, obsmetrics.AuroraWebhookResultOK)
 	writeJSON(w, http.StatusOK, map[string]any{"received": true})
 }
 

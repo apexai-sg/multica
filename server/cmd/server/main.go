@@ -773,8 +773,9 @@ func main() {
 	go runRuntimeSweeper(sweepCtx, queries, liveness, taskSvc, bus, runtimeReconnectGrace, newSandboxReaper(pool, queries, taskSvc), h.SandboxManager)
 	// Aurora's monthly credit settlement. It shares the credit service the
 	// handler bills through, so the grants it writes and the balance the API
-	// reports cannot drift apart.
-	go startAuroraSettlement(sweepCtx, queries, h.Credit, h.Tiers)
+	// reports cannot drift apart. It records its outcome on the same business
+	// metrics the handler uses, so settlement failures are alertable.
+	go startAuroraSettlement(sweepCtx, queries, h.Credit, h.Tiers, h.Metrics)
 	if telemetryWorker != nil {
 		go telemetryWorker.Run(sweepCtx)
 	}

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/multica-ai/multica/server/internal/aurora"
+	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
@@ -20,12 +21,16 @@ const auroraSettlementInterval = 24 * time.Hour
 // references, so a missed tick or a restart across the 1st self-heals on the
 // next run. Failures are logged and retried on the next tick rather than
 // stopping the loop — a settlement that stops silently would leave paying
-// users ungranted, which is worse than a loud, repeated failure.
-func startAuroraSettlement(ctx context.Context, queries *db.Queries, credit *aurora.CreditService, tiers *aurora.TierCatalog) {
+// users ungranted, which is worse than a loud, repeated failure. Each run is
+// counted by outcome so that failure can be alerted on before the next tick.
+func startAuroraSettlement(ctx context.Context, queries *db.Queries, credit *aurora.CreditService, tiers *aurora.TierCatalog, metrics *obsmetrics.BusinessMetrics) {
 	run := func() {
 		if err := aurora.RunMonthlySettlement(ctx, queries, credit, tiers, time.Now()); err != nil {
+			metrics.RecordAuroraSettlementRun(obsmetrics.AuroraSettlementResultFailed)
 			slog.Error("aurora monthly settlement failed", "error", err)
+			return
 		}
+		metrics.RecordAuroraSettlementRun(obsmetrics.AuroraSettlementResultOK)
 	}
 	run()
 	ticker := time.NewTicker(auroraSettlementInterval)

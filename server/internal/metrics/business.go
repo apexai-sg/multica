@@ -86,9 +86,98 @@ type BusinessMetrics struct {
 	activeMu    sync.Mutex
 	activeTasks map[string]activeTaskLabels
 
+	// Aurora payable-subscription billing (issue #55 / T11). These three are
+	// the alerting surface for the launch: a webhook that could not be
+	// processed, a settlement run that failed, and a generation refused for a
+	// short wallet. All of them are plain counters with a closed label enum,
+	// because an alert rule cannot act on an unbounded value.
+	auroraWebhookEvents   *prometheus.CounterVec
+	auroraSettlementRuns  *prometheus.CounterVec
+	auroraCreditShortfall prometheus.Counter
+
 	// PR3 funnel / community / commercial counters. See business_events.go
 	// for the field-level docs and labels.
 	events *businessEventMetrics
+}
+
+// Aurora billing webhook outcomes. Handler.StripeWebhook has exactly one early
+// return per value (a rejected body covers both 400 and 413), so the result
+// label is the classification of how a webhook request ended. Two of them are
+// expected: ok, and not_configured while STRIPE_SECRET_KEY is unset. The other
+// four mean the webhook could not do its job.
+const (
+	AuroraWebhookResultOK               = "ok"
+	AuroraWebhookResultInvalidSignature = "invalid_signature"
+	AuroraWebhookResultHandlerError     = "handler_error"
+	AuroraWebhookResultNotConfigured    = "not_configured"
+	AuroraWebhookResultRateLimited      = "rate_limited"
+	AuroraWebhookResultBadRequest       = "bad_request"
+	// AuroraWebhookResultUnknown is the fallback for an outcome matching no
+	// branch above. It must stay at zero: a non-zero rate means a call site was
+	// added without classifying its result.
+	AuroraWebhookResultUnknown = "unknown"
+)
+
+// AuroraWebhookEventUnknown labels a request that failed before its Stripe
+// event was verified, so there is no event type to attribute it to.
+const AuroraWebhookEventUnknown = "unknown"
+
+// Aurora monthly settlement outcomes. There is one increment per run.
+const (
+	AuroraSettlementResultOK     = "ok"
+	AuroraSettlementResultFailed = "failed"
+)
+
+// knownAuroraWebhookEvents maps the raw Stripe event types this handler
+// consumes onto their event label. RecordAuroraWebhookEvent is called with the
+// raw type, while prewarming uses the labels, so init also makes every label
+// resolve to itself.
+var knownAuroraWebhookEvents = map[string]string{
+	"checkout.session.completed":               "checkout_session_completed",
+	"checkout.session.async_payment_succeeded": "checkout_session_async_payment_succeeded",
+	"customer.subscription.updated":            "customer_subscription_updated",
+	"customer.subscription.deleted":            "customer_subscription_deleted",
+}
+
+func init() {
+	// The empty type is what an unverified request carries; the handler passes
+	// AuroraWebhookEventUnknown explicitly on those paths.
+	knownAuroraWebhookEvents[""] = AuroraWebhookEventUnknown
+	for _, event := range AllAuroraWebhookEvents() {
+		knownAuroraWebhookEvents[event] = event
+	}
+}
+
+// AllAuroraWebhookEvents lists every event label in a stable order, so the
+// counter can be prewarmed into visible zeros.
+func AllAuroraWebhookEvents() []string {
+	return []string{
+		"checkout_session_completed",
+		"checkout_session_async_payment_succeeded",
+		"customer_subscription_updated",
+		"customer_subscription_deleted",
+		"other",
+		AuroraWebhookEventUnknown,
+	}
+}
+
+// AllAuroraWebhookResults lists every result label in a stable order.
+func AllAuroraWebhookResults() []string {
+	return []string{
+		AuroraWebhookResultOK,
+		AuroraWebhookResultInvalidSignature,
+		AuroraWebhookResultHandlerError,
+		AuroraWebhookResultNotConfigured,
+		AuroraWebhookResultRateLimited,
+		AuroraWebhookResultBadRequest,
+		AuroraWebhookResultUnknown,
+	}
+}
+
+// AllAuroraSettlementResults lists every settlement result label in a stable
+// order.
+func AllAuroraSettlementResults() []string {
+	return []string{AuroraSettlementResultOK, AuroraSettlementResultFailed}
 }
 
 func NewBusinessMetrics() *BusinessMetrics {
@@ -297,6 +386,18 @@ func NewBusinessMetrics() *BusinessMetrics {
 			Namespace: "multica", Subsystem: "issue_metadata", Name: "mutation_duration_seconds",
 			Help: "Duration of issue metadata database work by operation and bounded result, including fallback reads after conditional no-ops.", Buckets: chatClaimResumeQueryDurationBuckets,
 		}, metricLabels("multica_issue_metadata_mutation_duration_seconds")),
+		auroraWebhookEvents: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "multica", Subsystem: "aurora_billing", Name: "webhook_events_total",
+			Help: "Total Aurora billing webhook requests by Stripe event type and bounded outcome.",
+		}, metricLabels("multica_aurora_billing_webhook_events_total")),
+		auroraSettlementRuns: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "multica", Subsystem: "aurora_billing", Name: "settlement_runs_total",
+			Help: "Total Aurora monthly credit settlement runs by outcome.",
+		}, metricLabels("multica_aurora_billing_settlement_runs_total")),
+		auroraCreditShortfall: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: "multica", Subsystem: "aurora_billing", Name: "credit_shortfalls_total",
+			Help: "Total Aurora generation creates refused with 402 for insufficient credits.",
+		}),
 		activeTasks: map[string]activeTaskLabels{},
 		events:      newBusinessEventMetrics(),
 	}
@@ -312,6 +413,18 @@ func NewBusinessMetrics() *BusinessMetrics {
 		for _, result := range AllRuntimeLookupResults() {
 			m.agentRuntimeLookup.WithLabelValues(source, result).Add(0)
 		}
+	}
+	// The Aurora billing counters are alert inputs, so they get the same
+	// treatment: an absent series is indistinguishable from a path that was
+	// never instrumented, and a dashboard cannot tell "zero refusals" from "no
+	// data".
+	for _, event := range AllAuroraWebhookEvents() {
+		for _, result := range AllAuroraWebhookResults() {
+			m.auroraWebhookEvents.WithLabelValues(event, result).Add(0)
+		}
+	}
+	for _, result := range AllAuroraSettlementResults() {
+		m.auroraSettlementRuns.WithLabelValues(result).Add(0)
 	}
 	return m
 }
@@ -354,6 +467,9 @@ func (m *BusinessMetrics) Collectors() []prometheus.Collector {
 		m.agentRuntimeLookup,
 		m.issueMetadataMutation,
 		m.issueMetadataMutationDuration,
+		m.auroraWebhookEvents,
+		m.auroraSettlementRuns,
+		m.auroraCreditShortfall,
 	}, m.events.collectors()...)
 }
 
@@ -377,6 +493,74 @@ func (m *BusinessMetrics) RecordIssueMetadataMutation(op, result string, duratio
 	}
 	m.issueMetadataMutation.WithLabelValues(op, result).Inc()
 	m.issueMetadataMutationDuration.WithLabelValues(op, result).Observe(duration.Seconds())
+}
+
+// RecordAuroraWebhookEvent counts one Aurora billing webhook outcome. event is
+// the Stripe event type from the verified payload, or
+// AuroraWebhookEventUnknown when the request was rejected before verification.
+// Both labels are normalized here so a new Stripe type or a typo at the call
+// site lands on a bounded label instead of minting a series.
+func (m *BusinessMetrics) RecordAuroraWebhookEvent(event, result string) {
+	if m == nil {
+		return
+	}
+	m.auroraWebhookEvents.WithLabelValues(
+		normalizeAuroraWebhookEvent(event),
+		normalizeAuroraWebhookResult(result),
+	).Inc()
+}
+
+// RecordAuroraSettlementRun counts one monthly settlement run. A run covers
+// every subscription in one pass, so this is a run rate, not a per-user count.
+func (m *BusinessMetrics) RecordAuroraSettlementRun(result string) {
+	if m == nil {
+		return
+	}
+	m.auroraSettlementRuns.WithLabelValues(normalizeAuroraSettlementResult(result)).Inc()
+}
+
+// RecordAuroraCreditShortfall counts one generation create that answered 402
+// because the wallet could not cover the skill's price. The shortfall is
+// already a bounded business fact; there is no label because the per-user
+// identity behind a refusal is deliberately not exported.
+func (m *BusinessMetrics) RecordAuroraCreditShortfall() {
+	if m == nil {
+		return
+	}
+	m.auroraCreditShortfall.Inc()
+}
+
+func normalizeAuroraWebhookEvent(event string) string {
+	if normalized, ok := knownAuroraWebhookEvents[event]; ok {
+		return normalized
+	}
+	return "other"
+}
+
+func normalizeAuroraWebhookResult(result string) string {
+	switch result {
+	case AuroraWebhookResultOK,
+		AuroraWebhookResultInvalidSignature,
+		AuroraWebhookResultHandlerError,
+		AuroraWebhookResultNotConfigured,
+		AuroraWebhookResultRateLimited,
+		AuroraWebhookResultBadRequest,
+		AuroraWebhookResultUnknown:
+		return result
+	default:
+		// An outcome nobody classified is not evidence that the webhook was
+		// processed, so it must not land on ok.
+		return AuroraWebhookResultUnknown
+	}
+}
+
+func normalizeAuroraSettlementResult(result string) string {
+	switch result {
+	case AuroraSettlementResultOK, AuroraSettlementResultFailed:
+		return result
+	default:
+		return AuroraSettlementResultFailed
+	}
 }
 
 func (m *BusinessMetrics) RecordEntitlementConfigError() {
