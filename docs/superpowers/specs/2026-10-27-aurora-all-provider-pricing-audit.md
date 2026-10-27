@@ -51,7 +51,7 @@ margin, so a lower retail price is possible but not approved.
 |---|---:|---:|---:|---:|---:|---|
 | MiniMax H3 768P | US$0.068/s = **S$0.08704/s** | US$0.08/s = S$0.1024/s | **11 credits/s = S$0.11/s** | **7.4% ABOVE** | **20.9%** | CANDIDATE by owner override (2026-10-27); no discount claim |
 | MiniMax H3 2K | US$0.111/s = **S$0.14208/s** | US$0.13/s = S$0.1664/s | **18 credits/s = S$0.18/s** | **8.2% ABOVE** | **21.1%** | CANDIDATE by owner override (2026-10-27); no discount claim |
-| H3 self-deployed Lite 480P | US$0.015/s = **S$0.0192/s** | US$0.05/s = S$0.064/s | 3 credits/s = S$0.03/s | 53.1% less | **36.0%** | CANDIDATE, pending availability |
+| H3 self-deployed Lite 480P | US$0.015/s = **S$0.0192/s** | US$0.05/s = S$0.064/s (**H3-Max 480P**, nearest comparator; no official Lite 480P rate) | 3 credits/s = S$0.03/s | 53.1% less | **36.0%** | CANDIDATE, pending availability |
 | H3 self-deployed Lite 768P | US$0.024/s = **S$0.03072/s** | US$0.08/s = S$0.1024/s | **9 credits/s = S$0.09/s** | 12.1% less | **65.9%** | CANDIDATE, pending availability |
 | H3 self-deployed Lite 2K | US$0.039/s = **S$0.04992/s** | US$0.13/s = S$0.1664/s | **15 credits/s = S$0.15/s** | 9.9% less | **66.7%** | CANDIDATE, pending availability |
 | H3 self-deployed 768P | US$0.0331/s = **S$0.042368/s** | US$0.08/s (H3 standard) | **9 credits/s = S$0.09/s** | 12.1% less | **52.9%** | PROVISIONAL: self-deployed tier, no direct official comparator |
@@ -117,8 +117,8 @@ supplier quote.
 | `deepseek-v4.1-flash` / `-1017` (**default**) | US$0.176 / 0.706 | US$0.294 / 1.18 (standard) | **29 / 113 credits** | 22.9% / 25.2% less | **22.3% / 20.0%** | **CANDIDATE**; cache-read billed at the input rate until a cache-hit quote exists |
 | `claude-haiku-5-5`, ≤100K prompt | US$0.0279 / 0.14 | US$0.10 / 0.50 | **8 / 40 credits** | 37.5% less both | **55.4% / 55.2%** | **HOLD** until cache + >100K prompt rates are quoted |
 | `claude-sonnet-5-5` | US$0.559 / 2.79 | US$2 / 10 | **150 / 750 credits** | 41.4% less both | **52.3% / 52.4%** | **HOLD** until cache + long-context rates |
-| `claude-fable-5-1` (optional) | US$2.79 / 14 | US$10 / 50 | 640 / 3,200 credits (50%) | 50% less | 50% | HOLD until cache/long-context rates are quoted |
-| `claude-opus-5-5` (optional) | US$1.12 / 5.59 | US$4 / 20 | 256 / 1,280 credits (50%) | 50% less | 50% | HOLD until cache/long-context rates are quoted |
+| `claude-fable-5-1` (optional) | US$2.79 / 14 | US$10 / 50 | 640 / 3,200 credits (50% below list) | 50% less | **44.2% / 44.0%** | HOLD until cache/long-context rates are quoted |
+| `claude-opus-5-5` (optional) | US$1.12 / 5.59 | US$4 / 20 | 256 / 1,280 credits (50% below list) | 50% less | **44.0% / 44.1%** | HOLD until cache/long-context rates are quoted |
 | all other text families (GPT, Gemini, GLM, Grok, Kimi, Qwen) | quoted | quoted | not priced here | — | — | HOLD: no approved per-model rate |
 
 - Claude official output is **US$2.50/M for prompts >100K**, not the ≤100K
@@ -145,9 +145,12 @@ supplier quote.
   separately at their own rates. Estimating output tokens from delivered
   Unicode text is not an authoritative meter.
   `CountTextTokens` is a non-billing UI estimate only.
-- Text generation must stay on legacy behavior behind a **non-public flag** or
-  be disabled for new metered sales until the cache and long-context rates are
-  quoted; the token source is no longer the blocker.
+- Text generation for models with **no quoted cache or long-context rate** (today:
+  every Claude row) must stay on legacy behavior behind a **non-public flag** or
+  be disabled for new metered sales until those rates are quoted; the token
+  source is no longer the blocker. `deepseek-v4.1-flash` has neither a cache-hit
+  nor a long-context tier in this quote, so it bills cache reads at the input
+  rate and is **not** blocked by this rule.
 
 ## D. Quoted but not yet eligible — no invented margin
 
@@ -173,22 +176,25 @@ that cannot clear the most expensive active SKU is simply not offered.
 | Plan / scenario | Effective SGD/credit | H3 768P at 11 cr/s vs **S$0.08704** cost | H3 2K at 18 cr/s vs **S$0.14208** cost | Standard H3 viability |
 |---|---:|---:|---:|---|
 | Face-value topup, S$1/100 | S$0.010000 | S$0.11000 (**20.9%**) | S$0.18000 (**21.1%**) | meets 20% |
-| Current S$89/9,000 | S$0.009889 | S$0.10878 (**20.0%**) | S$0.17800 (**20.2%**) | meets 20% |
-| Current S$249/25,500 | S$0.009765 | S$0.10741 (**19.0%**) | S$0.17577 (**19.2%**) | ~19%, just below |
+| Review-proposed S$89/9,000 | S$0.009889 | S$0.10878 (**20.0%**; 19.98% before rounding) | S$0.17800 (**20.2%**) | marginally meets 20% |
+| Review-proposed S$249/25,500 | S$0.009765 | S$0.10741 (**19.0%**) | S$0.17577 (**19.2%**) | ~19%, just below |
 | Proposed S$49/5,500 | S$0.008909 | S$0.09800 (**11.2%**) | S$0.16036 (**11.4%**) | fails |
 | Proposed S$149/18,000 | S$0.008278 | S$0.09106 (**4.4%**) | S$0.14900 (**4.6%**) | fails |
 
-- The S$49/5,500 and S$149/18,000 rows remain **rejected** under the credit-only
-  rule.
+- The S$49/5,500 and S$149/18,000 rows remain **rejected as a policy choice**.
 - The 11/18 repricing clears the 20% output target at face value and on the
   S$89 plan, but the S$249 row lands at ~19% and the two rejected rows are far
-  below it. Reaching 20% **at the lowest permitted revenue per credit** (the
-  S$249 row) needs 12/19 credits/s — realized S$0.11718/S$0.18554, or 14.4%/11.5%
-  above the official list — and no integer price satisfies the rejected rows at
-  all.
+  below it. At the lowest permitted funding source (the S$249 row), 20% needs
+  **12/19** credits/s — S$0.11718/S$0.18554, or 14.4%/11.5% above the official
+  list. Reaching it on the two rejected rows is also arithmetically possible:
+  **13/20** clears the S$49 row (24.9%/20.3%) and **14/22** clears the S$149
+  row (24.9%/22.0%), and a single global 14/22 clears all five rows
+  (21.98%–37.83%) — but those prices sit 32–37% above the official list, and
+  the owner declined to raise standard H3 further. The rejection is therefore a
+  pricing decision, not an arithmetic limit.
 - This is why the two H3 tiers should not be the default video path: the Lite
-  tier (US$0.024/0.039) earns ~66% at the *old* 9/15 retail on every plan row
-  above, stays below the official list, and is the intended default once its
+  tier (US$0.024/0.039) earns 65.9%/66.7% at the *old* 9/15 retail at face
+  value — ≈59–67% across the plan rows above — stays below the official list, and is the intended default once its
   availability is confirmed.
 
 ## F. Engineering acceptance and release gates (PR #38)

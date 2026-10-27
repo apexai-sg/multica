@@ -232,7 +232,8 @@ is part of the rate key.
 | `deepseek-v4.1-flash` text (**default**) in/out | **29 / 113 credits per 1M tokens** | CANDIDATE: 22.3% / 20.0% margin, below the official standard list |
 | `claude-haiku-5-5` ≤100K prompt in/out / `claude-sonnet-5-5` in/out | **8 / 40 and 150 / 750 credits per 1M tokens**, output and input components only | HOLD until cache and >100K prompt tiers are quoted |
 | H3-Max 480P/768P, Kling 2K, Seedance | **no qualifying live rate** | HOLD |
-| all other models/variants including GPT/Gemini text/Opus/Kimi/Qwen | **unpriced** | HOLD pending an approved rate and OEM match |
+| all other models/variants including GPT/Gemini text/Kimi/Qwen | **unpriced** | HOLD pending an approved rate and OEM match |
+| `claude-fable-5-1` / `claude-opus-5-5` 1M tokens | 640 / 3,200 and 256 / 1,280 credits | HOLD: priced for reference, blocked on cache/long-context quotes |
 
 **MiniMax H3 video price check (output only; 100 credits = S$1).** Official API reference: https://platform.minimax.io/subscribe/token-plan?tab=api-enterprise ; HopBase ToB quote dated 2026-10-26; reference FX below (USD 1 = SGD 1.28, so `credits/s = US$/s × 128`). The **Lite** rate is cheaper than the comparable **official API list price** (not necessarily every consumer membership or promotional package). The **standard** tier is deliberately priced **above** the official list to reach the owner's 20% margin target.
 
@@ -248,7 +249,7 @@ standard H3: at this cost the maximum margin below the official list is
 15.0% (768P) / 14.6% (2K). The owner chose margin, so standard H3 must carry no
 discount label and must not be marketed as cheaper than the official API.
 
-**Margin warning and subscription-unit economics:** Output-only comparisons are not end-to-end contribution profit. The 11/18 rates clear 20% only at face value and on the S$89 plan; the S$249 grant realizes ~19%, and reference images, retries, payment fees and FX can erode that further. Separately, a subscriber who pays **S$149 for 18,000 credits** (proposed in an earlier review comment, not approved) supplies only S$0.00828 revenue/credit: standard H3 would earn ~4.4% and even the Lite tier's S$0.09 per 768P second would net ~8% there. The single wallet must check realized revenue per credit across all funded sources including discounted plans and topup bonuses (audit §E); under credit-only billing the fix is to refuse that plan or renegotiate supplier rates, **not** to gate SKUs per plan. Revalidate FX and official list prices, and never claim blanket "official 30–70% off".
+**Margin warning and subscription-unit economics:** Output-only comparisons are not end-to-end contribution profit. The 11/18 rates clear 20% only at face value and on the S$89 plan; the S$249 grant realizes ~19%, and reference images, retries, payment fees and FX can erode that further. Separately, a subscriber who pays **S$149 for 18,000 credits** (proposed in an earlier review comment, not approved) supplies only S$0.00828 revenue/credit: standard H3 would earn ~4.4% and even the Lite tier's S$0.09 per 768P second would net ~59% there (S$0.0745 of revenue against S$0.03072 of cost), not the ~66% it earns at face value. The single wallet must check realized revenue per credit across all funded sources including discounted plans and topup bonuses (audit §E); under credit-only billing the fix is to refuse that plan or renegotiate supplier rates, **not** to gate SKUs per plan. Revalidate FX and official list prices, and never claim blanket "official 30–70% off".
 
 **Credit-only billing rule (owner decision, 2026-10-27).** Every entitlement,
 plan and charge is expressed only as a credit deduction from the single pool
@@ -260,26 +261,33 @@ benefit is a larger credit grant (and its price), not a separate feature
 entitlement.
 
 **Plan catalogue — proposals for owner sign-off, none activated.** The
-currently implemented rows are shown for contrast; the review-proposed rows are
-not approved and must not ship until the effective-SGD-per-credit check passes
+implemented catalog (`server/internal/aurora/tiers.go`) grants 200 / 3,000 /
+12,000 credits per month plus 5,000 / 20,000 topups, with Stripe prices supplied
+by env. The prices and grants below are review proposals, not live values; none
+is approved and none may ship until the effective-SGD-per-credit check passes
 for every active SKU.
 
-| plan | current | review-proposed (NOT approved) | credits/month | effective S$/credit |
+| plan | earlier proposal | review-proposed (NOT approved) | credits/month for the proposed price | effective S$/credit |
 |---|---:|---:|---:|---:|
 | Starter | S$12 | S$12 | 1,200 | 0.010000 |
 | Plus | S$89 | **S$49** | 5,500 | **0.008909** |
 | Pro | S$249 | **S$149** | 18,000 | **0.008278** |
 | Business | — | S$249 (larger credit grant only; no separate entitlement) | 25,500 | 0.009765 |
 
+The earlier S$89/9,000 review proposal is evaluated separately in audit §E.
+
 Under the credit-only rule the S$49/5,500 and S$149/18,000 rows are
-**rejected**: at the standard H3 11/18 rates they realize S$0.0980 / 0.1604 and
-S$0.0911 / 0.1490 per second, i.e. 11.2%/11.4% and 4.4%/4.6% output margin, and
-no integer rate reaches 20% on them. With standard H3 repriced to 11/18,
-face-value topup earns 20.9%/21.1%, S$89/9,000 earns 20.0%/20.2%, and
-S$249/25,500 earns 19.0%/19.2%; the catalogue therefore clears the 20% target
-on the first two rows and lands just below it on Business. The Lite tier at the
-original 9/15 still earns ~66% on every plan row and remains the better
-default. Choosing standard H3 instead means accepting that it is no longer
+**rejected as a policy choice**: at the standard H3 11/18 rates they realize
+S$0.0980 / 0.1604 and S$0.0911 / 0.1490 per second, i.e. 11.2%/11.4% and
+4.4%/4.6% output margin. Clearing 20% on them is arithmetically possible —
+13/20 credits/s for the S$49 row and 14/22 for the S$149 row — but those prices
+sit further above the official list, and the owner declined to raise standard
+H3 again. With standard H3 repriced to 11/18, face-value topup earns
+20.9%/21.1%, the S$89/9,000 row earns 20.0%/20.2% (768P is 19.98%, rounded up),
+and S$249/25,500 earns 19.0%/19.2%; the catalogue therefore clears the 20%
+target on the first two rows and lands just below it on Business. The Lite tier
+at the original 9/15 still earns ≈59–67% on every plan row above (65.9%/66.7%
+at face value) and remains the better default. Choosing standard H3 instead means accepting that it is no longer
 cheaper than the official list; that trade-off is approved but must not be
 advertised as a discount. The S$249 row, if kept as "Business", is only a larger
 credit grant — do not invent team/priority entitlements that the credit-only
@@ -343,10 +351,13 @@ Rules:
   model)` with `input_tokens`, `output_tokens`, `cache_read_tokens`,
   `cache_write_tokens` and an optional provider-reported `cost_usd_ticks`,
   written by `ReportTaskUsage` at `POST /api/daemon/tasks/{taskId}/usage`. Text
-  settlement reads the rows for the generation's `task_id` and prices each
-  `(provider, model)` line from the rate card. Canonical meaning, already
-  enforced at the write path: `input_tokens` excludes cached tokens, and the
-  total input side is `input + cache_read + cache_write`. The artifact's text
+  settlement reads the rows for every task the generation accumulated
+  (`aurora_generation.task_ids`, one id per `needs_input` round — `task_id`
+  alone names only the last round) and prices each `(model, category)` line
+  from the rate card. Canonical meaning per the daemon contract:
+  `input_tokens` excludes cached tokens, and the total input side is
+  `input + cache_read + cache_write` (the server stores the reported values
+  as-is and does not re-derive them). The artifact's text
   bytes are still counted for display only and must never set a charge.
   `deepseek-v4.1-flash` is the default text model; while its cache-hit price is
   unquoted, `cache_read_tokens` bill at the input rate (never free), and
@@ -550,14 +561,22 @@ Aurora's fork-only migrations take numbers from 5000 upward. Every index is
 - `5003_credit_batch_user_expiry_idx` — concurrent index.
 - `5004_credit_batch_allocation` — table.
 - `5005_credit_batch_allocation_ledger_idx` — concurrent index.
-- `5006_aurora_generation_charge` — table.
-- `5007_aurora_generation_charge_generation_idx` — concurrent index.
-- `5008_aurora_generation_rate_version` — add `rate_version text` and
-  `output_selection jsonb` to `aurora_generation`, so a settled run keeps the
-  card and the selected SKU it was priced with.
+- `5006_aurora_generation_charge` — table, no inline primary key.
+- `5007_aurora_generation_charge_pkey` — concurrent unique index on
+  `(generation_id, kind, model, sku)`, registered in
+  `cmd/migrate/main.go`'s `concurrentIndexCleanups`.
+- `5008_aurora_generation_rate_version` — add `rate_version text`,
+  `output_selection jsonb` and `task_ids uuid[]` to `aurora_generation`, so a
+  settled run keeps the card and the selected SKU it was priced with, and
+  settlement can read every round's `task_usage` rows.
 - `5009_aurora_generation_cost` — internal provider-cost record per run
-  (never a customer charge).
-- `5010_aurora_generation_cost_generation_idx` — concurrent index.
+  (never a customer charge); stores `cost_usd_ticks` from `task_usage`, not a
+  thinking-token counter.
+- `5010_aurora_generation_cost_pkey` — concurrent unique index on
+  `(generation_id)`, registered in `concurrentIndexCleanups`.
+- `5011_aurora_generation_charge_primary_key` — attach the 5007 index with
+  `ADD CONSTRAINT … PRIMARY KEY USING INDEX`.
+- `5012_aurora_generation_cost_primary_key` — attach the 5010 index the same way.
 
 `aurora_generation_charge`:
 
@@ -588,11 +607,13 @@ Aurora's fork-only migrations take numbers from 5000 upward. Every index is
 
 ### 8. API changes
 
-- `GET /api/aurora/skills` — each entry gains `maxCredits` (the maximum
-  reservation, in credits), `caps`, `pricingStatus` and `meteredEnabled`;
-  `credits` stays as a deprecated alias of `maxCredits` so an installed desktop
-  client keeps rendering a number. HOLD/PROVISIONAL entries report
-  `meteredEnabled: false` and are not selectable for a paid run.
+- `GET /api/aurora/skills` — this endpoint serializes the catalog entry directly
+  and is snake_case (`name_en`, `attachment_rules`), so the new fields are
+  `max_credits` (the maximum reservation, in whole credits), `caps`,
+  `pricing_status` and `metered_enabled`; `credits` stays as a deprecated alias
+  of `max_credits` so an installed desktop client keeps rendering a number.
+  HOLD/PROVISIONAL entries report `metered_enabled: false` and are not
+  selectable for a paid run.
 - `POST /api/aurora/generations/quote` — read-only; same body as create
   (including the selected output), returns `requiredCredits`,
   `availableCredits`, `shortfallCredits` and the resolved `rateVersion`.
@@ -624,7 +645,7 @@ Three surfaces, matching the success criteria:
   （MiniMax H3）`), a total, and a link to the account page. When `over_cap` is false and the refund occurred, show the
   actual charge only; never show the reservation.
 - **Account page** (`billing.tsx`): available and held-in-flight shown
-  separately, balance split by expiry batch ("本月赠送 1,800，10-31 作废" /
+  separately, balance split by expiry batch ("本月赠送 1,200，10-31 作废" /
   "积分包 5,000，2027-10 到期"), this month's spend split by kind, and the
   ledger with human labels carrying the itemization.
 - **Subscribe page** (`billing.tsx` or a sibling plan route): the monthly /
