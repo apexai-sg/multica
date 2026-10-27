@@ -100,19 +100,21 @@ margin, so a lower retail price is possible but not approved.
 ## C. Text generation — amounts per 1,000,000 tokens
 
 The 2026-10-26 sheet now gives **input and output** costs for Claude and most
-other families. That removes one HOLD reason but not all: cache read/write and
-long-context tiers are still missing for several models, and the runtime must
-report authoritative provider token usage. DeepSeek is still commercially
-blocked because its supplier price exceeds the official off-peak list.
+other families. **The metering question is settled** (owner decision
+2026-10-27): text bills from the `task_usage` rows the daemon already reports
+for each task, so no new usage protocol is needed. What still blocks sale is
+pricing — cache read/write and >100K prompt tiers have no supplier quote.
+DeepSeek is still commercially blocked because its supplier price exceeds the
+official off-peak list.
 
 | Model / scope | HopBase in/out per M | Official std in/out per M | Apex candidate (in/out, per M) | Of official | Output gross margin | Status |
 |---|---:|---:|---:|---:|---:|---|
-| `claude-haiku-5-5`, ≤100K prompt | US$0.0279 / 0.14 | US$0.10 / 0.50 | **8 / 40 credits** | 37.5% less both | **55.4% / 55.2%** | **HOLD** until cache + >100K prompt rates and real metering |
+| `claude-haiku-5-5`, ≤100K prompt | US$0.0279 / 0.14 | US$0.10 / 0.50 | **8 / 40 credits** | 37.5% less both | **55.4% / 55.2%** | **HOLD** until cache + >100K prompt rates are quoted |
 | `claude-sonnet-5-5` | US$0.559 / 2.79 | US$2 / 10 | **150 / 750 credits** | 41.4% less both | **52.3% / 52.4%** | **HOLD** until cache + long-context rates |
-| `claude-fable-5-1` (optional) | US$2.79 / 14 | US$10 / 50 | 640 / 3,200 credits (50%) | 50% less | 50% | HOLD pending text metering |
-| `claude-opus-5-5` (optional) | US$1.12 / 5.59 | US$4 / 20 | 256 / 1,280 credits (50%) | 50% less | 50% | HOLD pending text metering |
+| `claude-fable-5-1` (optional) | US$2.79 / 14 | US$10 / 50 | 640 / 3,200 credits (50%) | 50% less | 50% | HOLD until cache/long-context rates are quoted |
+| `claude-opus-5-5` (optional) | US$1.12 / 5.59 | US$4 / 20 | 256 / 1,280 credits (50%) | 50% less | 50% | HOLD until cache/long-context rates are quoted |
 | `deepseek-v4.1-flash` / `-1017` | US$0.176 / 0.706 | peak US$0.294/1.18; off-peak US$0.147/0.59 | **NO ALWAYS-CHEAPER RATE** | — | — | **HOLD**: supplier > official off-peak |
-| all other text families (GPT, Gemini, GLM, Grok, Kimi, Qwen) | quoted | quoted | not priced here | — | — | HOLD until per-model usage metering |
+| all other text families (GPT, Gemini, GLM, Grok, Kimi, Qwen) | quoted | quoted | not priced here | — | — | HOLD: no approved per-model rate |
 
 - Claude official output is **US$2.50/M for prompts >100K**, not the ≤100K
   tier; the supplier long-context cost is missing. Cache-read prices are given
@@ -128,13 +130,14 @@ blocked because its supplier price exceeds the official off-peak list.
   DeepSeek; it also ignores billable input. Per-model **input, output, cache
   read/write, long context and batch** tariffs are required.
 - For text, **never ceil each charge line to a full credit.** Per-token fees are
-  sub-credit. Debit measured provider token usage in integer microcredits;
-  track input/output/cache/thinking usage and billable retries. Estimating
-  output tokens from delivered Unicode text is not an authoritative meter.
+  sub-credit. Debit the `task_usage` token rows in integer microcredits;
+  `input_tokens` already excludes cached tokens, and cache read/write bill
+  separately at their own rates. Estimating output tokens from delivered
+  Unicode text is not an authoritative meter.
   `CountTextTokens` is a non-billing UI estimate only.
 - Text generation must stay on legacy behavior behind a **non-public flag** or
-  be disabled for new metered sales until complete provider usage/cost
-  provenance is implemented.
+  be disabled for new metered sales until the cache and long-context rates are
+  quoted; the token source is no longer the blocker.
 
 ## D. Quoted but not yet eligible — no invented margin
 
@@ -182,7 +185,7 @@ that cannot clear the most expensive active SKU is simply not offered.
 
 1. **Rate book keyed by exact provider model + SKU variant:** image model, size and count; video model, resolution, audio, reference inputs and duration; text model, input/output tokens, context tier and caching. Every rate has official URL, supplier quote revision, FX, `effective_at`, `expires_at` and approval status. Unknown/model-mismatched/unapproved SKUs **fail closed before payment**, not silently at zero or at another model's price.
 2. **Cost & comparator validation:** `provider_cost_SGD < realized_public_sale_SGD < matching_official_API_list_SGD` for the chosen mode at effective FX and the most discounted permitted funding source, plus an operator-set minimum **contribution** margin after fees/retries. The only sanctioned exception is standard MiniMax H3, priced above the official list by owner override and therefore barred from any discount claim. A nonpositive or unsafe post-fee margin blocks the SKU even when the two simple bounds pass. Suppress discount labels when batch/promotional/off-peak/region tiers cannot support the claim.
-3. **Input billing:** charge/reserve all paid input modalities and true provider usage (tokens, image reference count, input video duration, thinking, tools and retries). If provider metering is unavailable, disable affected modes.
+3. **Input billing:** charge/reserve all paid input modalities and the reported `task_usage` rows (input, output, cache read, cache write) for text; image references and input video duration have no row and must be either measured or excluded from the sold SKU. If a generation's usage row is missing at settlement, charge the reserved ceiling and flag it rather than settling free.
 4. **Rounding:** ledger uses int64 microcredits and precise fixed-point rate arithmetic, **no full-credit per-charge-line ceiling** on text or millisecond video. Display may round while persisted debits must not.
 5. **Quality and billing boundaries:** keep one consistent map from requested/resolved SKU to delivered measured artifact; never charge 1080P as "2K"; preserve per-run max/hold/refund and the pre-launch test-data cleanup. Require per-SKU before/after tests, output quantity examples, and price guardrail tests for supplier changes, official cuts and FX movements.
 6. **Staged rollout:** pricing memo first, then rate card and measurements in an **unreleased feature flag**; **reverify the HopBase quote before its 2026-11-25 expiry**; enable candidate SKUs only after verified real request cost/usage tests and user-visible quotations. **No code change is contained in this document-only PR.**

@@ -21,10 +21,11 @@ follows; every row names the place a reviewer can check.
 | P0-2 resolve the video-tier contradiction; no 1080P-as-2K | spec §2 SKU boundary table; Task 1 tests; Task 2 cap 1440 |
 | P0-3 capture provider cost, pin the model, count retries, alert | spec §5.1; Task 11 |
 | P1-4 keep the old 9/24/39 and 1-credit/1K launch rates | **Superseded** by the owner's 2026-10-27 audit (4/5/3/15 image; H3 Lite 9/15, standard 11/18); old blanket rates are documented as replaced in the spec and audit |
-| P1-5 membership tiers, Business plan, margin scenarios | spec §2 credit-only rule (D5: no per-plan SKU gating); S$49/5,500 and S$149/18,000 **rejected** under current cost; Open question 3 |
-| P1-6 annual 11/12 and abuse-controlled signup trial | spec §2 |
+| P1-5 membership tiers, Business plan, margin scenarios | spec §2 credit-only rule (D5: no per-plan SKU gating); S$49/5,500 and S$149/18,000 **rejected** under current cost; Open question 2 |
+| P1-6 annual 11/12 and abuse-controlled signup trial | **Resolved 2026-10-27:** no signup trial at launch; the existing 500-credit grant is removed in the pre-launch cleanup. spec §2 |
 | P0-7 auditable old-balance conversion, preserve prepaid value | **Resolved 2026-10-27:** there are no paying users; existing rows are test data. spec §10 is a pre-launch cleanup, not a conversion |
 | P0-8 re-verify HopBase before 2026-11-25; fail closed | spec §2 rate metadata; plan Global Constraints; Tasks 1, 12 |
+| Text metering source (was open question 4) | **Resolved 2026-10-27:** read `task_usage` for the generation's task. spec D2/§3; Task 6 tests; Task 11 |
 
 **Scope:** Phase 1 only (spec §Rollout item 1). The batch wallet (spec §6), the
 pre-launch test-data cleanup (spec §10), and the SGD plan catalogue (spec
@@ -39,6 +40,8 @@ them. The wallet phase takes migration numbers 5002–5005; this plan uses 5001,
 - Charge exact **integer microcredits**, not up to the next whole credit per line. Text/fractional video rounding to whole credits could price short requests above official; use integer fixed-point arithmetic and explicitly prevent overflow.
 - Rates are integers in `micro-credits per unit`: per 1,000 text tokens, per image, per video second.
 - Rates are keyed by **model plus SKU variant** (image pixels; video tier, audio, reference inputs; text input/output/cache/context). An unconfigured/HOLD/expired model fails **before reservation**, never settles at zero or inherits another model's price.
+- Text tokens come from `task_usage` for the generation's own task (`input_tokens` excludes cached tokens; input side is `input + cache_read + cache_write`). No row at settlement charges the reserved ceiling and flags `aurora_usage_missing`; a heuristic token count never becomes a charge.
+- No signup credit grant ships with this plan (owner decision 2026-10-27); the existing 500-credit grant is removed in the pre-launch cleanup.
 - Every rate record carries `Approval`, `OfficialURL`, `SupplierQuoteRevision`,
   `FX`, `EffectiveAt` and `ExpiresAt`. `provisional`, `hold`, uneffective or
   expired records are unsellable; the 2026-10-26 HopBase quote expires
@@ -232,7 +235,7 @@ key so a request can never borrow one tier's price for the other.
 
 The old height-based 1080P→2K lookup is removed as a pricing shortcut. Define exact provider SKU boundaries and test mismatched/unsupported output dimensions before enabling each mode.
 
-`CountTextTokens` is a **non-billing preview heuristic only**: `ascii*1/4 + nonASCII*3/4`, rounded up, with a minimum of 1 for a non-empty body. No paid text requests may be admitted before usage-derived, provider-authoritative input/output/cache metering is added.
+`CountTextTokens` is a **non-billing preview heuristic only**: `ascii*1/4 + nonASCII*3/4`, rounded up, with a minimum of 1 for a non-empty body. It never feeds a charge. Text billing reads the `task_usage` rows described in spec §3 (owner decision 2026-10-27), so no new usage-reporting protocol is built here; text SKUs still stay out of the live card until cache/long-context rates are quoted.
 
 `Charge` returns `ErrRateMissing` when the model is absent or when the kind has no rate on that model.
 
@@ -270,7 +273,7 @@ git commit -m "feat(aurora): add the model-keyed rate card"
 Caps come from the skill's declared `Output` kinds, not 33 hand-edited rows:
 `video` present → `{MaxTextTokens: 0, MaxVideoMilli: 10000, MaxVideoHeight: 1440}` **only if any additional text/tool costs are accounted for**;
 else `image` present → `{MaxTextTokens: 0, MaxImages: 4}` under the same restriction;
-else text-only → `{MaxTextTokens: 8000}`, but its **commercial status is HOLD** pending actual provider input/output cost metering.
+else text-only → `{MaxTextTokens: 8000}`, but its **commercial status is HOLD** until the cache and long-context rates are quoted; the token meter itself is `task_usage` (spec §3).
 
 `MaxVideoHeight` is the highest **configured** SKU height (1440 for H3 2K). A
 2160/4K request is not covered by a cap or a rate, so it is rejected rather
@@ -480,7 +483,7 @@ git commit -m "feat(aurora): add measured usage and generation charge tables"
   - `insertAuroraArtifactStaging` takes the measured value and stores it as JSON.
 
 Rules:
-- text → `aurora.CountTextTokens(body)`.
+- text → record `aurora.CountTextTokens(body)` for display only. It is never a billing quantity: settlement prices text from `task_usage` (Task 6).
 - image → decode the config header (`image.DecodeConfig` with `_ "image/png"`, `_ "image/jpeg"`, `_ "image/gif"`, `_ "golang.org/x/image/webp"`); record width/height.
 - video → run `ffprobe -v error -show_entries stream=width,height:format=duration -of json <path>`; record width, height, and `DurationMS = round(duration × 1000)`.
 - Any failure returns an error; the caller responds 400 `"artifact could not be measured"` and deletes the staged object.
@@ -584,14 +587,14 @@ git commit -m "feat(aurora): carry measured usage onto the asset"
 - Test: `server/internal/service/aurora_completion_test.go`
 
 **Interfaces:**
-- Consumes: `aurora.RateCard`, `aurora.Charge`, `aurora.Lookup(gen.SkillID)`, `gen.OutputSelection`, `db.ListAuroraAssetsForCharge`, `db.CreateAuroraGenerationCharge`, `Credit.Refund`.
+- Consumes: `aurora.RateCard`, `aurora.Charge`, `aurora.Lookup(gen.SkillID)`, `gen.OutputSelection`, `db.ListAuroraAssetsForCharge`, `db.GetTaskUsage`, `db.CreateAuroraGenerationCharge`, `Credit.Refund`.
 - Produces:
   - `TaskService.RateCard *aurora.RateCard` (set beside `taskSvc.Credit` in `handler.go`).
   - `func (s *TaskService) auroraChargeLines(gen db.AuroraGeneration, assets []db.AuroraAsset, now time.Time) ([]aurora.ChargeLine, error)`
 
 Behaviour:
 - `gen.RateVersion == "legacy"` → one line at the old flat price: `AmountMicro = gen.CreditsReserved`, `Kind = "legacy"`, `Model = "legacy"`, `QuantityMilli = 1000`. No model lookup.
-- Otherwise decode `gen.OutputSelection` (the frozen selected output/SKU) and price that exact SKU, never a tier inferred from the delivered height alone. Images are priced by count, video by measured milliseconds at the selected SKU's rate. A measured height outside the selected SKU is a settlement error (non-terminal, logged, `aurora_sku_mismatch`), never a repricing. **Do not** sum delivered Unicode text into paid output tokens; text models remain HOLD until input/output/cache metering and supplier input quotes are implemented. A paid job that used an unpriced model/variant should have been rejected at creation.
+- Otherwise decode `gen.OutputSelection` (the frozen selected output/SKU) and price that exact SKU, never a tier inferred from the delivered height alone. Images are priced by count, video by measured milliseconds at the selected SKU's rate. A measured height outside the selected SKU is a settlement error (non-terminal, logged, `aurora_sku_mismatch`), never a repricing. **Text is priced from `task_usage`**, not from delivered Unicode length: read the rows for `gen.TaskID` (`db.GetTaskUsage`), emit one charge line per `(provider, model)` with `input_tokens` at the input rate and `output_tokens` at the output rate (cache read/write only when the card carries those rates). No row → charge `gen.CreditsReserved`, flag `aurora_usage_missing`, and alert; never settle a text generation at zero because the report is absent. A paid job that used an unpriced model/variant should have been rejected at creation.
 - `actual = min(sum, gen.CreditsReserved)`. `over_cap = sum > gen.CreditsReserved`.
 - Write the charge rows (idempotent via the unique index), then `Refund(gen.CreditsReserved - actual)` when positive, with reference `settle:<generationID>`.
 - Then `UpdateAuroraGenerationTerminal` with `CreditsCharged: actual`.
@@ -616,6 +619,16 @@ func TestSettlementLegacyGenerationKeepsItsFlatPrice(t *testing.T) {
 
 func TestSettlementSumsAllRounds(t *testing.T) {
 	// assets reported across two rounds of one generation both count.
+}
+
+func TestSettlementPricesTextFromTaskUsage(t *testing.T) {
+	// task_usage: (anthropic, claude-haiku-5-5, in 1_000_000, out 100_000)
+	// → 8 input + 4 output credits = 12 credits, one text line per (provider, model).
+}
+
+func TestSettlementChargesCeilingWhenUsageMissing(t *testing.T) {
+	// a text generation whose task has no task_usage row charges the reserved
+	// ceiling and flags aurora_usage_missing; it never settles at zero.
 }
 
 func TestSettlementIsIdempotent(t *testing.T) {
@@ -897,6 +910,7 @@ git commit -m "feat(aurora): release abandoned conversation holds"
   - Counters/log keys: `aurora_model_mismatch`, `aurora_cost_exceeds_revenue`, `aurora_charge_over_cap`, `aurora_rate_expired_blocked`.
 
 Behaviour:
+- **Reuse `task_usage` for token accounting.** The `(provider, model)` rows and their `cost_usd_ticks` (provider-reported price, when the daemon supplies one) are the token/cost source; do not add a parallel token reporter. `cost_usd_ticks` is authoritative only when positive (0 means "not reported"), so absent values fall back to the rate table and are marked estimated.
 - **Pin at dispatch.** The resolved model and SKU are written into `output_selection` and the task payload. On completion, compare the runtime's provider-run record with the pinned model; a mismatch is recorded in `aurora_generation_cost.model_mismatch`, settles at the reserved ceiling (never refunds as if the cheaper model ran), and logs/counts `aurora_model_mismatch`. A missing provider-run record is recorded as unknown; the SKU's sales flag is reviewed, never guessed.
 - **Count attempts.** Every attempt, including chargeable failed attempts and retries, is accumulated into the cost row; the customer charge still counts delivered artifacts only.
 - **Margin check.** After settlement, compare `provider_cost_micro_sgd` with the realized revenue of the charge at the funding source's effective SGD/credit. A nonpositive/low contribution margin logs `aurora_cost_exceeds_revenue` and blocks that SKU/funding-source pair from further sales until an operator clears it; it never reprices the settled run.
@@ -971,7 +985,11 @@ borrowing; no 1-credit minimum on subcredit text; refund/idempotency; fail
 before reserving for unavailable models; provider cost recorded per attempt
 with cost < realized revenue < official list at the lowest permitted
 SGD/credit; model-mismatch settles at the ceiling; missing usage disables the
-SKU. The S$49/5,500 and S$149/18,000 plan rows are rejected under the
+SKU. Text settlement is covered by its own blockers: charges agree with the
+`task_usage` rows, a missing row charges the ceiling with
+`aurora_usage_missing`, cache tokens never bill at the input rate by accident,
+and no signup credit grant exists. The S$49/5,500 and S$149/18,000 plan rows are
+rejected under the
 credit-only rule; the margin gate must reject standard MiniMax H3 at 9/15
 credits/s (3.3%/5.3%), accept it at 11/18 (20.9%/21.1%) only with the
 official-list-bound override recorded and the discount label suppressed, and

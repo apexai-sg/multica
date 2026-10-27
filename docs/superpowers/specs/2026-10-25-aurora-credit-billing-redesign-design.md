@@ -56,10 +56,10 @@ matters:
 
 - A run that delivers three images costs three times a run that delivers one,
   and the result page names both the count and the rate.
-- Once a text SKU is approved, a text run costs by provider-reported
-  input/output/cache usage, not by delivered Unicode length and not a flat fee.
-  Until then every text-only skill is commercially HOLD and cannot be sold
-  metered.
+- Once a text SKU is approved, a text run costs by the `task_usage` rows for
+  its own task — provider-reported input/output/cache tokens, not delivered
+  Unicode length and not a flat fee. Until then every text-only skill is
+  commercially HOLD and cannot be sold metered.
 - A video run costs by measured resolution and measured duration; the numbers
   shown are measured by the server, not reported by the agent.
 - No user can be charged more than the amount quoted before submit.
@@ -87,8 +87,8 @@ matters:
 - **D1. Meter by delivered output, settle after the run.** The reserved amount
   is a ceiling; the charge is what the artifacts add up to; the difference is
   refunded.
-- **D2. Three output categories, SKU-specific meters.** Images per output image; video by the exact provider-supported resolution/audio/input configuration and measured seconds; text by provider-reported input, output, cache and reasoning usage (not approximations of output text).
-- **D3. Text is commercially HOLD until its whole-request cost can be quoted.** The old output-only 1-credit/1K-token rate exceeds relevant official API list prices and ignores billable input. Do not silently bill text by a Unicode heuristic; distinguish free displayed transcript artifacts from priced model token usage.
+- **D2. Three output categories, SKU-specific meters.** Images per output image; video by the exact provider-supported resolution/audio/input configuration and measured seconds; text by the `task_usage` tokens (input, output, cache read, cache write) recorded for the generation's own task — not approximations of output text.
+- **D3. Text is commercially HOLD until its whole-request cost can be quoted.** The old output-only 1-credit/1K-token rate exceeds relevant official API list prices and ignores billable input. The **metering source is settled** (owner decision 2026-10-27: `task_usage`); what still blocks sale is pricing — cache read/write and >100K prompt tiers have no supplier quote. Do not silently bill text by a Unicode heuristic; distinguish free displayed transcript artifacts from priced model token usage.
 - **D4. Reservation is by the per-request requested output, bounded by the
   skill's declared maximum.** Where the skill exposes image count / video
   duration / video mode, submit quotes and reserves that selection, not the
@@ -138,7 +138,7 @@ type RateCard struct {
 
 type ModelRate struct {
     Kind  string    // text | image | video
-    Text  *TextRate // requires provider input/output/cache usage; HOLD in this phase
+    Text  *TextRate // priced from task_usage tokens; HOLD until cache/long-context rates are quoted
     Image *ImageRate
     Video []VideoRate // micro-credits per second, by measured height
 }
@@ -179,7 +179,7 @@ the approved SKU list, and the same values produce the pre-submit quote and the
 reservation. A skill that cannot express its output shape — including an
 open-ended conversation — declares a visible fixed budget instead (see §4).
 
-- **Text**: bill via the provider's actual input/output/cache/thinking token counts and separately agreed rates. `asciiRunes/4 + nonASCIIRunes*3/4` can be used only for a **non-billing UI estimate**; it is not a provider token meter.
+- **Text**: bill via the provider's actual input/output/cache token counts recorded in `task_usage` and separately agreed rates. `asciiRunes/4 + nonASCIIRunes*3/4` can be used only for a **non-billing UI estimate**; it is not a provider token meter.
 - **Image**: one rate per image per model; an image that carries no tier uses
   the model's single rate.
 - **Video**: charge by an explicitly requested and server-authorized provider-specific SKU, then validate the delivered duration/dimensions against that SKU. Do **not** infer 2K solely from output height ≥1080 or charge 1080P at a 2K tier. Unquoted video tiers are HOLD.
@@ -231,7 +231,7 @@ is part of the rate key.
 | Grok Imagine video 480P / 720P / 1080P (if that provider is wired) | **8 / 12 / 22 credits/second** | CANDIDATE, provider not currently integrated |
 | `claude-haiku-5-5` ≤100K prompt in/out / `claude-sonnet-5-5` in/out | **8 / 40 and 150 / 750 credits per 1M tokens**, output and input components only | HOLD until cache and >100K prompt tiers are quoted |
 | `deepseek-v4.1-flash` text, H3-Max 480P/768P, Kling 2K, Seedance | **no qualifying live rate** | HOLD |
-| all other models/variants including GPT/Gemini text/Opus/Kimi/Qwen | **unpriced** | HOLD pending usage metering and OEM match |
+| all other models/variants including GPT/Gemini text/Opus/Kimi/Qwen | **unpriced** | HOLD pending an approved rate and OEM match |
 
 **MiniMax H3 video price check (output only; 100 credits = S$1).** Official API reference: https://platform.minimax.io/subscribe/token-plan?tab=api-enterprise ; HopBase ToB quote dated 2026-10-26; reference FX below (USD 1 = SGD 1.28, so `credits/s = US$/s × 128`). The **Lite** rate is cheaper than the comparable **official API list price** (not necessarily every consumer membership or promotional package). The **standard** tier is deliberately priced **above** the official list to reach the owner's 20% margin target.
 
@@ -286,10 +286,15 @@ rule cannot express.
 
 **Annual billing:** 11 months paid for 12 served (one month free), replacing
 the earlier ten-month proposal, pending owner approval and contribution-margin
-validation. **Signup trial:** a single small credit grant, 3-day expiry, exact
-amount set by the owner, granted once per verified identity; repeated signups,
-device/account reuse and expired-grant re-requests must be blocked, and the
-grant counts as zero realized revenue in every margin check.
+validation. **Signup trial: none at launch (owner decision 2026-10-27).** No
+free credit grant is offered, so there is no trial amount, expiry, or identity
+check to design and no zero-revenue grant to carry through the margin checks.
+The 500-credit grant that `createUserWithAuroraSignupBonusEligibility` currently
+issues at `server/internal/handler/auth.go` is part of the pre-launch cleanup:
+the grant call and the eligibility table write must be removed (or gated off)
+before metered billing ships, and the pending-eligibility rows must not be
+replayed afterwards. Re-introducing a trial later is a new owner decision with
+its own abuse analysis, not an implicit default.
 
 Fail closed **before reservation** when a model/SKU is absent, unquoted, expired, under margin floor, or HOLD; re-check price-version consistency at settlement rather than guessing a different amount.
 
@@ -319,7 +324,7 @@ New server-owned column `measured jsonb NOT NULL DEFAULT '{}'` on
 
 | kind  | measured fields |
 |-------|-----------------|
-| text  | `tokens` (from the delivered body) |
+| text  | not measured from the body; tokens come from `task_usage` (see below) |
 | image | `width`, `height` |
 | video | `duration_ms`, `width`, `height` |
 | pdf   | not billed in v1; no fields |
@@ -332,8 +337,25 @@ Rules:
   API image (`ffprobe`) or a pure-Go MP4/WebM reader; the builder picks the
   cheaper one that covers `mp4`, `mov`, and `webm`.
 - An **image whose header cannot be decoded** is rejected the same way.
-- Text file bytes may be counted for display/estimates, but are **not authoritative token billing**. The provider call must supply server-trusted actual input/output/caching/reasoning usage before any text SKU becomes a paid metered product.
-- **Text scope**: primary/supporting text outputs are delivered artifacts, but **none are charged using their display length**. Once a text model is approved, bill actual provider-request usage including input/cached/reasoning and generated output according to the accepted quote; distinguish incidental transcripts so they cannot be double-billed. Issue comments are not billable artifacts.
+- **Text is metered from `task_usage`, not from the artifact** (owner decision
+  2026-10-27). `task_usage` already stores one row per `(task_id, provider,
+  model)` with `input_tokens`, `output_tokens`, `cache_read_tokens`,
+  `cache_write_tokens` and an optional provider-reported `cost_usd_ticks`,
+  written by `ReportTaskUsage` at `POST /api/daemon/tasks/{taskId}/usage`. Text
+  settlement reads the rows for the generation's `task_id` and prices each
+  `(provider, model)` line from the rate card. Canonical meaning, already
+  enforced at the write path: `input_tokens` excludes cached tokens, and the
+  total input side is `input + cache_read + cache_write`. The artifact's text
+  bytes are still counted for display only and must never set a charge.
+- **Missing usage fails closed, not free.** A text generation whose task has no
+  `task_usage` row (an unreported or pre-report run — `GetIssueUsageSummary`
+  already tracks this gap as `unreported_task_count`) must not settle at zero:
+  charge the reserved ceiling, flag `aurora_usage_missing`, and alert. A row
+  that exists with all-zero counters is a real zero and settles as such.
+- **Text scope:** only the generation's own task usage is billable. Issue
+  comments, execution transcripts and the agent's incidental chatter are not
+  artifacts and never become a charge line; a generation must not be billed
+  twice for a round that resumed the same task.
 - `pdf` artifacts are delivered but cost nothing. Stated in the account page
   copy so it is not a surprise.
 
@@ -382,9 +404,10 @@ no side effects) returns the same `requiredCredits` / `availableCredits` /
 recomputes it transactionally rather than trusting the client.
 
 A skill with `MaxImages = 0` and `MaxVideoMilli = 0` is text-only and remains
-**commercially HOLD** until actual provider input/output/cache usage, supplier
-costs and a defensible under-official retail price can be quoted; no live
-ceiling should be reserved for such a skill prematurely.
+**commercially HOLD** until supplier cache/long-context costs and a defensible
+under-official retail price can be quoted; the token meter (`task_usage`) is
+already settled, so no live ceiling should be reserved for such a skill
+prematurely.
 
 **The cap is per generation, not per round.** A generation can end a round in
 `needs_input`, take a follow-up comment, and re-enter `queued` on the *same*
@@ -474,7 +497,7 @@ Introduce `credit_batch`:
 |---|---|
 | `id` | batch id |
 | `user_id` | owner |
-| `source` | `monthly` \| `topup` \| `signup` \| `adjustment` |
+| `source` | `monthly` \| `topup` \| `adjustment` (`signup` stays unused while no trial ships) |
 | `amount_micro` | face value |
 | `remaining_micro` | spendable remainder |
 | `expires_at` | null = never expires |
@@ -494,8 +517,8 @@ page can show per-batch expiry.
   carries `expires_at = granted_at + 31 days`. Expiring a batch retires its
   stored `remaining_micro`, so a missed tick self-heals.
 - Topup packs get `expires_at = created_at + 1 year`.
-- The signup bonus, if kept, gets the reference's 3-day expiry (see Open
-  questions).
+- No signup grant ships at launch (owner decision 2026-10-27); if a trial is
+  reintroduced later it needs its own expiry, amount and abuse design (§2).
 
 **No legacy seeding.** Aurora has no paying customers yet; every existing
 balance, subscription and pack is test data. The wallet phase starts from zero:
@@ -503,7 +526,8 @@ the destructive cleanup in §10 removes those rows before launch instead of
 seeding `adjustment` batches from them. The invariant `balance == Σ remaining`
 therefore holds from an empty ledger, not from a converted history.
 
-The local `source` vocabulary (`monthly | topup | signup | adjustment`) is
+The local `source` vocabulary (`monthly | topup | adjustment`, with `signup`
+reserved but unused while no trial ships) is
 deliberately not the cloud `BillingBatch` one (`purchase | bonus | adjustment`);
 the local table is the authority and the API boundary maps onto the cloud
 vocabulary where the two meet.
@@ -551,7 +575,8 @@ Aurora's fork-only migrations take numbers from 5000 upward. Every index is
 |---|---|
 | `generation_id`, `workspace_id`, `user_id` | attribution |
 | `provider`, `model` | exact dispatched provider and model id |
-| `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `thinking_tokens` | provider-reported usage |
+| `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens` | copied from `task_usage` for the generation's task; there is no thinking-token column today |
+| `cost_usd_ticks` | provider-reported price when positive, else NULL; a NULL marks the cost as rate-table estimated |
 | `video_milli`, `video_height`, `image_count`, `reference_count` | media usage |
 | `attempts`, `chargeable_attempts` | retry accounting |
 | `provider_cost_micro_sgd`, `fx`, `supplier_quote_revision` | cost basis |
@@ -615,6 +640,10 @@ environment is test data. The old `1 USD = 1000 credits` unit therefore has no
 customer value to preserve, and no conversion ratio is needed.
 
 - **No `adjustment` batches are seeded** from existing balances (see §6).
+- **The signup grant is removed with the same cleanup.** The 500-credit
+  `auroraSignupBonusMicro` grant at `server/internal/handler/auth.go` and its
+  eligibility write stop running before metered billing ships, and pending
+  eligibility rows are not replayed afterwards (§2: no signup trial).
 - **Runtime data is cleared before launch**, not migrated: test balances, test
   subscriptions, packs and ledger rows are removed, and any in-flight
   `legacy` generation is failed/refunded to the test balance first. The wallet
@@ -738,18 +767,33 @@ rather than a code change.
 paying users and the data is test-only; §10 now defines a pre-launch cleanup
 instead.
 
-1. **The signup bonus.** The reference gives new users free credits valid three days. Keep a small expiry-limited bonus, or drop it? If kept: exact credit amount, the abuse controls, and the rule that it counts as zero realized revenue in every margin check.
-2. **Approve actual supplier quote coverage and active model list.** Confirm HopBase mapping, SKU-specific input costs, official comparator, rate validity, contribution margin floor and treatment of plan/pack bonuses before enabling any of the new output-only candidates.
-3. **Final plan price/credit numbers.** The credit-only rule is fixed (D5,
+**Solved (2026-10-27): no signup trial.** No free credit grant at launch, so
+there is no amount, expiry or abuse rule to design; the currently implemented
+500-credit `auroraSignupBonusMicro` grant is removed as part of the same
+cleanup (§2).
+
+**Solved (2026-10-27): text usage is read from `task_usage`.** Billing uses the
+rows keyed by `(task_id, provider, model)` that `ReportTaskUsage` already
+writes, with `input_tokens` excluding cached tokens and
+`input + cache_read + cache_write` as the input side (§3). A generation with no
+row charges its reserved ceiling and flags `aurora_usage_missing` rather than
+settling free. Consequences the builder still owns: the daemon's per-task report
+must be cumulative (the upsert replaces, so a later round reporting only its
+own delta would undercount), and only the generation's own task rows are
+billable.
+
+1. **Approve actual supplier quote coverage and active model list.** Confirm HopBase mapping, SKU-specific input costs, official comparator, rate validity, contribution margin floor and treatment of plan/pack bonuses before enabling any of the new output-only candidates.
+2. **Final plan price/credit numbers.** The credit-only rule is fixed (D5,
    §2): no per-plan SKU gating. What remains is the final price and credit
    amount per plan and whether a S$249 "Business" row (larger grant only)
    exists. S$49/5,500 and S$149/18,000 are rejected under the current supplier
    cost; revisit only after a renegotiated quote. Annual 11/12 is part of the
    same commercial sign-off.
-4. **Cost-accounting fields.** Confirm the exact provider usage signals the
-   runtime can report per attempt (tokens, cache, media counts, model id), since
-   an unreported field disables the affected SKU rather than falling back to an
-   estimate.
+3. **Cache and long-context text rates.** `task_usage` supplies the tokens, but
+   the supplier quote covers only Claude input/output at ≤100K prompt. Cache
+   read/write and >100K tiers must be quoted (or explicitly zero-rated) before
+   any text SKU leaves HOLD; until then Haiku/Sonnet stay unsellable and
+   DeepSeek stays HOLD for exceeding the official off-peak list.
 
 ## What is left to the builder
 
