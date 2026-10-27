@@ -1591,6 +1591,66 @@ func (h *Handler) CreateAuroraTopupCheckout(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, map[string]any{"checkoutUrl": checkoutURL})
 }
 
+// CreateAuroraBillingPortal opens Stripe's Customer Portal for the caller's
+// subscription, where a subscriber can cancel or change their payment method
+// without contacting support.
+//
+// Fail-closed like checkout: no payment provider is a 503, an untrusted return
+// URL is a 400, and a caller with no subscription row (or a row created before
+// checkout attached a Stripe customer) is a 409 rather than a portal session
+// that would show Stripe's own error page.
+func (h *Handler) CreateAuroraBillingPortal(w http.ResponseWriter, r *http.Request) {
+	if h.Payments == nil {
+		writeError(w, http.StatusServiceUnavailable, "payments not configured")
+		return
+	}
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	userUUID, ok := parseUUIDOrBadRequest(w, userID, "user_id")
+	if !ok {
+		return
+	}
+	var req struct {
+		ReturnURL string `json:"returnUrl"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	// Like the checkout return URLs, this is pinned to a configured app origin
+	// before it is handed to Stripe (and from Stripe back to the browser).
+	if !h.validCheckoutURL(req.ReturnURL) {
+		writeError(w, http.StatusBadRequest, "returnUrl must use a trusted app origin")
+		return
+	}
+	sub, err := h.Queries.GetAuroraSubscriptionByUser(r.Context(), userUUID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusConflict, "no active subscription")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load subscription")
+		return
+	}
+	// A pending checkout that never completed has no Stripe customer yet; the
+	// portal has nothing to manage, so it is the same conflict as no row.
+	if !sub.StripeCustomerID.Valid || sub.StripeCustomerID.String == "" {
+		writeError(w, http.StatusConflict, "no active subscription")
+		return
+	}
+	portalURL, err := h.Payments.CreateBillingPortalSession(
+		r.Context(), sub.StripeCustomerID.String, req.ReturnURL,
+	)
+	if err != nil {
+		slog.Error("failed to create aurora billing portal session", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to create portal session")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"portalUrl": portalURL})
+}
+
 // StripeWebhook receives Stripe's billing events. It is mounted on the public
 // route group — Stripe cannot hold a session cookie — so the signature is the
 // only thing authenticating the request, and it is verified before the body is

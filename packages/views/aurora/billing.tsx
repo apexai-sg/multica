@@ -15,6 +15,7 @@ import {
   useAuroraSubscription,
   useAuroraTopups,
   useAuroraTransactions,
+  useCreateAuroraBillingPortal,
   useCreateAuroraCheckout,
   useCreateAuroraTopupCheckout,
   type AuroraSubscription,
@@ -64,6 +65,7 @@ export function AuroraBilling() {
   const topupsQuery = useAuroraTopups();
   const checkout = useCreateAuroraCheckout();
   const topupCheckout = useCreateAuroraTopupCheckout();
+  const portal = useCreateAuroraBillingPortal();
   const checkoutReturned = navigation.searchParams.get("checkout") === "success";
   const { refetch: refetchBalance } = balanceQuery;
   const { refetch: refetchTransactions } = transactionsQuery;
@@ -134,6 +136,14 @@ export function AuroraBilling() {
     };
   }, [appOrigin, slug]);
 
+  // Where Stripe sends the subscriber back after the Customer Portal. It is the
+  // same trusted origin as the checkout returns, but without a checkout marker:
+  // the portal's own actions (cancel, change plan) are what changed.
+  const portalReturnURL = useMemo(() => {
+    if (!appOrigin || !slug) return null;
+    return `${appOrigin}/${slug}/billing`;
+  }, [appOrigin, slug]);
+
   function referenceSkillName(transaction: AuroraTransaction): string | null {
     const skillId = skillIdByGeneration.get(transaction.reference);
     if (!skillId) return null;
@@ -172,6 +182,7 @@ export function AuroraBilling() {
   const topups = topupsQuery.data ?? [];
   const subscription = subscriptionQuery.data;
   const checkoutError = checkout.error ?? topupCheckout.error;
+  const portalError = portal.error;
 
   return (
     <div className="aurora-page">
@@ -219,6 +230,8 @@ export function AuroraBilling() {
               subscription={subscription}
               pending={checkout.isPending}
               canCheckout={returnURLs !== null}
+              managePending={portal.isPending}
+              canManage={portalReturnURL !== null}
               onSubscribe={(tier) => {
                 if (!returnURLs) return;
                 checkout.mutate(
@@ -226,6 +239,16 @@ export function AuroraBilling() {
                   {
                     onSuccess: (checkoutUrl) =>
                       openExternal(checkoutUrl, { webTarget: "same-tab" }),
+                  },
+                );
+              }}
+              onManage={() => {
+                if (!portalReturnURL) return;
+                portal.mutate(
+                  { returnUrl: portalReturnURL },
+                  {
+                    onSuccess: (portalUrl) =>
+                      openExternal(portalUrl, { webTarget: "same-tab" }),
                   },
                 );
               }}
@@ -239,6 +262,17 @@ export function AuroraBilling() {
                 : isAuroraPaymentsUnavailableError(checkoutError)
                   ? t(($) => $.billing.checkout.unavailable)
                   : t(($) => $.billing.checkout.failed)}
+            </p>
+          ) : null}
+
+          {/* The portal returns 409 only when there is no subscription to
+              manage; the checkout 409 ("already subscribed") would state the
+              opposite, so this path reports a failed action instead. */}
+          {portalError ? (
+            <p role="alert" className="text-caption text-destructive">
+              {isAuroraPaymentsUnavailableError(portalError)
+                ? t(($) => $.billing.checkout.unavailable)
+                : t(($) => $.billing.checkout.failed)}
             </p>
           ) : null}
 
@@ -366,12 +400,18 @@ function PlanSection({
   subscription,
   pending,
   canCheckout,
+  managePending,
+  canManage,
   onSubscribe,
+  onManage,
 }: {
   subscription: AuroraSubscription;
   pending: boolean;
   canCheckout: boolean;
+  managePending: boolean;
+  canManage: boolean;
   onSubscribe: (tier: string) => void;
+  onManage: () => void;
 }) {
   const { t } = useT("aurora");
   const locale = useLocale();
@@ -390,6 +430,10 @@ function PlanSection({
   // client must not offer a second recurring subscription it cannot interpret.
   const canSubscribe =
     subscription.status === "" || subscription.status === "canceled";
+  // Only a live plan has anything to manage. A canceled plan is the
+  // buy-a-plan state below, and an unknown future status fails closed.
+  const canManagePortal =
+    subscription.status === "active" || subscription.status === "past_due";
 
   return (
     <section className="aurora-panel flex flex-col gap-3">
@@ -437,6 +481,21 @@ function PlanSection({
           aria-label={t(($) => $.billing.subscription.usage_label)}
         />
       </div>
+
+      {canManagePortal ? (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={managePending || !canManage}
+            aria-busy={managePending}
+            onClick={onManage}
+          >
+            {t(($) => $.billing.subscription.manage)}
+          </Button>
+        </div>
+      ) : null}
 
       {canSubscribe ? (
         <>

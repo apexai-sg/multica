@@ -211,7 +211,8 @@
       "cancel_scheduled": "기간이 끝나면 종료됩니다.",
       "usage_label": "이번 달 생성 횟수",
       "usage_value": "{{used}} / {{limit}}",
-      "subscribe": "구독"
+      "subscribe": "구독",
+      "manage": "구독 관리"
     },
     "topup": {
       "title": "크레딧 구매",

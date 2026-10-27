@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   topups: vi.fn(),
   createCheckout: vi.fn(),
   createTopupCheckout: vi.fn(),
+  createPortal: vi.fn(),
   openExternal: vi.fn(),
 }));
 
@@ -36,6 +37,7 @@ vi.mock("@multica/core/aurora", async (importOriginal) => {
     useAuroraTopups: () => mocks.topups(),
     useCreateAuroraCheckout: () => mocks.createCheckout(),
     useCreateAuroraTopupCheckout: () => mocks.createTopupCheckout(),
+    useCreateAuroraBillingPortal: () => mocks.createPortal(),
   };
 });
 
@@ -189,6 +191,7 @@ describe("AuroraBilling", () => {
     });
     mocks.createCheckout.mockReturnValue(mutation());
     mocks.createTopupCheckout.mockReturnValue(mutation());
+    mocks.createPortal.mockReturnValue(mutation());
   });
 
   it("assigns real wallet, usage and loaded-row facts to separate stat cards", () => {
@@ -717,6 +720,105 @@ describe("AuroraBilling", () => {
 
     expect(
       screen.getByText("You already have a subscription."),
+    ).toBeInTheDocument();
+  });
+
+  it("offers the manage-subscription control for an active plan", () => {
+    mocks.subscription.mockReturnValue({
+      data: subscription({ tier: "creator", status: "active" }),
+      isPending: false,
+    });
+
+    renderBilling();
+
+    expect(
+      screen.getByRole("button", { name: "Manage subscription" }),
+    ).toBeEnabled();
+  });
+
+  it("offers the manage-subscription control for a past-due plan", () => {
+    // A past-due subscriber still has a live plan and is exactly who needs the
+    // portal to update their payment method.
+    mocks.subscription.mockReturnValue({
+      data: subscription({ tier: "pro", status: "past_due" }),
+      isPending: false,
+    });
+
+    renderBilling();
+
+    expect(
+      screen.getByRole("button", { name: "Manage subscription" }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the manage-subscription control without a plan", () => {
+    renderBilling();
+
+    expect(
+      screen.queryByRole("button", { name: "Manage subscription" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides the manage-subscription control for a canceled plan", () => {
+    mocks.subscription.mockReturnValue({
+      data: subscription({ tier: "creator", status: "canceled" }),
+      isPending: false,
+    });
+
+    renderBilling();
+
+    expect(
+      screen.queryByRole("button", { name: "Manage subscription" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens the Customer Portal and hands its URL to the external navigator", async () => {
+    const user = userEvent.setup();
+    const createPortal = {
+      mutate: vi.fn(
+        (
+          _request: unknown,
+          options?: { onSuccess?: (portalUrl: string) => void },
+        ) => options?.onSuccess?.("https://billing.stripe.com/p/session/1"),
+      ),
+      isPending: false,
+      error: null,
+    };
+    mocks.createPortal.mockReturnValue(createPortal);
+    mocks.subscription.mockReturnValue({
+      data: subscription({ tier: "creator", status: "active" }),
+      isPending: false,
+    });
+
+    renderBilling();
+    await user.click(
+      screen.getByRole("button", { name: "Manage subscription" }),
+    );
+
+    expect(createPortal.mutate.mock.calls[0]?.[0]).toEqual({
+      returnUrl: "https://app.example.com/acme/billing",
+    });
+    expect(mocks.openExternal).toHaveBeenCalledWith(
+      "https://billing.stripe.com/p/session/1",
+      { webTarget: "same-tab" },
+    );
+  });
+
+  it("reports a failed portal session through the same alert path", () => {
+    mocks.createPortal.mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+      error: new ApiError("payments not configured", 503, "Unavailable"),
+    });
+    mocks.subscription.mockReturnValue({
+      data: subscription({ tier: "creator", status: "active" }),
+      isPending: false,
+    });
+
+    renderBilling();
+
+    expect(
+      screen.getByText("Payments are not available on this instance."),
     ).toBeInTheDocument();
   });
 });

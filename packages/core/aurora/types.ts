@@ -155,3 +155,14 @@ export interface CreateAuroraTopupCheckoutRequest {
   successUrl: string;
   cancelUrl: string;
 }
+
+/**
+ * Body of `POST /api/aurora/billing/portal`.
+ *
+ * The portal is Stripe's own page, so the client only names where Stripe sends
+ * the subscriber back afterwards. The server validates it against the same
+ * trusted origins the checkout return URLs use.
+ */
+export interface CreateAuroraBillingPortalRequest {
+  returnUrl: string;
+}

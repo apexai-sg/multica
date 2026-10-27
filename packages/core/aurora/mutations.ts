@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceId } from "../hooks";
 import {
+  createAuroraBillingPortal,
   createAuroraCheckout,
   createAuroraGeneration,
   createAuroraTopupCheckout,
@@ -8,6 +9,7 @@ import {
 } from "./api";
 import { auroraKeys, auroraWalletKeys } from "./queries";
 import type {
+  CreateAuroraBillingPortalRequest,
   CreateAuroraCheckoutRequest,
   CreateAuroraGenerationRequest,
   CreateAuroraTopupCheckoutRequest,
@@ -103,6 +105,31 @@ export function useCreateAuroraTopupCheckout() {
       // Only the wallet moves: a top-up buys credits, not a plan.
       qc.invalidateQueries({ queryKey: auroraWalletKeys.balance() });
       qc.invalidateQueries({ queryKey: auroraWalletKeys.transactions() });
+    },
+  });
+}
+
+/**
+ * Opens the Stripe Customer Portal, where a subscriber cancels or changes their
+ * payment method.
+ *
+ * Core returns the validated portal URL but does not navigate, exactly like the
+ * checkout mutations: external navigation is platform behavior, so the view
+ * hands it to its platform adapter. Stripe's cancellation webhook can land
+ * while the portal is open, so the plan and the wallet are invalidated — the
+ * return trip re-reads both.
+ *
+ * A 409 (no subscription to manage) and a 503 (no Stripe configuration) are
+ * left to the caller; neither is retryable.
+ */
+export function useCreateAuroraBillingPortal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (request: CreateAuroraBillingPortalRequest) =>
+      createAuroraBillingPortal(request),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: auroraWalletKeys.subscription() });
+      qc.invalidateQueries({ queryKey: auroraWalletKeys.balance() });
     },
   });
 }

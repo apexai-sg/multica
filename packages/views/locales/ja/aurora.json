@@ -211,7 +211,8 @@
       "cancel_scheduled": "期間終了時に終了します。",
       "usage_label": "今月の生成回数",
       "usage_value": "{{used}} / {{limit}}",
-      "subscribe": "購読する"
+      "subscribe": "購読する",
+      "manage": "サブスクリプションを管理"
     },
     "topup": {
       "title": "クレジットを購入",

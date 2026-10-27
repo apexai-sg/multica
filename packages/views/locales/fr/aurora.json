@@ -215,7 +215,8 @@
       "cancel_scheduled": "Se termine à la fin de la période.",
       "usage_label": "Générations ce mois-ci",
       "usage_value": "{{used}} sur {{limit}}",
-      "subscribe": "S'abonner"
+      "subscribe": "S'abonner",
+      "manage": "Gérer l'abonnement"
     },
     "topup": {
       "title": "Acheter des crédits",

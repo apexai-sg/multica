@@ -335,3 +335,15 @@ export const auroraCheckoutResponseSchema = z.object({
   checkoutUrl: z.url({ protocol: /^https$/ }),
 });
 export type AuroraCheckout = z.infer<typeof auroraCheckoutResponseSchema>;
+
+/**
+ * The Customer Portal answer: the short-lived Stripe URL a browser is sent to
+ * manage or cancel a plan. Same trust boundary and therefore the same absolute
+ * HTTPS requirement as a checkout URL.
+ */
+export const auroraBillingPortalResponseSchema = z.object({
+  portalUrl: z.url({ protocol: /^https$/ }),
+});
+export type AuroraBillingPortal = z.infer<
+  typeof auroraBillingPortalResponseSchema
+>;

@@ -4,6 +4,7 @@ import { ApiError, setApiInstance } from "../api";
 import type { ApiClient } from "../api/client";
 import {
   auroraAssetDownloadPath,
+  createAuroraBillingPortal,
   createAuroraCheckout,
   createAuroraGeneration,
   createAuroraToolRun,
@@ -24,6 +25,7 @@ import {
   listAuroraTopups,
   parseAuroraAssets,
   parseAuroraBalance,
+  parseAuroraBillingPortal,
   parseAuroraCheckout,
   parseAuroraGeneration,
   parseAuroraGenerationDetail,
@@ -462,6 +464,37 @@ describe("parseAuroraCheckout", () => {
   });
 });
 
+describe("parseAuroraBillingPortal", () => {
+  it("reads the portal URL", () => {
+    expect(
+      parseAuroraBillingPortal({
+        portalUrl: "https://billing.stripe.com/p/session/1",
+      }),
+    ).toBe("https://billing.stripe.com/p/session/1");
+  });
+
+  it("rejects an unreadable body instead of reporting a successful portal session", () => {
+    expect(() => parseAuroraBillingPortal({})).toThrow(
+      "invalid portal response",
+    );
+    expect(() => parseAuroraBillingPortal({ portalUrl: 7 })).toThrow(
+      "invalid portal response",
+    );
+  });
+
+  it("rejects portal destinations that are not absolute HTTPS URLs", () => {
+    for (const portalUrl of [
+      "http://billing.stripe.test/p/session/1",
+      "javascript:alert(1)",
+      "/billing/portal/1",
+    ]) {
+      expect(() => parseAuroraBillingPortal({ portalUrl })).toThrow(
+        "invalid portal response",
+      );
+    }
+  });
+});
+
 describe("request paths", () => {
   beforeEach(() => {
     setApiInstance(null as unknown as ApiClient);
@@ -567,6 +600,23 @@ describe("request paths", () => {
     requests = installFakeClient({ checkoutUrl: "https://stripe.test/2" });
     await createAuroraTopupCheckout({ topupId: "t5", ...returnURLs });
     expect(requests[0]?.path).toBe("/api/aurora/billing/topup/checkout");
+  });
+
+  it("posts the portal return URL and reads the portal URL", async () => {
+    const requests = installFakeClient({
+      portalUrl: "https://billing.stripe.com/p/session/1",
+    });
+
+    const portalUrl = await createAuroraBillingPortal({
+      returnUrl: "https://app.example.com/acme/billing",
+    });
+
+    expect(portalUrl).toBe("https://billing.stripe.com/p/session/1");
+    expect(requests[0]?.path).toBe("/api/aurora/billing/portal");
+    expect(requests[0]?.init?.method).toBe("POST");
+    expect(requests[0]?.init?.body).toBe(
+      JSON.stringify({ returnUrl: "https://app.example.com/acme/billing" }),
+    );
   });
 
   it("deletes an asset with no body to read", async () => {

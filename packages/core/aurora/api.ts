@@ -7,6 +7,7 @@ import {
 import {
   auroraAssetsSchema,
   auroraBalanceSchema,
+  auroraBillingPortalResponseSchema,
   auroraCheckoutResponseSchema,
   auroraExecutionTargetSchema,
   auroraGenerationDetailSchema,
@@ -21,6 +22,7 @@ import {
   auroraTransactionsSchema,
   type AuroraAsset,
   type AuroraBalance,
+  type AuroraBillingPortal,
   type AuroraCheckout,
   type AuroraExecutionTarget,
   type AuroraGeneration,
@@ -36,6 +38,7 @@ import {
   normalizeAuroraRuntimeState,
   type AuroraAssetsParams,
   type AuroraListParams,
+  type CreateAuroraBillingPortalRequest,
   type CreateAuroraCheckoutRequest,
   type CreateAuroraGenerationRequest,
   type CreateAuroraToolRunRequest,
@@ -77,6 +80,7 @@ const AURORA_SUBSCRIPTION_PATH = "/api/aurora/billing/subscription";
 const AURORA_TOPUPS_PATH = "/api/aurora/billing/topups";
 const AURORA_CHECKOUT_PATH = "/api/aurora/billing/checkout";
 const AURORA_TOPUP_CHECKOUT_PATH = "/api/aurora/billing/topup/checkout";
+const AURORA_PORTAL_PATH = "/api/aurora/billing/portal";
 
 // The label `parseWithFallback` logs, built from the path it describes so the
 // two cannot drift. The detail route carries its `{id}` placeholder rather than
@@ -95,6 +99,7 @@ const SUBSCRIPTION_ENDPOINT = `GET ${AURORA_SUBSCRIPTION_PATH}`;
 const TOPUPS_ENDPOINT = `GET ${AURORA_TOPUPS_PATH}`;
 const CHECKOUT_ENDPOINT = `POST ${AURORA_CHECKOUT_PATH}`;
 const TOPUP_CHECKOUT_ENDPOINT = `POST ${AURORA_TOPUP_CHECKOUT_PATH}`;
+const PORTAL_ENDPOINT = `POST ${AURORA_PORTAL_PATH}`;
 
 /**
  * Renders the list params the server understands as a URL suffix — `""` when
@@ -356,6 +361,24 @@ function parseCheckoutUrl(data: unknown, endpoint: string): string {
   return parsed.checkoutUrl;
 }
 
+/**
+ * The validated HTTPS portal URL from a created Customer Portal session.
+ *
+ * A malformed body throws for the same reason a checkout body does: opening the
+ * portal is a command, and a placeholder would leave the control with neither
+ * navigation nor an error.
+ */
+export function parseAuroraBillingPortal(data: unknown): string {
+  const parsed = parseWithFallback<AuroraBillingPortal | null>(
+    data,
+    auroraBillingPortalResponseSchema,
+    null,
+    { endpoint: PORTAL_ENDPOINT },
+  );
+  if (!parsed) throw new Error("invalid portal response");
+  return parsed.portalUrl;
+}
+
 // ---------------------------------------------------------------------------
 // Requests
 // ---------------------------------------------------------------------------
@@ -525,6 +548,23 @@ export async function createAuroraTopupCheckout(
     body: JSON.stringify(request),
   });
   return parseAuroraTopupCheckout(raw);
+}
+
+/**
+ * Opens the Stripe Customer Portal and returns the URL to send the browser to.
+ *
+ * This is the cancellation path. Throws `ApiError` with 409 when the caller has
+ * no subscription row (or none that has a Stripe customer yet), and 503 when
+ * the deployment has no Stripe configuration — neither is retryable.
+ */
+export async function createAuroraBillingPortal(
+  request: CreateAuroraBillingPortalRequest,
+): Promise<string> {
+  const raw = await api.requestJson(AURORA_PORTAL_PATH, {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+  return parseAuroraBillingPortal(raw);
 }
 
 // ---------------------------------------------------------------------------

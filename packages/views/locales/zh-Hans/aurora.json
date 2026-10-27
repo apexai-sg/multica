@@ -211,7 +211,8 @@
       "cancel_scheduled": "到期后结束。",
       "usage_label": "本月生成次数",
       "usage_value": "{{used}} / {{limit}}",
-      "subscribe": "订阅"
+      "subscribe": "订阅",
+      "manage": "管理订阅"
     },
     "topup": {
       "title": "购买积分",

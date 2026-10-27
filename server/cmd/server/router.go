@@ -2126,6 +2126,10 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 			// start a purchase in their name.
 			r.With(handler.RequireHumanActor).Post("/api/aurora/billing/checkout", h.CreateAuroraCheckout)
 			r.With(handler.RequireHumanActor).Post("/api/aurora/billing/topup/checkout", h.CreateAuroraTopupCheckout)
+			// The Customer Portal is the cancellation path. It is human-only
+			// for the same reason as checkout: it acts on the account's
+			// subscription, not on a task's credits.
+			r.With(handler.RequireHumanActor).Post("/api/aurora/billing/portal", h.CreateAuroraBillingPortal)
 			r.With(handler.RequireHumanActor).Get("/api/aurora/billing/subscription", h.GetAuroraSubscription)
 			r.With(handler.RequireHumanActor).Get("/api/aurora/billing/topups", h.ListAuroraTopups)
 

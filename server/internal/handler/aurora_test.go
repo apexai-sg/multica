@@ -1685,6 +1685,7 @@ func TestAuroraAssetDeleteKeepsRowWhenObjectDeleteFails(t *testing.T) {
 // without a signing secret or a real payload.
 type fakePayments struct {
 	checkoutURL        string
+	portalURL          string
 	periodEnd          time.Time
 	subscriptionStatus string
 	cancelAtPeriodEnd  bool
@@ -1692,9 +1693,15 @@ type fakePayments struct {
 	// subscriptionCheckoutKeys records the stable key the handler asks Stripe to
 	// use, so tests can prove retries cannot create a second subscription.
 	subscriptionCheckoutKeys []string
+	// portalCustomerIDs records which Stripe customer the handler asked the
+	// portal to manage, so a test can prove the row's id was passed through.
+	portalCustomerIDs []string
 	// checkoutErr, when set, is what both checkout methods return instead of a
 	// URL — the shape of a Stripe outage.
 	checkoutErr error
+	// portalErr, when set, is what CreateBillingPortalSession returns instead
+	// of a URL.
+	portalErr error
 	// eventErr, when set, is what ConstructEvent returns — an invalid
 	// signature, without needing to forge one.
 	eventErr error
@@ -1713,6 +1720,14 @@ func (f *fakePayments) CreateTopupCheckout(ctx context.Context, priceID, success
 		return "", f.checkoutErr
 	}
 	return f.checkoutURL, nil
+}
+
+func (f *fakePayments) CreateBillingPortalSession(ctx context.Context, customerID, returnURL string) (string, error) {
+	f.portalCustomerIDs = append(f.portalCustomerIDs, customerID)
+	if f.portalErr != nil {
+		return "", f.portalErr
+	}
+	return f.portalURL, nil
 }
 
 func (f *fakePayments) GetSubscriptionState(ctx context.Context, subscriptionID string) (aurora.SubscriptionState, error) {
@@ -2031,6 +2046,108 @@ func TestCreateTopupCheckoutFailsClosedWithoutPayments(t *testing.T) {
 		"topupId": "t5",
 	}))
 	testutil.Call(t, testHandler.CreateAuroraTopupCheckout, req).Want(http.StatusServiceUnavailable)
+}
+
+// The portal is the cancellation path: a subscriber must be able to reach it
+// without contacting support, and the handler must hand Stripe the customer id
+// stored on their row rather than one supplied by the client.
+func TestCreateAuroraBillingPortal(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fp := &fakePayments{portalURL: "https://billing.stripe.com/p/session/test"}
+	installAuroraPayments(t, fp)
+	dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+		"user_id": testUserID, "tier": "creator", "status": "active",
+		"stripe_customer_id": "cus_portal_1",
+	})
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/portal", map[string]string{
+		"returnUrl": "https://aurora.example.com/ws-1/billing",
+	})
+	out := testutil.Decode[struct {
+		PortalURL string `json:"portalUrl"`
+	}](t, testHandler.CreateAuroraBillingPortal, req, http.StatusOK)
+	if out.PortalURL != fp.portalURL {
+		t.Fatalf("portalUrl = %q, want %q", out.PortalURL, fp.portalURL)
+	}
+	if len(fp.portalCustomerIDs) != 1 || fp.portalCustomerIDs[0] != "cus_portal_1" {
+		t.Fatalf("portal customer ids = %q, want [cus_portal_1]", fp.portalCustomerIDs)
+	}
+}
+
+// A caller with no plan has nothing to manage, so the portal is refused with
+// the same 409 a checkout conflict uses rather than a Stripe error page.
+func TestCreateAuroraBillingPortalRequiresSubscription(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fp := &fakePayments{portalURL: "https://billing.stripe.com/p/session/test"}
+	installAuroraPayments(t, fp)
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/portal", map[string]string{
+		"returnUrl": "https://aurora.example.com/ws-1/billing",
+	})
+	testutil.Call(t, testHandler.CreateAuroraBillingPortal, req).Want(http.StatusConflict)
+	if len(fp.portalCustomerIDs) != 0 {
+		t.Fatalf("portal calls = %d, want none without a subscription row", len(fp.portalCustomerIDs))
+	}
+}
+
+// A pending row has no Stripe customer yet: there is nothing for the portal to
+// show, so it is the same conflict as no row rather than a provider call.
+func TestCreateAuroraBillingPortalRequiresStripeCustomer(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fp := &fakePayments{portalURL: "https://billing.stripe.com/p/session/test"}
+	installAuroraPayments(t, fp)
+	dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+		"user_id": testUserID, "tier": "creator", "status": "pending",
+	})
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/portal", map[string]string{
+		"returnUrl": "https://aurora.example.com/ws-1/billing",
+	})
+	testutil.Call(t, testHandler.CreateAuroraBillingPortal, req).Want(http.StatusConflict)
+	if len(fp.portalCustomerIDs) != 0 {
+		t.Fatalf("portal calls = %d, want none without a Stripe customer", len(fp.portalCustomerIDs))
+	}
+}
+
+func TestCreateAuroraBillingPortalFailsClosedWithoutPayments(t *testing.T) {
+	old := testHandler.Payments
+	testHandler.Payments = nil
+	t.Cleanup(func() { testHandler.Payments = old })
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/portal", map[string]string{
+		"returnUrl": "https://aurora.example.com/ws-1/billing",
+	})
+	testutil.Call(t, testHandler.CreateAuroraBillingPortal, req).Want(http.StatusServiceUnavailable)
+}
+
+func TestCreateAuroraBillingPortalRejectsUntrustedReturnOrigin(t *testing.T) {
+	installAuroraPayments(t, &fakePayments{portalURL: "https://billing.stripe.com/p/session/test"})
+	for name, body := range map[string]map[string]string{
+		"missing returnUrl": {},
+		"untrusted origin":  {"returnUrl": "https://evil.example.com/steal-portal"},
+		"relative url":      {"returnUrl": "/ws-1/billing"},
+		"javascript url":    {"returnUrl": "javascript:alert(1)"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			req := newRequest(http.MethodPost, "/api/aurora/billing/portal", body)
+			testutil.Call(t, testHandler.CreateAuroraBillingPortal, req).Want(http.StatusBadRequest)
+		})
+	}
+}
+
+func TestCreateAuroraBillingPortalReportsProviderFailure(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fp := &fakePayments{portalErr: errors.New("stripe is down")}
+	installAuroraPayments(t, fp)
+	dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+		"user_id": testUserID, "tier": "creator", "status": "active",
+		"stripe_customer_id": "cus_portal_1",
+	})
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/portal", map[string]string{
+		"returnUrl": "https://aurora.example.com/ws-1/billing",
+	})
+	testutil.Call(t, testHandler.CreateAuroraBillingPortal, req).Want(http.StatusInternalServerError)
 }
 
 // The webhook is public, so an unverified signature must be refused before any
