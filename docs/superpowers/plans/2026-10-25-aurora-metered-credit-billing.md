@@ -23,11 +23,11 @@ follows; every row names the place a reviewer can check.
 | P1-4 keep the old 9/24/39 and 1-credit/1K launch rates | **Superseded** by the owner's 2026-10-27 audit (4/5/3/15 image, 9/15 video); old blanket rates are documented as replaced in the spec and audit |
 | P1-5 membership tiers, Business plan, margin scenarios | spec §2 plan catalogue (proposals, not activated); Open question 4 |
 | P1-6 annual 11/12 and abuse-controlled signup trial | spec §2 |
-| P0-7 auditable old-balance conversion, preserve prepaid value | spec §10 (proposal + fixtures/rollback gate); out of phase 1 |
+| P0-7 auditable old-balance conversion, preserve prepaid value | **Resolved 2026-10-27:** there are no paying users; existing rows are test data. spec §10 is a pre-launch cleanup, not a conversion |
 | P0-8 re-verify HopBase before 2026-11-11; fail closed | spec §2 rate metadata; plan Global Constraints; Tasks 1, 12 |
 
 **Scope:** Phase 1 only (spec §Rollout item 1). The batch wallet (spec §6), the
-existing-balance conversion (spec §10), and the SGD plan catalogue (spec
+pre-launch test-data cleanup (spec §10), and the SGD plan catalogue (spec
 §Rollout item 3) get their own plans; this one ships and is meaningful without
 them. The wallet phase takes migration numbers 5002–5005; this plan uses 5001,
 5006–5010.

@@ -454,13 +454,11 @@ page can show per-batch expiry.
 - The signup bonus, if kept, gets the reference's 3-day expiry (see Open
   questions).
 
-**Seeding the batches.** Every user with a non-zero balance at migration gets
-exactly one non-expiring `adjustment` batch equal to their current
-`credit_balance.available_micro`. Historical grants cannot be replayed
-faithfully — month-end expiry was computed as `granted + netSpend`, not from
-stored remainders — so per-batch allocation history begins at the migration
-instant and existing ledger rows stay untouched. The invariant
-`balance == Σ remaining` holds on day one by construction.
+**No legacy seeding.** Aurora has no paying customers yet; every existing
+balance, subscription and pack is test data. The wallet phase starts from zero:
+the destructive cleanup in §10 removes those rows before launch instead of
+seeding `adjustment` batches from them. The invariant `balance == Σ remaining`
+therefore holds from an empty ledger, not from a converted history.
 
 The local `source` vocabulary (`monthly | topup | signup | adjustment`) is
 deliberately not the cloud `BillingBatch` one (`purchase | bonus | adjustment`);
@@ -566,40 +564,28 @@ Three surfaces, matching the success criteria:
 Copy follows the repository UI-copy rules: no restatement, cost and expiry
 stated once beside the number.
 
-### 10. Migration of existing money
+### 10. Existing balances: cleanup, not conversion
 
-The unit is being re-denominated: today `1 USD = 1000 credits`; tomorrow
-`100 credits = S$1`. Existing balances, subscription prices and topup packs
-were all priced under the old unit. This design does **not** settle how they
-convert (see Open questions), and **phase 1 does not touch existing money**.
-The data migration that creates the starting `adjustment` batches is written
-once that answer exists, in the wallet/currency phase.
+**Decision (2026-10-27): there are no legacy users.** Aurora has not taken real
+money; every balance, subscription, pack and ledger row in the current
+environment is test data. The old `1 USD = 1000 credits` unit therefore has no
+customer value to preserve, and no conversion ratio is needed.
 
-**Proposed conversion for owner decision** (not approved, recorded here so the
-decision is concrete): preserve prepaid value by *paid amount*, not by credit
-count. At the reference FX (US$1 = S$1.28), one old credit (US$0.001) is worth
-S$0.00128, i.e. **0.128 new credits**; 1,000 old credits → 128 new credits. The
-same ratio applies to unused subscription allowances, and paid plans/packs keep
-their remaining term with the new credit amount. A quantity-preserving
-re-denomination would multiply customer value by 10 and is rejected.
+- **No `adjustment` batches are seeded** from existing balances (see §6).
+- **Runtime data is cleared before launch**, not migrated: test balances, test
+  subscriptions, packs and ledger rows are removed, and any in-flight
+  `legacy` generation is failed/refunded to the test balance first. The wallet
+  and rate card start empty.
+- **This is a destructive operation and needs explicit authorization** when it
+  is actually run in an environment. It is not part of phase 1 and not part of
+  this documentation PR.
+- **No migration fixtures or rollback tests are required** for the old unit.
+  The only precondition is a pre-launch check that the environment contains no
+  real paid balance; if that check ever fails, stop and re-open this decision
+  instead of inventing a ratio.
 
-- **In-flight holds at migration time** stay in the old unit on their
-  `rate_version = 'legacy'` generation. They settle or refund in the old unit;
-  the conversion applies only to spendable balance, never to a reservation the
-  user already made. No generation is repriced by the migration.
-- **Auditability:** the migration writes one `adjustment` batch per user
-  carrying the old amount, FX, ratio and migration id, plus a ledger row with
-  the same reference, so every converted credit is traceable.
-- **Fixtures and rollback:** migration tests cover non-zero balance, zero
-  balance, an active subscription, a pack with remaining validity, and an
-  in-flight hold; the down migration restores the old unit from the recorded
-  reference. A dry-run report of affected users/amounts is produced before the
-  real run.
-- **Gate:** no customer-visible SGD price, plan or pack goes live until the
-  owner approves this ratio (or an alternative), the migration dry run is
-  reviewed, and every active SKU passes the effective-SGD-per-credit check.
-
-Until then the entitlement path keeps working on today's numbers.
+The current entitlement path keeps working on today's numbers until that
+cleanup runs.
 
 ## Failure modes and invariants
 
@@ -634,9 +620,9 @@ Until then the entitlement path keeps working on today's numbers.
   charges the reservation and flags `over_cap`; a replayed completion does not
   double-charge; a failed run refunds in full; a charge line is idempotent on
   replay.
-- Migration tests for the wallet/currency phase: the conversion fixtures and
-  down-migration check above are written before that phase ships; they are not
-  part of phase 1.
+- No legacy-balance conversion tests: §10 is a pre-launch cleanup of test data,
+  not a migration. The cleanup itself verifies an empty wallet before the
+  first metered sale; that check is not part of phase 1.
 - Wallet tests: FEFO ordering, expiry of a monthly batch, a topup surviving a
   month boundary, and the sum invariant `balance == Σ remaining`.
 - Frontend tests beside the existing ones in `packages/views/aurora/` for the
@@ -700,17 +686,17 @@ rather than a code change.
 
 ## Open questions for the owner
 
-1. **Existing balances and subscriptions.** Approve the paid-amount conversion
-   in §10 (0.128 new credits per old credit at the reference FX), or state
-   another ratio, grandfather rule, or reset-and-regrant. The answer depends on
-   whether any real money has been taken and in which currency it was charged.
-2. **The signup bonus.** The reference gives new users free credits valid three days. Keep a small expiry-limited bonus, or drop it? If kept: exact credit amount, the abuse controls, and the rule that it counts as zero realized revenue in every margin check.
-3. **Approve actual supplier quote coverage and active model list.** Confirm HopBase mapping, SKU-specific input costs, official comparator, rate validity, contribution margin floor and treatment of plan/pack bonuses before enabling any of the new output-only candidates.
-4. **Plan catalogue and Business boundaries.** Approve or reject the
+**Solved (2026-10-27):** existing balances need no conversion — there are no
+paying users and the data is test-only; §10 now defines a pre-launch cleanup
+instead.
+
+1. **The signup bonus.** The reference gives new users free credits valid three days. Keep a small expiry-limited bonus, or drop it? If kept: exact credit amount, the abuse controls, and the rule that it counts as zero realized revenue in every margin check.
+2. **Approve actual supplier quote coverage and active model list.** Confirm HopBase mapping, SKU-specific input costs, official comparator, rate validity, contribution margin floor and treatment of plan/pack bonuses before enabling any of the new output-only candidates.
+3. **Plan catalogue and Business boundaries.** Approve or reject the
    S$49/5,500 and S$149/18,000 rows, define what the S$249 Business plan
    entitles (seats, workspace features, priority workflows), and confirm
    annual 11/12 plus the signup trial amount.
-5. **Cost-accounting fields.** Confirm the exact provider usage signals the
+4. **Cost-accounting fields.** Confirm the exact provider usage signals the
    runtime can report per attempt (tokens, cache, media counts, model id), since
    an unreported field disables the affected SKU rather than falling back to an
    estimate.
