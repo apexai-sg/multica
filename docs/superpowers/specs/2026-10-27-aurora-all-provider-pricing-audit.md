@@ -176,26 +176,26 @@ that cannot clear the most expensive active SKU is simply not offered.
 | Plan / scenario | Effective SGD/credit | H3 768P at 11 cr/s vs **S$0.08704** cost | H3 2K at 18 cr/s vs **S$0.14208** cost | Standard H3 viability |
 |---|---:|---:|---:|---|
 | Face-value topup, S$1/100 | S$0.010000 | S$0.11000 (**20.9%**) | S$0.18000 (**21.1%**) | meets 20% |
-| Review-proposed S$89/9,000 | S$0.009889 | S$0.10878 (**20.0%**; 19.98% before rounding) | S$0.17800 (**20.2%**) | marginally meets 20% |
-| Review-proposed S$249/25,500 | S$0.009765 | S$0.10741 (**19.0%**) | S$0.17577 (**19.2%**) | ~19%, just below |
-| Proposed S$49/5,500 | S$0.008909 | S$0.09800 (**11.2%**) | S$0.16036 (**11.4%**) | fails |
-| Proposed S$149/18,000 | S$0.008278 | S$0.09106 (**4.4%**) | S$0.14900 (**4.6%**) | fails |
+| Starter S$19/1,900 | S$0.010000 | S$0.11000 (**20.9%**) | S$0.18000 (**21.1%**) | meets 20% |
+| Plus S$59/5,900 | S$0.010000 | S$0.11000 (**20.9%**) | S$0.18000 (**21.1%**) | meets 20% |
+| Pro S$169/16,900 | S$0.010000 | S$0.11000 (**20.9%**) | S$0.18000 (**21.1%**) | meets 20% |
 
-- The S$49/5,500 and S$149/18,000 rows remain **rejected as a policy choice**.
-- The 11/18 repricing clears the 20% output target at face value and on the
-  S$89 plan, but the S$249 row lands at ~19% and the two rejected rows are far
-  below it. At the lowest permitted funding source (the S$249 row), 20% needs
-  **12/19** credits/s — S$0.11718/S$0.18554, or 14.4%/11.5% above the official
-  list. Reaching it on the two rejected rows is also arithmetically possible:
-  **13/20** clears the S$49 row (24.9%/20.3%) and **14/22** clears the S$149
-  row (24.9%/22.0%), and a single global 14/22 clears all five rows
-  (21.98%–37.83%) — but those prices sit 32–37% above the official list, and
-  the owner declined to raise standard H3 further. The rejection is therefore a
-  pricing decision, not an arithmetic limit.
+- **Owner decision 2026-10-27:** the three paid tiers are S$19 / S$59 / S$169
+  and grant credits at face value (1,900 / 5,900 / 16,900). Every funding
+  source is therefore S$0.01 per credit, so the standard-H3 rows clear 20% on
+  every plan and the S$249 "lowest permitted revenue per credit" case disappears.
+- Superseded history, kept so the decision is auditable: the S$89/9,000 and
+  S$249/25,500 variants realized 20.0%/20.2% and 19.0%/19.2%; the S$49/5,500
+  and S$149/18,000 rows realized 11.2%/11.4% and 4.4%/4.6%, below the floor.
+  Clearing 20% on the latter two would have needed 13/20 and 14/22 credits/s —
+  32–37% above the official list — so they were rejected rather than repriced.
+- Because no live plan discounts credits, the audit's earlier "lowest permitted
+  SGD/credit" check now collapses to face value: 12/19 credits/s is no longer
+  needed for the S$249 row, and standard H3 stays at 11/18.
 - This is why the two H3 tiers should not be the default video path: the Lite
-  tier (US$0.024/0.039) earns 65.9%/66.7% at the *old* 9/15 retail at face
-  value — ≈59–67% across the plan rows above — stays below the official list, and is the intended default once its
-  availability is confirmed.
+  tier (US$0.024/0.039) earns 65.9%/66.7% at the 9/15 retail — the same on
+  every plan row now that all plans are face value — stays below the official
+  list, and is the intended default once its availability is confirmed.
 
 ## F. Engineering acceptance and release gates (PR #38)
 

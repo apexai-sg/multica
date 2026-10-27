@@ -21,7 +21,7 @@ follows; every row names the place a reviewer can check.
 | P0-2 resolve the video-tier contradiction; no 1080P-as-2K | spec §2 SKU boundary table; Task 1 tests; Task 2 cap 1440 |
 | P0-3 capture provider cost, pin the model, count retries, alert | spec §5.1; Task 11 |
 | P1-4 keep the old 9/24/39 and 1-credit/1K launch rates | **Superseded** by the owner's 2026-10-27 audit (4/5/3/15 image; H3 Lite 9/15, standard 11/18); old blanket rates are documented as replaced in the spec and audit |
-| P1-5 membership tiers, Business plan, margin scenarios | spec §2 credit-only rule (D5: no per-plan SKU gating); S$49/5,500 and S$149/18,000 **rejected** under current cost; Open question 2 |
+| P1-5 membership tiers, Business plan, margin scenarios | spec §2 credit-only rule (D5: no per-plan SKU gating); **owner decision 2026-10-27:** S$19 / S$59 / S$169 with face-value credits (1,900 / 5,900 / 16,900); earlier discounted proposals superseded |
 | P1-6 annual 11/12 and abuse-controlled signup trial | **Resolved 2026-10-27:** no signup trial at launch; the existing 500-credit grant is removed in the pre-launch cleanup. spec §2 |
 | P0-7 auditable old-balance conversion, preserve prepaid value | **Resolved 2026-10-27:** there are no paying users; existing rows are test data. spec §10 is a pre-launch cleanup, not a conversion |
 | P0-8 re-verify HopBase before 2026-11-25; fail closed | spec §2 rate metadata; plan Global Constraints; Tasks 1, 12 |
@@ -42,6 +42,7 @@ them. The wallet phase takes migration numbers 5002–5005; this plan uses 5001,
 - Rates are keyed by **model plus SKU variant** (image pixels; video tier, audio, reference inputs; text input/output/cache/context). An unconfigured/HOLD/expired model fails **before reservation**, never settles at zero or inherits another model's price.
 - Text tokens come from `task_usage` for the generation's own task (`input_tokens` excludes cached tokens; input side is `input + cache_read + cache_write`). No row at settlement charges the reserved ceiling and flags `aurora_usage_missing`; a heuristic token count never becomes a charge.
 - No signup credit grant ships with this plan (owner decision 2026-10-27); the existing 500-credit grant is removed in the pre-launch cleanup.
+- Customer purchases are **non-refundable** (owner decision 2026-10-27). Every "refund" in this plan means releasing an unused reservation back to the wallet; no code path returns money.
 - Every rate record carries `Approval`, `OfficialURL`, `SupplierQuoteRevision`,
   `FX`, `EffectiveAt` and `ExpiresAt`. `provisional`, `hold`, uneffective or
   expired records are unsellable; the 2026-10-26 HopBase quote expires
@@ -79,7 +80,7 @@ them. The wallet phase takes migration numbers 5002–5005; this plan uses 5001,
 7. **A multi-round `needs_input` conversation.** Every round's assets and token rows belong to the same generation; `aurora_generation.task_ids` accumulates one id per round, and settlement sums all of them, not the last round's. (Tasks 3, 6)
 8. **An agent that ignores its ceiling.** The charge is capped at the reservation, the line is marked `over_cap`, the balance never goes negative, and the event is logged. (Task 6)
 9. **A replayed terminal callback.** Completion and failure are each idempotent: no second refund, no second charge row. (Tasks 6, 8)
-10. **Commercial guardrails.** Before any paid generation, verify supplier output/input cost < realized sale proceeds < comparable OEM API list at the current FX **across all allowed funding sources**, including discounted subscription credits and topups. Billing is credit-only (D5): every plan is just a credit grant, and the minimum effective SGD/credit across all offered plans must clear the most expensive active SKU. The S$49/5,500 and S$149/18,000 review-proposed rows are **rejected as a policy choice**, not because no price exists: at 11/18 they earn 11.2%/11.4% and 4.4%/4.6%, and clearing 20% on them would need 13/20 or 14/22 credits/s — prices further above the official list that the owner declined to set. Standard
+10. **Commercial guardrails.** Before any paid generation, verify supplier output/input cost < realized sale proceeds < comparable OEM API list at the current FX **across all allowed funding sources**, including discounted subscription credits and topups. Billing is credit-only (D5): every plan is just a credit grant. The owner's 2026-10-27 catalogue (S$19 / S$59 / S$169 with 1,900 / 5,900 / 16,900 credits) grants exactly 100 credits per SGD, so every funding source is worth S$0.01 per credit and the standard-H3 rows clear 20% on all of them; the earlier discounted rows (S$49/5,500, S$149/18,000, S$89/9,000, S$249/25,500) are superseded and must not be reintroduced without re-running the check. Standard
 MiniMax H3 is priced above the OEM list by explicit owner override to reach
 20% output margin; that exception is limited to those two rows, must suppress
 any discount label, and does not relax the bound for any other SKU (spec §2,
@@ -1129,13 +1130,14 @@ grant precondition (not a task in this plan):** no workspace may be switched to
 metered while the 500-credit signup grant still issues. Gating it off is the
 spec §10 pre-launch cleanup, whose plan ships before any metered workspace is
 enabled; this plan only records the precondition, it does not remove the grant.
-The S$49/5,500 and S$149/18,000 plan rows are
-rejected as a policy choice — clearing 20% on them would need 13/20 or 14/22
-credits/s, further above the official list; the margin gate must reject standard
-MiniMax H3 at 9/15 credits/s (3.3%/5.3%), accept it at 11/18 (20.9%/21.1%) only
-with the official-list-bound override recorded and the discount label
-suppressed, and accept the Lite tier at 9/15 (65.9%/66.7%) under the normal
-bound. Neither plan row is activated by this plan.
+The owner's 2026-10-27 catalogue (S$19 / S$59 / S$169, 1,900 / 5,900 / 16,900
+credits at face value) makes every funding source worth S$0.01 per credit, so
+the margin gate must reject standard MiniMax H3 at 9/15 credits/s
+(3.3%/5.3%), accept it at 11/18 (20.9%/21.1%) only with the
+official-list-bound override recorded and the discount label suppressed, and
+accept the Lite tier at 9/15 (65.9%/66.7%) under the normal bound. Any future
+plan that grants more than 100 credits per SGD has to pass the same check again;
+the superseded discounted rows are not revived by this plan.
 Expected: PASS.
 
 - [ ] **Step 4: Commit any fixes as their own commits**

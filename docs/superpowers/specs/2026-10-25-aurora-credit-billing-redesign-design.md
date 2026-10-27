@@ -249,7 +249,7 @@ standard H3: at this cost the maximum margin below the official list is
 15.0% (768P) / 14.6% (2K). The owner chose margin, so standard H3 must carry no
 discount label and must not be marketed as cheaper than the official API.
 
-**Margin warning and subscription-unit economics:** Output-only comparisons are not end-to-end contribution profit. The 11/18 rates clear 20% only at face value and on the S$89 plan; the S$249 grant realizes ~19%, and reference images, retries, payment fees and FX can erode that further. Separately, a subscriber who pays **S$149 for 18,000 credits** (proposed in an earlier review comment, not approved) supplies only S$0.00828 revenue/credit: standard H3 would earn ~4.4% and even the Lite tier's S$0.09 per 768P second would net ~59% there (S$0.0745 of revenue against S$0.03072 of cost), not the ~66% it earns at face value. The single wallet must check realized revenue per credit across all funded sources including discounted plans and topup bonuses (audit §E); under credit-only billing the fix is to refuse that plan or renegotiate supplier rates, **not** to gate SKUs per plan. Revalidate FX and official list prices, and never claim blanket "official 30–70% off".
+**Margin warning and subscription-unit economics:** Output-only comparisons are not end-to-end contribution profit. At 11/18 the standard-H3 rows earn 20.9%/21.1% at face value, and reference images, retries, payment fees and FX can erode that further. A plan that grants more than 100 credits per SGD re-introduces the risk: at S$0.00828 per credit the same rows would earn 4.4%/4.6%, and even the Lite tier would fall from ~66% to ~59% there. The single wallet must check realized revenue per credit across all funded sources including topup bonuses (audit §E); under credit-only billing the fix is to refuse such a plan or renegotiate supplier rates, **not** to gate SKUs per plan. Revalidate FX and official list prices, and never claim blanket "official 30–70% off".
 
 **Credit-only billing rule (owner decision, 2026-10-27).** Every entitlement,
 plan and charge is expressed only as a credit deduction from the single pool
@@ -260,38 +260,37 @@ cost**; a plan that cannot is not offered. If a Business plan exists, its
 benefit is a larger credit grant (and its price), not a separate feature
 entitlement.
 
-**Plan catalogue — proposals for owner sign-off, none activated.** The
-implemented catalog (`server/internal/aurora/tiers.go`) grants 200 / 3,000 /
-12,000 credits per month plus 5,000 / 20,000 topups, with Stripe prices supplied
-by env. The prices and grants below are review proposals, not live values; none
-is approved and none may ship until the effective-SGD-per-credit check passes
-for every active SKU.
+**Plan catalogue (owner decision 2026-10-27).** Three paid tiers at **S$19 /
+S$59 / S$169**, each granting credits at face value (100 credits = S$1.00):
+**1,900 / 5,900 / 16,900** credits per month. The free tier stays at 200 credits
+and 10 generations. Because every tier grants exactly 100 credits per SGD, the
+minimum effective SGD/credit is S$0.01 on every row, the standard-H3 rows earn
+20.9%/21.1% on all of them, and no plan has to be refused or re-priced per SKU.
+Top-ups grant 100 credits per SGD as well.
 
-| plan | earlier proposal | review-proposed (NOT approved) | credits/month for the proposed price | effective S$/credit |
-|---|---:|---:|---:|---:|
-| Starter | S$12 | S$12 | 1,200 | 0.010000 |
-| Plus | S$89 | **S$49** | 5,500 | **0.008909** |
-| Pro | S$249 | **S$149** | 18,000 | **0.008278** |
-| Business | — | S$249 (larger credit grant only; no separate entitlement) | 25,500 | 0.009765 |
+| plan | price | credits/month | effective S$/credit |
+|---|---:|---:|---:|
+| Free | S$0 | 200 | — |
+| Starter | S$19 | 1,900 | 0.010000 |
+| Plus | S$59 | 5,900 | 0.010000 |
+| Pro | S$169 | 16,900 | 0.010000 |
 
-The earlier S$89/9,000 review proposal is evaluated separately in audit §E.
-
-Under the credit-only rule the S$49/5,500 and S$149/18,000 rows are
-**rejected as a policy choice**: at the standard H3 11/18 rates they realize
-S$0.0980 / 0.1604 and S$0.0911 / 0.1490 per second, i.e. 11.2%/11.4% and
-4.4%/4.6% output margin. Clearing 20% on them is arithmetically possible —
-13/20 credits/s for the S$49 row and 14/22 for the S$149 row — but those prices
-sit further above the official list, and the owner declined to raise standard
-H3 again. With standard H3 repriced to 11/18, face-value topup earns
-20.9%/21.1%, the S$89/9,000 row earns 20.0%/20.2% (768P is 19.98%, rounded up),
-and S$249/25,500 earns 19.0%/19.2%; the catalogue therefore clears the 20%
-target on the first two rows and lands just below it on Business. The Lite tier
-at the original 9/15 still earns ≈59–67% on every plan row above (65.9%/66.7%
-at face value) and remains the better default. Choosing standard H3 instead means accepting that it is no longer
+The earlier discounted proposals (S$49/5,500, S$149/18,000 and the S$89/9,000,
+S$249/25,500 variants) are superseded: each either fell below the 20% floor —
+11.2%/11.4% and 4.4%/4.6%, or 20.0% and 19.0% — or would have needed standard
+H3 raised further above the official list (13/20 or 14/22 credits/s). Under
+face-value pricing the Lite tier still earns ≈59–67% and remains the better
+default video path. Choosing standard H3 means accepting that it is no longer
 cheaper than the official list; that trade-off is approved but must not be
-advertised as a discount. The S$249 row, if kept as "Business", is only a larger
-credit grant — do not invent team/priority entitlements that the credit-only
-rule cannot express.
+advertised as a discount.
+
+**No refunds (owner decision 2026-10-27).** Purchases of credits,
+subscriptions and top-ups are final. The terms must say so before checkout is
+enabled, and support answers a refund request by pointing at the same terms.
+This is the customer-payment policy only: the settlement path still **releases**
+an unused reservation when a generation charges less than it reserved, and
+still releases it when a generation fails — that is crediting back an
+authorization we placed, not refunding money the user paid.
 
 **Annual billing:** 11 months paid for 12 served (one month free), replacing
 the earlier ten-month proposal, pending owner approval and contribution-margin
@@ -645,7 +644,7 @@ Three surfaces, matching the success criteria:
   （MiniMax H3）`), a total, and a link to the account page. When `over_cap` is false and the refund occurred, show the
   actual charge only; never show the reservation.
 - **Account page** (`billing.tsx`): available and held-in-flight shown
-  separately, balance split by expiry batch ("本月赠送 1,200，10-31 作废" /
+  separately, balance split by expiry batch ("本月赠送 1,900，10-31 作废" /
   "积分包 5,000，2027-10 到期"), this month's spend split by kind, and the
   ledger with human labels carrying the itemization.
 - **Subscribe page** (`billing.tsx` or a sibling plan route): the monthly /
@@ -808,12 +807,11 @@ own delta would undercount), and only the generation's own task rows are
 billable.
 
 1. **Approve actual supplier quote coverage and active model list.** Confirm HopBase mapping, SKU-specific input costs, official comparator, rate validity, contribution margin floor and treatment of plan/pack bonuses before enabling any of the new output-only candidates.
-2. **Final plan price/credit numbers.** The credit-only rule is fixed (D5,
-   §2): no per-plan SKU gating. What remains is the final price and credit
-   amount per plan and whether a S$249 "Business" row (larger grant only)
-   exists. S$49/5,500 and S$149/18,000 are rejected under the current supplier
-   cost; revisit only after a renegotiated quote. Annual 11/12 is part of the
-   same commercial sign-off.
+2. **Plan price/credit numbers — resolved (owner decision 2026-10-27).**
+   S$19 / S$59 / S$169 with 1,900 / 5,900 / 16,900 credits at face value; see
+   §2. Still open in the same area: annual 11/12 sign-off, and whether a fourth
+   "Business" tier is ever added (it would have to keep the 100-credits-per-SGD
+   ratio or pass its own margin check).
 3. **Claude cache and long-context text rates.** `task_usage` supplies the
    tokens and DeepSeek ships at 29/113, but the supplier quote covers Claude
    only at input/output ≤100K prompt. Haiku/Sonnet cache read/write and >100K
