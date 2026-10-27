@@ -24,7 +24,7 @@ follows; every row names the place a reviewer can check.
 | P1-5 membership tiers, Business plan, margin scenarios | spec §2 credit-only rule (D5: no per-plan SKU gating); S$49/5,500 and S$149/18,000 **rejected** under current cost; Open question 3 |
 | P1-6 annual 11/12 and abuse-controlled signup trial | spec §2 |
 | P0-7 auditable old-balance conversion, preserve prepaid value | **Resolved 2026-10-27:** there are no paying users; existing rows are test data. spec §10 is a pre-launch cleanup, not a conversion |
-| P0-8 re-verify HopBase before 2026-11-11; fail closed | spec §2 rate metadata; plan Global Constraints; Tasks 1, 12 |
+| P0-8 re-verify HopBase before 2026-11-25; fail closed | spec §2 rate metadata; plan Global Constraints; Tasks 1, 12 |
 
 **Scope:** Phase 1 only (spec §Rollout item 1). The batch wallet (spec §6), the
 pre-launch test-data cleanup (spec §10), and the SGD plan catalogue (spec
@@ -41,8 +41,8 @@ them. The wallet phase takes migration numbers 5002–5005; this plan uses 5001,
 - Rates are keyed by **model plus SKU variant** (image pixels; video tier, audio, reference inputs; text input/output/cache/context). An unconfigured/HOLD/expired model fails **before reservation**, never settles at zero or inherits another model's price.
 - Every rate record carries `Approval`, `OfficialURL`, `SupplierQuoteRevision`,
   `FX`, `EffectiveAt` and `ExpiresAt`. `provisional`, `hold`, uneffective or
-  expired records are unsellable; the 2026-10-12 HopBase quote expires
-  2026-11-11 and must be re-verified before any candidate is enabled.
+  expired records are unsellable; the 2026-10-26 HopBase quote expires
+  2026-11-25 and must be re-verified before any candidate is enabled.
 - Model selection is server-side at generation creation. A request never supplies a model name; it may select only the enumerated output shape (image count, video seconds, provider-supported video mode).
 - The reservation is the **selected** output's maximum, bounded by the skill's caps, not the generic worst case. Actual > reserved is absorbed and flagged, never debited.
 - The wire is the handler's existing camelCase; every new field in this plan is camelCase on the wire.
@@ -57,7 +57,10 @@ them. The wallet phase takes migration numbers 5002–5005; this plan uses 5001,
 3. **A multi-round `needs_input` conversation.** Every round's assets belong to the same generation; settlement must sum all of them, not the last round's. (Task 6)
 4. **An agent that ignores its ceiling.** The charge is capped at the reservation, the line is marked `over_cap`, the balance never goes negative, and the event is logged. (Task 6)
 5. **A replayed terminal callback.** Completion and failure are each idempotent: no second refund, no second charge row. (Tasks 6, 8)
-6. **Commercial guardrails.** Before any paid generation, verify supplier output/input cost < realized sale proceeds < comparable OEM API list at the current FX **across all allowed funding sources**, including discounted subscription credits and topups. Billing is credit-only (D5): every plan is just a credit grant, and the minimum effective SGD/credit across all offered plans must clear the most expensive active SKU. The S$49/5,500 and S$149/18,000 rows are rejected under that rule; at 9/15 credits/s they realize less than the MiniMax H3 output cost (spec §2, audit §E).
+6. **Commercial guardrails.** Before any paid generation, verify supplier output/input cost < realized sale proceeds < comparable OEM API list at the current FX **across all allowed funding sources**, including discounted subscription credits and topups. Billing is credit-only (D5): every plan is just a credit grant, and the minimum effective SGD/credit across all offered plans must clear the most expensive active SKU. The S$49/5,500 and S$149/18,000 rows are rejected under that rule; even the
+current rows fail safe-margin gating against **standard** MiniMax H3 after the
+2026-10-26 cost rise, so video only ships on the H3 Lite/self-deployed tier
+(spec §2, audit §E).
 7. **A request that selects 5 s of 768P.** It must quote and reserve 5 s of 768P, not 10 s of 2K. The same selected output drives the pre-submit quote, the reservation and settlement; a test asserts all three agree. (Tasks 7, 9)
 8. **A 1080P artifact against a H3 2K SKU.** It must be rejected as a mismatch, never settled at the 2K rate. Boundary heights 719/720/768/1079/1080/1439/1440 are covered by the requested-SKU tests. (Task 1)
 9. **An expensive model reached by an agent.** The dispatched model is pinned in the task payload, the runtime's provider-run record must match, and the run's actual provider cost is recorded per attempt. A mismatch settles at the reserved ceiling and raises an alarm. (Task 11)
@@ -96,7 +99,7 @@ them. The wallet phase takes migration numbers 5002–5005; this plan uses 5001,
 Quantity convention (one rule, used everywhere):
 - text: **HOLD for billing** until provider-reported input/output/cache usage and all supplier rates are available; display-only token estimates are not billing quantities.
 - image: `QuantityMilli` = image count × 1000.
-- video: `QuantityMilli` = measured milliseconds, validated against the **requested** SKU. The SKU's accepted measured heights are: H3 768P = 720–1079, H3 2K = 1440, Kling 720P = 720, Kling 1080P = 1080. A measured height outside its SKU is `ErrSKUMismatch` (rejected at staging), never repriced at a neighbouring tier; 2160/4K and 1080–1439 H3 output are HOLD.
+- video: `QuantityMilli` = measured milliseconds, validated against the **requested** SKU. The SKU's accepted measured heights are: H3 Lite 768P = 720–1079, H3 Lite 2K = 1440, Kling 720P = 720, Kling 1080P = 1080. A measured height outside its SKU is `ErrSKUMismatch` (rejected at staging), never repriced at a neighbouring tier; 2160/4K and 1080–1439 H3 output are HOLD.
 
 `raw_micro = ceil(QuantityMilli * UnitRateMicro / 1000)` using overflow-safe integer math; `AmountMicro = raw_micro`. Do **not** round to full credits. Refunds and displays must reconcile to the exact microcredit ledger.
 
@@ -121,23 +124,23 @@ func TestUnpricedTextFailsClosed(t *testing.T) {
 func TestChargeVideoFollowsRequestedSKU(t *testing.T) {
     // 768P accepts 720–1079; 2K accepts exactly 1440.
     for _, h := range []int{720, 768, 1079} {
-        line, err := DefaultRateCard().Charge(Usage{Kind: "video", Model: "MiniMax-H3", SKU: "768P", SecondsMilli: 5000, Height: h}, now)
+        line, err := DefaultRateCard().Charge(Usage{Kind: "video", Model: "MiniMax-H3-Lite", SKU: "768P", SecondsMilli: 5000, Height: h}, now)
         if err != nil || line.UnitRateMicro != 9_000_000 || line.AmountMicro != 45_000_000 {
             t.Fatalf("768P height %d: got %+v, err %v", h, line, err)
         }
     }
-    line, err := DefaultRateCard().Charge(Usage{Kind: "video", Model: "MiniMax-H3", SKU: "2K", SecondsMilli: 5000, Height: 1440}, now)
+    line, err := DefaultRateCard().Charge(Usage{Kind: "video", Model: "MiniMax-H3-Lite", SKU: "2K", SecondsMilli: 5000, Height: 1440}, now)
     if err != nil || line.UnitRateMicro != 15_000_000 || line.AmountMicro != 75_000_000 {
         t.Fatalf("2K: got %+v, err %v", line, err)
     }
     // 1080–1439 is not a H3 SKU; 2160 (4K) is unpriced. Neither may borrow 2K.
     for _, h := range []int{1080, 1439, 2160} {
-        if _, err := DefaultRateCard().Charge(Usage{Kind: "video", Model: "MiniMax-H3", SKU: "2K", SecondsMilli: 5000, Height: h}, now); !errors.Is(err, ErrSKUMismatch) {
+        if _, err := DefaultRateCard().Charge(Usage{Kind: "video", Model: "MiniMax-H3-Lite", SKU: "2K", SecondsMilli: 5000, Height: h}, now); !errors.Is(err, ErrSKUMismatch) {
             t.Fatalf("height %d must not settle at 2K, got %v", h, err)
         }
     }
     // A 1080P artifact requested as 768P is also a mismatch.
-    if _, err := DefaultRateCard().Charge(Usage{Kind: "video", Model: "MiniMax-H3", SKU: "768P", SecondsMilli: 5000, Height: 1080}, now); !errors.Is(err, ErrSKUMismatch) {
+    if _, err := DefaultRateCard().Charge(Usage{Kind: "video", Model: "MiniMax-H3-Lite", SKU: "768P", SecondsMilli: 5000, Height: 1080}, now); !errors.Is(err, ErrSKUMismatch) {
         t.Fatalf("1080P against 768P must fail, got %v", err)
     }
 }
@@ -151,14 +154,14 @@ func TestChargeImages(t *testing.T) {
 
 func TestChargeDoesNotRoundUpToWholeCredits(t *testing.T) {
 	// 1 second of a 9-credit/s SKU is 9 credits; 333 ms must be exact microcredits.
-	line, err := DefaultRateCard().Charge(Usage{Kind: "video", Model: "MiniMax-H3", SKU: "768P", SecondsMilli: 333, Height: 768}, now)
+	line, err := DefaultRateCard().Charge(Usage{Kind: "video", Model: "MiniMax-H3-Lite", SKU: "768P", SecondsMilli: 333, Height: 768}, now)
 	if err != nil || line.AmountMicro != 2_997_000 || line.AmountMicro%(1_000_000) == 0 {
 		t.Fatalf("want 0.002997 credits, got %+v, err %v", line, err)
 	}
 }
 
 func TestProvisionalAndExpiredRatesFailClosed(t *testing.T) {
-	later := now.AddDate(0, 0, 30) // after the HopBase 2026-11-11 quote window
+	later := now.AddDate(0, 0, 30) // after the HopBase 2026-11-25 quote window
 	if _, err := DefaultRateCard().Charge(Usage{Kind: "image", Model: "seedream-5-0-lite", Images: 1}, later); !errors.Is(err, ErrRateExpired) {
 		t.Fatalf("expired quote must fail closed, got %v", err)
 	}
@@ -176,7 +179,7 @@ func TestChargeUnknownModelFailsClosed(t *testing.T) {
 func TestCeilingPricesTheSelectedOutput(t *testing.T) {
 	// 2 images + 5 s of 768P = 8 + 45 = 53 credits, not the 10 s worst case.
 	selection := OutputCaps{MaxImages: 2, MaxVideoMilli: 5_000, MaxVideoHeight: 768}
-	got, err := DefaultRateCard().Ceiling("", "seedream-5-0-lite", "MiniMax-H3", "768P", selection, now)
+	got, err := DefaultRateCard().Ceiling("", "seedream-5-0-lite", "MiniMax-H3-Lite", "768P", selection, now)
 	if err != nil || got != 53_000_000 {
 		t.Fatalf("got %d, err %v", got, err)
 	}
@@ -200,22 +203,25 @@ Expected: FAIL — `undefined: DefaultRateCard`.
 
 - [ ] **Step 3: Implement `pricing.go`**
 
-`DefaultRateCard()` returns `Version: "2026-10-27-candidate"` containing only audited non-HOLD output SKU candidates for development (see audit for margins, input-cost restrictions and rollout gates). Each entry carries `RateMeta{Approval: "candidate", OfficialURL, SupplierQuoteRevision, FX, EffectiveAt: 2026-10-12, ExpiresAt: 2026-11-11}`; Kling rows carry `Approval: "provisional"` and are not priceable:
+`DefaultRateCard()` returns `Version: "2026-10-27-candidate"` containing only audited non-HOLD output SKU candidates for development (see audit for margins, input-cost restrictions and rollout gates). Each entry carries `RateMeta{Approval: "candidate", OfficialURL, SupplierQuoteRevision, FX, EffectiveAt: 2026-10-26, ExpiresAt: 2026-11-25}`; Kling rows carry `Approval: "provisional"` and are not priceable:
 
 | model / SKU | kind | proposed rate |
 |---|---|---|
 | `seedream-5-0-lite` / standard output image | image | `MicroPerImage: 4_000_000` (4 credits) |
 | `seedream-5-0-pro` / ≤2.61 MP single-image mode | image | `MicroPerImage: 5_000_000` (5 credits) |
-| `nano-banana-2.1` / 1K | image | `MicroPerImage: 3_000_000` (3 credits), verify upstream mapping |
-| `gemini-3-pro-image` / 1K–2K | image | `MicroPerImage: 15_000_000` (15 credits), verify input charges |
-| `MiniMax-H3` / `768P` | video | `MicroPerSecond: 9_000_000`, accepted heights 720–1079 |
-| `MiniMax-H3` / `2K` | video | `MicroPerSecond: 15_000_000`, accepted height 1440 |
+| `nano-banana-2.1` / 1K, 2K, 4K | image | `MicroPerImage: 3_000_000 / 4_000_000 / 8_000_000`, verify upstream mapping |
+| `gemini-3-pro-image` / 1K, 2K, 4K | image | `MicroPerImage: 15_000_000` (15 credits; one-price incl. input) |
+| `MiniMax-H3-Lite` / `480P` | video | `MicroPerSecond: 3_000_000`, accepted height 480; availability unconfirmed |
+| `MiniMax-H3-Lite` / `768P` | video | `MicroPerSecond: 9_000_000`, accepted heights 720–1079 |
+| `MiniMax-H3-Lite` / `2K` | video | `MicroPerSecond: 15_000_000`, accepted height 1440 |
 | `kling-v3-omni` / `720P`, `1080P` silent, no reference video | video | **PROVISIONAL, 10/14 credits/s, not priceable until OEM validated** |
-| DeepSeek, Claude text, H3-Max 480P, Kling 2K, all unquoted models | any | **HOLD / not in live rate book** |
+| `MiniMax-H3` standard 768P/2K, H3 self-deployed 1080P/4K, H3-Max, Kling with audio, Grok video, DeepSeek/Claude text, all unquoted models | any | **HOLD / not in live rate book** |
+
+The tests above use `MiniMax-H3-Lite` because the **standard** H3 tier is now HOLD: the 2026-10-26 quote raised it to US$0.068/0.111 per second, so 9/15 credits/s leaves only 3.3%/5.3% before fees. The Lite tier carries the same retail rate with ~66% output margin; the model id stays part of the rate key so a request can never borrow one tier's price for the other.
 
 **Video lookup uses the requested/authorized provider SKU** (e.g. H3 768P or H3 2K), with measured height/duration validating the delivered artifact. Do not choose a 2K rate merely because `height >= 1080`; an unconfigured 1080P variant must be held or rejected.
 
-**Owner-requested MiniMax H3 pricing revision (2026-10-27):** 9 credits/s (768P) and 15 credits/s (2K), replacing 24/39. At the spec's reference FX and 100 credits = S$1, these are respectively 12.1% and 9.9% below MiniMax's official API list prices (US$0.08/s and US$0.13/s) and above quoted HopBase costs (¥0.425/s and ¥0.68/s). **Gross output-only margin is approximately 10.3% / 13.9%**; additional reference/input costs, retries, fees, and infrastructure may eliminate profit. Pricing for input-video/reference-heavy workflows needs an explicit surcharge or restriction before production. Verify both source prices before external discount advertising; this is not a blanket model discount.
+**Owner-requested MiniMax H3 pricing revision (2026-10-27, recosted 2026-10-26 quote):** 9 credits/s (768P) and 15 credits/s (2K), replacing 24/39. At the spec's reference FX and 100 credits = S$1, these are respectively 12.1% and 9.9% below MiniMax's official API list prices (US$0.08/s and US$0.13/s). Against the **Lite** supplier cost (US$0.024 / 0.039 per s) the output-only margin is **65.9% / 66.7%**; against the **standard** tier (US$0.068 / 0.111) it is only **3.3% / 5.3%**, which is why standard H3 is HOLD. Additional reference/input costs, retries, fees, and infrastructure still apply. Pricing for input-video/reference-heavy workflows needs an explicit surcharge or restriction before production. Verify both source prices before external discount advertising; this is not a blanket model discount.
 
 The old height-based 1080P→2K lookup is removed as a pricing shortcut. Define exact provider SKU boundaries and test mismatched/unsupported output dimensions before enabling each mode.
 
@@ -769,7 +775,7 @@ Behaviour:
   unapproved-candidate skills render as unavailable, not as purchasable.
 - The insufficient-credits dialog shows the shortfall from the 402 body.
 - The result page renders one row per charge: `3 张图 × 4 积分（seedream-5-0-lite）`,
-  `视频 768P × 5.0 秒 × 9 积分/秒（MiniMax-H3）`; HOLD text SKUs are not shown as
+  `视频 768P × 5.0 秒 × 9 积分/秒（MiniMax-H3-Lite）`; HOLD text SKUs are not shown as
   purchasable, then the total. A `legacy` line renders as `本次 90 积分`.
 - Never show the reserved ceiling on the result page.
 
@@ -778,7 +784,7 @@ Behaviour:
 ```tsx
 it("itemizes a settled generation", () => {
   renderDetail({ creditsCharged: 49_000_000, charges: [
-    { kind: "video", model: "MiniMax-H3", sku: "768P", quantityMilli: 5000, unitRateMicro: 9_000_000, amountMicro: 45_000_000, overCap: false },
+    { kind: "video", model: "MiniMax-H3-Lite", sku: "768P", quantityMilli: 5000, unitRateMicro: 9_000_000, amountMicro: 45_000_000, overCap: false },
     { kind: "image", model: "seedream-5-0-lite", sku: "", quantityMilli: 1000, unitRateMicro: 4_000_000, amountMicro: 4_000_000, overCap: false },
   ]});
   expect(screen.getByText(/5\.0 秒/)).toBeTruthy();
@@ -959,8 +965,9 @@ before reserving for unavailable models; provider cost recorded per attempt
 with cost < realized revenue < official list at the lowest permitted
 SGD/credit; model-mismatch settles at the ceiling; missing usage disables the
 SKU. The S$49/5,500 and S$149/18,000 plan rows are rejected under the
-credit-only rule and must fail MiniMax H3 margin gating at 9/15 credits/s; they
-are not activated by this plan.
+credit-only rule; the margin gate must also reject **standard** MiniMax H3 at
+9/15 credits/s (3.3%/5.3%) and accept the Lite tier (65.9%/66.7%). Neither plan
+row is activated by this plan.
 Expected: PASS.
 
 - [ ] **Step 4: Commit any fixes as their own commits**
