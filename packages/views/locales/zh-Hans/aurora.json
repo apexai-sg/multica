@@ -232,7 +232,8 @@
     "checkout": {
       "failed": "无法发起购买，请重试。",
       "already_subscribed": "你已经有订阅了。",
-      "unavailable": "该实例未开通支付。"
+      "unavailable": "该实例未开通支付。",
+      "no_refund": "所有购买均为最终购买，不可退款。"
     }
   },
   "runtime": {

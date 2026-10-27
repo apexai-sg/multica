@@ -236,7 +236,8 @@
     "checkout": {
       "failed": "Impossible de lancer l'achat. Réessayez.",
       "already_subscribed": "Vous avez déjà un abonnement.",
-      "unavailable": "Les paiements ne sont pas disponibles sur cette instance."
+      "unavailable": "Les paiements ne sont pas disponibles sur cette instance.",
+      "no_refund": "Tous les achats sont définitifs et non remboursables."
     }
   },
   "runtime": {

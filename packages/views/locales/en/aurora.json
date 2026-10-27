@@ -234,7 +234,8 @@
     "checkout": {
       "failed": "Could not start the purchase. Try again.",
       "already_subscribed": "You already have a subscription.",
-      "unavailable": "Payments are not available on this instance."
+      "unavailable": "Payments are not available on this instance.",
+      "no_refund": "All purchases are final and non-refundable."
     }
   },
   "runtime": {

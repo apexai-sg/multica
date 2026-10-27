@@ -251,47 +251,54 @@ export function AuroraBilling() {
                 {t(($) => $.billing.topup.empty)}
               </p>
             ) : (
-              <div className="aurora-plans">
-                {topups.map((topup) => (
-                  <button
-                    key={topup.id}
-                    type="button"
-                    className="aurora-plan disabled:pointer-events-none disabled:opacity-50"
-                    aria-label={t(($) => $.billing.topup.pack, {
-                      credits: formatCredits(topup.credits, locale),
-                      price: t(
-                        ($) => $.billing.topup.packs[topupPackLabel(topup.id)].price,
-                      ),
-                    })}
-                    aria-busy={topupCheckout.isPending}
-                    disabled={topupCheckout.isPending || !returnURLs}
-                    onClick={() => {
-                      if (!returnURLs) return;
-                      topupCheckout.mutate(
-                        {
-                          topupId: topup.id,
-                          ...returnURLs,
-                        },
-                        {
-                          onSuccess: (checkoutUrl) =>
-                            openExternal(checkoutUrl, {
-                              webTarget: "same-tab",
-                            }),
-                        },
-                      );
-                    }}
-                  >
-                    <strong>
-                      {t(($) => $.credits, {
+              <>
+                <p className="text-caption text-muted-foreground">
+                  {t(($) => $.billing.checkout.no_refund)}
+                </p>
+                <div className="aurora-plans">
+                  {topups.map((topup) => (
+                    <button
+                      key={topup.id}
+                      type="button"
+                      className="aurora-plan disabled:pointer-events-none disabled:opacity-50"
+                      aria-label={t(($) => $.billing.topup.pack, {
                         credits: formatCredits(topup.credits, locale),
+                        price: t(
+                          ($) => $.billing.topup.packs[topupPackLabel(topup.id)].price,
+                        ),
                       })}
-                    </strong>
-                    <small>
-                      {t(($) => $.billing.topup.packs[topupPackLabel(topup.id)].price)}
-                    </small>
-                  </button>
-                ))}
-              </div>
+                      aria-busy={topupCheckout.isPending}
+                      disabled={topupCheckout.isPending || !returnURLs}
+                      onClick={() => {
+                        if (!returnURLs) return;
+                        topupCheckout.mutate(
+                          {
+                            topupId: topup.id,
+                            ...returnURLs,
+                          },
+                          {
+                            onSuccess: (checkoutUrl) =>
+                              openExternal(checkoutUrl, {
+                                webTarget: "same-tab",
+                              }),
+                          },
+                        );
+                      }}
+                    >
+                      <strong>
+                        {t(($) => $.credits, {
+                          credits: formatCredits(topup.credits, locale),
+                        })}
+                      </strong>
+                      <small>
+                        {t(
+                          ($) => $.billing.topup.packs[topupPackLabel(topup.id)].price,
+                        )}
+                      </small>
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </section>
 
@@ -432,54 +439,61 @@ function PlanSection({
       </div>
 
       {canSubscribe ? (
-        <ul className="flex flex-col">
-          {TIER_ORDER.map((tier) => (
-            <li
-              key={tier}
-              className="flex items-center justify-between gap-3 border-t border-surface-border py-2 first:border-t-0"
-            >
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-body">
-                  {
-                    t(
-                      ($) =>
-                        $.billing.subscription.tiers[subscriptionTierLabel(tier)].name,
-                    )
-                  }
-                </span>
-                <span className="truncate text-caption text-muted-foreground">
-                  {
-                    t(
-                      ($) =>
-                        $.billing.subscription.tiers[subscriptionTierLabel(tier)]
-                          .summary,
-                    )
-                  }
-                </span>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <span className="font-mono text-caption tabular-nums">
-                  {
-                    t(
-                      ($) =>
-                        $.billing.subscription.tiers[subscriptionTierLabel(tier)].price,
-                    )
-                  }
-                </span>
-                {tier === "free" ? null : (
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={pending || !canCheckout}
-                    onClick={() => onSubscribe(tier)}
-                  >
-                    {t(($) => $.billing.subscription.subscribe)}
-                  </Button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="text-caption text-muted-foreground">
+            {t(($) => $.billing.checkout.no_refund)}
+          </p>
+          <ul className="flex flex-col">
+            {TIER_ORDER.map((tier) => (
+              <li
+                key={tier}
+                className="flex items-center justify-between gap-3 border-t border-surface-border py-2 first:border-t-0"
+              >
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-body">
+                    {
+                      t(
+                        ($) =>
+                          $.billing.subscription.tiers[subscriptionTierLabel(tier)]
+                            .name,
+                      )
+                    }
+                  </span>
+                  <span className="truncate text-caption text-muted-foreground">
+                    {
+                      t(
+                        ($) =>
+                          $.billing.subscription.tiers[subscriptionTierLabel(tier)]
+                            .summary,
+                      )
+                    }
+                  </span>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="font-mono text-caption tabular-nums">
+                    {
+                      t(
+                        ($) =>
+                          $.billing.subscription.tiers[subscriptionTierLabel(tier)]
+                            .price,
+                      )
+                    }
+                  </span>
+                  {tier === "free" ? null : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={pending || !canCheckout}
+                      onClick={() => onSubscribe(tier)}
+                    >
+                      {t(($) => $.billing.subscription.subscribe)}
+                    </Button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
       ) : null}
     </section>
   );

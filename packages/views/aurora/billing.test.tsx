@@ -592,6 +592,46 @@ describe("AuroraBilling", () => {
     expect(screen.getAllByRole("button", { name: "Subscribe" })).toHaveLength(3);
   });
 
+  it("states the no-refund terms beside both purchase controls", () => {
+    renderBilling();
+
+    const terms = screen.getAllByText(
+      "All purchases are final and non-refundable.",
+    );
+    expect(terms).toHaveLength(2);
+
+    const planSection = screen.getByText("Plan").closest("section")!;
+    const topupSection = screen
+      .getByRole("heading", { name: "Buy credits" })
+      .closest("section")!;
+    const planTerms = within(planSection).getByText(
+      "All purchases are final and non-refundable.",
+    );
+    const topupTerms = within(topupSection).getByText(
+      "All purchases are final and non-refundable.",
+    );
+
+    for (const note of [planTerms, topupTerms]) {
+      // Visible beside the controls, not prose a sighted buyer cannot read.
+      expect(note).toBeVisible();
+      expect(note).toHaveClass("text-caption", "text-muted-foreground");
+      expect(note).not.toHaveClass("sr-only");
+    }
+
+    // Each note precedes the buttons whose purchase it governs.
+    for (const button of [
+      subscribeButtonFor("Creator"),
+      screen.getByRole("button", { name: "500 credits · $5" }),
+    ]) {
+      const note = within(button.closest("section")!).getByText(
+        "All purchases are final and non-refundable.",
+      );
+      expect(
+        note.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+  });
+
   it("starts a subscription checkout with the workspace's return URLs", async () => {
     const user = userEvent.setup();
     const createCheckout = mutation();
