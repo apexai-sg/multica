@@ -470,6 +470,17 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 		AuroraStripePriceProYearly:       strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_PRO_YEARLY")),
 		AuroraStripePriceTopup5:          strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_TOPUP_5")),
 		AuroraStripePriceTopup20:         strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_TOPUP_20")),
+		// Aurora's Antom subscription channel. The keys stay server-side for the
+		// same reason as Stripe's: the merchant private key signs every charge.
+		// All six together decide whether the channel exists; a partial set
+		// leaves it off (503) rather than half-working, and handler.New also
+		// requires MULTICA_PUBLIC_URL for the notification callbacks.
+		AntomClientID:           strings.TrimSpace(os.Getenv("ANTOM_CLIENT_ID")),
+		AntomMerchantPrivateKey: strings.TrimSpace(os.Getenv("ANTOM_MERCHANT_PRIVATE_KEY")),
+		AntomPublicKey:          strings.TrimSpace(os.Getenv("ANTOM_PUBLIC_KEY")),
+		AntomKeyVersion:         strings.TrimSpace(os.Getenv("ANTOM_KEY_VERSION")),
+		AntomAPIBase:            strings.TrimSpace(os.Getenv("ANTOM_API_BASE")),
+		AntomCurrency:           strings.TrimSpace(os.Getenv("ANTOM_CURRENCY")),
 	}
 	h := handler.New(queries, pool, hub, bus, emailSvc, store, cfSigner, analyticsClient, signupConfig, daemonHub)
 	invitationRateLimits := handler.DefaultInvitationRateLimits()

@@ -199,6 +199,27 @@ type Config struct {
 	AuroraStripePriceProYearly       string
 	AuroraStripePriceTopup5          string
 	AuroraStripePriceTopup20         string
+	// Antom* configure Aurora's second subscription channel. Like the Stripe
+	// keys they are server-side only: the merchant private key signs every
+	// request, and the Antom public key is what authenticates an incoming
+	// notification. All six reaching New together decide whether the channel
+	// exists — a half-configured deployment gets a nil provider, which every
+	// checkout reads as "this channel is off" (503), rather than a provider
+	// that breaks at the first payment. AntomCurrency is the single currency
+	// input: AntomClient charges its configured currency and ignores the
+	// per-request Currency field (R21).
+	//   - AntomClientID           -> ANTOM_CLIENT_ID
+	//   - AntomMerchantPrivateKey -> ANTOM_MERCHANT_PRIVATE_KEY
+	//   - AntomPublicKey          -> ANTOM_PUBLIC_KEY
+	//   - AntomKeyVersion         -> ANTOM_KEY_VERSION
+	//   - AntomAPIBase            -> ANTOM_API_BASE
+	//   - AntomCurrency           -> ANTOM_CURRENCY
+	AntomClientID           string
+	AntomMerchantPrivateKey string
+	AntomPublicKey          string
+	AntomKeyVersion         string
+	AntomAPIBase            string
+	AntomCurrency           string
 	// GitExtraCACerts is the PEM of the private CAs the operator added to the
 	// backend's trust store through SSL_CERT_DIR (see internal/gitca). It is
 	// handed to daemons with the workspace repos so their git can reach a
@@ -583,6 +604,28 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 	if stripeProvider := aurora.NewStripeProvider(cfg.StripeSecretKey, cfg.StripeWebhookSecret); stripeProvider != nil {
 		payments = stripeProvider
 	}
+	// Antom builds its notification URLs from the deployment's public URL, so a
+	// deployment without one has no channel at all: turning it off here keeps the
+	// UI from offering a checkout that cannot finish, instead of failing after
+	// the user has left for Antom. Same rule as Stripe for the interface field —
+	// never assign a nil concrete pointer, because every checkout reads
+	// h.Antom == nil as "this channel is off". Neither branch logs any part of
+	// the configuration; the error names the missing or unusable field only.
+	var antom aurora.AntomProvider
+	if cfg.PublicURL == "" {
+		slog.Warn("antom payments disabled: MULTICA_PUBLIC_URL is unset")
+	} else if antomClient, err := aurora.NewAntomClient(aurora.AntomConfig{
+		ClientID:           cfg.AntomClientID,
+		MerchantPrivateKey: cfg.AntomMerchantPrivateKey,
+		AntomPublicKey:     cfg.AntomPublicKey,
+		KeyVersion:         cfg.AntomKeyVersion,
+		APIBase:            cfg.AntomAPIBase,
+		Currency:           cfg.AntomCurrency,
+	}); err == nil && antomClient != nil {
+		antom = antomClient
+	} else if err != nil {
+		slog.Warn("antom payments disabled", "error", err)
+	}
 	h := &Handler{
 		Queries:                queries,
 		ReadSelector:           dbreader.NewPrimaryOnly(queries),
@@ -601,6 +644,7 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 		Credit:                 creditSvc,
 		Moderation:             aurora.NewDefaultModerator(),
 		Payments:               payments,
+		Antom:                  antom,
 		Tiers: aurora.NewTierCatalog(
 			cfg.AuroraStripePriceCreatorMonthly,
 			cfg.AuroraStripePriceCreatorYearly,
