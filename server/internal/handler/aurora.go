@@ -2438,40 +2438,56 @@ type AuroraSubscriptionUsage struct {
 // when there is no row at all, which is what tells a canceled subscriber apart
 // from one who never subscribed.
 type AuroraSubscriptionResponse struct {
-	Tier              string                   `json:"tier"`
-	Status            string                   `json:"status"`
-	CurrentPeriodEnd  *string                  `json:"currentPeriodEnd"`
-	CancelAtPeriodEnd bool                     `json:"cancelAtPeriodEnd"`
-	Limits            AuroraSubscriptionLimits `json:"limits"`
-	Usage             AuroraSubscriptionUsage  `json:"usage"`
+	Tier   string `json:"tier"`
+	Status string `json:"status"`
+	// Provider is the channel the stored row is on, empty when there is no
+	// row. It decides whether the plan screen offers the in-app Antom cancel
+	// or the Stripe portal.
+	Provider string `json:"provider"`
+	// AvailableProviders lists the channels this deployment can sell through,
+	// Stripe first and Antom second. It is always an array — an empty one when
+	// neither is configured — so the client never has to handle null.
+	AvailableProviders []string                 `json:"availableProviders"`
+	CurrentPeriodEnd   *string                  `json:"currentPeriodEnd"`
+	CancelAtPeriodEnd  bool                     `json:"cancelAtPeriodEnd"`
+	Limits             AuroraSubscriptionLimits `json:"limits"`
+	Usage              AuroraSubscriptionUsage  `json:"usage"`
 }
 
-// GetAuroraSubscription reports the caller's plan, its limits and this month's
-// usage. Like the other billing reads it is account-scoped: the plan belongs to
-// the user, not to the workspace the request is made from.
-func (h *Handler) GetAuroraSubscription(w http.ResponseWriter, r *http.Request) {
-	userUUID, ok := auroraBillingUser(w, r)
-	if !ok {
-		return
+// availableSubscriptionProviders reports the configured subscription channels
+// in a fixed order. The order is part of the response contract, not a
+// preference: a client renders the buttons in list order.
+func (h *Handler) availableSubscriptionProviders() []string {
+	providers := make([]string, 0, 2)
+	if h.Payments != nil {
+		providers = append(providers, "stripe")
 	}
-	limits, err := aurora.LimitsForUser(r.Context(), h.Queries, h.Tiers, userUUID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load subscription")
-		return
+	if h.Antom != nil {
+		providers = append(providers, "antom")
 	}
-	usedThisMonth, err := h.Queries.CountGenerationsThisMonth(r.Context(), userUUID)
+	return providers
+}
+
+// buildAuroraSubscriptionResponse assembles the plan screen's whole state for
+// one user. The read and the cancel endpoint both answer with this shape, so
+// they are built here once and cannot drift apart.
+func (h *Handler) buildAuroraSubscriptionResponse(ctx context.Context, userUUID pgtype.UUID) (AuroraSubscriptionResponse, error) {
+	limits, err := aurora.LimitsForUser(ctx, h.Queries, h.Tiers, userUUID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load usage")
-		return
+		return AuroraSubscriptionResponse{}, fmt.Errorf("load limits: %w", err)
 	}
-	activeGenerations, err := h.Queries.CountActiveGenerations(r.Context(), userUUID)
+	usedThisMonth, err := h.Queries.CountGenerationsThisMonth(ctx, userUUID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load usage")
-		return
+		return AuroraSubscriptionResponse{}, fmt.Errorf("load usage: %w", err)
+	}
+	activeGenerations, err := h.Queries.CountActiveGenerations(ctx, userUUID)
+	if err != nil {
+		return AuroraSubscriptionResponse{}, fmt.Errorf("load usage: %w", err)
 	}
 
 	response := AuroraSubscriptionResponse{
-		Tier: limits.Tier,
+		Tier:               limits.Tier,
+		AvailableProviders: h.availableSubscriptionProviders(),
 		Limits: AuroraSubscriptionLimits{
 			GenerationsPerMonth: limits.GenerationsPerMonth,
 			Concurrency:         limits.Concurrency,
@@ -2482,16 +2498,16 @@ func (h *Handler) GetAuroraSubscription(w http.ResponseWriter, r *http.Request) 
 		},
 	}
 
-	sub, err := h.Queries.GetAuroraSubscriptionByUser(r.Context(), userUUID)
+	sub, err := h.Queries.GetAuroraSubscriptionByUser(ctx, userUUID)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		// No plan row: the free tier with no period. Not an error — a user who
 		// has never subscribed is the common case.
 	case err != nil:
-		writeError(w, http.StatusInternalServerError, "failed to load subscription")
-		return
+		return AuroraSubscriptionResponse{}, fmt.Errorf("load subscription: %w", err)
 	default:
 		response.Status = sub.Status
+		response.Provider = sub.PaymentProvider
 		response.CancelAtPeriodEnd = sub.CancelAtPeriodEnd
 		if sub.CurrentPeriodEnd.Valid {
 			end := sub.CurrentPeriodEnd.Time.UTC().Format(time.RFC3339Nano)
@@ -2499,6 +2515,84 @@ func (h *Handler) GetAuroraSubscription(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
+	return response, nil
+}
+
+// GetAuroraSubscription reports the caller's plan, its limits and this month's
+// usage. Like the other billing reads it is account-scoped: the plan belongs to
+// the user, not to the workspace the request is made from.
+func (h *Handler) GetAuroraSubscription(w http.ResponseWriter, r *http.Request) {
+	userUUID, ok := auroraBillingUser(w, r)
+	if !ok {
+		return
+	}
+	response, err := h.buildAuroraSubscriptionResponse(r.Context(), userUUID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load subscription")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"subscription": response})
+}
+
+// CancelAuroraSubscription stops renewals for the caller's Antom subscription.
+// Antom has no billing portal, so this endpoint is the whole cancellation path
+// for that channel; a Stripe row is pointed at the portal instead. The channel
+// and the subscription id both come from the stored row, never from the
+// request, so a caller can neither cancel another account's subscription nor
+// choose a channel the row is not on.
+//
+// Antom's CANCEL leaves the paid period active, so only cancel_at_period_end
+// changes here. A TERMINATE notification is the one thing that clears the flag
+// (R22); this endpoint and the CREATE/UPDATE/CHANGE notifications never do.
+func (h *Handler) CancelAuroraSubscription(w http.ResponseWriter, r *http.Request) {
+	userUUID, ok := auroraBillingUser(w, r)
+	if !ok {
+		return
+	}
+	sub, err := h.Queries.GetAuroraSubscriptionByUser(r.Context(), userUUID)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		writeError(w, http.StatusNotFound, "no subscription to cancel")
+		return
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "failed to load subscription")
+		return
+	}
+	// The check comes before the update: MarkAuroraSubscriptionCancelAtPeriodEnd
+	// is unconditional and would happily flag a row this endpoint must not
+	// touch.
+	if sub.PaymentProvider != "antom" {
+		writeError(w, http.StatusConflict, "this subscription is managed by Stripe; use the billing portal")
+		return
+	}
+	if h.Antom == nil {
+		writeError(w, http.StatusServiceUnavailable, "antom not configured")
+		return
+	}
+	if !sub.AntomSubscriptionID.Valid || sub.AntomSubscriptionID.String == "" {
+		// A pending row has no subscription at Antom yet, so there is nothing
+		// to stop renewing and an empty id must not reach the provider.
+		writeError(w, http.StatusConflict, "subscription has no Antom id")
+		return
+	}
+	// The provider call comes first, and a failure changes nothing locally:
+	// the user can retry, and the server never claims a cancellation Antom did
+	// not accept.
+	if err := h.Antom.CancelSubscription(r.Context(), sub.AntomSubscriptionID.String); err != nil {
+		slog.Error("failed to cancel aurora antom subscription", "error", err)
+		writeError(w, http.StatusBadGateway, "failed to cancel subscription")
+		return
+	}
+	if _, err := h.Queries.MarkAuroraSubscriptionCancelAtPeriodEnd(r.Context(), userUUID); err != nil {
+		slog.Error("failed to record aurora subscription cancellation", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to update subscription")
+		return
+	}
+	response, err := h.buildAuroraSubscriptionResponse(r.Context(), userUUID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load subscription")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"subscription": response})
 }
 

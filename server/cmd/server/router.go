@@ -2138,6 +2138,10 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 			// subscription, not on a task's credits.
 			r.With(handler.RequireHumanActor).Post("/api/aurora/billing/portal", h.CreateAuroraBillingPortal)
 			r.With(handler.RequireHumanActor).Get("/api/aurora/billing/subscription", h.GetAuroraSubscription)
+			// Antom has no billing portal, so its subscriptions are cancelled
+			// in-app. Human-only for the same reason as the portal: it acts on
+			// the account's subscription, not on a task's credits.
+			r.With(handler.RequireHumanActor).Post("/api/aurora/billing/subscription/cancel", h.CancelAuroraSubscription)
 			r.With(handler.RequireHumanActor).Get("/api/aurora/billing/topups", h.ListAuroraTopups)
 
 			// Assignee frequency
