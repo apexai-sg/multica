@@ -157,7 +157,7 @@ git commit -m "feat(aurora): call Antom subscription create, cancel and inquiry"
 **Interfaces:**
 - Consumes: Task 1 的 `antomSignContent`、公钥
 - Produces:
-  - `type AntomNotification struct { Type, RequestID, SubscriptionID, Status, NotificationType, PaymentID, PhaseNo string; PeriodStart, PeriodEnd, OccurredAt time.Time }`
+  - `type AntomNotification struct { Type, RequestID, SubscriptionID, Status, NotificationType, PaymentID, PhaseNo string; PeriodStart, PeriodEnd time.Time }`（不解析事件时间戳：状态机按「当前状态 + 通知内容」推进，见 spec §6.4）
   - `func (c *AntomClient) VerifyNotification(method, path string, headers http.Header, body []byte) (AntomNotification, error)`
   - `Type` 取值：`"payment"`（含 `paymentId`+`periodStartTime`）或 `"subscription"`（含 `subscriptionStatus`）
 
@@ -166,7 +166,7 @@ git commit -m "feat(aurora): call Antom subscription create, cancel and inquiry"
 ```go
 func TestVerifyNotificationAcceptsSignedPayment(t *testing.T)
 // body 含 result.resultStatus=S、paymentId、subscriptionId、subscriptionRequestId、
-// periodStartTime、periodEndTime、paymentTime、phaseNo → Type=="payment"，OccurredAt==paymentTime
+// periodStartTime、periodEndTime、paymentTime、phaseNo → Type=="payment"，PeriodEnd 已解析
 func TestVerifyNotificationAcceptsSignedSubscription(t *testing.T)
 // body 含 subscriptionStatus=TERMINATED、subscriptionNotificationType=TERMINATE → Type=="subscription"
 func TestVerifyNotificationRejectsBadSignature(t *testing.T) // 改 body 一个字节 → error
@@ -183,7 +183,7 @@ Expected: FAIL，`undefined: AntomNotification`
 
 - [ ] **Step 3: Implement verification and parsing**
 
-`VerifyNotification`：按 Task 1 的格式重建待签名内容（`method` 用 `r.Method`、`path` 用 `r.URL.Path`）→ 解析 `signature` 头三个字段（缺一或多出未知字段即报错）→ `url.QueryUnescape` → base64 → `rsa.VerifyPKCS1v15`。验签通过后才解析 body：先看 `paymentId` 非空 → `Type="payment"`（`OccurredAt = paymentTime`，缺失时退回 `time.Now()`）；否则看 `subscriptionStatus` 非空 → `Type="subscription"`（`OccurredAt` 取 `subscriptionStartTime`，缺失退回 `time.Now()`）；两者都没有 → 返回 error。
+`VerifyNotification`：按 Task 1 的格式重建待签名内容（`method` 用 `r.Method`、`path` 用 `r.URL.Path`）→ 解析 `signature` 头三个字段（缺一或多出未知字段即报错）→ `url.QueryUnescape` → base64 → `rsa.VerifyPKCS1v15`。验签通过后才解析 body：先看 `paymentId` 非空 → `Type="payment"`（解析 `periodStartTime` / `periodEndTime`）；否则看 `subscriptionStatus` 非空 → `Type="subscription"`；两者都没有 → 返回 error。不解析 `paymentTime` / `subscriptionStartTime`：状态机不读事件时间戳。
 
 时间用 `time.Parse(time.RFC3339, v)`，同时接受带小数秒的写法。
 
