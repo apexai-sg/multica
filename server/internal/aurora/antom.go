@@ -35,12 +35,11 @@ type AntomConfig struct {
 	KeyVersion string
 	// APIBase is the Antom gateway origin; empty selects the Singapore gateway.
 	APIBase string
-	// Currency is the settlement currency; empty selects SGD.
+	// Currency is the currency the channel charges and settles in; empty
+	// selects SGD. The channel charges exactly one currency — the tier
+	// catalog's — so settlement names the same one; there is no second
+	// currency to configure.
 	Currency string
-	// SettlementCurrency names the currency Antom settles against when the
-	// merchant contract carries several. It is optional: empty leaves the field
-	// out and Antom uses the contract default.
-	SettlementCurrency string
 }
 
 const (
@@ -169,9 +168,6 @@ func NewAntomClient(cfg AntomConfig) (*AntomClient, error) {
 	if cfg.Currency == "" {
 		cfg.Currency = antomDefaultCurrency
 	}
-	// SettlementCurrency has no default: empty means "use the contract's
-	// default", which Antom expresses by omitting the field entirely.
-	cfg.SettlementCurrency = strings.ToUpper(strings.TrimSpace(cfg.SettlementCurrency))
 	if cfg.KeyVersion == "" {
 		cfg.KeyVersion = antomDefaultKeyVersion
 	}
@@ -494,8 +490,9 @@ type antomEnv struct {
 	TerminalType string `json:"terminalType"`
 }
 
-// antomSettlementStrategy omits an empty currency, which is how Antom is told
-// to settle in the contract's default currency.
+// antomSettlementStrategy names the currency Antom settles in: the channel's
+// one charge currency. omitempty keeps the wire field absent rather than empty
+// if a strategy is ever built without one.
 type antomSettlementStrategy struct {
 	SettlementCurrency string `json:"settlementCurrency,omitempty"`
 }
@@ -622,7 +619,7 @@ func (c *AntomClient) CreateSubscription(ctx context.Context, req AntomSubscript
 		// The authorization link opens in a browser, so the buyer's terminal is
 		// reported as WEB.
 		Env:                antomEnv{TerminalType: "WEB"},
-		SettlementStrategy: antomSettlementStrategy{SettlementCurrency: c.cfg.SettlementCurrency},
+		SettlementStrategy: antomSettlementStrategy{SettlementCurrency: c.cfg.Currency},
 	}
 
 	responseBody, err := c.post(ctx, antomPathCreateSubscription, payload)

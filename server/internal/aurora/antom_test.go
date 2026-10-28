@@ -373,24 +373,27 @@ func TestCreateSubscriptionPostsSignedRequest(t *testing.T) {
 	if body.Env.TerminalType != "WEB" {
 		t.Errorf("env.terminalType = %q, want WEB", body.Env.TerminalType)
 	}
-	if len(body.SettlementStrategy) != 0 {
-		t.Errorf("settlementStrategy = %+v, want an empty object when no settlement currency is configured", body.SettlementStrategy)
+	if body.SettlementStrategy["settlementCurrency"] != "SGD" {
+		t.Errorf("settlementStrategy = %+v, want the client's configured currency SGD", body.SettlementStrategy)
 	}
 }
 
-func TestCreateSubscriptionSendsConfiguredSettlementCurrency(t *testing.T) {
+// The channel charges exactly one currency (the catalog's), so settlement
+// names that same currency. There is no separate settlement input and no
+// test-only way to override it.
+func TestCreateSubscriptionSettlesInTheConfiguredCurrency(t *testing.T) {
 	priv, pub := newTestAntomKeys(t)
 	client, err := NewAntomClient(AntomConfig{
 		ClientID:           "SANDBOX_1",
 		MerchantPrivateKey: priv,
 		AntomPublicKey:     pub,
-		SettlementCurrency: " sgd ",
+		Currency:           "HKD",
 	})
 	if err != nil {
 		t.Fatalf("NewAntomClient: %v", err)
 	}
-	if client.cfg.SettlementCurrency != "SGD" {
-		t.Fatalf("SettlementCurrency = %q, want the normalized code SGD", client.cfg.SettlementCurrency)
+	if client.cfg.Currency != "HKD" {
+		t.Fatalf("Currency = %q, want the configured HKD", client.cfg.Currency)
 	}
 	client, requests := newAntomTestGatewayFor(t, client, `{"result":{"resultStatus":"S","resultCode":"SUCCESS"},"normalUrl":"https://checkout.example/x"}`)
 
@@ -405,8 +408,8 @@ func TestCreateSubscriptionSendsConfiguredSettlementCurrency(t *testing.T) {
 	if err := json.Unmarshal(got.body, &body); err != nil {
 		t.Fatalf("decode request body: %v", err)
 	}
-	if body.SettlementStrategy["settlementCurrency"] != "SGD" {
-		t.Errorf("settlementStrategy = %+v, want settlementCurrency SGD", body.SettlementStrategy)
+	if body.SettlementStrategy["settlementCurrency"] != "HKD" {
+		t.Errorf("settlementStrategy = %+v, want settlementCurrency HKD", body.SettlementStrategy)
 	}
 }
 

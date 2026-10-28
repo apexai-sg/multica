@@ -420,6 +420,11 @@ current_period_end: 2026-11-28T00:00:00Z
 用户取消只能走本产品的 `POST /api/aurora/billing/subscription/cancel`，得到的是「到期取消」
 （`CANCEL`），立即取消只会来自 Antom 侧的 `TERMINATE`。
 
+这一轮还要把 Antom 的两组枚举值确认掉：`subscriptionStatus` 与 `result.resultStatus` 都不得
+存在表示「处理中」或「未知」的取值——`resultStatus != "S"` 会被落成 `past_due` 并确认 200
+（Antom 不再重发），而 `CREATE`/`UPDATE`/`CHANGE` 上落在 `{ACTIVE, TERMINATED}` 之外的
+`subscriptionStatus` 同样只回 200、不改动行。
+
 ## T4 — Test-mode end-to-end (#48)
 
 **状态：清单已写好；执行需要 Stripe test 密钥与 test price id，本环境未执行。**

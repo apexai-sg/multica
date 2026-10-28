@@ -2472,6 +2472,40 @@ func TestAntomPaymentNotificationGrantsMonthlyAllowance(t *testing.T) {
 	}
 }
 
+// A notification is a state transition for the row it already found; the
+// channel is stamped at checkout and must survive every write on this path. A
+// notification that changed payment_provider would hand the row to a channel
+// that never issued it.
+func TestAntomPaymentNotificationLeavesPaymentProviderAlone(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	periodStart := time.Now().UTC().Truncate(time.Second)
+	dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+		"user_id": testUserID, "tier": "creator", "status": "pending",
+		"payment_provider":         "stripe",
+		"checkout_idempotency_key": "aurora-sub-x",
+		"antom_subscription_id":    "S1",
+	})
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomPaymentNotification("aurora-sub-x", "S1", "S", periodStart, periodStart.Add(30*24*time.Hour)),
+	})
+
+	resp := postAntomNotification(t, testHandler.AntomPaymentNotification, antomNotifyPathPayment)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	provider, _, _, status := auroraSubscriptionCheckoutRow(t)
+	if provider != "stripe" {
+		t.Fatalf("payment_provider = %q, want the stripe value the notification must not rewrite", provider)
+	}
+	if status != "active" {
+		t.Fatalf("status = %q, want the charge recorded as active", status)
+	}
+	if gotStatus, antomID, _, _ := antomSubscriptionState(t); gotStatus != "active" || antomID != "S1" {
+		t.Fatalf("row = %s/%s, want active/S1", gotStatus, antomID)
+	}
+}
+
 // The checkout key is the first match, but it is not the only one: a row whose
 // key is gone must still be found by the Antom subscription id, or a renewing
 // subscriber is granted nothing.
