@@ -247,7 +247,11 @@ CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS aurora_subscription_antom_id_key
 - [ ] **Step 2: Update the queries and regenerate sqlc**
 
 - `StartAuroraSubscriptionCheckout` 增加 `payment_provider` 列与参数（`pending` 写入时
-  带上渠道）。
+  带上渠道），并在 `DO UPDATE SET` 里把 `antom_subscription_id` 置 NULL：新的结账意图
+  不属于任何 Antom 订阅，留旧 id 会让上一条订阅的迟到通知命中这一行（终态守卫只看
+  `canceled` + 同 id，挡不住 `pending`）。同一提交内把现有唯一调用点
+  （`internal/handler/aurora.go` 的 `StartAuroraSubscriptionCheckoutParams`）补上
+  `PaymentProvider: "stripe"`，否则该列在 Task 5 之前一直被写成空串。
 - 新增 `UpsertAuroraAntomSubscription`：`INSERT ... ON CONFLICT (user_id) DO UPDATE`
   **不带时间戳条件**，改用终态守卫——
 
