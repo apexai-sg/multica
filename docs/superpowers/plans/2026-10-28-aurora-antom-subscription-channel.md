@@ -435,6 +435,15 @@ Expected: FAIL，handler 与 label 未定义
 同一订阅），确认且不发积分；写入成功才 `grantSubscriptionAllowance(ctx, row.UserID, tier)`。
 `Status!="S"` 时以 `Status="past_due"` 写入且不发积分。
 
+**未知档位不等于未知通知**：通知里带来的档位查不到时，仍要按行上已存的档位完成 upsert
+（记录 `current_period_end` 与 `antom_subscription_id`），只跳过
+`grantSubscriptionAllowance`，然后确认。提前 return 会让一笔已扣款的订阅停在 `pending`——
+结算只发 `status='active'` 的行，下一期通知到来前没有任何东西会补发。
+
+`docs/engineering/aurora-billing-alerts.md` 的 `AuroraBillingWebhookRejections` 规则在本
+任务内同步修正：Antom 的 `unknown` 是「已确认、无需处理」，不能被算作拒绝；`not_configured`
+现在也覆盖 Antom 渠道未配置。
+
 `AntomSubscriptionNotification`：`CREATE`/`UPDATE`/`CHANGE` → `active`；`CANCEL` →
 `active` + `cancel_at_period_end=true`；`TERMINATE` → `canceled` + `cancel_at_period_end=false`；
 其余类型记日志后确认。
