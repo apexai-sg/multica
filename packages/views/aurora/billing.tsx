@@ -465,15 +465,18 @@ function PlanSection({
 
   // Each channel is managed somewhere different. A Stripe row has the Customer
   // Portal; Antom has no portal, so its one management action is the in-app
-  // cancel, and only while it is actually running. A canceled plan is the
-  // buy-a-plan state below, a plan already ending has nothing left to stop, and
-  // an unknown future status or channel fails closed.
+  // cancel. A canceled plan is the buy-a-plan state below, a plan already ending
+  // has nothing left to stop, and an unknown future status or channel fails
+  // closed.
   const canManagePortal =
     subscription.provider === "stripe" &&
     (subscription.status === "active" || subscription.status === "past_due");
   const canCancelAntom =
     subscription.provider === "antom" &&
-    subscription.status === "active" &&
+    // A failed payment is exactly when a subscriber wants to stop the plan, and
+    // the server's cancel accepts a past-due row.
+    (subscription.status === "active" ||
+      subscription.status === "past_due") &&
     !subscription.cancelAtPeriodEnd;
 
   return (
@@ -555,8 +558,13 @@ function PlanSection({
 
       {canSubscribe ? (
         <>
+          {/* Prices with no way to buy need the reason rather than the
+              no-refund terms, which govern controls this deployment has no
+              channel to offer. */}
           <p className="text-caption text-muted-foreground">
-            {t(($) => $.billing.checkout.no_refund)}
+            {providers.length === 0
+              ? t(($) => $.billing.subscription.no_channel)
+              : t(($) => $.billing.checkout.no_refund)}
           </p>
           <ul className="flex flex-col">
             {TIER_ORDER.map((tier) => (

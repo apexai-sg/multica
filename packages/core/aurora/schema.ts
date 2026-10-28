@@ -283,17 +283,19 @@ export const auroraTransactionsSchema = z.object({
  *
  * Unknown entries are dropped one by one rather than failing the array: a
  * channel from a newer server must cost only its own button, not the buttons
- * for the channels this build does know. A body whose field is not a list at
- * all collapses to no channels, for the same reason — the plan read is the
- * purchase boundary and must not fail over its button list.
+ * for the channels this build does know. Duplicates are collapsed too: the list
+ * is rendered as buttons keyed by channel, so a repeated entry would be a
+ * duplicate React key and a second identical button. A body whose field is not
+ * a list at all collapses to no channels, for the same reason — the plan read
+ * is the purchase boundary and must not fail over its button list.
  */
 const auroraAvailableProvidersSchema = z
   .array(z.unknown())
   .catch([])
   .default([])
-  .transform((values): AuroraPaymentProvider[] =>
-    values.filter(isAuroraPaymentProvider),
-  );
+  .transform((values): AuroraPaymentProvider[] => [
+    ...new Set(values.filter(isAuroraPaymentProvider)),
+  ]);
 
 /**
  * GET /api/aurora/billing/subscription.

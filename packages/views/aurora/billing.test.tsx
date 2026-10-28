@@ -687,10 +687,21 @@ describe("AuroraBilling", () => {
     renderBilling();
 
     // An empty list is a deployment fact, not a missing read: the price table
-    // still describes the plans, but there is nothing to buy through.
+    // still describes the plans, but there is nothing to buy through — and the
+    // screen says why instead of leaving prices with no purchase control.
     expect(screen.getByText("$19/mo")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /subscribe with/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Plans are not for sale on this instance."),
+    ).toBeVisible();
+    // The no-refund terms govern controls this deployment does not offer.
+    const planSection = screen.getByText("Plan").closest("section")!;
+    expect(
+      within(planSection).queryByText(
+        "All purchases are final and non-refundable.",
+      ),
     ).not.toBeInTheDocument();
   });
 
@@ -935,6 +946,32 @@ describe("AuroraBilling", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("cancels a past-due Antom plan", async () => {
+    const user = userEvent.setup();
+    const cancelSubscription = mutation();
+    mocks.cancelSubscription.mockReturnValue(cancelSubscription);
+    mocks.subscription.mockReturnValue({
+      data: subscription({
+        tier: "creator",
+        status: "past_due",
+        provider: "antom",
+      }),
+      isPending: false,
+    });
+
+    renderBilling();
+
+    // A failed payment is exactly when stopping the plan matters, and the
+    // server's cancel accepts a past-due row. The endpoint itself is asserted
+    // in packages/core/aurora/mutations.test.tsx.
+    const cancelButton = screen.getByRole("button", {
+      name: "Cancel subscription",
+    });
+    expect(cancelButton).toBeEnabled();
+    await user.click(cancelButton);
+    expect(cancelSubscription.mutate).toHaveBeenCalledTimes(1);
+  });
+
   it("hides the in-app cancel for a canceled Antom plan", () => {
     mocks.subscription.mockReturnValue({
       data: subscription({
@@ -992,6 +1029,28 @@ describe("AuroraBilling", () => {
     expect(
       screen.getByRole("button", { name: "Manage subscription" }),
     ).toBeInTheDocument();
+  });
+
+  it("fails closed for a channel this build does not know", () => {
+    mocks.subscription.mockReturnValue({
+      data: subscription({
+        tier: "creator",
+        status: "active",
+        provider: "venmo",
+      }),
+      isPending: false,
+    });
+
+    renderBilling();
+
+    // Neither control is safe here: the portal 409s for anything without a
+    // Stripe customer, and the cancel 409s for anything not on Antom.
+    expect(
+      screen.queryByRole("button", { name: "Manage subscription" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Cancel subscription" }),
+    ).not.toBeInTheDocument();
   });
 
   it("cancels the Antom plan through the in-app action", async () => {

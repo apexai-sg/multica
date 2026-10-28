@@ -223,6 +223,16 @@ describe("auroraSubscriptionSchema", () => {
     expect(res.availableProviders).toEqual(["stripe"]);
   });
 
+  it("collapses a repeated channel", () => {
+    // The list is rendered as buttons keyed by channel: a duplicate would be a
+    // duplicate React key and a second button that does the same thing.
+    const res = auroraSubscriptionSchema.parse({
+      availableProviders: ["stripe", "stripe", "antom"],
+    });
+
+    expect(res.availableProviders).toEqual(["stripe", "antom"]);
+  });
+
   it("defaults a missing availableProviders to no channels", () => {
     expect(auroraSubscriptionSchema.parse({}).availableProviders).toEqual([]);
   });
