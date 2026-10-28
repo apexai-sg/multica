@@ -99,7 +99,7 @@ git commit -m "feat(aurora): add Antom client config and RSA2 request signing"
 - Consumes: Task 1 的 `AntomClient`、`signatureHeader`、`antomSignContent`
 - Produces:
   - `type AntomProvider interface { CreateSubscription(ctx context.Context, req AntomSubscriptionRequest) (string, error); CancelSubscription(ctx context.Context, subscriptionID string) error; InquirySubscription(ctx context.Context, subscriptionID string) (AntomSubscriptionState, error); VerifyNotification(method, path string, headers http.Header, body []byte) (AntomNotification, error) }`
-  - `type AntomSubscriptionRequest struct { RequestID, Tier, Amount, Currency, RedirectURL string; StartTime time.Time }`
+  - `type AntomSubscriptionRequest struct { RequestID, Tier, Amount, Currency, RedirectURL, PaymentNotifyURL, SubscriptionNotifyURL string; StartTime time.Time }`
   - `type AntomSubscriptionState struct { SubscriptionID, Status string; CurrentPeriodEnd time.Time }`
   - 路径常量：`/ams/api/v1/subscriptions/create`、`/ams/api/v1/subscriptions/cancel`、`/ams/api/v1/subscriptions/inquireSubscription`
 
@@ -216,7 +216,7 @@ git commit -m "feat(aurora): verify and parse Antom subscription notifications"
 - Consumes: 无
 - Produces（sqlc 生成的方法与参数，后续任务直接使用）：
   - `StartAuroraSubscriptionCheckoutParams{UserID, Tier, PaymentProvider, CheckoutIdempotencyKey, CheckoutBillingCycle}`
-  - `UpsertAuroraSubscriptionParams{UserID, Tier, Status, PaymentProvider, StripeCustomerID, StripeSubscriptionID, AntomSubscriptionID, CurrentPeriodEnd, CancelAtPeriodEnd, ProviderEventCreatedAt}`
+  - `UpsertAuroraAntomSubscriptionParams{UserID, Tier, Status, AntomSubscriptionID, CurrentPeriodEnd, CancelAtPeriodEnd}`
   - `GetAuroraSubscriptionByCheckoutKey(ctx, checkoutID) (AuroraSubscription, error)`
   - `GetAuroraSubscriptionByAntomID(ctx, antomID) (AuroraSubscription, error)`
   - `MarkAuroraSubscriptionCancelAtPeriodEnd(ctx, userID) (AuroraSubscription, error)`
@@ -229,12 +229,12 @@ git commit -m "feat(aurora): verify and parse Antom subscription notifications"
 ALTER TABLE IF EXISTS aurora_subscription
     ADD COLUMN IF NOT EXISTS payment_provider TEXT NOT NULL DEFAULT 'stripe',
     ADD COLUMN IF NOT EXISTS antom_subscription_id TEXT;
-
-ALTER TABLE IF EXISTS aurora_subscription
-    RENAME COLUMN stripe_event_created_at TO provider_event_created_at;
 ```
 
-`5001_...down.sql` 反向执行（改名回去、删两列）。`5002_...index.up.sql` 只有一条语句：
+`5001_...down.sql` 反向删这两列。`stripe_event_created_at` **保持原名不动**：Antom 不
+使用它，Stripe 的排序语义原样保留。
+
+`5002_...index.up.sql` 只有一条语句：
 
 ```sql
 CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS aurora_subscription_antom_id_key
@@ -246,7 +246,24 @@ CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS aurora_subscription_antom_id_key
 
 - [ ] **Step 2: Update the queries and regenerate sqlc**
 
-按 Interfaces 列出的参数改造 `StartAuroraSubscriptionCheckout` 与 `UpsertAuroraSubscription`，新增三个查询（`GetAuroraSubscriptionByCheckoutKey` 用 `WHERE checkout_idempotency_key = $1`；`MarkAuroraSubscriptionCancelAtPeriodEnd` 用 `UPDATE ... SET cancel_at_period_end = true, updated_at = now() WHERE user_id = $1 RETURNING ...`）。`UpsertAuroraSubscription` 的过期判定改为 `provider_event_created_at`，其余语义（同秒 canceled 优先）保持不变。
+- `StartAuroraSubscriptionCheckout` 增加 `payment_provider` 列与参数（`pending` 写入时
+  带上渠道）。
+- 新增 `UpsertAuroraAntomSubscription`：`INSERT ... ON CONFLICT (user_id) DO UPDATE`
+  **不带时间戳条件**，改用终态守卫——
+
+  ```sql
+  WHERE NOT (
+      aurora_subscription.status = 'canceled'
+      AND aurora_subscription.antom_subscription_id IS NOT DISTINCT FROM EXCLUDED.antom_subscription_id
+  )
+  ```
+
+  即「已终止且是同一个 Antom 订阅」的行不再被改写；`canceled` 行若换了一个新的
+  `antom_subscription_id`（重新订阅）则允许覆盖。
+- 新增三个查询：`GetAuroraSubscriptionByCheckoutKey`（`WHERE checkout_idempotency_key = $1`）、
+  `GetAuroraSubscriptionByAntomID`（`WHERE antom_subscription_id = $1`）、
+  `MarkAuroraSubscriptionCancelAtPeriodEnd`（`UPDATE ... SET cancel_at_period_end = true,
+  updated_at = now() WHERE user_id = $1 RETURNING ...`）。
 
 Run: `make sqlc`
 Expected: 生成成功，无 diff 报错
@@ -254,7 +271,7 @@ Expected: 生成成功，无 diff 报错
 - [ ] **Step 3: Run the migration and the existing subscription tests**
 
 Run: `make test`（Makefile 会先 `ensure-postgres` 再 `migrate up`）
-Expected: 迁移应用成功；既有的 aurora 订阅测试全绿（它们现在跑在改名后的列上）
+Expected: 迁移应用成功；既有的 aurora 订阅测试全绿（Stripe 路径未受影响）
 
 - [ ] **Step 4: Commit**
 
@@ -292,6 +309,10 @@ func TestCreateSubscriptionCheckoutRunsOnAntom(t *testing.T)
 func TestCreateSubscriptionCheckoutAntomRejectsYearly(t *testing.T)      // billingCycle="yearly" + provider="antom" → 400
 func TestCreateSubscriptionCheckoutAntomFailsClosedWithoutClient(t *testing.T) // h.Antom == nil → 503
 func TestCreateSubscriptionCheckoutAntomConflictWhenSubscribed(t *testing.T)  // 已存在 active 行 → 409
+func TestCreateSubscriptionCheckoutRejectsPendingIntentOnAnotherProvider(t *testing.T)
+// 预置 payment_provider="stripe"、status="pending"、未过期的行，请求 provider="antom" → 409（不替换意图）
+func TestCreateSubscriptionCheckoutReusesPendingIntentOnSameProvider(t *testing.T)
+// 预置 provider="antom" 的 pending 意图 → 复用同一个 checkout key
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -301,9 +322,14 @@ Expected: FAIL，`unknown field provider` / `Handler.Antom` 未定义
 
 - [ ] **Step 3: Implement provider dispatch**
 
-`CreateAuroraCheckout`：解析请求体后先把 `provider` 归一化（空 → `"stripe"`；不在 `{"stripe","antom"}` → 400 `"unknown provider"`）。Stripe 分支保持现有代码不变；Antom 分支要求 `h.Antom != nil`（否则 503）且 `billingCycle == "monthly"`（否则 400 `"billingCycle must be monthly for this provider"`），金额从 `h.Tiers.Lookup(tier)` 的 Antom 金额字段取，调 `CreateSubscription`，返回 `{"checkoutUrl": url}`。
+`CreateAuroraCheckout`：解析请求体后先把 `provider` 归一化（空 → `"stripe"`；不在 `{"stripe","antom"}` → 400 `"unknown provider"`）。Stripe 分支保持现有代码不变；Antom 分支要求 `h.Antom != nil`（否则 503）且 `billingCycle == "monthly"`（否则 400 `"billingCycle must be monthly for this provider"`），金额从 `h.Tiers.Lookup(tier)` 的 Antom 金额字段取，两条通知 URL 由 `h.cfg.PublicURL` 拼出（`PublicURL` 为空时渠道在构造阶段就不可用，见 Task 8），调 `CreateSubscription`，返回 `{"checkoutUrl": url}`。
 
-`beginAuroraSubscriptionCheckout` 把 `provider` 写进 `StartAuroraSubscriptionCheckoutParams.PaymentProvider`；冲突判定额外比较已有行的 `PaymentProvider`：只要已有非 `canceled` 行就 409（不区分渠道），避免同一用户在两个渠道各持一份订阅。
+`beginAuroraSubscriptionCheckout` 把 `provider` 写进 `StartAuroraSubscriptionCheckoutParams.PaymentProvider`。冲突判定在现有规则上加两条：
+
+- 已有非 `canceled` 的行（任何渠道）→ 409。
+- 已有未过期的 `pending` 行且 `payment_provider` 与本次请求不同 → 409（不替换：被替换掉的
+  Stripe 会话用户仍可能完成，那会让 webhook 永远匹配不上、Stripe 重试三天）。
+- 未过期的 `pending` 行且渠道相同、档位与周期相同 → 复用原 `checkout_idempotency_key`。
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -327,47 +353,68 @@ git commit -m "feat(aurora): start subscription checkouts on the selected provid
 - Test: `server/internal/handler/aurora_test.go`
 
 **Interfaces:**
-- Consumes: Task 3 的 `VerifyNotification`/`AntomNotification`、Task 4 的三个新查询、既有 `grantSubscriptionAllowance`
+- Consumes: Task 3 的 `VerifyNotification`/`AntomNotification`、Task 4 的 `UpsertAuroraAntomSubscription`/`GetAuroraSubscriptionByCheckoutKey`/`GetAuroraSubscriptionByAntomID`、既有 `grantSubscriptionAllowance`
 - Produces:
   - `func (h *Handler) AntomPaymentNotification(w http.ResponseWriter, r *http.Request)`
   - `func (h *Handler) AntomSubscriptionNotification(w http.ResponseWriter, r *http.Request)`
   - `const maxAntomNotifyBodySize = 64 << 10`
+  - `metrics.AuroraWebhookEventAntomPayment = "antom_payment_notify"`、`metrics.AuroraWebhookEventAntomSubscription = "antom_subscription_notify"`
 
 - [ ] **Step 1: Write the failing tests**
 
 ```go
 func TestAntomPaymentNotificationGrantsMonthlyAllowance(t *testing.T)
 // 预置 pending 行（tier=creator, checkout_idempotency_key="aurora-sub-x"）；
-// 投通知 payment S、subscriptionId="S1"、periodEnd=now+30d →
-// 200 + 确认报文；行变 active，antom_subscription_id="S1"，current_period_end 更新；
-// 当月 allowance 积分到账（复用现有 balance 断言 helper）
+// 投通知 payment S、subscriptionRequestId="aurora-sub-x"、subscriptionId="S1"、periodEnd=now+30d →
+// 200 + 确认报文；行变 active，antom_subscription_id="S1"，current_period_end 更新；当月 allowance 到账
+func TestAntomPaymentNotificationMatchesByAntomIDWhenRequestKeyIsGone(t *testing.T)
+// 行上 checkout_idempotency_key 为 NULL、antom_subscription_id="S1"；通知只带 S1 → 仍命中
 func TestAntomPaymentNotificationIsIdempotent(t *testing.T)
 // 同一条通知投两次 → 200 两次，积分只发一次
 func TestAntomPaymentNotificationMarksPastDueOnFailure(t *testing.T)
-// resultStatus=F → 行 status="past_due"，不发积分
+// resultStatus=F → 行 status="past_due"，不发积分，current_period_end 不变
 func TestAntomSubscriptionNotificationTerminates(t *testing.T)
 // TERMINATE → status="canceled"，cancel_at_period_end=false
 func TestAntomSubscriptionNotificationCancelWaitsForPeriodEnd(t *testing.T)
 // CANCEL → status="active"，cancel_at_period_end=true
 func TestAntomSubscriptionNotificationIgnoresLateCreate(t *testing.T)
-// 先 TERMINATE（较新事件时间）再投 CREATE（较旧）→ 仍为 canceled
-func TestAntomNotificationRejectsBadSignature(t *testing.T) // 401，无写入
-func TestAntomNotificationAcksUnknownSubscription(t *testing.T) // 找不到本地行 → 200 确认，只记日志
+// 先 TERMINATE（subscriptionId="S1"）再投 CREATE（同为 "S1"）→ 仍为 canceled
+func TestAntomSubscriptionNotificationAcceptsResubscribe(t *testing.T)
+// 行已 canceled 且 subscriptionId="S1"，通知 CREATE 带 "S2" → status="active"，ID 换为 "S2"
+func TestAntomNotificationRejectsBadSignature(t *testing.T)       // 401，无写入
+func TestAntomNotificationAcksUnknownSubscription(t *testing.T)   // 找不到本地行 → 200 确认，只记日志
 func TestAntomNotificationFailsClosedWithoutProvider(t *testing.T) // h.Antom == nil → 503
+// metrics：两个新 event label 出现在预热序列里
+func TestAuroraWebhookEventsIncludeAntom(t *testing.T) // 在 server/internal/metrics/aurora_billing_test.go
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd server && go test ./internal/handler/ -run 'TestAntom' -v`
-Expected: FAIL，handler 未定义
+Run: `cd server && go test ./internal/handler/ -run 'TestAntom' -v && go test ./internal/metrics/ -run 'TestAuroraWebhookEventsIncludeAntom' -v`
+Expected: FAIL，handler 与 label 未定义
 
-- [ ] **Step 3: Implement the two handlers and register routes**
+- [ ] **Step 3: Implement the two handlers, routes and metric labels**
 
-公共部分（`serveAntomNotification(w, r) (aurora.AntomNotification, bool)`）：`h.Antom == nil` → 503；限流复用 `h.WebhookIPRateLimiter`；`http.MaxBytesReader` 限 `maxAntomNotifyBodySize`；`VerifyNotification(r.Method, r.URL.Path, r.Header, body)` 失败 → 401。
+公共部分（`serveAntomNotification(w, r) (aurora.AntomNotification, bool)`）：`h.Antom == nil` → 503
+并记 `AuroraWebhookResultNotConfigured`；限流复用 `h.WebhookIPRateLimiter`（超限记
+`RateLimited`）；`http.MaxBytesReader` 限 `maxAntomNotifyBodySize`（超限记 `BadRequest`）；
+`VerifyNotification` 失败 → 401 并记 `InvalidSignature`。
 
-`AntomPaymentNotification`：按 `RequestID` 取行，取不到再按 `SubscriptionID`；取不到 → 确认并返回。`Status=="S"` 时用 `UpsertAuroraSubscription`（`PaymentProvider="antom"`、`AntomSubscriptionID=SubscriptionID`、`Status="active"`、`CurrentPeriodEnd=PeriodEnd`、`ProviderEventCreatedAt=OccurredAt.Unix()`）写入，SQL 返回 `pgx.ErrNoRows`（更旧的事件）时**不发积分**；写入成功则 `grantSubscriptionAllowance(ctx, row.UserID, tier)`。`Status!="S"` 时把状态写成 `past_due`，不发积分。
+匹配顺序（命中即停）：`GetAuroraSubscriptionByCheckoutKey(RequestID)` →
+`GetAuroraSubscriptionByAntomID(SubscriptionID)` → 都没有则记日志、确认、返回
+`HandlerError` 之外的结果标签（用 `Unknown`），**不重试**。
 
-`AntomSubscriptionNotification`：`CREATE`/`UPDATE`/`CHANGE` → `active`；`CANCEL` → `active` + `cancel_at_period_end=true`；`TERMINATE` → `canceled` + `cancel_at_period_end=false`；其余类型记日志后确认。
+`AntomPaymentNotification`：`Status=="S"` 时用 `UpsertAuroraAntomSubscription`
+（`PaymentProvider="antom"`、`Status="active"`、`CurrentPeriodEnd=PeriodEnd`、
+`AntomSubscriptionID=SubscriptionID`）；返回 `pgx.ErrNoRows` 说明命中终态守卫（已终止的
+同一订阅），确认且不发积分；写入成功才 `grantSubscriptionAllowance(ctx, row.UserID, tier)`。
+`Status!="S"` 时以 `Status="past_due"` 写入且不发积分。
+
+`AntomSubscriptionNotification`：`CREATE`/`UPDATE`/`CHANGE` → `active`；`CANCEL` →
+`active` + `cancel_at_period_end=true`；`TERMINATE` → `canceled` + `cancel_at_period_end=false`；
+其余类型记日志后确认。
+
+两条 handler 各以 `RecordAuroraWebhookEvent(metrics.AuroraWebhookEventAntomPayment|....AntomSubscription, result)` 计数；在 `knownAuroraWebhookEvents` 加两条映射，并把两个 label 加进 `AllAuroraWebhookEvents()`。
 
 确认统一走 `writeAntomAck(w)`，payload 逐字节等于 Global Constraints 里的字符串。
 
@@ -459,7 +506,8 @@ git commit -m "feat(aurora): cancel Antom subscriptions in-app and list availabl
 
 ```go
 func TestNewHandlerBuildsAntomProviderFromConfig(t *testing.T)
-// 六项齐全 → h.Antom != nil；缺 ClientID → nil；私钥非法 → nil 且 provider 为 nil（Stripe 不受影响）
+// 六项齐全 + PublicURL 非空 → h.Antom != nil；缺 ClientID → nil；私钥非法 → nil；
+// PublicURL 为空 → nil（且 Stripe 不受影响）
 ```
 
 若 `handler_test.go` 不存在则新建（包内测试，直接调 `New` 需要数据库连接，参照同目录既有测试的 `testHandler` 装配方式；必要时改为对未导出构造函数 `newAntomFromConfig(cfg)` 的单元测试，保证不需要数据库）。
@@ -475,12 +523,17 @@ Expected: FAIL
 
 ```go
 var antom aurora.AntomProvider
-if antomClient, err := aurora.NewAntomClient(aurora.AntomConfig{...}); err == nil && antomClient != nil {
+if cfg.PublicURL == "" {
+    slog.Warn("antom payments disabled: MULTICA_PUBLIC_URL is unset")
+} else if antomClient, err := aurora.NewAntomClient(aurora.AntomConfig{...}); err == nil && antomClient != nil {
     antom = antomClient
 } else if err != nil {
     slog.Warn("antom payments disabled", "error", err)
 }
 ```
+
+`PublicURL` 为空时渠道不可用，而不是在结账时才发现通知地址拼不出来——前端也就不会
+渲染一个必然失败的按钮。
 
 `router.go` 读 `ANTOM_CLIENT_ID`、`ANTOM_MERCHANT_PRIVATE_KEY`、`ANTOM_PUBLIC_KEY`、`ANTOM_KEY_VERSION`、`ANTOM_API_BASE`、`ANTOM_CURRENCY`。
 
@@ -560,31 +613,47 @@ git commit -m "feat(aurora): let users pick the payment provider and cancel Anto
 **Files:**
 - Modify: `AGENTS.md`（Aurora Roadmap 的阻塞条目）
 - Modify: `docs/engineering/aurora-2day-payable-launch-note.md`
-- Modify: `docs/engineering/aurora-billing-alerts.md`（如告警条目涉及 Stripe 专属事件名）
+- Modify: `docs/engineering/aurora-billing-alerts.md`（加两个 Antom event label 的 PromQL）
+- Create: `server/cmd/antom-inquiry/main.go`（手动对账命令，`InquirySubscription` 的唯一调用方）
 
 **Interfaces:**
-- Consumes: 前面所有任务的完成状态
-- Produces: 运维可执行的 Antom 上线清单
+- Consumes: Task 2 的 `InquirySubscription`、Task 6 的两个 metric label
+- Produces: 运维可执行的 Antom 上线清单与对账命令
 
-- [ ] **Step 1: 更新 AGENTS.md 的阻塞条目**
+- [ ] **Step 1: 写对账命令**
 
-把「六张票全部等 Stripe」改写为两段：Stripe 侧仍缺凭证；Antom 侧已通代码，等待①商户号开通订阅产品与 SGD ②六个 `ANTOM_*` 变量注入③公网通知路径放行。明确写出「#48/#50 现在可以走 Antom 沙箱验收」。
+`server/cmd/antom-inquiry/main.go`：从同一组 `ANTOM_*` 环境变量构造 client，参数 `-subscription-id`，
+打印订阅状态与当期起止时间，非 `S` 结果退出码非零。薄封装，不另写测试（`InquirySubscription`
+本身在 Task 2 已覆盖）。
 
-- [ ] **Step 2: 在 launch note 增加 Antom 运行手册**
+- [ ] **Step 2: 更新 AGENTS.md 的阻塞条目**
 
-内容：六个环境变量、两条通知 URL、沙箱「不重试」这一差异、取消语义（`CANCEL` vs `TERMINATE`）、对账用的 `inquireSubscription` 手动命令。
+把「六张票全部等 Stripe」改写为两段：Stripe 侧仍缺凭证；Antom 侧已通代码，等待①商户号
+开通订阅产品与 SGD ②六个 `ANTOM_*` 变量与 `MULTICA_PUBLIC_URL` ③两条通知路径公网可达。
+明确写出「#48/#50 现在可以走 Antom 沙箱验收」。
 
-- [ ] **Step 3: 校验**
+- [ ] **Step 3: launch note 增加 Antom 运行手册**
 
-Run: `git diff --check && grep -rn "STRIPE_" AGENTS.md | head`
+内容：六个环境变量与 `MULTICA_PUBLIC_URL`、两条通知 URL、沙箱「不重试」这一差异、
+取消语义（`CANCEL` vs `TERMINATE`）、失败通知落 `past_due` 的含义、
+`go run ./cmd/antom-inquiry -subscription-id <id>` 的对账用法与判读。
+
+- [ ] **Step 4: 校验**
+
+Run: `git diff --check && grep -n "STRIPE_" AGENTS.md | head`
 Expected: 无空白错误；AGENTS.md 中不再有「所有阻塞都因缺少 Stripe 凭证」的表述
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add AGENTS.md docs/engineering
-git commit -m "docs(aurora): record the Antom channel launch prerequisites"
+git add AGENTS.md docs/engineering server/cmd/antom-inquiry
+git commit -m "docs(aurora): record the Antom channel launch prerequisites and reconciliation"
 ```
+
+- [ ] **Step 6: 在 GitHub 上同步阻塞票（人工步骤，需 owner 授权执行）**
+
+对 #45 / #46 / #47 / #48 / #50 / #56 各留一条评论，说明该票在 Antom 渠道下的新含义与
+验收方式；标签保持 `type::task` + `P0-Urgent` + `S1-Todo` 不变。
 
 - [ ] **Step 5: 在 GitHub 上同步阻塞票（人工步骤，需 owner 授权执行）**
 
@@ -594,6 +663,13 @@ git commit -m "docs(aurora): record the Antom channel launch prerequisites"
 
 ## Self-Review
 
-- **Spec coverage**：6.1→Task 5/8；6.2→Task 2/5；6.3→Task 3/6；6.4→Task 6；6.5→Task 7；6.6→Task 4；6.7→Task 5/7；6.8→Task 9；6.9→Task 8；6.10→Task 10。
-- **类型一致性**：`AntomProvider` 四个方法在 Task 2 定义，Task 5/6/7 只调用；`ProviderEventCreatedAt` 在 Task 4 定义，Task 6 写入。
-- **Review Focus 落点**：重复/乱序→Task 6 的 `TestAntomPaymentNotificationIsIdempotent`、`TestAntomSubscriptionNotificationIgnoresLateCreate`；伪造→Task 3 与 Task 6 的 401 测试；金额篡改→Task 5 的 `RunsOnAntom`（金额来自档位表）；渠道可用性→Task 7 与 Task 9；取消语义→Task 6 两条测试。
+- **Spec coverage**：6.1→Task 5/8；6.2→Task 2/5；6.3→Task 3/6（含两个 metric label）；
+  6.4→Task 6；6.5→Task 7；6.6→Task 4/5（冲突判定）；6.7→Task 5/7；6.8→Task 9；
+  6.9→Task 8（含 `PublicURL` 门槛）；6.10→Task 10。
+- **类型一致性**：`AntomProvider` 四个方法在 Task 2 定义，Task 5/6/7/10 只调用；
+  `UpsertAuroraAntomSubscription` 在 Task 4 定义、Task 6 使用，且不再出现
+  `ProviderEventCreatedAt`（该列只属于 Stripe 写入）。
+- **Review Focus 落点**：重复/乱序→Task 6 的 `TestAntomPaymentNotificationIsIdempotent`、
+  `TestAntomSubscriptionNotificationIgnoresLateCreate`、`...AcceptsResubscribe`；
+  伪造→Task 3 与 Task 6 的 401 测试；金额篡改→Task 5 的 `RunsOnAntom`（金额来自档位表）；
+  渠道可用性→Task 7 与 Task 9；取消语义→Task 6 的两条取消测试与 Task 7 的 409。

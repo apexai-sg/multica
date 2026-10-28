@@ -115,9 +115,19 @@ Antom 用 `POST /ams/api/v1/subscriptions/create`：
 | `subscriptionStartTime` | 请求时刻 |
 | `periodRule` | `{ periodType: "MONTH", periodCount: "1" }` |
 | `paymentMethod` | 商户号开通的卡 / 钱包支付方式 |
-| `subscriptionNotificationUrl` | `{AppURL}/api/aurora/billing/antom/notify/subscription` |
-| `paymentNotificationUrl` | `{AppURL}/api/aurora/billing/antom/notify/payment` |
+| `subscriptionNotificationUrl` | `{PublicURL}/api/aurora/billing/antom/notify/subscription` |
+| `paymentNotificationUrl` | `{PublicURL}/api/aurora/billing/antom/notify/payment` |
 | `orderInfo` / `paymentAmount` | 服务端从档位表取，**绝不读请求体** |
+
+回调 host 用 `cfg.PublicURL`（API 从公网可达的绝对地址），不是 `cfg.AppURL`：本仓库的
+Aurora 前端（`aod`）与后端（`mcapi`）是两个 host，`PublicURL` 与 `AppURL` 的分离就是
+为这种部署留的（现有回调 URL 也都用 `PublicURL`）。`PublicURL` 为空时 Antom 渠道不启用
+——通知发不到，渠道卖出去也是废的。
+
+`/subscriptions/create` 的响应只有授权链接（`normalUrl` / `applinkUrl` / `schemeUrl`），
+**不返回 `subscriptionId`**。所以 `antom_subscription_id` 只能在第一条通知到达时落库，
+本地行的匹配主键是两条通知都携带的 `subscriptionRequestId`（即我们自己的
+`checkout_idempotency_key`）。
 
 金额表长在 `tiers.go` 的档位结构上（`AntomAmountSGD` + 币种常量 `SGD`），
 与 Stripe price id 并列，同一个文件是改价的唯一位置。
@@ -151,14 +161,33 @@ Antom 用 `POST /ams/api/v1/subscriptions/create`：
 Antom 的重试策略是 24 小时内最多 8 次（0s / 2m / 10m / 10m / 1h / 2h / 6h / 15h）。
 **沙箱不重试**：格式不对就直接丢，所以沙箱联调必须看日志确认每一次都回了确认报文。
 
+告警：`multica_aurora_billing_webhook_events_total` 的 `event` label 是固定枚举
+（`knownAuroraWebhookEvents`），Antom 的通知会被归一成 `other`，按事件类型的告警规则
+出不来线。新增两个 label —— `antom_payment_notify` 与 `antom_subscription_notify` ——
+并加进 `AllAuroraWebhookEvents()` 的预热列表，让 5xx / 验签失败能按渠道分开看。
+
 ### 6.4 订阅状态与授信
 
-`notifyPayment（订阅）`（`result.resultStatus = "S"`）：
+本地行按这个顺序匹配，命中即停：
 
-1. `current_period_end` 取 `periodEndTime`，状态置 `active`。
-2. 调 `EnsureMonthlyAllowance` 发放当自然月积分 —— 按自然月幂等，所以同一期重复
-   通知、跨期乱序通知都不会多发。
-3. 事件时间取 `paymentTime`；解析不出时退回接收时刻。
+1. `subscriptionRequestId` → `checkout_idempotency_key`：pending 行也认，所以首期扣款
+   一定落得下来。
+2. `subscriptionId` → `antom_subscription_id`：请求 ID 那条路断了（例如本地行被人工
+   改过）时的兜底。
+3. 都没命中 → **确认掉 + 告警**，不重试。重试造不出一行本地记录，只会让 Antom 重投
+   八次。
+
+Antom 的通知**没有可靠的统一时间戳**（`notifySubscription` 报文里根本没有时间字段），
+所以这里不用「事件时间排序」那套，改用**显式状态转移**，让任何到达顺序都收敛到同一个
+终态：
+
+`notifyPayment（订阅）`：
+
+| 通知 | 本地写入 |
+| --- | --- |
+| `resultStatus = "S"` | `current_period_end = periodEndTime`；`antom_subscription_id = subscriptionId`；`pending`/`past_due`/`active` → `active`；随后发放当月积分 |
+| `resultStatus != "S"` | 状态置 `past_due`（停发、权益回落 free 档）；不动 `current_period_end` |
+| 行已 `canceled` 且 `subscriptionId` 与行上的一致 | **忽略**（终止是终态） |
 
 `notifySubscription`：
 
@@ -167,9 +196,15 @@ Antom 的重试策略是 24 小时内最多 8 次（0s / 2m / 10m / 10m / 1h / 2
 | `CREATE` / `UPDATE` / `CHANGE`（`subscriptionStatus=ACTIVE`） | `active` |
 | `CANCEL` | 保持 `active`，`cancel_at_period_end = true` |
 | `TERMINATE`（`subscriptionStatus=TERMINATED`） | `canceled`，`cancel_at_period_end = false` |
+| 行已 `canceled` 且 `subscriptionId` 与行上的一致 | 除 `TERMINATE` 外一律忽略 |
 
-「乱序」用现有那套规则兜：状态时间戳更旧的事件被 SQL 拒绝；时间戳相同则
-`canceled` 优先，迟到的 `CREATE` 不能把已终止的订阅复活。
+「新订阅」的判定是 `subscriptionId` 与行上不同：那是一次重新订阅，允许把 `canceled`
+改回 `active` 并换掉 ID。这样迟到的 `CREATE` 复活不了已终止的订阅，而真正的重新订阅
+也不会被终态挡住。
+
+积分发放走 `EnsureMonthlyAllowance`，按自然月幂等：同一期重复通知、跨期乱序通知都
+不会多发。失败通知不发积分，且状态已降到 `past_due`，结算扫描（只认
+`status='active' AND current_period_end > now()`）自然也不会补发。
 
 ### 6.5 取消
 
@@ -189,16 +224,24 @@ Antom 的重试策略是 24 小时内最多 8 次（0s / 2m / 10m / 10m / 1h / 2
 - `payment_provider TEXT NOT NULL DEFAULT 'stripe'` —— 订阅属于哪个渠道。
 - `antom_subscription_id TEXT` —— Antom 的订阅 ID；Stripe 订阅继续用
   `stripe_subscription_id`。
-- `stripe_event_created_at` 重命名为 `provider_event_created_at` —— 它现在是两个渠道
-  共用的「渠道事件时间」，不再只属于 Stripe。改名要同步改 sqlc 查询并重跑
-  `make sqlc`；Stripe 路径的行为不变。
+
+`stripe_event_created_at` **不改名、不参与 Antom 写入**：Antom 的状态收敛靠 6.4 的显式
+转移，不靠时间排序，所以那条 Stripe 专属的排序规则原样留在 Stripe 路径上。Antom 另有
+一条专用 upsert（`UpsertAuroraAntomSubscription`），它的 `ON CONFLICT` 分支按
+「已 `canceled` 且 subscriptionId 相同 → 不改」判重，而不是按时间戳。
 
 索引按仓库规矩另起一个迁移文件、单语句 `CREATE UNIQUE INDEX CONCURRENTLY`：
 `antom_subscription_id` 唯一（`WHERE antom_subscription_id IS NOT NULL`）。
 
 `pending` 意图复用现有列：`checkout_idempotency_key` 同时充当 Antom 的
-`subscriptionRequestId`，`checkout_billing_cycle` 记录 `monthly`。冲突判定要多看一
-个 `payment_provider`：已经有活跃订阅的用户，不能从另一个渠道再开一份。
+`subscriptionRequestId`（`aurora-sub-<uuid>`，47 字符，在 Antom 的 64 字符上限内），
+`checkout_billing_cycle` 记录 `monthly`。
+
+冲突判定：只要存在非 `canceled` 的行就 409，不区分渠道——同一用户不能同时持有一份
+Stripe 订阅和一份 Antom 订阅。已经有一个**未完成的、属于另一渠道的** pending 意图时
+也 409，提示用户先完成或等它过期（25 小时）。选 409 而不是替换，是因为被替换掉的
+Stripe Checkout Session 用户仍可能完成，随后 webhook 匹配不到 pending 意图会持续 500、
+Stripe 重试三天；拒绝一次只是让用户等，不会制造一个永远失败的 webhook 回路。
 
 ### 6.7 API 契约变化
 
@@ -235,6 +278,12 @@ i18n，五个 locale 都要补）。只有一个渠道时不渲染选择，保�
 缺任意关键项 → `h.Antom == nil` → Antom 渠道不出现在 `availableProviders`，
 Stripe 不受影响；反向也成立。金额不进环境变量（不是 Stripe 那种双模式 id）。
 
+另外两条依赖现有配置：
+
+- `MULTICA_PUBLIC_URL`（`cfg.PublicURL`）必须能拼出回调地址；为空时 Antom 渠道不
+  启用——通知地址都拼不出来的渠道，卖出去就是一笔收不到账的订阅。
+- 回调路径本身不进 WAF 豁免：它们是普通 JSON POST，靠签名认人。
+
 ### 6.10 运维前置（不在代码里，但会挡住上线）
 
 1. Antom 商户号需要**开通订阅（Subscription）产品**与 **SGD 收款**。
@@ -251,8 +300,10 @@ Stripe 不受影响；反向也成立。金额不进环境变量（不是 Stripe
   `PaymentProvider` 更可读。
 - **金额由服务端档位表给出。** Antom 允许请求里带金额，这正是被篡改的入口；金额不进
   请求体，也不进环境变量。
-- **`stripe_event_created_at` 改名。** 保留旧名会让 Antom 的写入读起来像 bug；
-  改名只动 SQL 与生成代码，Stripe 行为不变。
+- **不改 `stripe_event_created_at`，也不让 Antom 用它。** 改名的收益只是好读，代价是
+  动 Stripe 路径的全部查询；而 Antom 的状态收敛用显式转移本来就比时间排序稳。
+- **换渠道的 pending 意图用 409 拒绝，不替换。** 替换会给「用户随后完成旧 Stripe
+  会话」留下一个永远 500 的 webhook 回路；拒绝一次只是等 25 小时。
 - **取消用 CANCEL 而不是 TERMINATE。** 用户取消不该立刻断服务，与现有
   `cancelAtPeriodEnd` 语义一致；TERMINATE 只在 Antom 侧真的终止时反映。
 
@@ -266,8 +317,9 @@ Stripe 不受影响；反向也成立。金额不进环境变量（不是 Stripe
   一条都会变成多发积分或复活订阅，验收要显式覆盖。
 - **弃单**：Antom 没有 cancelUrl，中途关页的意图会留到 TTL 过期；`pending` 行不
   影响权益，但要在返回页文案上讲清楚「未完成」。
-- **对账缺口**：只靠通知，Antom 漏推或我方长时间 5xx 会丢期。这一期不做定时
-  inquiry 对账（非目标），但要留一个可手动跑的 `InquirySubscription` 入口和告警。
+- **对账缺口**：只靠通知，Antom 漏推或我方长时间 5xx 会丢期。这一期不做定时 inquiry
+  对账（非目标），但 `InquirySubscription` 要能在运维手册里手动跑（launch note 记录
+  命令与判读方式），不新开管理路由——多一个带鉴权的对外面，比少一次手动对账更贵。
 
 ## 9. 验收
 
