@@ -1,16 +1,21 @@
 package aurora
 
 import (
+	"bytes"
+	"context"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -40,6 +45,68 @@ const (
 	antomDefaultKeyVersion = "1"
 	antomMinKeyBits        = 2048
 )
+
+// Antom subscription endpoints, appended to the configured API base.
+const (
+	antomPathCreateSubscription  = "/ams/api/v1/subscriptions/create"
+	antomPathCancelSubscription  = "/ams/api/v1/subscriptions/cancel"
+	antomPathInquirySubscription = "/ams/api/v1/subscriptions/inquireSubscription"
+)
+
+// AntomProvider is the subscription surface the Aurora handler programs
+// against. AntomClient implements it; tests substitute a fake. The
+// notification method is part of the provider contract, so the client only
+// satisfies the interface once that path exists as well.
+type AntomProvider interface {
+	// CreateSubscription returns the Antom-hosted authorization URL. Antom
+	// returns no subscription id here, so callers match the later notification
+	// by RequestID.
+	CreateSubscription(ctx context.Context, req AntomSubscriptionRequest) (string, error)
+	// CancelSubscription stops future renewals (CANCEL) and leaves the current
+	// period active; it never terminates the subscription immediately.
+	CancelSubscription(ctx context.Context, subscriptionID string) error
+	// InquirySubscription reads the live subscription state for reconciliation.
+	InquirySubscription(ctx context.Context, subscriptionID string) (AntomSubscriptionState, error)
+	// VerifyNotification authenticates and parses either notification type.
+	VerifyNotification(method, path string, headers http.Header, body []byte) (AntomNotification, error)
+}
+
+// AntomSubscriptionRequest is the server-side intent for one subscription.
+// Amount is already in the two-decimal form Antom receives ("19.00"); the tier
+// catalog owns the price and a request body never supplies it.
+type AntomSubscriptionRequest struct {
+	RequestID             string
+	Tier                  string
+	Amount                string
+	Currency              string
+	RedirectURL           string
+	PaymentNotifyURL      string
+	SubscriptionNotifyURL string
+	StartTime             time.Time
+}
+
+// AntomSubscriptionState is an inquiry response reduced to the fields the
+// reconciliation path uses.
+type AntomSubscriptionState struct {
+	SubscriptionID   string
+	Status           string
+	CurrentPeriodEnd time.Time
+}
+
+// AntomNotification is the verified, parsed form of one Antom notification.
+// The notification path fills it; the shape is declared here because
+// AntomProvider names it.
+type AntomNotification struct {
+	Type             string
+	RequestID        string
+	SubscriptionID   string
+	Status           string
+	NotificationType string
+	PaymentID        string
+	PhaseNo          string
+	PeriodStart      time.Time
+	PeriodEnd        time.Time
+}
 
 // antomAPIBaseAllowed pins the official Antom gateways. Every request carries
 // the merchant private key's signature, so any other origin would receive
@@ -214,4 +281,174 @@ func (c *AntomClient) signatureHeader(method, path, requestTime string, body []b
 	}
 	escaped := url.QueryEscape(base64.StdEncoding.EncodeToString(signature))
 	return fmt.Sprintf("algorithm=RSA256,keyVersion=%s,signature=%s", c.cfg.KeyVersion, escaped), nil
+}
+
+// antomAmount is the wire form of an Antom amount.
+type antomAmount struct {
+	Currency string `json:"currency"`
+	Value    string `json:"value"`
+}
+
+type antomPeriodRule struct {
+	PeriodType  string `json:"periodType"`
+	PeriodCount string `json:"periodCount"`
+}
+
+type antomPaymentMethod struct {
+	PaymentMethodType string `json:"paymentMethodType"`
+}
+
+type antomOrderInfo struct {
+	OrderAmount antomAmount `json:"orderAmount"`
+}
+
+// antomSubscriptionCreateRequest is the /subscriptions/create body. The
+// notification URLs are supplied by the caller because they are deployment
+// facts (the public API origin), not client identity.
+type antomSubscriptionCreateRequest struct {
+	SubscriptionRequestID       string             `json:"subscriptionRequestId"`
+	SubscriptionDescription     string             `json:"subscriptionDescription"`
+	SubscriptionRedirectURL     string             `json:"subscriptionRedirectUrl"`
+	SubscriptionStartTime       string             `json:"subscriptionStartTime"`
+	PeriodRule                  antomPeriodRule    `json:"periodRule"`
+	PaymentMethod               antomPaymentMethod `json:"paymentMethod"`
+	SubscriptionNotificationURL string             `json:"subscriptionNotificationUrl"`
+	PaymentNotificationURL      string             `json:"paymentNotificationUrl"`
+	OrderInfo                   antomOrderInfo     `json:"orderInfo"`
+	PaymentAmount               antomAmount        `json:"paymentAmount"`
+}
+
+// post signs and sends one Antom API request, then enforces the result
+// envelope every Antom response carries. Anything other than resultStatus "S"
+// is an error that names the Antom code and message; no caller parses a failed
+// body on its own.
+func (c *AntomClient) post(ctx context.Context, path string, body any) ([]byte, error) {
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("antom %s: encode request: %w", path, err)
+	}
+	requestTime := strconv.FormatInt(time.Now().UnixMilli(), 10)
+	signature, err := c.signatureHeader(http.MethodPost, path, requestTime, payload)
+	if err != nil {
+		return nil, err
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.APIBase+path, bytes.NewReader(payload))
+	if err != nil {
+		return nil, fmt.Errorf("antom %s: build request: %w", path, err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("client-id", c.cfg.ClientID)
+	request.Header.Set("request-time", requestTime)
+	request.Header.Set("signature", signature)
+
+	response, err := c.http.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("antom %s: %w", path, err)
+	}
+	defer response.Body.Close()
+
+	// A gateway error page is not a business result; the cap keeps a runaway
+	// body from exhausting memory before the envelope is even inspected.
+	const maxResponseBytes = 1 << 20
+	responseBody, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("antom %s: read response: %w", path, err)
+	}
+	if len(responseBody) > maxResponseBytes {
+		return nil, fmt.Errorf("antom %s: response exceeds %d bytes", path, maxResponseBytes)
+	}
+
+	var envelope struct {
+		Result struct {
+			ResultCode    string `json:"resultCode"`
+			ResultStatus  string `json:"resultStatus"`
+			ResultMessage string `json:"resultMessage"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(responseBody, &envelope); err != nil {
+		return nil, fmt.Errorf("antom %s: decode response (HTTP %d): %w", path, response.StatusCode, err)
+	}
+	if envelope.Result.ResultStatus != "S" {
+		return nil, fmt.Errorf("antom %s failed: %s %s", path, envelope.Result.ResultCode, envelope.Result.ResultMessage)
+	}
+	return responseBody, nil
+}
+
+// CreateSubscription asks Antom for the authorization URL. Card is the method a
+// recurring contract supports; the hosted page then collects the payment
+// details that bind future periods.
+func (c *AntomClient) CreateSubscription(ctx context.Context, req AntomSubscriptionRequest) (string, error) {
+	// The channel settles in its configured currency; the tier catalog reports
+	// the same code, so a configured deployment cannot diverge here.
+	amount := antomAmount{Currency: c.cfg.Currency, Value: req.Amount}
+	payload := antomSubscriptionCreateRequest{
+		SubscriptionRequestID:       req.RequestID,
+		SubscriptionDescription:     req.Tier + " monthly",
+		SubscriptionRedirectURL:     req.RedirectURL,
+		SubscriptionStartTime:       req.StartTime.Format(time.RFC3339),
+		PeriodRule:                  antomPeriodRule{PeriodType: "MONTH", PeriodCount: "1"},
+		PaymentMethod:               antomPaymentMethod{PaymentMethodType: "CARD"},
+		SubscriptionNotificationURL: req.SubscriptionNotifyURL,
+		PaymentNotificationURL:      req.PaymentNotifyURL,
+		OrderInfo:                   antomOrderInfo{OrderAmount: amount},
+		PaymentAmount:               amount,
+	}
+
+	responseBody, err := c.post(ctx, antomPathCreateSubscription, payload)
+	if err != nil {
+		return "", err
+	}
+	var response struct {
+		NormalURL string `json:"normalUrl"`
+	}
+	if err := json.Unmarshal(responseBody, &response); err != nil {
+		return "", fmt.Errorf("antom %s: decode response: %w", antomPathCreateSubscription, err)
+	}
+	if response.NormalURL == "" {
+		// A "successful" response without a redirect URL leaves the user unable
+		// to authorize, so it is a failure of this channel, not a partial success.
+		return "", fmt.Errorf("antom %s failed: response has no normalUrl", antomPathCreateSubscription)
+	}
+	return response.NormalURL, nil
+}
+
+// CancelSubscription stops renewals at the end of the paid period. Antom's
+// immediate termination (TERMINATE) is deliberately not exposed: the in-app
+// cancel keeps the time the user already paid for.
+func (c *AntomClient) CancelSubscription(ctx context.Context, subscriptionID string) error {
+	_, err := c.post(ctx, antomPathCancelSubscription, struct {
+		SubscriptionID   string `json:"subscriptionId"`
+		CancellationType string `json:"cancellationType"`
+	}{SubscriptionID: subscriptionID, CancellationType: "CANCEL"})
+	return err
+}
+
+// InquirySubscription reads the subscription state used for reconciliation. A
+// missing end time stays zero rather than failing an otherwise valid answer.
+func (c *AntomClient) InquirySubscription(ctx context.Context, subscriptionID string) (AntomSubscriptionState, error) {
+	responseBody, err := c.post(ctx, antomPathInquirySubscription, struct {
+		SubscriptionID string `json:"subscriptionId"`
+	}{SubscriptionID: subscriptionID})
+	if err != nil {
+		return AntomSubscriptionState{}, err
+	}
+
+	var response struct {
+		SubscriptionID       string `json:"subscriptionId"`
+		SubscriptionStatus   string `json:"subscriptionStatus"`
+		CurrentPeriodEndTime string `json:"currentPeriodEndTime"`
+	}
+	if err := json.Unmarshal(responseBody, &response); err != nil {
+		return AntomSubscriptionState{}, fmt.Errorf("antom %s: decode response: %w", antomPathInquirySubscription, err)
+	}
+	state := AntomSubscriptionState{SubscriptionID: response.SubscriptionID, Status: response.SubscriptionStatus}
+	if response.CurrentPeriodEndTime != "" {
+		parsed, err := time.Parse(time.RFC3339, response.CurrentPeriodEndTime)
+		if err != nil {
+			return AntomSubscriptionState{}, fmt.Errorf("antom %s: parse currentPeriodEndTime %q: %w", antomPathInquirySubscription, response.CurrentPeriodEndTime, err)
+		}
+		state.CurrentPeriodEnd = parsed
+	}
+	return state, nil
 }

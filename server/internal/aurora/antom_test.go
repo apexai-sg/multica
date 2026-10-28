@@ -2,16 +2,23 @@ package aurora
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 // newTestAntomKeys mints a throwaway RSA pair per call and returns it in the
@@ -202,5 +209,245 @@ func TestNewAntomClientRejectsWeakKey(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "2048") {
 		t.Fatalf("error %q does not state the 2048-bit minimum", err)
+	}
+}
+
+// antomTestAmount mirrors the wire form of an Antom amount, declared here so
+// the assertions read the JSON instead of reusing the implementation's type.
+type antomTestAmount struct {
+	Currency string `json:"currency"`
+	Value    string `json:"value"`
+}
+
+// antomTestRequest is one request captured by the fake gateway.
+type antomTestRequest struct {
+	method string
+	path   string
+	header http.Header
+	body   []byte
+}
+
+// newAntomTestGateway starts a fake Antom gateway that answers with response and
+// records the one request it receives. The client is pointed at it after
+// construction because the real constructor only accepts official origins.
+func newAntomTestGateway(t *testing.T, response string) (*AntomClient, <-chan antomTestRequest) {
+	t.Helper()
+	client := newTestAntomClient(t)
+	requests := make(chan antomTestRequest, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read gateway request: %v", err)
+		}
+		requests <- antomTestRequest{method: r.Method, path: r.URL.Path, header: r.Header.Clone(), body: body}
+		w.Header().Set("Content-Type", "application/json")
+		if _, err := io.WriteString(w, response); err != nil {
+			t.Errorf("write gateway response: %v", err)
+		}
+	}))
+	t.Cleanup(server.Close)
+	client.cfg.APIBase = server.URL
+	return client, requests
+}
+
+// verifyAntomSignedRequest replays Antom's own signature check over a recorded
+// request, so the test fails if the client sends an unsigned or mis-signed body.
+func verifyAntomSignedRequest(t *testing.T, client *AntomClient, got antomTestRequest) {
+	t.Helper()
+	if got.method != http.MethodPost {
+		t.Errorf("method = %q, want POST", got.method)
+	}
+	if clientID := got.header.Get("client-id"); clientID != client.cfg.ClientID {
+		t.Errorf("client-id = %q, want %q", clientID, client.cfg.ClientID)
+	}
+	requestTime := got.header.Get("request-time")
+	if requestTime == "" {
+		t.Fatal("request-time header is missing")
+	}
+	prefix := fmt.Sprintf("algorithm=RSA256,keyVersion=%s,signature=", client.cfg.KeyVersion)
+	header := got.header.Get("signature")
+	if !strings.HasPrefix(header, prefix) {
+		t.Fatalf("signature header = %q, want prefix %q", header, prefix)
+	}
+	unescaped, err := url.QueryUnescape(strings.TrimPrefix(header, prefix))
+	if err != nil {
+		t.Fatalf("unescape signature: %v", err)
+	}
+	signature, err := base64.StdEncoding.DecodeString(unescaped)
+	if err != nil {
+		t.Fatalf("decode signature: %v", err)
+	}
+	digest := sha256.Sum256(antomSignContent(got.method, got.path, client.cfg.ClientID, requestTime, got.body))
+	if err := rsa.VerifyPKCS1v15(client.publicKey, crypto.SHA256, digest[:], signature); err != nil {
+		t.Fatalf("request signature does not verify: %v", err)
+	}
+}
+
+func antomTestSubscriptionRequest() AntomSubscriptionRequest {
+	return AntomSubscriptionRequest{
+		RequestID:             "aurora-sub-test",
+		Tier:                  "creator",
+		Amount:                "19.00",
+		Currency:              "SGD",
+		RedirectURL:           "https://aod.example/billing/complete",
+		PaymentNotifyURL:      "https://api.example/api/aurora/billing/antom/notify/payment",
+		SubscriptionNotifyURL: "https://api.example/api/aurora/billing/antom/notify/subscription",
+		StartTime:             time.Date(2026, 10, 28, 12, 0, 0, 0, time.FixedZone("SGT", 8*60*60)),
+	}
+}
+
+func TestCreateSubscriptionPostsSignedRequest(t *testing.T) {
+	client, requests := newAntomTestGateway(t, `{"result":{"resultStatus":"S","resultCode":"SUCCESS"},"normalUrl":"https://checkout.example/x"}`)
+
+	checkoutURL, err := client.CreateSubscription(context.Background(), antomTestSubscriptionRequest())
+	if err != nil {
+		t.Fatalf("CreateSubscription: %v", err)
+	}
+	if checkoutURL != "https://checkout.example/x" {
+		t.Errorf("checkout URL = %q, want the normalUrl from the response", checkoutURL)
+	}
+
+	got := <-requests
+	if got.path != "/ams/api/v1/subscriptions/create" {
+		t.Errorf("path = %q, want /ams/api/v1/subscriptions/create", got.path)
+	}
+	verifyAntomSignedRequest(t, client, got)
+
+	var body struct {
+		SubscriptionRequestID   string `json:"subscriptionRequestId"`
+		SubscriptionDescription string `json:"subscriptionDescription"`
+		SubscriptionRedirectURL string `json:"subscriptionRedirectUrl"`
+		SubscriptionStartTime   string `json:"subscriptionStartTime"`
+		PeriodRule              struct {
+			PeriodType  string `json:"periodType"`
+			PeriodCount string `json:"periodCount"`
+		} `json:"periodRule"`
+		PaymentMethod struct {
+			PaymentMethodType string `json:"paymentMethodType"`
+		} `json:"paymentMethod"`
+		PaymentNotificationURL      string `json:"paymentNotificationUrl"`
+		SubscriptionNotificationURL string `json:"subscriptionNotificationUrl"`
+		OrderInfo                   struct {
+			OrderAmount antomTestAmount `json:"orderAmount"`
+		} `json:"orderInfo"`
+		PaymentAmount antomTestAmount `json:"paymentAmount"`
+	}
+	if err := json.Unmarshal(got.body, &body); err != nil {
+		t.Fatalf("decode request body: %v", err)
+	}
+	if body.SubscriptionRequestID != "aurora-sub-test" {
+		t.Errorf("subscriptionRequestId = %q", body.SubscriptionRequestID)
+	}
+	if body.SubscriptionDescription != "creator monthly" {
+		t.Errorf("subscriptionDescription = %q", body.SubscriptionDescription)
+	}
+	if body.SubscriptionRedirectURL != "https://aod.example/billing/complete" {
+		t.Errorf("subscriptionRedirectUrl = %q", body.SubscriptionRedirectURL)
+	}
+	if body.SubscriptionStartTime != "2026-10-28T12:00:00+08:00" {
+		t.Errorf("subscriptionStartTime = %q, want RFC 3339 with the caller's offset", body.SubscriptionStartTime)
+	}
+	if body.PeriodRule.PeriodType != "MONTH" || body.PeriodRule.PeriodCount != "1" {
+		t.Errorf("periodRule = %+v, want MONTH/1", body.PeriodRule)
+	}
+	if body.PaymentNotificationURL != "https://api.example/api/aurora/billing/antom/notify/payment" {
+		t.Errorf("paymentNotificationUrl = %q", body.PaymentNotificationURL)
+	}
+	if body.SubscriptionNotificationURL != "https://api.example/api/aurora/billing/antom/notify/subscription" {
+		t.Errorf("subscriptionNotificationUrl = %q", body.SubscriptionNotificationURL)
+	}
+	if body.PaymentAmount.Value != "19.00" || body.PaymentAmount.Currency != "SGD" {
+		t.Errorf("paymentAmount = %+v, want 19.00 SGD", body.PaymentAmount)
+	}
+	if body.OrderInfo.OrderAmount != body.PaymentAmount {
+		t.Errorf("orderInfo.orderAmount = %+v, want the same amount as paymentAmount", body.OrderInfo.OrderAmount)
+	}
+}
+
+func TestCreateSubscriptionRejectsFailedResult(t *testing.T) {
+	client, _ := newAntomTestGateway(t, `{"result":{"resultStatus":"F","resultCode":"PARAM_ILLEGAL","resultMessage":"bad request"}}`)
+
+	if _, err := client.CreateSubscription(context.Background(), antomTestSubscriptionRequest()); err == nil {
+		t.Fatal("failed result was accepted")
+	} else if !strings.Contains(err.Error(), "PARAM_ILLEGAL") {
+		t.Fatalf("error %q does not name the Antom result code", err)
+	}
+}
+
+func TestCreateSubscriptionRejectsMissingNormalURL(t *testing.T) {
+	client, _ := newAntomTestGateway(t, `{"result":{"resultStatus":"S","resultCode":"SUCCESS"}}`)
+
+	if _, err := client.CreateSubscription(context.Background(), antomTestSubscriptionRequest()); err == nil {
+		t.Fatal("successful result without normalUrl was accepted")
+	}
+}
+
+func TestCancelSubscriptionSendsCANCEL(t *testing.T) {
+	client, requests := newAntomTestGateway(t, `{"result":{"resultStatus":"S","resultCode":"SUCCESS"}}`)
+
+	if err := client.CancelSubscription(context.Background(), "S1"); err != nil {
+		t.Fatalf("CancelSubscription: %v", err)
+	}
+
+	got := <-requests
+	if got.path != "/ams/api/v1/subscriptions/cancel" {
+		t.Errorf("path = %q, want /ams/api/v1/subscriptions/cancel", got.path)
+	}
+	verifyAntomSignedRequest(t, client, got)
+
+	var body struct {
+		SubscriptionID   string `json:"subscriptionId"`
+		CancellationType string `json:"cancellationType"`
+	}
+	if err := json.Unmarshal(got.body, &body); err != nil {
+		t.Fatalf("decode request body: %v", err)
+	}
+	if body.SubscriptionID != "S1" {
+		t.Errorf("subscriptionId = %q, want S1", body.SubscriptionID)
+	}
+	if body.CancellationType != "CANCEL" {
+		t.Errorf("cancellationType = %q, want CANCEL", body.CancellationType)
+	}
+}
+
+func TestCancelSubscriptionRejectsFailedResult(t *testing.T) {
+	client, _ := newAntomTestGateway(t, `{"result":{"resultStatus":"F","resultCode":"PROCESS_FAIL","resultMessage":"failed"}}`)
+
+	if err := client.CancelSubscription(context.Background(), "S1"); err == nil {
+		t.Fatal("failed result was accepted")
+	} else if !strings.Contains(err.Error(), "PROCESS_FAIL") {
+		t.Fatalf("error %q does not name the Antom result code", err)
+	}
+}
+
+func TestInquirySubscriptionReadsState(t *testing.T) {
+	client, requests := newAntomTestGateway(t, `{"result":{"resultStatus":"S"},"subscriptionId":"S1","subscriptionStatus":"ACTIVE","periodRule":{"periodType":"MONTH","periodCount":"1"},"currentPeriodEndTime":"2026-11-28T12:00:00+08:00"}`)
+
+	state, err := client.InquirySubscription(context.Background(), "S1")
+	if err != nil {
+		t.Fatalf("InquirySubscription: %v", err)
+	}
+	if state.SubscriptionID != "S1" || state.Status != "ACTIVE" {
+		t.Errorf("state = %+v, want S1/ACTIVE", state)
+	}
+	want := time.Date(2026, 11, 28, 12, 0, 0, 0, time.FixedZone("SGT", 8*60*60))
+	if !state.CurrentPeriodEnd.Equal(want) {
+		t.Errorf("CurrentPeriodEnd = %v, want %v", state.CurrentPeriodEnd, want)
+	}
+
+	got := <-requests
+	if got.path != "/ams/api/v1/subscriptions/inquireSubscription" {
+		t.Errorf("path = %q, want /ams/api/v1/subscriptions/inquireSubscription", got.path)
+	}
+	verifyAntomSignedRequest(t, client, got)
+
+	var body struct {
+		SubscriptionID string `json:"subscriptionId"`
+	}
+	if err := json.Unmarshal(got.body, &body); err != nil {
+		t.Fatalf("decode request body: %v", err)
+	}
+	if body.SubscriptionID != "S1" {
+		t.Errorf("subscriptionId = %q, want S1", body.SubscriptionID)
 	}
 }
