@@ -1808,6 +1808,66 @@ func installAuroraPayments(t *testing.T, fp aurora.PaymentProvider) {
 	})
 }
 
+// fakeAntom stands in for the Antom subscription API. It records every create
+// request so a test can assert the server-side intent (amount in the currency's
+// smallest unit, request id, return URLs) without reaching the network, and
+// keeps cancellation ids for the cancel path.
+type fakeAntom struct {
+	authURL string
+	// requests holds each create request the handler built, in call order.
+	requests []aurora.AntomSubscriptionRequest
+	// cancelIDs records the subscriptions the handler asked Antom to stop
+	// renewing.
+	cancelIDs []string
+	// createErr, when set, is what CreateSubscription returns instead of a URL.
+	createErr error
+}
+
+func (f *fakeAntom) CreateSubscription(ctx context.Context, req aurora.AntomSubscriptionRequest) (string, error) {
+	f.requests = append(f.requests, req)
+	if f.createErr != nil {
+		return "", f.createErr
+	}
+	return f.authURL, nil
+}
+
+func (f *fakeAntom) CancelSubscription(ctx context.Context, subscriptionID string) error {
+	f.cancelIDs = append(f.cancelIDs, subscriptionID)
+	return nil
+}
+
+func (f *fakeAntom) InquirySubscription(ctx context.Context, subscriptionID string) (aurora.AntomSubscriptionState, error) {
+	return aurora.AntomSubscriptionState{Status: "ACTIVE", SubscriptionID: subscriptionID}, nil
+}
+
+func (f *fakeAntom) VerifyNotification(method, path string, headers http.Header, body []byte) (aurora.AntomNotification, error) {
+	return aurora.AntomNotification{}, errors.New("fakeAntom: notifications are not part of the checkout path")
+}
+
+// installAuroraAntom swaps in the Antom channel with the same priced catalog and
+// trusted origins installAuroraPayments supplies, plus the public API origin the
+// notification URLs are built from. Passing a nil fake leaves the channel
+// unconfigured while still validating the request up to that point.
+func installAuroraAntom(t *testing.T, fake aurora.AntomProvider) {
+	t.Helper()
+	oldAntom, oldTiers := testHandler.Antom, testHandler.Tiers
+	oldCheckoutReturnOrigins, oldPublicURL := testHandler.cfg.CheckoutReturnOrigins, testHandler.cfg.PublicURL
+	testHandler.Antom = fake
+	testHandler.Tiers = aurora.NewTierCatalog(
+		"price_creator_monthly", "price_creator_yearly",
+		"price_pro_monthly", "price_business_monthly", "price_pro_yearly",
+		"price_topup_5", "price_topup_20",
+	)
+	testHandler.cfg.CheckoutReturnOrigins = []string{"https://aurora.example.com"}
+	testHandler.cfg.PublicURL = "https://api.aurora.example.com"
+	t.Cleanup(func() {
+		testHandler.Antom = oldAntom
+		testHandler.Tiers = oldTiers
+		testHandler.cfg.CheckoutReturnOrigins = oldCheckoutReturnOrigins
+		testHandler.cfg.PublicURL = oldPublicURL
+	})
+}
+
 // auroraSubscriptionTestReset empties the fixture user's subscription row so a
 // test starts from "never subscribed" and leaves nothing behind for the next
 // one. aurora_subscription carries no foreign key to user, so the fixture's own
@@ -1835,6 +1895,21 @@ func auroraSubscriptionRow(t *testing.T) (tier, status string, periodEnd *time.T
 		t.Fatalf("load aurora_subscription row: %v", err)
 	}
 	return tier, status, end
+}
+
+// auroraSubscriptionCheckoutRow reads the checkout intent the fixture user's
+// row carries: which channel it belongs to, the stored idempotency key, the
+// billing cycle, and the status.
+func auroraSubscriptionCheckoutRow(t *testing.T) (provider, key, cycle, status string) {
+	t.Helper()
+	if err := testPool.QueryRow(context.Background(),
+		`SELECT payment_provider, coalesce(checkout_idempotency_key, ''),
+		        coalesce(checkout_billing_cycle, ''), status
+		   FROM aurora_subscription WHERE user_id = $1`,
+		testUserID).Scan(&provider, &key, &cycle, &status); err != nil {
+		t.Fatalf("load aurora_subscription checkout intent: %v", err)
+	}
+	return provider, key, cycle, status
 }
 
 // postStripeWebhook drives the public webhook endpoint. The signature header is
@@ -2033,6 +2108,220 @@ func TestCreateSubscriptionCheckoutAllowsResubscribeAfterCancel(t *testing.T) {
 	}](t, testHandler.CreateAuroraCheckout, req, http.StatusOK)
 	if out.CheckoutURL != fp.checkoutURL {
 		t.Fatalf("checkoutUrl = %q, want %q", out.CheckoutURL, fp.checkoutURL)
+	}
+}
+
+// The request body names the channel, and an unknown name is a client error
+// rather than a silent fallback: guessing would charge the user through a
+// channel they did not pick.
+func TestCreateSubscriptionCheckoutRejectsUnknownProvider(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fp := &fakePayments{checkoutURL: "https://checkout.stripe.com/c/test"}
+	installAuroraPayments(t, fp)
+	fa := &fakeAntom{authURL: "https://antom.example/auth"}
+	installAuroraAntom(t, fa)
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
+		"tier": "creator", "billingCycle": "monthly", "provider": "alipay",
+	}))
+	testutil.Call(t, testHandler.CreateAuroraCheckout, req).Want(http.StatusBadRequest)
+
+	if len(fp.subscriptionCheckoutKeys) != 0 || len(fa.requests) != 0 {
+		t.Fatalf("checkout reached a provider: stripe=%d antom=%d", len(fp.subscriptionCheckoutKeys), len(fa.requests))
+	}
+	if n := dbfx.Count(t, `SELECT count(*) FROM aurora_subscription WHERE user_id = $1`, testUserID); n != 0 {
+		t.Fatalf("subscription row written for an unknown provider (count = %d)", n)
+	}
+}
+
+// A body that omits the provider keeps the pre-Antom behaviour: Stripe.
+func TestCreateSubscriptionCheckoutDefaultsToStripe(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fp := &fakePayments{checkoutURL: "https://checkout.stripe.com/c/test"}
+	installAuroraPayments(t, fp)
+	fa := &fakeAntom{authURL: "https://antom.example/auth"}
+	installAuroraAntom(t, fa)
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
+		"tier": "creator", "billingCycle": "monthly",
+	}))
+	out := testutil.Decode[struct {
+		CheckoutURL string `json:"checkoutUrl"`
+	}](t, testHandler.CreateAuroraCheckout, req, http.StatusOK)
+
+	if out.CheckoutURL != fp.checkoutURL {
+		t.Fatalf("checkoutUrl = %q, want the Stripe URL %q", out.CheckoutURL, fp.checkoutURL)
+	}
+	if len(fa.requests) != 0 {
+		t.Fatalf("default checkout went to Antom: %+v", fa.requests)
+	}
+	provider, _, cycle, status := auroraSubscriptionCheckoutRow(t)
+	if provider != "stripe" || cycle != "monthly" || status != "pending" {
+		t.Fatalf("row = provider %q cycle %q status %q, want stripe/monthly/pending", provider, cycle, status)
+	}
+}
+
+// An Antom checkout needs no Stripe configuration at all, so the Stripe-only
+// preconditions must run inside the Stripe branch.
+func TestCreateSubscriptionCheckoutRunsOnAntom(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fa := &fakeAntom{authURL: "https://antom.example/auth"}
+	installAuroraAntom(t, fa)
+	if testHandler.Payments != nil {
+		t.Fatalf("precondition: this test needs a handler without Stripe")
+	}
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
+		"tier": "creator", "billingCycle": "monthly", "provider": "antom",
+	}))
+	out := testutil.Decode[struct {
+		CheckoutURL string `json:"checkoutUrl"`
+	}](t, testHandler.CreateAuroraCheckout, req, http.StatusOK)
+
+	if out.CheckoutURL != fa.authURL {
+		t.Fatalf("checkoutUrl = %q, want the Antom URL %q", out.CheckoutURL, fa.authURL)
+	}
+	if len(fa.requests) != 1 {
+		t.Fatalf("Antom create calls = %d, want 1", len(fa.requests))
+	}
+	got := fa.requests[0]
+	if got.Amount != "1900" {
+		t.Fatalf("amount = %q, want the creator tier's minor units 1900", got.Amount)
+	}
+	if got.Currency != "SGD" {
+		t.Fatalf("currency = %q, want SGD", got.Currency)
+	}
+	if got.Tier != "creator" {
+		t.Fatalf("tier = %q, want creator", got.Tier)
+	}
+	if !strings.HasPrefix(got.RequestID, "aurora-sub-") {
+		t.Fatalf("request id = %q, want the checkout key prefix aurora-sub-", got.RequestID)
+	}
+	if got.StartTime.IsZero() {
+		t.Fatal("start time is zero, which serialises as year 0001")
+	}
+	if got.RedirectURL != "https://aurora.example.com/ws-1/billing?checkout=success" {
+		t.Fatalf("redirect url = %q, want the validated successUrl", got.RedirectURL)
+	}
+	if got.PaymentNotifyURL != "https://api.aurora.example.com/api/aurora/billing/antom/notify/payment" {
+		t.Fatalf("payment notify url = %q", got.PaymentNotifyURL)
+	}
+	if got.SubscriptionNotifyURL != "https://api.aurora.example.com/api/aurora/billing/antom/notify/subscription" {
+		t.Fatalf("subscription notify url = %q", got.SubscriptionNotifyURL)
+	}
+	// The notification carries this request id, not a subscription id, so the
+	// value Antom was given must be the key stored on the row.
+	provider, key, _, status := auroraSubscriptionCheckoutRow(t)
+	if provider != "antom" || key != got.RequestID || status != "pending" {
+		t.Fatalf("row = provider %q key %q status %q, want antom/%q/pending", provider, key, status, got.RequestID)
+	}
+}
+
+func TestCreateSubscriptionCheckoutAntomRejectsYearly(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fa := &fakeAntom{authURL: "https://antom.example/auth"}
+	installAuroraAntom(t, fa)
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
+		"tier": "creator", "billingCycle": "yearly", "provider": "antom",
+	}))
+	testutil.Call(t, testHandler.CreateAuroraCheckout, req).Want(http.StatusBadRequest)
+
+	if len(fa.requests) != 0 {
+		t.Fatalf("Antom create calls = %d, want none for a yearly plan", len(fa.requests))
+	}
+	if n := dbfx.Count(t, `SELECT count(*) FROM aurora_subscription WHERE user_id = $1`, testUserID); n != 0 {
+		t.Fatalf("subscription row written for a rejected cycle (count = %d)", n)
+	}
+}
+
+// A deployment with no Antom credentials must not pretend it can take money on
+// that channel.
+func TestCreateSubscriptionCheckoutAntomFailsClosedWithoutClient(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	installAuroraAntom(t, nil)
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
+		"tier": "creator", "billingCycle": "monthly", "provider": "antom",
+	}))
+	testutil.Call(t, testHandler.CreateAuroraCheckout, req).Want(http.StatusServiceUnavailable)
+
+	if n := dbfx.Count(t, `SELECT count(*) FROM aurora_subscription WHERE user_id = $1`, testUserID); n != 0 {
+		t.Fatalf("subscription row written without a channel (count = %d)", n)
+	}
+}
+
+func TestCreateSubscriptionCheckoutAntomConflictWhenSubscribed(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fa := &fakeAntom{authURL: "https://antom.example/auth"}
+	installAuroraAntom(t, fa)
+	dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+		"user_id": testUserID, "tier": "creator", "status": "active",
+		"payment_provider": "antom",
+	})
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
+		"tier": "pro", "billingCycle": "monthly", "provider": "antom",
+	}))
+	testutil.Call(t, testHandler.CreateAuroraCheckout, req).Want(http.StatusConflict)
+
+	if len(fa.requests) != 0 {
+		t.Fatalf("Antom create calls = %d, want none while a subscription is live", len(fa.requests))
+	}
+}
+
+// A pending intent on another channel is never replaced: the user may still
+// complete that session, and a replaced Stripe session's webhook would never
+// match this row.
+func TestCreateSubscriptionCheckoutRejectsPendingIntentOnAnotherProvider(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fa := &fakeAntom{authURL: "https://antom.example/auth"}
+	installAuroraAntom(t, fa)
+	dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+		"user_id": testUserID, "tier": "creator", "status": "pending",
+		"payment_provider":         "stripe",
+		"checkout_idempotency_key": "aurora-sub-existing",
+		"checkout_billing_cycle":   "monthly",
+	})
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
+		"tier": "creator", "billingCycle": "monthly", "provider": "antom",
+	}))
+	testutil.Call(t, testHandler.CreateAuroraCheckout, req).Want(http.StatusConflict)
+
+	if len(fa.requests) != 0 {
+		t.Fatalf("Antom create calls = %d, want none", len(fa.requests))
+	}
+	provider, key, _, status := auroraSubscriptionCheckoutRow(t)
+	if provider != "stripe" || key != "aurora-sub-existing" || status != "pending" {
+		t.Fatalf("row = provider %q key %q status %q, want the Stripe intent untouched", provider, key, status)
+	}
+}
+
+// Retrying the same checkout on the same channel converges on the stored key,
+// so Antom sees one subscription request rather than a second one.
+func TestCreateSubscriptionCheckoutReusesPendingIntentOnSameProvider(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fa := &fakeAntom{authURL: "https://antom.example/auth"}
+	installAuroraAntom(t, fa)
+	dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+		"user_id": testUserID, "tier": "creator", "status": "pending",
+		"payment_provider":         "antom",
+		"checkout_idempotency_key": "aurora-sub-existing",
+		"checkout_billing_cycle":   "monthly",
+	})
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
+		"tier": "creator", "billingCycle": "monthly", "provider": "antom",
+	}))
+	testutil.Call(t, testHandler.CreateAuroraCheckout, req).Want(http.StatusOK)
+
+	if len(fa.requests) != 1 || fa.requests[0].RequestID != "aurora-sub-existing" {
+		t.Fatalf("Antom create requests = %+v, want one carrying the stored key", fa.requests)
+	}
+	provider, key, _, _ := auroraSubscriptionCheckoutRow(t)
+	if provider != "antom" || key != "aurora-sub-existing" {
+		t.Fatalf("row = provider %q key %q, want the reused Antom intent", provider, key)
 	}
 }
 

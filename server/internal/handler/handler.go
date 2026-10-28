@@ -278,6 +278,11 @@ type Handler struct {
 	// keys, which every billing endpoint reads as "payments disabled" and
 	// answers 503 — never as "free". Tests substitute a fake.
 	Payments aurora.PaymentProvider
+	// Antom is Aurora's Antom subscription surface. Nil when the deployment has
+	// no usable Antom configuration or no public URL for its notifications,
+	// which the checkout reads as "this channel is off" and answers 503 for —
+	// never as an error for the Stripe channel. Tests substitute a fake.
+	Antom aurora.AntomProvider
 	// Tiers is Aurora's product catalog: what each plan grants and what it
 	// limits. Built once from config, so the numbers have a single source.
 	Tiers *aurora.TierCatalog

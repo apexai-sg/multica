@@ -42,6 +42,23 @@ func TestTierCatalog(t *testing.T) {
 	if len(tc.Topups) != 2 {
 		t.Fatalf("expected 2 topup tiers, got %d", len(tc.Topups))
 	}
+	// Antom's amount is the integer string in the currency's smallest unit, so
+	// the catalog stores S$19.00 as "1900" — a decimal string is a different
+	// (100x smaller) charge, not a formatting choice.
+	for name, want := range map[string]string{
+		"creator": "1900", "pro": "5900", "business": "16900",
+	} {
+		tier, ok := tc.Lookup(name)
+		if !ok {
+			t.Fatalf("%s tier missing", name)
+		}
+		if tier.AntomAmountMinorMonthly != want {
+			t.Errorf("%s Antom monthly amount = %q, want %q", name, tier.AntomAmountMinorMonthly, want)
+		}
+	}
+	if free, _ := tc.Lookup("free"); free.AntomAmountMinorMonthly != "" {
+		t.Errorf("free tier has an Antom amount: %q", free.AntomAmountMinorMonthly)
+	}
 	// Top-ups stay at 100 credits per SGD: S$5 and S$20.
 	for id, credits := range map[string]int64{"t5": 500, "t20": 2000} {
 		topup, ok := tc.LookupTopup(id)

@@ -1387,17 +1387,32 @@ func (h *Handler) DeleteAuroraAsset(w http.ResponseWriter, r *http.Request) {
 // (Plan 5 Tasks 3 and 7)
 // ---------------------------------------------------------------------------
 
-// CreateAuroraCheckout starts a subscription checkout for the caller.
+// The payment channels a subscription checkout can start on. "stripe" also
+// answers a request that names no channel, which is what every client predating
+// Antom sends.
+const (
+	paymentProviderStripe = "stripe"
+	paymentProviderAntom  = "antom"
+)
+
+// Antom notification endpoints, appended to the public API origin. The router
+// serves both; the checkout hands them to Antom so a later payment or state
+// change can be matched back to the row.
+const (
+	antomNotifyPathPayment      = "/api/aurora/billing/antom/notify/payment"
+	antomNotifyPathSubscription = "/api/aurora/billing/antom/notify/subscription"
+)
+
+// CreateAuroraCheckout starts a subscription checkout for the caller on the
+// provider the request names (Stripe when it names none).
 //
-// Fail-closed by construction: with no configured payment provider the
-// endpoint answers 503 rather than letting a client believe it bought
-// something, and a tier whose price id is unset is a 503 too, because the
-// alternative is charging whatever price the default happens to be.
+// Fail-closed by construction: with a channel unconfigured the endpoint answers
+// 503 rather than letting a client believe it bought something, and a Stripe
+// tier whose price id is unset is a 503 too, because the alternative is
+// charging whatever price the default happens to be. Both checks live inside
+// their own branch, after the provider dispatch: a deployment that configures
+// only Antom must still be able to sell through it.
 func (h *Handler) CreateAuroraCheckout(w http.ResponseWriter, r *http.Request) {
-	if h.Payments == nil {
-		writeError(w, http.StatusServiceUnavailable, "payments not configured")
-		return
-	}
 	userID, ok := requireUserID(w, r)
 	if !ok {
 		return
@@ -1411,13 +1426,40 @@ func (h *Handler) CreateAuroraCheckout(w http.ResponseWriter, r *http.Request) {
 		BillingCycle string `json:"billingCycle"`
 		SuccessURL   string `json:"successUrl"`
 		CancelURL    string `json:"cancelUrl"`
+		Provider     string `json:"provider"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	provider := req.Provider
+	if provider == "" {
+		provider = paymentProviderStripe
+	}
+	if provider != paymentProviderStripe && provider != paymentProviderAntom {
+		// Guessing would charge the user through a channel they did not pick.
+		writeError(w, http.StatusBadRequest, "unknown provider")
+		return
+	}
+	// Channel availability is a deployment fact, so it is answered before the
+	// request body is judged. Each check names its own channel: an Antom-only
+	// deployment must not be refused by the Stripe precondition, and vice versa.
+	switch provider {
+	case paymentProviderStripe:
+		if h.Payments == nil {
+			writeError(w, http.StatusServiceUnavailable, "payments not configured")
+			return
+		}
+	case paymentProviderAntom:
+		if h.Antom == nil {
+			writeError(w, http.StatusServiceUnavailable, "antom not configured")
+			return
+		}
+	}
 	// The client supplies the workspace route because it knows the slug, while the
-	// server pins that route to a configured app origin before giving it to Stripe.
+	// server pins that route to a configured app origin before handing it to the
+	// payment channel. Antom ignores cancelUrl: closing its page sends no
+	// callback, so the row simply stays pending and the return page polls.
 	if !h.validCheckoutURL(req.SuccessURL) || !h.validCheckoutURL(req.CancelURL) {
 		writeError(w, http.StatusBadRequest, "successUrl and cancelUrl must use a trusted app origin")
 		return
@@ -1427,24 +1469,40 @@ func (h *Handler) CreateAuroraCheckout(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "unknown tier")
 		return
 	}
+	// Channel price and period preconditions run before the intent is persisted:
+	// a checkout that cannot be created must not leave a pending row behind.
 	var priceID string
-	switch req.BillingCycle {
-	case "monthly":
-		priceID = tier.StripePriceMonthly
-	case "yearly":
-		priceID = tier.StripePriceYearly
-	default:
-		// Billing period changes what Stripe charges, so an unknown value is
-		// never safe to coerce to the monthly default.
-		writeError(w, http.StatusBadRequest, "billingCycle must be monthly or yearly")
-		return
-	}
-	if priceID == "" {
-		writeError(w, http.StatusServiceUnavailable, "tier price not configured")
-		return
+	switch provider {
+	case paymentProviderStripe:
+		switch req.BillingCycle {
+		case "monthly":
+			priceID = tier.StripePriceMonthly
+		case "yearly":
+			priceID = tier.StripePriceYearly
+		default:
+			// Billing period changes what Stripe charges, so an unknown value is
+			// never safe to coerce to the monthly default.
+			writeError(w, http.StatusBadRequest, "billingCycle must be monthly or yearly")
+			return
+		}
+		if priceID == "" {
+			writeError(w, http.StatusServiceUnavailable, "tier price not configured")
+			return
+		}
+	case paymentProviderAntom:
+		if req.BillingCycle != "monthly" {
+			// The Antom contract created here is monthly-only; there is no yearly
+			// period rule to fall back to.
+			writeError(w, http.StatusBadRequest, "billingCycle must be monthly for this provider")
+			return
+		}
+		if tier.AntomAmountMinorMonthly == "" {
+			writeError(w, http.StatusServiceUnavailable, "tier price not configured")
+			return
+		}
 	}
 	checkoutID, err := h.beginAuroraSubscriptionCheckout(
-		r.Context(), userUUID, tier.Tier, req.BillingCycle,
+		r.Context(), userUUID, tier.Tier, req.BillingCycle, provider,
 	)
 	if err != nil {
 		if errors.Is(err, errAuroraSubscriptionConflict) {
@@ -1454,23 +1512,51 @@ func (h *Handler) CreateAuroraCheckout(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to start checkout")
 		return
 	}
-	checkoutURL, err := h.Payments.CreateSubscriptionCheckout(r.Context(), priceID,
-		req.SuccessURL, req.CancelURL, userID, tier.Tier, checkoutID)
+	var checkoutURL string
+	switch provider {
+	case paymentProviderStripe:
+		checkoutURL, err = h.Payments.CreateSubscriptionCheckout(r.Context(), priceID,
+			req.SuccessURL, req.CancelURL, userID, tier.Tier, checkoutID)
+	case paymentProviderAntom:
+		checkoutURL, err = h.Antom.CreateSubscription(r.Context(), aurora.AntomSubscriptionRequest{
+			// Antom's create response carries no subscription id, so the request id
+			// is the only way the later notification can find this row: it must be
+			// exactly the persisted checkout key, not a similar prefix.
+			RequestID:             checkoutID,
+			Tier:                  tier.Tier,
+			Amount:                tier.AntomAmountMinorMonthly,
+			Currency:              aurora.AntomCurrency,
+			RedirectURL:           req.SuccessURL,
+			PaymentNotifyURL:      h.antomNotifyURL(antomNotifyPathPayment),
+			SubscriptionNotifyURL: h.antomNotifyURL(antomNotifyPathSubscription),
+			// A zero time serialises as year 0001, which Antom would reject.
+			StartTime: time.Now().UTC(),
+		})
+	}
 	if err != nil {
-		slog.Error("failed to create aurora subscription checkout", "tier", tier.Tier, "error", err)
+		slog.Error("failed to create aurora subscription checkout",
+			"provider", provider, "tier", tier.Tier, "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create checkout")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"checkoutUrl": checkoutURL})
 }
 
+// antomNotifyURL builds one Antom notification endpoint on the public API
+// origin. The channel is only constructed when PublicURL is configured, so this
+// never has to invent an address.
+func (h *Handler) antomNotifyURL(path string) string {
+	return strings.TrimRight(h.cfg.PublicURL, "/") + path
+}
+
 // beginAuroraSubscriptionCheckout persists or reuses one pending checkout per
-// user before any Stripe request leaves the process. The user advisory lock
-// closes the two-tab race; Stripe's idempotency key closes retries after commit.
+// user before any provider request leaves the process. The user advisory lock
+// closes the two-tab race; the provider's idempotency key closes retries after
+// commit.
 func (h *Handler) beginAuroraSubscriptionCheckout(
 	ctx context.Context,
 	userID pgtype.UUID,
-	tier, billingCycle string,
+	tier, billingCycle, provider string,
 ) (string, error) {
 	tx, err := h.TxStarter.Begin(ctx)
 	if err != nil {
@@ -1489,14 +1575,22 @@ func (h *Handler) beginAuroraSubscriptionCheckout(
 	switch {
 	case err == nil && sub.Status == "pending":
 		fresh := sub.UpdatedAt.Valid && time.Since(sub.UpdatedAt.Time) < auroraCheckoutIntentTTL
-		sameProduct := sub.Tier == tier && sub.CheckoutBillingCycle.Valid && sub.CheckoutBillingCycle.String == billingCycle
-		if fresh && sameProduct && sub.CheckoutIdempotencyKey.Valid && sub.CheckoutIdempotencyKey.String != "" {
-			if err := tx.Commit(ctx); err != nil {
-				return "", err
-			}
-			return sub.CheckoutIdempotencyKey.String, nil
-		}
 		if fresh {
+			// A pending intent on another channel is never replaced: the user may
+			// still complete the session that channel holds, and a replaced Stripe
+			// session's webhook would never match this row (Stripe retries it for
+			// days). Rows created before Antom existed carry the migration's
+			// 'stripe' default, so they are judged on that channel.
+			if sub.PaymentProvider != provider {
+				return "", errAuroraSubscriptionConflict
+			}
+			sameProduct := sub.Tier == tier && sub.CheckoutBillingCycle.Valid && sub.CheckoutBillingCycle.String == billingCycle
+			if sameProduct && sub.CheckoutIdempotencyKey.Valid && sub.CheckoutIdempotencyKey.String != "" {
+				if err := tx.Commit(ctx); err != nil {
+					return "", err
+				}
+				return sub.CheckoutIdempotencyKey.String, nil
+			}
 			return "", errAuroraSubscriptionConflict
 		}
 	case err == nil && sub.Status != "canceled":
@@ -1513,7 +1607,7 @@ func (h *Handler) beginAuroraSubscriptionCheckout(
 		Tier:                   tier,
 		CheckoutIdempotencyKey: strToText(checkoutID),
 		CheckoutBillingCycle:   strToText(billingCycle),
-		PaymentProvider:        "stripe",
+		PaymentProvider:        provider,
 	}); err != nil {
 		return "", err
 	}
