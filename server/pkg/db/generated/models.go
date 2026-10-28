@@ -327,6 +327,8 @@ type AuroraSubscription struct {
 	CheckoutIdempotencyKey pgtype.Text        `json:"checkout_idempotency_key"`
 	CheckoutBillingCycle   pgtype.Text        `json:"checkout_billing_cycle"`
 	StripeEventCreatedAt   int64              `json:"stripe_event_created_at"`
+	PaymentProvider        string             `json:"payment_provider"`
+	AntomSubscriptionID    pgtype.Text        `json:"antom_subscription_id"`
 }
 
 type Autopilot struct {
