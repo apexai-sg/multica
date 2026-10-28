@@ -17,7 +17,7 @@
 - Antom 签名待签名内容逐字节为 `<method> <path>\n<client-id>.<request-time>.<body>`，算法 `sha256withRSA`，`signature` 头格式 `algorithm=RSA256,keyVersion=<v>,signature=<urlencoded base64>`。
 - 通知确认报文逐字节为 `{"result":{"resultCode":"SUCCESS","resultStatus":"S","resultMessage":"success"}}`。
 - 验签失败返回 401 且不写入；业务失败返回 500 让 Antom 重试；未知通知类型/未知档位返回确认报文（200）。
-- 新增迁移编号从 **5001** 起（5000 已占用）；并发索引各占一个单语句迁移文件。
+- 新增迁移编号从 **5200** 起（≥5000 是 fork 保留区间，5000 已占用）。迁移按**文件名字典序**执行（`migrations.Files` 用 `sort.Strings`，sqlc 用 `os.ReadDir`），所以编号必须在字符串意义上排在它所依赖的对象之后：`5200` > `515` > `512`，而 `5001` 会排到 `512` 之前（`'0' < '1'`），在全新库上 `ALTER TABLE IF EXISTS` 静默失效、索引迁移直接报 `relation does not exist`。并发索引各占一个单语句迁移文件。
 - Stripe 路径行为不变：接口、事件、失败语义、既有测试全部保持通过。
 - 代码注释用英文；UI 文案走 i18n，五个 locale（en / fr / ja / ko / zh-Hans）必须同时补齐。
 
@@ -204,10 +204,10 @@ git commit -m "feat(aurora): verify and parse Antom subscription notifications"
 ### Task 4: 数据库迁移与查询
 
 **Files:**
-- Create: `server/migrations/5001_aurora_subscription_payment_provider.up.sql`
-- Create: `server/migrations/5001_aurora_subscription_payment_provider.down.sql`
-- Create: `server/migrations/5002_aurora_subscription_antom_id_index.up.sql`
-- Create: `server/migrations/5002_aurora_subscription_antom_id_index.down.sql`
+- Create: `server/migrations/5200_aurora_subscription_payment_provider.up.sql`
+- Create: `server/migrations/5200_aurora_subscription_payment_provider.down.sql`
+- Create: `server/migrations/5201_aurora_subscription_antom_id_index.up.sql`
+- Create: `server/migrations/5201_aurora_subscription_antom_id_index.down.sql`
 - Modify: `server/pkg/db/queries/aurora_subscription.sql`
 - Modify: `server/pkg/db/generated/*`（`make sqlc` 生成，不手改）
 - Test: `server/internal/handler/aurora_test.go`（既有订阅测试必须继续通过）
@@ -223,7 +223,7 @@ git commit -m "feat(aurora): verify and parse Antom subscription notifications"
 
 - [ ] **Step 1: Write the migrations**
 
-`5001_aurora_subscription_payment_provider.up.sql`：
+`5200_aurora_subscription_payment_provider.up.sql`：
 
 ```sql
 ALTER TABLE IF EXISTS aurora_subscription
@@ -231,10 +231,10 @@ ALTER TABLE IF EXISTS aurora_subscription
     ADD COLUMN IF NOT EXISTS antom_subscription_id TEXT;
 ```
 
-`5001_...down.sql` 反向删这两列。`stripe_event_created_at` **保持原名不动**：Antom 不
+`5200_...down.sql` 反向删这两列。`stripe_event_created_at` **保持原名不动**：Antom 不
 使用它，Stripe 的排序语义原样保留。
 
-`5002_...index.up.sql` 只有一条语句：
+`5201_...index.up.sql` 只有一条语句：
 
 ```sql
 CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS aurora_subscription_antom_id_key
@@ -242,7 +242,7 @@ CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS aurora_subscription_antom_id_key
     WHERE antom_subscription_id IS NOT NULL;
 ```
 
-`5002_...down.sql`：`DROP INDEX CONCURRENTLY IF EXISTS aurora_subscription_antom_id_key;`
+`5201_...down.sql`：`DROP INDEX CONCURRENTLY IF EXISTS aurora_subscription_antom_id_key;`
 
 - [ ] **Step 2: Update the queries and regenerate sqlc**
 
