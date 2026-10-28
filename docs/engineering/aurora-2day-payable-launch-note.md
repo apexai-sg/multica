@@ -200,11 +200,26 @@ Dashboard → Webhooks → 选该 endpoint → Send test event（例如 `checkou
 
 ## Antom — 第二条订阅渠道（#48/#50 的第二条验收路径）
 
-**状态：code-complete；owner/ops 前置未执行。**
+**状态：已上生产（2026-10-28）；只剩一次真实扣款未验。**
+
+### 生产部署现状（2026-10-28）
+
+| 项 | 值 / 证据 |
+|---|---|
+| 代码 | #59（通道本体）、#60（compose 透传）、apexai-sg/aws-deploy#17（SSM 读取 + 部分 seed 告警） |
+| 镜像 | `v0.6.9-ed42301b3`；backend `sha256:47e6a94c…` |
+| 凭证 | SSM `/apexai-mca/antom_*`（SecureString，六个），由 `scripts/deploy-multica.sh` 渲染进宿主 `/data/multica/.env`（600） |
+| 容器 | `MULTICA_PUBLIC_URL=https://mcapi.apexxai.net`；六个 `ANTOM_*` 在容器内可见（长度 17 / 1624 / 392 / 1 / 34 / 3） |
+| 健康 | `mcapi`/`mca`/`aod` `/health` 200；容器内 `/readyz` = `{db: ok, migrations: ok}` |
+| 迁移 | `5200_aurora_subscription_payment_provider`、`5201_aurora_subscription_antom_id_index`、`592_runtime_shared_with` 已应用；`aurora_subscription.payment_provider` 与 `.antom_subscription_id` 两列在 |
+| 渠道构造 | 后端日志**零**条 `antom payments disabled` —— 凭证解析成功、`MULTICA_PUBLIC_URL` 已设、`ANTOM_CURRENCY=SGD` 与档位表一致 |
+| 网关连通 | `go run ./cmd/antom-inquiry -subscription-id <dummy>` → `SUBSCRIPTION_NOT_EXIST`：签名、client-id、白名单网关三项同时被生产网关接受，且未产生任何扣款 |
+
+**只剩两件读探针证明不了的事**，都要一次真实扣款才能验：商户合约是否开通了**订阅产品**（查询接口不带该产品也能成功），以及**SGD 结算**（渠道按 `value="1900"` + `SGD` 下单，合约不能按 SGD 结算时 create 就失败）。验收单是 #61，用 S$19 creator 月付跑一遍 subscribe → grant → generate → cancel → terminate；在它通过之前 #48 / #50 不关闭。
 
 Antom 与 Stripe 是两条并列渠道，各自独立开关：`handler.New` 里 `h.Payments`（Stripe）与
-`h.Antom`（Antom）分开构造，一条没配好不影响另一条。因此 **#48（测试模式端到端）与 #50
-（权益回读）可以改在 Antom 沙箱上验收**，不必等 Stripe 凭证。#45（Stripe 产品与价格）没有
+`h.Antom`（Antom）分开构造，一条没配好不影响另一条。**#48（测试模式端到端）与 #50
+（权益回读）可以走生产验收（#61），也可以走 Antom 沙箱**，不必等 Stripe 凭证。#45（Stripe 产品与价格）没有
 Antom 对应物——Antom 的金额来自服务端档位表（`server/internal/aurora/tiers.go` 的
 `AntomAmountMinorMonthly`，`"1900"`/`"5900"`/`"16900"`，是**最小单位整数串**），不在 Antom
 后台建价格对象；#46 / #47 的验收对象仍是 Stripe 变量与 Stripe endpoint，本节的 Antom 前置
@@ -402,7 +417,15 @@ current_period_end: 2026-11-28T00:00:00Z
 2. CLI 用的 `ANTOM_*` 是**当前 shell** 的值，不是服务的：沙箱与生产是两套 clientId/密钥，
    别在生产机器上用导出的沙箱 env 跑。
 
-### 沙箱验收清单（#48 / #50 走这条）
+### 生产验收清单（#61 走这条）
+
+生产已上线，验收单在 [#61](https://github.com/apexai-sg/multica/issues/61)，步骤就是下面沙箱清单的
+第 2–7 步，改成生产网关 + 真实 S$19 creator 月付，外加两项只在这一条路径上才成立的判断：
+订阅产品是否开通、是否按 SGD 结算。两处与沙箱的差别要记牢——**生产网关对 500 的失败通知会在
+24 小时内重投 8 次**（沙箱不重投），所以「没收到通知」与「通知被拒后重试」在日志里是两种形状；
+以及**每次验收都是一笔真实扣款**，退订要走 `TERMINATE` 才会立即结束，本产品自己的取消接口只做到期取消。
+
+### 沙箱验收清单（#48 / #50 的备选路径）
 
 每步都要看到证据，不做推断：
 
