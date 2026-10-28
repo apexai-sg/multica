@@ -831,3 +831,43 @@ func TestVerifyNotificationLeavesUnparsableTimesZero(t *testing.T) {
 		t.Errorf("PeriodEnd = %v, want %v", notification.PeriodEnd, want)
 	}
 }
+
+// A payment notification without result.resultStatus carries no charge result.
+// Accepting it would hand an empty status to the billing handler, whose
+// non-"S" branch marks the subscription past_due — downgrading a paying user
+// over a malformed payload. The parser must surface the defect instead.
+func TestVerifyNotificationRejectsPaymentWithoutResultStatus(t *testing.T) {
+	client := newTestAntomClient(t)
+	bodies := map[string][]byte{
+		"missing result object": []byte(`{
+			"paymentId": "202610281200051100001234567890",
+			"subscriptionId": "S2026102800001",
+			"subscriptionRequestId": "aurora-sub-test",
+			"periodStartTime": "2026-10-28T12:00:00+08:00",
+			"periodEndTime": "2026-11-28T12:00:00+08:00",
+			"phaseNo": "1"
+		}`),
+		"empty resultStatus": []byte(`{
+			"result": {"resultCode": "SUCCESS"},
+			"paymentId": "202610281200051100001234567890",
+			"subscriptionId": "S2026102800001",
+			"subscriptionRequestId": "aurora-sub-test",
+			"phaseNo": "1"
+		}`),
+	}
+	for name, body := range bodies {
+		t.Run(name, func(t *testing.T) {
+			headers := antomNotificationHeaders(t, client, antomTestNotifyMethod, antomTestPaymentNotifyPath, body)
+			notification, err := client.VerifyNotification(antomTestNotifyMethod, antomTestPaymentNotifyPath, headers, body)
+			if err == nil {
+				t.Fatalf("payment notification without resultStatus was accepted as %+v", notification)
+			}
+			if !strings.Contains(err.Error(), "result.resultStatus") {
+				t.Errorf("error %q does not name the missing result.resultStatus", err)
+			}
+			if notification != (AntomNotification{}) {
+				t.Errorf("failed verification returned %+v, want the zero notification", notification)
+			}
+		})
+	}
+}

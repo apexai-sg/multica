@@ -445,6 +445,13 @@ func parseAntomNotification(body []byte) (AntomNotification, error) {
 	case payload.PaymentID != "":
 		// notifyPayment (subscription): the per-period charge result. These are
 		// the only period times the billing path trusts.
+		if payload.Result.ResultStatus == "" {
+			// A payment notification without a charge result cannot be filed as
+			// a failure: the handler's non-"S" branch marks the subscription
+			// past_due, which would downgrade a paying user over a malformed
+			// payload. Reject it so Antom retries a body it may fix.
+			return AntomNotification{}, fmt.Errorf("antom notification: payment notification has no result.resultStatus")
+		}
 		notification.Type = "payment"
 		notification.PaymentID = payload.PaymentID
 		notification.Status = payload.Result.ResultStatus
