@@ -689,9 +689,6 @@ git commit -m "docs(aurora): record the Antom channel launch prerequisites and r
 对 #45 / #46 / #47 / #48 / #50 / #56 各留一条评论，说明该票在 Antom 渠道下的新含义与
 验收方式；标签保持 `type::task` + `P0-Urgent` + `S1-Todo` 不变。
 
-- [ ] **Step 5: 在 GitHub 上同步阻塞票（人工步骤，需 owner 授权执行）**
-
-对 #45 / #46 / #47 / #48 / #50 / #56 各留一条评论，说明该票在 Antom 渠道下的新含义与验收方式，并按需要调整标签（保持 `type::task` + `P0-Urgent`，`S1-Todo` 不动）。
 
 ---
 
