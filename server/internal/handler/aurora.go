@@ -2528,6 +2528,7 @@ func (h *Handler) GetAuroraSubscription(w http.ResponseWriter, r *http.Request) 
 	}
 	response, err := h.buildAuroraSubscriptionResponse(r.Context(), userUUID)
 	if err != nil {
+		slog.Error("failed to load aurora subscription", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to load subscription")
 		return
 	}
@@ -2565,6 +2566,13 @@ func (h *Handler) CancelAuroraSubscription(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusConflict, "this subscription is managed by Stripe; use the billing portal")
 		return
 	}
+	// A row that already reached canceled has nothing left to stop, and
+	// submitting it to Antom again would reset cancel_at_period_end on a
+	// subscription the termination already ended.
+	if sub.Status == "canceled" {
+		writeError(w, http.StatusConflict, "subscription already canceled")
+		return
+	}
 	if h.Antom == nil {
 		writeError(w, http.StatusServiceUnavailable, "antom not configured")
 		return
@@ -2584,12 +2592,16 @@ func (h *Handler) CancelAuroraSubscription(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if _, err := h.Queries.MarkAuroraSubscriptionCancelAtPeriodEnd(r.Context(), userUUID); err != nil {
+		// Antom already accepted the cancel; only the local flag is pending.
+		// A retry self-heals if Antom's cancel is idempotent, so this is not
+		// the "nothing happened" failure the 5xx might suggest.
 		slog.Error("failed to record aurora subscription cancellation", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update subscription")
 		return
 	}
 	response, err := h.buildAuroraSubscriptionResponse(r.Context(), userUUID)
 	if err != nil {
+		slog.Error("failed to load aurora subscription after cancel", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to load subscription")
 		return
 	}

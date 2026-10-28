@@ -3968,6 +3968,76 @@ func TestCancelAuroraSubscriptionCallsAntom(t *testing.T) {
 	if !cancelAtPeriodEnd || status != "active" {
 		t.Fatalf("row = cancel_at_period_end %v status %q, want true/active", cancelAtPeriodEnd, status)
 	}
+
+	// The cancel endpoint answers with the same shape as GET, built by the
+	// same constructor; comparing the whole body keeps the two from drifting.
+	got := getAuroraSubscription(t).Subscription
+	if !reflect.DeepEqual(out.Subscription, got) {
+		t.Fatalf("cancel body = %+v, want the GET body %+v", out.Subscription, got)
+	}
+}
+
+// The row decides both the channel and the subscription id. A body naming a
+// different provider and a different id must not change what Antom is asked to
+// cancel — the endpoint reads no body at all.
+func TestCancelAuroraSubscriptionIgnoresClientChannelAndID(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	fa := &fakeAntom{}
+	installAuroraAntom(t, fa)
+
+	antomID := "sub_antom_" + uuid.NewString()
+	dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+		"user_id": testUserID, "tier": "creator", "status": "active",
+		"payment_provider":      "antom",
+		"antom_subscription_id": antomID,
+	})
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/subscription/cancel", map[string]string{
+		"provider": "stripe", "antomSubscriptionId": "sub_attacker",
+	})
+	out := testutil.Decode[auroraSubscriptionPayload](t, testHandler.CancelAuroraSubscription, req, http.StatusOK)
+
+	if !reflect.DeepEqual(fa.cancelIDs, []string{antomID}) {
+		t.Fatalf("Antom cancel ids = %v, want the row's [%s]", fa.cancelIDs, antomID)
+	}
+	if out.Subscription.Provider != "antom" {
+		t.Fatalf("provider = %q, want the row's antom", out.Subscription.Provider)
+	}
+	if !out.Subscription.CancelAtPeriodEnd {
+		t.Fatal("cancelAtPeriodEnd = false, want true")
+	}
+}
+
+// A canceled row has nothing left to stop. Re-submitting it to Antom would
+// reset cancel_at_period_end on a subscription the termination already ended,
+// so the endpoint refuses before touching the provider.
+func TestCancelAuroraSubscriptionRejectsAlreadyCanceled(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	fa := &fakeAntom{}
+	installAuroraAntom(t, fa)
+
+	dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+		"user_id": testUserID, "tier": "creator", "status": "canceled",
+		"payment_provider":      "antom",
+		"antom_subscription_id": "sub_antom_" + uuid.NewString(),
+	})
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/subscription/cancel", nil)
+	testutil.Call(t, testHandler.CancelAuroraSubscription, req).Want(http.StatusConflict)
+
+	if len(fa.cancelIDs) != 0 {
+		t.Fatalf("Antom cancel ids = %v, want none for a canceled row", fa.cancelIDs)
+	}
+	if cancelAtPeriodEnd, status := auroraSubscriptionCancelFlag(t); cancelAtPeriodEnd || status != "canceled" {
+		t.Fatalf("row = cancel_at_period_end %v status %q, want false/canceled", cancelAtPeriodEnd, status)
+	}
+}
+
+func TestCancelAuroraSubscriptionRequiresAuthentication(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/aurora/billing/subscription/cancel", nil)
+	testutil.Call(t, testHandler.CancelAuroraSubscription, req).Want(http.StatusUnauthorized)
 }
 
 // Antom has no billing portal, and Stripe has no equivalent in-app path: a
