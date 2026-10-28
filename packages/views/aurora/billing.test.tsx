@@ -946,6 +946,26 @@ describe("AuroraBilling", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("hides the in-app cancel when the deployment no longer sells Antom", () => {
+    mocks.subscription.mockReturnValue({
+      data: subscription({
+        tier: "creator",
+        status: "active",
+        provider: "antom",
+        availableProviders: [],
+      }),
+      isPending: false,
+    });
+
+    renderBilling();
+
+    // The live subscription outlived the channel: without Antom's credentials
+    // or MULTICA_PUBLIC_URL the cancel would only ever answer 503.
+    expect(
+      screen.queryByRole("button", { name: "Cancel subscription" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("cancels a past-due Antom plan", async () => {
     const user = userEvent.setup();
     const cancelSubscription = mutation();
@@ -955,6 +975,7 @@ describe("AuroraBilling", () => {
         tier: "creator",
         status: "past_due",
         provider: "antom",
+        availableProviders: ["stripe", "antom"],
       }),
       isPending: false,
     });
@@ -999,6 +1020,7 @@ describe("AuroraBilling", () => {
         tier: "creator",
         status: "active",
         provider: "antom",
+        availableProviders: ["stripe", "antom"],
         cancelAtPeriodEnd: true,
       }),
       isPending: false,
@@ -1058,7 +1080,12 @@ describe("AuroraBilling", () => {
     const cancelSubscription = mutation();
     mocks.cancelSubscription.mockReturnValue(cancelSubscription);
     mocks.subscription.mockReturnValue({
-      data: subscription({ tier: "creator", status: "active", provider: "antom" }),
+      data: subscription({
+        tier: "creator",
+        status: "active",
+        provider: "antom",
+        availableProviders: ["stripe", "antom"],
+      }),
       isPending: false,
     });
 
@@ -1077,7 +1104,12 @@ describe("AuroraBilling", () => {
     const cancelSubscription = { ...mutation(), isPending: true };
     mocks.cancelSubscription.mockReturnValue(cancelSubscription);
     mocks.subscription.mockReturnValue({
-      data: subscription({ tier: "creator", status: "active", provider: "antom" }),
+      data: subscription({
+        tier: "creator",
+        status: "active",
+        provider: "antom",
+        availableProviders: ["stripe", "antom"],
+      }),
       isPending: false,
     });
 
@@ -1098,7 +1130,12 @@ describe("AuroraBilling", () => {
       error: new ApiError("failed to cancel subscription", 502, "Bad Gateway"),
     });
     mocks.subscription.mockReturnValue({
-      data: subscription({ tier: "creator", status: "active", provider: "antom" }),
+      data: subscription({
+        tier: "creator",
+        status: "active",
+        provider: "antom",
+        availableProviders: ["stripe", "antom"],
+      }),
       isPending: false,
     });
 

@@ -473,6 +473,9 @@ function PlanSection({
     (subscription.status === "active" || subscription.status === "past_due");
   const canCancelAntom =
     subscription.provider === "antom" &&
+    // A deployment that no longer sells Antom has no channel to cancel
+    // through — the endpoint answers 503 — so the control must not exist.
+    providers.includes("antom") &&
     // A failed payment is exactly when a subscriber wants to stop the plan, and
     // the server's cancel accepts a past-due row.
     (subscription.status === "active" ||
