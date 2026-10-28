@@ -141,6 +141,10 @@ type AntomClient struct {
 	http       *http.Client
 }
 
+// AntomClient implements the provider surface the handler programs against;
+// the assertion keeps the client honest if a change drops one of the methods.
+var _ AntomProvider = (*AntomClient)(nil)
+
 // NewAntomClient builds the client or explains which part of the configuration
 // is unusable. Callers treat the error as "the Antom channel is unavailable"
 // rather than falling back to a partially configured client.
@@ -289,6 +293,175 @@ func (c *AntomClient) signatureHeader(method, path, requestTime string, body []b
 	}
 	escaped := url.QueryEscape(base64.StdEncoding.EncodeToString(signature))
 	return fmt.Sprintf("algorithm=RSA256,keyVersion=%s,signature=%s", c.cfg.KeyVersion, escaped), nil
+}
+
+// antomSignatureFields are the only fields Antom puts in the "signature"
+// header. A missing, repeated or unknown field is rejected rather than skipped:
+// silently ignoring part of the header would let a change in its shape weaken
+// verification without any test noticing.
+var antomSignatureFields = [...]string{"algorithm", "keyVersion", "signature"}
+
+// antomSignatureParts splits the comma-separated "signature" header into its
+// fields. The signature value is query-escaped by Antom, so it never contains
+// a comma; splitting first and unescaping the value afterwards keeps the two
+// steps independent.
+func antomSignatureParts(header string) (map[string]string, error) {
+	if strings.TrimSpace(header) == "" {
+		return nil, fmt.Errorf("signature header is missing")
+	}
+	parts := make(map[string]string, len(antomSignatureFields))
+	for _, field := range strings.Split(header, ",") {
+		name, value, ok := strings.Cut(strings.TrimSpace(field), "=")
+		if !ok {
+			return nil, fmt.Errorf("signature header field %q is not key=value", strings.TrimSpace(field))
+		}
+		name = strings.TrimSpace(name)
+		known := false
+		for _, candidate := range antomSignatureFields {
+			if name == candidate {
+				known = true
+				break
+			}
+		}
+		if !known {
+			return nil, fmt.Errorf("signature header has unknown field %q", name)
+		}
+		if _, duplicate := parts[name]; duplicate {
+			return nil, fmt.Errorf("signature header repeats field %q", name)
+		}
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return nil, fmt.Errorf("signature header field %q is empty", name)
+		}
+		parts[name] = value
+	}
+	for _, name := range antomSignatureFields {
+		if _, ok := parts[name]; !ok {
+			return nil, fmt.Errorf("signature header is missing field %q", name)
+		}
+	}
+	return parts, nil
+}
+
+// verifyAntomNotificationSignature authenticates one notification against the
+// headers and the exact body bytes. The handler must pass the unmodified
+// request parts, because every one of them is covered by the signature.
+func (c *AntomClient) verifyAntomNotificationSignature(method, path string, headers http.Header, body []byte) error {
+	clientID := headers.Get("client-id")
+	if clientID == "" || clientID != c.cfg.ClientID {
+		return fmt.Errorf("antom notification: client-id %q is not the configured client", clientID)
+	}
+	requestTime := headers.Get("request-time")
+	if requestTime == "" {
+		// The request time is part of the signed content; without it the
+		// signature covers a string Antom never signed.
+		return fmt.Errorf("antom notification: request-time header is missing")
+	}
+
+	parts, err := antomSignatureParts(headers.Get("signature"))
+	if err != nil {
+		return fmt.Errorf("antom notification: %w", err)
+	}
+	if parts["algorithm"] != "RSA256" {
+		return fmt.Errorf("antom notification: signature algorithm %q is not RSA256", parts["algorithm"])
+	}
+	if parts["keyVersion"] != c.cfg.KeyVersion {
+		return fmt.Errorf("antom notification: keyVersion %q is not the configured key version", parts["keyVersion"])
+	}
+
+	unescaped, err := url.QueryUnescape(parts["signature"])
+	if err != nil {
+		return fmt.Errorf("antom notification: decode signature: %w", err)
+	}
+	signature, err := base64.StdEncoding.DecodeString(unescaped)
+	if err != nil {
+		return fmt.Errorf("antom notification: decode signature: %w", err)
+	}
+
+	digest := sha256.Sum256(antomSignContent(method, path, clientID, requestTime, body))
+	if err := rsa.VerifyPKCS1v15(c.publicKey, crypto.SHA256, digest[:], signature); err != nil {
+		// The body and the presented signature are attacker-controlled on this
+		// public route, so neither is echoed into the error that reaches logs.
+		return fmt.Errorf("antom notification: signature does not verify")
+	}
+	return nil
+}
+
+// VerifyNotification authenticates one Antom callback and parses it into the
+// fields the billing state machine consumes. Parsing happens only after the
+// signature verifies: an unverifiable body never leaves this function as typed
+// data.
+func (c *AntomClient) VerifyNotification(method, path string, headers http.Header, body []byte) (AntomNotification, error) {
+	if err := c.verifyAntomNotificationSignature(method, path, headers, body); err != nil {
+		return AntomNotification{}, err
+	}
+	return parseAntomNotification(body)
+}
+
+// antomParseTime reads an Antom timestamp. Antom formats RFC 3339 and sometimes
+// appends fractional seconds, which time.Parse accepts on input even though the
+// layout omits them. An absent or unparsable optional timestamp stays the zero
+// time: the notification's own clock is not trustworthy, and a time.Now()
+// fallback would fabricate an event time.
+func antomParseTime(value string) time.Time {
+	if value == "" {
+		return time.Time{}
+	}
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return time.Time{}
+	}
+	return parsed
+}
+
+// parseAntomNotification maps a verified body to the billing fields. The
+// notification kind is decided by payload presence, not by a header:
+// notifyPayment carries paymentId, notifySubscription carries
+// subscriptionStatus. A body with neither is not a notification this channel
+// can act on.
+func parseAntomNotification(body []byte) (AntomNotification, error) {
+	var payload struct {
+		Result struct {
+			ResultStatus string `json:"resultStatus"`
+		} `json:"result"`
+		PaymentID                    string `json:"paymentId"`
+		SubscriptionID               string `json:"subscriptionId"`
+		SubscriptionRequestID        string `json:"subscriptionRequestId"`
+		SubscriptionStatus           string `json:"subscriptionStatus"`
+		SubscriptionNotificationType string `json:"subscriptionNotificationType"`
+		PeriodStartTime              string `json:"periodStartTime"`
+		PeriodEndTime                string `json:"periodEndTime"`
+		PhaseNo                      string `json:"phaseNo"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return AntomNotification{}, fmt.Errorf("antom notification: decode body: %w", err)
+	}
+
+	notification := AntomNotification{
+		RequestID:      payload.SubscriptionRequestID,
+		SubscriptionID: payload.SubscriptionID,
+	}
+	switch {
+	case payload.PaymentID != "":
+		// notifyPayment (subscription): the per-period charge result. These are
+		// the only period times the billing path trusts.
+		notification.Type = "payment"
+		notification.PaymentID = payload.PaymentID
+		notification.Status = payload.Result.ResultStatus
+		notification.PhaseNo = payload.PhaseNo
+		notification.PeriodStart = antomParseTime(payload.PeriodStartTime)
+		notification.PeriodEnd = antomParseTime(payload.PeriodEndTime)
+	case payload.SubscriptionStatus != "":
+		// notifySubscription: a state transition only. The message carries no
+		// time field the billing path may rely on, so the period times stay zero
+		// and the transition is applied explicitly by the notification handler.
+		notification.Type = "subscription"
+		notification.Status = payload.SubscriptionStatus
+		notification.NotificationType = payload.SubscriptionNotificationType
+	default:
+		return AntomNotification{}, fmt.Errorf("antom notification: body carries neither paymentId nor subscriptionStatus")
+	}
+	return notification, nil
 }
 
 // antomAmount is the wire form of an Antom amount.

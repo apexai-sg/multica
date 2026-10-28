@@ -521,3 +521,313 @@ func TestInquirySubscriptionRejectsMissingSubscription(t *testing.T) {
 		}
 	}
 }
+
+// --- Notification verification -------------------------------------------------
+
+const (
+	antomTestNotifyMethod           = http.MethodPost
+	antomTestPaymentNotifyPath      = "/api/aurora/billing/antom/notify/payment"
+	antomTestSubscriptionNotifyPath = "/api/aurora/billing/antom/notify/subscription"
+	antomTestNotifyRequestTime      = "1730000000000"
+)
+
+// antomTestPaymentBody is a notifyPayment (subscription) callback for the first
+// period of a subscription. It carries paymentTime, which the billing path
+// deliberately ignores: the notification's own clock is not trustworthy.
+func antomTestPaymentBody() []byte {
+	return []byte(`{
+		"result": {"resultStatus": "S", "resultCode": "SUCCESS", "resultMessage": "success"},
+		"paymentId": "202610281200051100001234567890",
+		"subscriptionId": "S2026102800001",
+		"subscriptionRequestId": "aurora-sub-test",
+		"periodStartTime": "2026-10-28T12:00:00+08:00",
+		"periodEndTime": "2026-11-28T12:00:00+08:00",
+		"paymentTime": "2026-10-28T12:00:05+08:00",
+		"phaseNo": "1",
+		"paymentAmount": {"currency": "SGD", "value": "1900"}
+	}`)
+}
+
+// antomTestSubscriptionBody is a notifySubscription callback. It carries no
+// period fields because the message has none the billing path may trust.
+func antomTestSubscriptionBody() []byte {
+	return []byte(`{
+		"result": {"resultStatus": "S", "resultCode": "SUCCESS", "resultMessage": "success"},
+		"subscriptionRequestId": "aurora-sub-test",
+		"subscriptionId": "S2026102800001",
+		"subscriptionStatus": "TERMINATED",
+		"subscriptionNotificationType": "TERMINATE",
+		"periodRule": {"periodType": "MONTH", "periodCount": "1"}
+	}`)
+}
+
+// antomNotificationSignature signs a notification body the way Antom does. The
+// client id is a parameter so a test can prove the header is compared with the
+// configured value instead of merely being covered by the signature.
+func antomNotificationSignature(t *testing.T, client *AntomClient, method, path, clientID string, body []byte) string {
+	t.Helper()
+	digest := sha256.Sum256(antomSignContent(method, path, clientID, antomTestNotifyRequestTime, body))
+	signature, err := rsa.SignPKCS1v15(rand.Reader, client.privateKey, crypto.SHA256, digest[:])
+	if err != nil {
+		t.Fatalf("sign notification: %v", err)
+	}
+	return fmt.Sprintf("algorithm=RSA256,keyVersion=%s,signature=%s",
+		client.cfg.KeyVersion, url.QueryEscape(base64.StdEncoding.EncodeToString(signature)))
+}
+
+// antomNotificationHeaders builds the headers Antom sends with a notification,
+// signed for the configured client.
+func antomNotificationHeaders(t *testing.T, client *AntomClient, method, path string, body []byte) http.Header {
+	t.Helper()
+	return antomNotificationHeadersFor(t, client, method, path, client.cfg.ClientID, body)
+}
+
+func antomNotificationHeadersFor(t *testing.T, client *AntomClient, method, path, clientID string, body []byte) http.Header {
+	t.Helper()
+	headers := http.Header{}
+	headers.Set("Content-Type", "application/json")
+	headers.Set("client-id", clientID)
+	headers.Set("request-time", antomTestNotifyRequestTime)
+	headers.Set("signature", antomNotificationSignature(t, client, method, path, clientID, body))
+	return headers
+}
+
+func TestVerifyNotificationAcceptsSignedPayment(t *testing.T) {
+	client := newTestAntomClient(t)
+	body := antomTestPaymentBody()
+	headers := antomNotificationHeaders(t, client, antomTestNotifyMethod, antomTestPaymentNotifyPath, body)
+
+	notification, err := client.VerifyNotification(antomTestNotifyMethod, antomTestPaymentNotifyPath, headers, body)
+	if err != nil {
+		t.Fatalf("VerifyNotification: %v", err)
+	}
+	if notification.Type != "payment" {
+		t.Errorf("Type = %q, want payment", notification.Type)
+	}
+	if notification.Status != "S" {
+		t.Errorf("Status = %q, want the body's result.resultStatus S", notification.Status)
+	}
+	if notification.RequestID != "aurora-sub-test" {
+		t.Errorf("RequestID = %q, want subscriptionRequestId", notification.RequestID)
+	}
+	if notification.SubscriptionID != "S2026102800001" {
+		t.Errorf("SubscriptionID = %q", notification.SubscriptionID)
+	}
+	if notification.PaymentID != "202610281200051100001234567890" {
+		t.Errorf("PaymentID = %q", notification.PaymentID)
+	}
+	if notification.PhaseNo != "1" {
+		t.Errorf("PhaseNo = %q, want 1", notification.PhaseNo)
+	}
+	if notification.NotificationType != "" {
+		t.Errorf("NotificationType = %q, want empty for a payment notification", notification.NotificationType)
+	}
+
+	sgt := time.FixedZone("SGT", 8*60*60)
+	if want := time.Date(2026, 10, 28, 12, 0, 0, 0, sgt); !notification.PeriodStart.Equal(want) {
+		t.Errorf("PeriodStart = %v, want %v", notification.PeriodStart, want)
+	}
+	if want := time.Date(2026, 11, 28, 12, 0, 0, 0, sgt); !notification.PeriodEnd.Equal(want) {
+		t.Errorf("PeriodEnd = %v, want %v", notification.PeriodEnd, want)
+	}
+}
+
+func TestVerifyNotificationAcceptsSignedSubscription(t *testing.T) {
+	client := newTestAntomClient(t)
+	body := antomTestSubscriptionBody()
+	headers := antomNotificationHeaders(t, client, antomTestNotifyMethod, antomTestSubscriptionNotifyPath, body)
+
+	notification, err := client.VerifyNotification(antomTestNotifyMethod, antomTestSubscriptionNotifyPath, headers, body)
+	if err != nil {
+		t.Fatalf("VerifyNotification: %v", err)
+	}
+	if notification.Type != "subscription" {
+		t.Errorf("Type = %q, want subscription", notification.Type)
+	}
+	if notification.Status != "TERMINATED" {
+		t.Errorf("Status = %q, want subscriptionStatus TERMINATED", notification.Status)
+	}
+	if notification.NotificationType != "TERMINATE" {
+		t.Errorf("NotificationType = %q, want subscriptionNotificationType TERMINATE", notification.NotificationType)
+	}
+	if notification.RequestID != "aurora-sub-test" {
+		t.Errorf("RequestID = %q, want subscriptionRequestId", notification.RequestID)
+	}
+	if notification.SubscriptionID != "S2026102800001" {
+		t.Errorf("SubscriptionID = %q", notification.SubscriptionID)
+	}
+	if notification.PaymentID != "" {
+		t.Errorf("PaymentID = %q, want empty for a subscription notification", notification.PaymentID)
+	}
+	// notifySubscription carries no trustworthy time fields, so the parser must
+	// not invent them.
+	if !notification.PeriodStart.IsZero() || !notification.PeriodEnd.IsZero() {
+		t.Errorf("period times = %v/%v, want zero for a subscription notification", notification.PeriodStart, notification.PeriodEnd)
+	}
+}
+
+func TestVerifyNotificationRejectsBadSignature(t *testing.T) {
+	client := newTestAntomClient(t)
+	body := antomTestPaymentBody()
+	headers := antomNotificationHeaders(t, client, antomTestNotifyMethod, antomTestPaymentNotifyPath, body)
+
+	tampered := append([]byte(nil), body...)
+	tampered[len(tampered)-2] ^= 0x01
+
+	notification, err := client.VerifyNotification(antomTestNotifyMethod, antomTestPaymentNotifyPath, headers, tampered)
+	if err == nil {
+		t.Fatal("tampered body was accepted")
+	}
+	if notification != (AntomNotification{}) {
+		t.Errorf("failed verification returned %+v, want the zero notification", notification)
+	}
+}
+
+func TestVerifyNotificationRejectsWrongClientID(t *testing.T) {
+	client := newTestAntomClient(t)
+	body := antomTestPaymentBody()
+	// The signature is valid for the foreign client id, so only the explicit
+	// comparison with the configured client can reject this notification.
+	headers := antomNotificationHeadersFor(t, client, antomTestNotifyMethod, antomTestPaymentNotifyPath, "SANDBOX_OTHER", body)
+
+	if _, err := client.VerifyNotification(antomTestNotifyMethod, antomTestPaymentNotifyPath, headers, body); err == nil {
+		t.Fatal("notification signed for another client id was accepted")
+	}
+}
+
+func TestVerifyNotificationRejectsWrongKeyVersion(t *testing.T) {
+	client := newTestAntomClient(t)
+	body := antomTestPaymentBody()
+	headers := antomNotificationHeaders(t, client, antomTestNotifyMethod, antomTestPaymentNotifyPath, body)
+
+	// keyVersion is not part of the signed content, so the signature stays valid
+	// and only the explicit version check can reject this header.
+	wrong := strings.Replace(headers.Get("signature"), "keyVersion="+client.cfg.KeyVersion, "keyVersion=9", 1)
+	if !strings.Contains(wrong, "keyVersion=9") {
+		t.Fatalf("test setup did not change the key version: %q", wrong)
+	}
+	headers.Set("signature", wrong)
+
+	if _, err := client.VerifyNotification(antomTestNotifyMethod, antomTestPaymentNotifyPath, headers, body); err == nil {
+		t.Fatal("notification with a foreign key version was accepted")
+	}
+}
+
+func TestVerifyNotificationRejectsUnknownAlgorithm(t *testing.T) {
+	client := newTestAntomClient(t)
+	body := antomTestPaymentBody()
+	headers := antomNotificationHeaders(t, client, antomTestNotifyMethod, antomTestPaymentNotifyPath, body)
+
+	wrong := strings.Replace(headers.Get("signature"), "algorithm=RSA256", "algorithm=RSA1024", 1)
+	if !strings.Contains(wrong, "algorithm=RSA1024") {
+		t.Fatalf("test setup did not change the algorithm: %q", wrong)
+	}
+	headers.Set("signature", wrong)
+
+	if _, err := client.VerifyNotification(antomTestNotifyMethod, antomTestPaymentNotifyPath, headers, body); err == nil {
+		t.Fatal("notification with an unknown algorithm was accepted")
+	}
+}
+
+func TestVerifyNotificationRejectsMalformedSignatureHeader(t *testing.T) {
+	client := newTestAntomClient(t)
+	body := antomTestPaymentBody()
+	headers := antomNotificationHeaders(t, client, antomTestNotifyMethod, antomTestPaymentNotifyPath, body)
+	valid := headers.Get("signature")
+
+	cases := []struct {
+		name   string
+		header string
+	}{
+		{"missing header", ""},
+		{"missing algorithm", strings.Replace(valid, "algorithm=RSA256,", "", 1)},
+		{"missing key version", strings.Replace(valid, ",keyVersion="+client.cfg.KeyVersion, "", 1)},
+		{"missing signature value", strings.SplitN(valid, ",signature=", 2)[0]},
+		{"repeated algorithm", valid + ",algorithm=RSA256"},
+		{"unknown field", valid + ",digest=SHA256"},
+		{"empty value", strings.SplitN(valid, ",signature=", 2)[0] + ",signature="},
+		{"not key value", valid + ",garbage"},
+		{"signature is not base64", "algorithm=RSA256,keyVersion=" + client.cfg.KeyVersion + ",signature=%21%21"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			clone := headers.Clone()
+			clone.Set("signature", tc.header)
+			if _, err := client.VerifyNotification(antomTestNotifyMethod, antomTestPaymentNotifyPath, clone, body); err == nil {
+				t.Fatalf("signature header %q was accepted", tc.header)
+			}
+		})
+	}
+}
+
+func TestVerifyNotificationRejectsUnrecognizedBody(t *testing.T) {
+	client := newTestAntomClient(t)
+	// Correctly signed bodies that are neither a payment nor a subscription
+	// notification: only the parser can reject them.
+	bodies := [][]byte{
+		[]byte(`{"result":{"resultStatus":"S"},"subscriptionRequestId":"aurora-sub-test"}`),
+		[]byte(`not json at all`),
+	}
+	for _, body := range bodies {
+		headers := antomNotificationHeaders(t, client, antomTestNotifyMethod, antomTestPaymentNotifyPath, body)
+		if _, err := client.VerifyNotification(antomTestNotifyMethod, antomTestPaymentNotifyPath, headers, body); err == nil {
+			t.Errorf("body %s was accepted as a notification", body)
+		}
+	}
+}
+
+func TestVerifyNotificationParsesRenewalPayment(t *testing.T) {
+	client := newTestAntomClient(t)
+	body := []byte(`{
+		"result": {"resultStatus": "S", "resultCode": "SUCCESS"},
+		"paymentId": "202611281200051100001234567891",
+		"subscriptionId": "S2026102800001",
+		"subscriptionRequestId": "aurora-sub-test",
+		"periodStartTime": "2026-11-28T12:00:00+08:00",
+		"periodEndTime": "2026-12-28T12:00:00.5+08:00",
+		"phaseNo": "2",
+		"paymentAmount": {"currency": "SGD", "value": "1900"}
+	}`)
+	headers := antomNotificationHeaders(t, client, antomTestNotifyMethod, antomTestPaymentNotifyPath, body)
+
+	notification, err := client.VerifyNotification(antomTestNotifyMethod, antomTestPaymentNotifyPath, headers, body)
+	if err != nil {
+		t.Fatalf("VerifyNotification: %v", err)
+	}
+	if notification.PhaseNo != "2" {
+		t.Errorf("PhaseNo = %q, want 2", notification.PhaseNo)
+	}
+	sgt := time.FixedZone("SGT", 8*60*60)
+	if want := time.Date(2026, 11, 28, 12, 0, 0, 0, sgt); !notification.PeriodStart.Equal(want) {
+		t.Errorf("PeriodStart = %v, want %v", notification.PeriodStart, want)
+	}
+	if want := time.Date(2026, 12, 28, 12, 0, 0, 500*int(time.Millisecond), sgt); !notification.PeriodEnd.Equal(want) {
+		t.Errorf("PeriodEnd = %v, want %v (fractional seconds)", notification.PeriodEnd, want)
+	}
+}
+
+func TestVerifyNotificationLeavesUnparsableTimesZero(t *testing.T) {
+	client := newTestAntomClient(t)
+	body := []byte(`{
+		"result": {"resultStatus": "S"},
+		"paymentId": "202610281200051100001234567890",
+		"subscriptionId": "S2026102800001",
+		"subscriptionRequestId": "aurora-sub-test",
+		"periodStartTime": "not-a-timestamp",
+		"periodEndTime": "2026-11-28T12:00:00.123+08:00",
+		"phaseNo": "1"
+	}`)
+	headers := antomNotificationHeaders(t, client, antomTestNotifyMethod, antomTestPaymentNotifyPath, body)
+
+	notification, err := client.VerifyNotification(antomTestNotifyMethod, antomTestPaymentNotifyPath, headers, body)
+	if err != nil {
+		t.Fatalf("VerifyNotification: %v", err)
+	}
+	if !notification.PeriodStart.IsZero() {
+		t.Errorf("PeriodStart = %v, want the zero time for an unparsable timestamp", notification.PeriodStart)
+	}
+	sgt := time.FixedZone("SGT", 8*60*60)
+	if want := time.Date(2026, 11, 28, 12, 0, 0, 123*int(time.Millisecond), sgt); !notification.PeriodEnd.Equal(want) {
+		t.Errorf("PeriodEnd = %v, want %v", notification.PeriodEnd, want)
+	}
+}
