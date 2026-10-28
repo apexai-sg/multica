@@ -114,7 +114,9 @@ Antom 用 `POST /ams/api/v1/subscriptions/create`：
 | `subscriptionRedirectUrl` | 前端传入的 `successUrl`（Antom 只有授权后回跳，没有 cancelUrl 概念） |
 | `subscriptionStartTime` | 请求时刻 |
 | `periodRule` | `{ periodType: "MONTH", periodCount: "1" }` |
-| `paymentMethod` | 商户号开通的卡 / 钱包支付方式 |
+| `paymentMethod` | `{"paymentMethodType": "CARD"}`（自动扣款需要可留存的卡；商户号需开通卡收单） |
+| `env` | `{"terminalType": "WEB"}`（Antom 必填） |
+| `settlementStrategy` | `{}`，或在配置了结算币种时 `{"settlementCurrency": "<币种>"}`（Antom 必填） |
 | `subscriptionNotificationUrl` | `{PublicURL}/api/aurora/billing/antom/notify/subscription` |
 | `paymentNotificationUrl` | `{PublicURL}/api/aurora/billing/antom/notify/payment` |
 | `orderInfo` / `paymentAmount` | 服务端从档位表取，**绝不读请求体** |
@@ -129,8 +131,10 @@ Aurora 前端（`aod`）与后端（`mcapi`）是两个 host，`PublicURL` 与 `
 本地行的匹配主键是两条通知都携带的 `subscriptionRequestId`（即我们自己的
 `checkout_idempotency_key`）。
 
-金额表长在 `tiers.go` 的档位结构上（`AntomAmountSGD` + 币种常量 `SGD`），
-与 Stripe price id 并列，同一个文件是改价的唯一位置。
+金额表长在 `tiers.go` 的档位结构上（`AntomAmountMinorMonthly` + 币种常量 `SGD`），
+与 Stripe price id 并列，同一个文件是改价的唯一位置。**Antom 的 `Amount.value` 是币种
+最小单位的整数字符串**（`"1900"` = S$19.00，查询接口的 `"10000"` = USD 100.00 也是同一
+口径），不是 `"19.00"`。
 
 `cancelUrl` 在 Antom 渠道不使用：用户中途关页没有回调，前端沿用现有的返回页轮询，
 订阅行仍是 `pending` 时就显示「未完成」。这一点写进接口注释，免得后来的人以为漏了。

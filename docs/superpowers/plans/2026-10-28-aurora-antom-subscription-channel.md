@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - 价格：creator S$19 / pro S$59 / business S$169，均为**月付**；金额只从服务端档位表取，请求体不接受金额或币种。
-- 币种：`SGD`，Antom `Amount.value` 为两位小数字符串（`"19.00"`）。
+- 币种：`SGD`。**Antom `Amount.value` 是币种最小单位的整数字符串**（`"1900"` = S$19.00），档位表存最小单位。
 - Antom 签名待签名内容逐字节为 `<method> <path>\n<client-id>.<request-time>.<body>`，算法 `sha256withRSA`，`signature` 头格式 `algorithm=RSA256,keyVersion=<v>,signature=<urlencoded base64>`。
 - 通知确认报文逐字节为 `{"result":{"resultCode":"SUCCESS","resultStatus":"S","resultMessage":"success"}}`。
 - 验签失败返回 401 且不写入；业务失败返回 500 让 Antom 重试；未知通知类型/未知档位返回确认报文（200）。
@@ -322,7 +322,9 @@ Expected: FAIL，`unknown field provider` / `Handler.Antom` 未定义
 
 - [ ] **Step 3: Implement provider dispatch**
 
-`CreateAuroraCheckout`：解析请求体后先把 `provider` 归一化（空 → `"stripe"`；不在 `{"stripe","antom"}` → 400 `"unknown provider"`）。Stripe 分支保持现有代码不变；Antom 分支要求 `h.Antom != nil`（否则 503）且 `billingCycle == "monthly"`（否则 400 `"billingCycle must be monthly for this provider"`），金额从 `h.Tiers.Lookup(tier)` 的 Antom 金额字段取，两条通知 URL 由 `h.cfg.PublicURL` 拼出（`PublicURL` 为空时渠道在构造阶段就不可用，见 Task 8），调 `CreateSubscription`，返回 `{"checkoutUrl": url}`。
+`CreateAuroraCheckout`：解析请求体后先把 `provider` 归一化（空 → `"stripe"`；不在 `{"stripe","antom"}` → 400 `"unknown provider"`）。Stripe 分支保持现有代码不变；Antom 分支要求 `h.Antom != nil`（否则 503）且 `billingCycle == "monthly"`（否则 400 `"billingCycle must be monthly for this provider"`），金额从档位表的最小单位字段取（`AntomAmountMinorMonthly`：`"1900"` / `"5900"` / `"16900"`），两条通知 URL 由 `h.cfg.PublicURL` 拼出（`PublicURL` 为空时渠道在构造阶段就不可用，见 Task 8），调 `CreateSubscription`，返回 `{"checkoutUrl": url}`。
+
+同时给 `server/internal/aurora/tiers.go` 的 `Tier` 增加 `AntomAmountMinorMonthly string` 字段，在 `NewTierCatalog` 里写成 `"1900"` / `"5900"` / `"16900"`，并在 `tiers_test.go` 断言这三个值（这是 R2 补的计划缺口）。
 
 `beginAuroraSubscriptionCheckout` 把 `provider` 写进 `StartAuroraSubscriptionCheckoutParams.PaymentProvider`。冲突判定在现有规则上加两条：
 
