@@ -136,6 +136,21 @@ services:
       # intentionally NOT used to derive this value, to avoid Host /
       # X-Forwarded-Host spoofing on misconfigured proxies.
       MULTICA_PUBLIC_URL: ${MULTICA_PUBLIC_URL:-}
+      # Antom subscription channel. Every value here is part of one fail-closed
+      # decision: the server builds the client only when its credentials parse
+      # and MULTICA_PUBLIC_URL is set (the two notification URLs are derived
+      # from it), and only when ANTOM_CURRENCY is the currency the tier catalog
+      # prices. Anything else leaves the channel off — checkout answers 503 and
+      # the subscription response omits it — rather than charging a wrong
+      # amount. ANTOM_MERCHANT_PRIVATE_KEY and ANTOM_PUBLIC_KEY take PEM or
+      # base64 DER; double-quote a PEM value in .env so its newlines survive
+      # into the container.
+      ANTOM_CLIENT_ID: ${ANTOM_CLIENT_ID:-}
+      ANTOM_MERCHANT_PRIVATE_KEY: ${ANTOM_MERCHANT_PRIVATE_KEY:-}
+      ANTOM_PUBLIC_KEY: ${ANTOM_PUBLIC_KEY:-}
+      ANTOM_KEY_VERSION: ${ANTOM_KEY_VERSION:-}
+      ANTOM_API_BASE: ${ANTOM_API_BASE:-}
+      ANTOM_CURRENCY: ${ANTOM_CURRENCY:-}
       # Surface HTML must use a second, cookie-free browser origin routed to
       # this backend. Both settings are optional only in the sense that leaving
       # either empty disables plugin surfaces rather than weakening isolation.
