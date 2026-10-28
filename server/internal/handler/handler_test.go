@@ -3832,11 +3832,11 @@ func newTestAntomPEMs(t *testing.T) (privatePEM, publicPEM string) {
 }
 
 // TestNewHandlerBuildsAntomProviderFromConfig pins the env → provider wiring:
-// the six Antom values together decide whether the channel exists, so a
-// half-configured deployment gets no channel at all (every checkout then fails
-// closed with 503) instead of one that breaks at the first payment. New is
-// called with nil queries/txStarter — construction performs no I/O — so these
-// assertions depend only on Config.
+// the Antom values decide whether the channel exists, so a half-configured
+// deployment gets no channel at all (every checkout then fails closed with 503)
+// instead of one that breaks at the first payment. New is called with nil
+// queries/txStarter — construction performs no I/O — so these assertions depend
+// only on Config.
 func TestNewHandlerBuildsAntomProviderFromConfig(t *testing.T) {
 	privatePEM, publicPEM := newTestAntomPEMs(t)
 	complete := Config{
@@ -3875,6 +3875,46 @@ func TestNewHandlerBuildsAntomProviderFromConfig(t *testing.T) {
 		cfg.AntomMerchantPrivateKey = "not a key"
 		if h := buildHandler(cfg); h.Antom != nil {
 			t.Fatalf("Antom is %T, want nil when the private key cannot be parsed", h.Antom)
+		}
+	})
+
+	// The catalog prices its Antom amounts as bare minor units in
+	// aurora.AntomCurrency. Charging any other currency would send S$19/59/169 as
+	// that currency's numbers (25-35% under the intended price), so a mismatch
+	// leaves the channel off instead of being discovered at the first payment.
+	// Stripe must be unaffected: the two channels fail closed independently.
+	t.Run("currency the catalog does not price disables antom but not stripe", func(t *testing.T) {
+		cfg := complete
+		cfg.AntomCurrency = "usd"
+		cfg.StripeSecretKey = "sk_test_dummy"
+		cfg.StripeWebhookSecret = "whsec_dummy"
+		h := buildHandler(cfg)
+		if h.Antom != nil {
+			t.Fatalf("Antom is %T, want nil for a currency the catalog does not price", h.Antom)
+		}
+		if h.Payments == nil {
+			t.Fatal("Stripe was disabled by the Antom currency mismatch")
+		}
+	})
+
+	// Antom rejects a lower-case currency code at the first create, so the
+	// configured value is normalised before both the guard and the client.
+	t.Run("lower-case currency is normalised", func(t *testing.T) {
+		cfg := complete
+		cfg.AntomCurrency = "sgd"
+		if h := buildHandler(cfg); h.Antom == nil {
+			t.Fatal("Antom is nil for a lower-case spelling of the catalog currency")
+		}
+	})
+
+	// The gateway is an optional slot with a default, so a dropped field would
+	// still pass every other case; a non-allowlisted origin proves the value
+	// reaches the client.
+	t.Run("unlisted api base leaves the channel off", func(t *testing.T) {
+		cfg := complete
+		cfg.AntomAPIBase = "https://example.test"
+		if h := buildHandler(cfg); h.Antom != nil {
+			t.Fatalf("Antom is %T, want nil for a gateway that is not allowlisted", h.Antom)
 		}
 	})
 

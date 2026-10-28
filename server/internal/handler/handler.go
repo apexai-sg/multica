@@ -202,12 +202,15 @@ type Config struct {
 	// Antom* configure Aurora's second subscription channel. Like the Stripe
 	// keys they are server-side only: the merchant private key signs every
 	// request, and the Antom public key is what authenticates an incoming
-	// notification. All six reaching New together decide whether the channel
-	// exists — a half-configured deployment gets a nil provider, which every
-	// checkout reads as "this channel is off" (503), rather than a provider
-	// that breaks at the first payment. AntomCurrency is the single currency
-	// input: AntomClient charges its configured currency and ignores the
-	// per-request Currency field (R21).
+	// notification. Three are required — ClientID, MerchantPrivateKey,
+	// AntomPublicKey — and three have defaults — KeyVersion ("1"), APIBase (the
+	// Singapore gateway) and Currency (the catalog's currency); see
+	// aurora.NewAntomClient. A half-configured deployment gets a nil provider,
+	// which every checkout reads as "this channel is off" (503), rather than a
+	// provider that breaks at the first payment. AntomCurrency is the single
+	// currency input (R21): AntomClient charges its configured currency and
+	// ignores the per-request Currency field, and New refuses a currency the
+	// tier catalog does not price.
 	//   - AntomClientID           -> ANTOM_CLIENT_ID
 	//   - AntomMerchantPrivateKey -> ANTOM_MERCHANT_PRIVATE_KEY
 	//   - AntomPublicKey          -> ANTOM_PUBLIC_KEY
@@ -609,22 +612,38 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 	// UI from offering a checkout that cannot finish, instead of failing after
 	// the user has left for Antom. Same rule as Stripe for the interface field —
 	// never assign a nil concrete pointer, because every checkout reads
-	// h.Antom == nil as "this channel is off". Neither branch logs any part of
-	// the configuration; the error names the missing or unusable field only.
+	// h.Antom == nil as "this channel is off". No branch logs any part of the
+	// configuration; the error names the missing or unusable field only.
+	//
+	// ANTOM_CURRENCY stays the single currency input (R21), but it is not free
+	// text: the tier catalog's Antom amounts are bare minor units priced in
+	// aurora.AntomCurrency, so charging any other currency would send S$19/59/169
+	// as that currency's numbers — 25-35% under the intended price — and Antom
+	// rejects a lower-case code at the first create. Empty keeps the documented
+	// default; anything else must equal the catalog's currency.
+	antomCurrency := strings.ToUpper(strings.TrimSpace(cfg.AntomCurrency))
+	if antomCurrency == "" {
+		antomCurrency = aurora.AntomCurrency
+	}
 	var antom aurora.AntomProvider
 	if cfg.PublicURL == "" {
 		slog.Warn("antom payments disabled: MULTICA_PUBLIC_URL is unset")
+	} else if antomCurrency != aurora.AntomCurrency {
+		slog.Warn("antom payments disabled: currency the tier catalog does not price",
+			"configured", antomCurrency, "catalog", aurora.AntomCurrency)
 	} else if antomClient, err := aurora.NewAntomClient(aurora.AntomConfig{
 		ClientID:           cfg.AntomClientID,
 		MerchantPrivateKey: cfg.AntomMerchantPrivateKey,
 		AntomPublicKey:     cfg.AntomPublicKey,
 		KeyVersion:         cfg.AntomKeyVersion,
 		APIBase:            cfg.AntomAPIBase,
-		Currency:           cfg.AntomCurrency,
-	}); err == nil && antomClient != nil {
-		antom = antomClient
-	} else if err != nil {
+		Currency:           antomCurrency,
+	}); err != nil {
 		slog.Warn("antom payments disabled", "error", err)
+	} else if antomClient == nil {
+		slog.Warn("antom payments disabled: new client is nil")
+	} else {
+		antom = antomClient
 	}
 	h := &Handler{
 		Queries:                queries,

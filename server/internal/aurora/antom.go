@@ -604,8 +604,9 @@ func (c *AntomClient) CreateSubscription(ctx context.Context, req AntomSubscript
 	if err := validateAntomMinorUnits(req.Amount); err != nil {
 		return "", fmt.Errorf("antom %s: %w", antomPathCreateSubscription, err)
 	}
-	// The channel charges in its configured currency; the tier catalog reports
-	// the same code, so a configured deployment cannot diverge here.
+	// The channel charges in its configured currency, never the request's. The
+	// tier catalog's amounts are bare minor units, so the two agree only because
+	// the handler refuses a currency the catalog does not price (R21).
 	amount := antomAmount{Currency: c.cfg.Currency, Value: req.Amount}
 	payload := antomSubscriptionCreateRequest{
 		SubscriptionRequestID:       req.RequestID,
