@@ -160,25 +160,28 @@ groups:
             minutes. Every 401 from these routes logs the same message,
             "antom notification failed verification", with the cause in its
             error attribute, so the count alone does not separate a key problem
-            from junk. Compare with result="ok" on the same route, which is
-            cumulative since the process started. With ok above zero an
-            accepted notification has already proven the signature and key
-            version correct, so these rejects are junk or stale-credential
-            requests against a public path, or one distinct payload the parser
-            refuses; do not rotate the key. With ok at zero the discriminator
-            is whether real notifications sit behind the rejects: a route that
-            has never succeeded and carries nothing but 401s is more likely a
-            scanner on a public path, while failures on a route that real
-            subscriptions use point at a key or key version that no longer
-            matches the sending account — replace ANTOM_PUBLIC_KEY /
-            ANTOM_KEY_VERSION and restart, since no retry fixes a wrong key.
-            The error attribute names the cause either way: "signature does not
-            verify", a client-id or keyVersion message are signature failures;
-            "decode body", "neither paymentId nor subscriptionStatus" and "no
+            from junk. Compare with the RATE of result="ok" on the same route,
+            not its total: ok is cumulative since the process started and never
+            decreases, so a public key rotated on the Antom side — which takes
+            effect without a restart on ours — leaves a healthy-looking total
+            while every new notification is rejected. If ok is still advancing
+            alongside the rejects, the key and version in use do verify
+            notifications, so the rejects are junk or stale-credential requests
+            against a public path, or one payload the parser refuses; do not
+            rotate the key. If ok has stopped advancing while the rejects rise,
+            the configured key or key version does not match the account
+            sending — a rotation, and equally a key that never matched, such as
+            one misconfigured at deploy — so replace ANTOM_PUBLIC_KEY /
+            ANTOM_KEY_VERSION and restart, since no retry fixes a wrong key. A
+            route with no subscriptions behind it and nothing but 401s is a
+            scanner first; rule that out before rotating. The error attribute
+            names the cause either way: "signature does not verify", a client-id
+            or keyVersion message are signature failures; "decode body",
+            "neither paymentId nor subscriptionStatus" and "no
             result.resultStatus" mean the signature was valid and the payload
-            could not be read, which clears only if the sender's next delivery
-            arrives intact — the missing-result case is rejected on purpose so
-            Antom re-sends a body it may fix.
+            could not be read, which clears only when Antom sends a regenerated
+            payload — the missing-result case is rejected on purpose instead of
+            being acked, waiting for exactly that.
 
       # An Antom notification that verified and was acked without granting
       # anything, per route. On the Antom labels `unknown` is a real outcome,

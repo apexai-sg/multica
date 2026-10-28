@@ -272,7 +272,7 @@ handler 里）：
 | 我们的响应 | 含义 |
 |---|---|
 | `200` + 固定确认报文 | 已落库，或**故意丢弃**（未知订阅、不支持的通知类型、扣款路由收到生命周期负载）。Antom 见到它才停止重试 |
-| `401` | `VerifyNotification` 返回任何错误，两种原因：①**验签不过**（`client-id`/`request-time`/`signature` 任一不符）；②**验签通过但报文读不懂**（JSON 非法、既无 `paymentId` 也无 `subscriptionStatus`、付款通知缺 `result.resultStatus`）。两种都记 `result="invalid_signature"`，日志里是同一句 `antom notification failed verification`，靠 `error` 字段区分：签名类是 `antom notification: signature does not verify`（或 `client-id`/`client`/`keyVersion` 相关），解析类是 `decode body` / `neither paymentId nor subscriptionStatus` / `no result.resultStatus`。签名错的重发也过不了；报文读不懂则重发**同样的字节**通常也没用，但截断或传输损坏的报文可能在下一次投递时是完整的——`parseAntomNotification` 对缺 `result.resultStatus` 的付款通知就是特意返回错误，**让 Antom 重发一个可能被修正的 body** |
+| `401` | `VerifyNotification` 返回任何错误，两种原因：①**验签不过**（`client-id`/`request-time`/`signature` 任一不符）；②**验签通过但报文读不懂**（JSON 非法、既无 `paymentId` 也无 `subscriptionStatus`、付款通知缺 `result.resultStatus`）。两种都记 `result="invalid_signature"`，日志里是同一句 `antom notification failed verification`，靠 `error` 字段区分：签名类是 `antom notification: signature does not verify`（或 `client-id`/`client`/`keyVersion` 相关），解析类是 `decode body` / `neither paymentId nor subscriptionStatus` / `no result.resultStatus`。签名错的重发也过不了；报文读不懂则是 Antom 签过、我们的解析器却不认的 body——签名覆盖**收到的确切字节**，`verifyAntomNotificationSignature` 又在解析之前执行，所以传输中损坏的 body 只会落成验签失败或 `413`，根本到不了解析器。因此重发同一份 body 必然同样失败，只有 Antom 自己重新生成一份合法报文才会恢复：`parseAntomNotification` 对缺 `result.resultStatus` 的付款通知特意返回错误而不 ack，等的就是这一次重新生成 |
 | `400` / `413` | 请求体读不出来（`400 invalid body`）或超过 `maxAntomNotifyBodySize`（64 KiB，`413 request body is too large`），记 `result="bad_request"`，发生在验签之前。`400` 可能是传输中断、重试有机会恢复；`413` 是同一个 body 必然重演——上限是代码里的常量，只能改常量或让 Antom 发更小的报文 |
 | `503` | 渠道关着（`h.Antom == nil`，`antom not configured`），记 `result="not_configured"`。沙箱联调最容易先撞上的就是这一条：先回上面的环境变量一节核对六个 `ANTOM_*` 与 `MULTICA_PUBLIC_URL` |
 | `500` | 可重试失败：查行/写库/授积分出错，或付款通知声称成功但没带可用的账期。**不确认**，让 Antom 重发 |
@@ -300,7 +300,8 @@ handler 里）：
 （所有 ack 分支共用 `writeAntomAck`）。
 
 生产验证时相反：`500` 是**正常**的失败信号，渠道会重投，所以 `handler_error` 的告警在
-重投期间持续为真属预期；`401` 不会因为重投而好转。
+重投期间持续为真属预期。`401` 要分两类看：签名类（公钥或密钥版本不对）重投也永远不会
+好转；解析类则可能在 Antom 重新生成一份合法报文后恢复（见上表的 `401` 行）。
 
 ### 取消语义：`CANCEL` vs `TERMINATE`
 
