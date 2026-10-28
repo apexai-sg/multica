@@ -18,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/multica-ai/multica/server/internal/aurora"
 	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/storage"
@@ -2741,15 +2742,45 @@ func TestAntomSubscriptionNotificationAcksUnhandledType(t *testing.T) {
 	}
 }
 
-// A row whose tier is not in this deployment's catalog cannot be granted, and
-// a retry cannot add the tier back.
-func TestAntomPaymentNotificationAcksUnknownTier(t *testing.T) {
+// A tier this deployment no longer sells cannot be granted, but the charge is
+// still a charge: the row must advance so the user is not left pending with no
+// period, and only the allowance is skipped.
+func TestAntomPaymentNotificationAppliesChargeForUnknownTier(t *testing.T) {
 	creditTestReset(t)
 	auroraSubscriptionTestReset(t)
 	dbfx.Insert(t, "aurora_subscription", testutil.Cols{
 		"user_id": testUserID, "tier": "retired-plan", "status": "pending",
 		"payment_provider": "antom", "checkout_idempotency_key": "aurora-sub-x",
 	})
+	periodStart := time.Now().UTC().Truncate(time.Second)
+	periodEnd := periodStart.Add(30 * 24 * time.Hour)
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomPaymentNotification("aurora-sub-x", "S1", "S", periodStart, periodEnd),
+	})
+
+	resp := postAntomNotification(t, testHandler.AntomPaymentNotification, antomNotifyPathPayment)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	status, antomID, _, end := antomSubscriptionState(t)
+	if status != "active" || antomID != "S1" {
+		t.Fatalf("row = %s/%s, want the charge recorded as active/S1", status, antomID)
+	}
+	if end == nil || !end.UTC().Equal(periodEnd) {
+		t.Fatalf("current_period_end = %v, want %v", end, periodEnd)
+	}
+	if got := antomBalance(t); got != 0 {
+		t.Fatalf("balance = %d, want no grant for a tier outside the catalog", got)
+	}
+}
+
+// The charge route has the same terminal guard as the lifecycle route: a late
+// success on a terminated subscription is acked, grants nothing, and leaves the
+// canceled state and its period alone.
+func TestAntomPaymentNotificationIgnoresTerminatedSubscription(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "canceled", "aurora-sub-x", "S1")
 	periodStart := time.Now().UTC().Truncate(time.Second)
 	installAuroraAntom(t, &fakeAntom{
 		notification: antomPaymentNotification("aurora-sub-x", "S1", "S", periodStart, periodStart.Add(30*24*time.Hour)),
@@ -2759,34 +2790,132 @@ func TestAntomPaymentNotificationAcksUnknownTier(t *testing.T) {
 	resp.Want(http.StatusOK)
 	wantAntomAck(t, resp)
 
-	if status, _, _, _ := antomSubscriptionState(t); status != "pending" {
-		t.Fatalf("subscription status = %q, want the row untouched", status)
+	status, antomID, _, end := antomSubscriptionState(t)
+	if status != "canceled" || antomID != "S1" || end != nil {
+		t.Fatalf("row = %s/%s/%v, want the terminated state untouched", status, antomID, end)
 	}
 	if got := antomBalance(t); got != 0 {
-		t.Fatalf("balance = %d, want no grant", got)
+		t.Fatalf("balance = %d, want no grant after termination", got)
 	}
 }
 
 // Retrying cannot conjure a local row, so an unmatched notification is acked
-// and logged instead of being replayed eight times.
+// and logged instead of being replayed eight times — on both routes, which
+// share findAntomSubscription.
 func TestAntomNotificationAcksUnknownSubscription(t *testing.T) {
-	creditTestReset(t)
-	auroraSubscriptionTestReset(t)
 	periodStart := time.Now().UTC().Truncate(time.Second)
-	installAuroraAntom(t, &fakeAntom{
-		notification: antomPaymentNotification("aurora-sub-missing", "S-missing", "S", periodStart, periodStart.Add(30*24*time.Hour)),
+	for name, route := range map[string]struct {
+		handler      http.HandlerFunc
+		path         string
+		notification aurora.AntomNotification
+	}{
+		"payment": {
+			testHandler.AntomPaymentNotification,
+			antomNotifyPathPayment,
+			antomPaymentNotification("aurora-sub-missing", "S-missing", "S", periodStart, periodStart.Add(30*24*time.Hour)),
+		},
+		"subscription": {
+			testHandler.AntomSubscriptionNotification,
+			antomNotifyPathSubscription,
+			antomSubscriptionEvent("aurora-sub-missing", "S-missing", "CREATE", "ACTIVE"),
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			creditTestReset(t)
+			auroraSubscriptionTestReset(t)
+			installAuroraAntom(t, &fakeAntom{notification: route.notification})
+
+			resp := postAntomNotification(t, route.handler, route.path)
+			resp.Want(http.StatusOK)
+			wantAntomAck(t, resp)
+
+			if n := dbfx.Count(t, `SELECT count(*) FROM aurora_subscription WHERE user_id = $1`, testUserID); n != 0 {
+				t.Fatalf("subscription rows = %d, want none created for an unknown notification", n)
+			}
+			if got := antomBalance(t); got != 0 {
+				t.Fatalf("balance = %d, want 0", got)
+			}
+		})
+	}
+}
+
+// deadQueries builds a query set over a pool nothing can connect to, so a test
+// can put a database failure on exactly one step of a handler.
+func deadQueries(t *testing.T) (*db.Queries, *pgxpool.Pool) {
+	t.Helper()
+	pool, err := pgxpool.New(context.Background(),
+		"postgres://multica:multica@127.0.0.1:1/multica?sslmode=disable&connect_timeout=1")
+	if err != nil {
+		t.Fatalf("build an unreachable pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	return db.New(pool), pool
+}
+
+// Every server-side failure is a 500 with no acknowledgement, so Antom keeps
+// retrying; the ack must never appear on one. Each case fails a different step.
+func TestAntomNotificationServerErrorsNeverAck(t *testing.T) {
+	periodStart := time.Now().UTC().Truncate(time.Second)
+	notification := antomPaymentNotification("aurora-sub-x", "S1", "S", periodStart, periodStart.Add(30*24*time.Hour))
+	wantNoAck := func(t *testing.T, resp *testutil.Response) {
+		t.Helper()
+		resp.Want(http.StatusInternalServerError)
+		if body := resp.Text(); body == wantAntomAckBody {
+			t.Fatal("a server-side failure was acknowledged, so Antom will not retry")
+		}
+	}
+
+	t.Run("lookup error", func(t *testing.T) {
+		creditTestReset(t)
+		auroraSubscriptionTestReset(t)
+		seedAntomSubscription(t, "pending", "aurora-sub-x", "")
+		installAuroraAntom(t, &fakeAntom{notification: notification})
+		queries, _ := deadQueries(t)
+		old := testHandler.Queries
+		testHandler.Queries = queries
+		t.Cleanup(func() { testHandler.Queries = old })
+
+		wantNoAck(t, postAntomNotification(t, testHandler.AntomPaymentNotification, antomNotifyPathPayment))
 	})
 
-	resp := postAntomNotification(t, testHandler.AntomPaymentNotification, antomNotifyPathPayment)
-	resp.Want(http.StatusOK)
-	wantAntomAck(t, resp)
+	t.Run("write error", func(t *testing.T) {
+		creditTestReset(t)
+		auroraSubscriptionTestReset(t)
+		seedAntomSubscription(t, "pending", "aurora-sub-x", "")
+		// Another row already owns S1, so the upsert breaks the unique index.
+		dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+			"user_id": uuid.NewString(), "tier": "creator", "status": "active",
+			"payment_provider": "antom", "antom_subscription_id": "S1",
+		})
+		installAuroraAntom(t, &fakeAntom{notification: notification})
 
-	if n := dbfx.Count(t, `SELECT count(*) FROM aurora_subscription WHERE user_id = $1`, testUserID); n != 0 {
-		t.Fatalf("subscription rows = %d, want none created for an unknown notification", n)
-	}
-	if got := antomBalance(t); got != 0 {
-		t.Fatalf("balance = %d, want 0", got)
-	}
+		wantNoAck(t, postAntomNotification(t, testHandler.AntomPaymentNotification, antomNotifyPathPayment))
+
+		status, antomID, _, end := antomSubscriptionState(t)
+		if status != "pending" || antomID != "" || end != nil {
+			t.Fatalf("row = %s/%s/%v, want the write rolled back", status, antomID, end)
+		}
+	})
+
+	t.Run("grant error", func(t *testing.T) {
+		creditTestReset(t)
+		auroraSubscriptionTestReset(t)
+		seedAntomSubscription(t, "pending", "aurora-sub-x", "")
+		installAuroraAntom(t, &fakeAntom{notification: notification})
+		queries, pool := deadQueries(t)
+		old := testHandler.Credit
+		testHandler.Credit = aurora.NewCreditService(queries, pool)
+		t.Cleanup(func() { testHandler.Credit = old })
+
+		wantNoAck(t, postAntomNotification(t, testHandler.AntomPaymentNotification, antomNotifyPathPayment))
+
+		// The charge itself was recorded before the grant failed, so the retry
+		// only has to grant.
+		status, antomID, _, end := antomSubscriptionState(t)
+		if status != "active" || antomID != "S1" || end == nil {
+			t.Fatalf("row = %s/%s/%v, want the charge recorded before the failed grant", status, antomID, end)
+		}
+	})
 }
 
 // An unconfigured channel fails closed: nothing is acked, so a notification

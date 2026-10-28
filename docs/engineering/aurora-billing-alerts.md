@@ -25,28 +25,34 @@ no prewarm and appears on the first 402.
 
 | Metric | Labels | Meaning |
 | --- | --- | --- |
-| `multica_aurora_billing_webhook_events_total` | `event`, `result` | One increment per Stripe webhook request. |
+| `multica_aurora_billing_webhook_events_total` | `event`, `result` | One increment per billing webhook request: a Stripe event or an Antom notification. |
 | `multica_aurora_billing_settlement_runs_total` | `result` | One increment per monthly settlement run. |
 | `multica_aurora_billing_credit_shortfalls_total` | none | One increment per generation create answered 402. |
 
 `result` on the webhook counter is a closed set of the branches in
-`Handler.StripeWebhook` (`server/internal/handler/aurora.go`):
+`Handler.StripeWebhook` and the two Antom notification handlers
+(`server/internal/handler/aurora.go`). The HTTP codes below are the Stripe
+route's; the Antom routes answer 401 for `invalid_signature`, 400/413 for
+`bad_request`, 429 for `rate_limited`, 503 for `not_configured` and 500 for
+`handler_error`.
 
 | `result` | HTTP | Cause |
 | --- | --- | --- |
-| `ok` | 200 | Event verified and accepted: the ledger write landed, or the handler intentionally did not act on it (an unconsumed event type, malformed metadata it acks rather than retries, or an unpaid checkout session). |
-| `handler_error` | 500 | `handleStripeEvent` failed; Stripe will retry. This is the failure signal. |
-| `not_configured` | 503 | `Payments` is nil — `STRIPE_SECRET_KEY` or `STRIPE_WEBHOOK_SECRET` is unset. |
-| `invalid_signature` | 401/400 | Missing `Stripe-Signature`, or `ConstructEvent` rejected the body. |
+| `ok` | 200 | Event verified and accepted: the ledger write landed, or the handler intentionally did not act on it (an unconsumed event type, malformed metadata it acks rather than retries, an unpaid checkout session, or an Antom notification discarded on purpose — an unknown subscription or an unhandled notification type). |
+| `handler_error` | 500 | `handleStripeEvent`, or an Antom notification's lookup, write or grant, failed; the channel will retry. This is the failure signal. |
+| `not_configured` | 503 | The channel is unconfigured: `Payments` is nil (`STRIPE_SECRET_KEY` or `STRIPE_WEBHOOK_SECRET` unset) on the Stripe route, `Antom` is nil on the Antom routes (its six `ANTOM_*` variables or `MULTICA_PUBLIC_URL` missing). |
+| `invalid_signature` | 401/400 | Missing or unparsable signature header: `Stripe-Signature` absent or rejected by `ConstructEvent`, or an Antom notification whose `client-id`, `request-time` and `signature` headers do not verify. |
 | `bad_request` | 400/413 | Body unreadable or above the size cap. |
 | `rate_limited` | 429 | Per-IP webhook ingress limiter refused the sender. |
-| `unknown` | — | An outcome no call site classified. Must stay at zero. |
+| `unknown` | — | An Antom notification acknowledged without a write (unknown subscription, tier or notification type), or — on the Stripe event labels only — an outcome no call site classified. Must stay at zero on the Stripe labels. |
 
 `event` is the Stripe event type from the verified payload
 (`checkout.session.completed`, `checkout.session.async_payment_succeeded`,
-`customer.subscription.updated`, `customer.subscription.deleted`). A verified
-but unconsumed type folds onto `other`; a request rejected before verification
-carries `unknown`. The label is never an event id, user, or workspace.
+`customer.subscription.updated`, `customer.subscription.deleted`), or the Antom
+notification route (`antom_payment_notify`, `antom_subscription_notify`). A
+verified but unconsumed type folds onto `other`; a request rejected before
+verification carries `unknown`. The label is never an event id, user, or
+workspace.
 
 Settlement `result` is `ok` or `failed`; a failed run means paying users were
 not granted and the next tick retries (see
@@ -77,9 +83,9 @@ Copy the group into the deployment's Prometheus rule files.
 groups:
   - name: aurora-billing
     rules:
-      # The webhook is failing with a 5xx. The handler's only 5xx branches are
-      # handler_error (500) and not_configured (503); Stripe retries both, so a
-      # non-zero rate means grants are not landing.
+      # The webhook is failing with a 5xx. The handlers' only 5xx branches are
+      # handler_error (500) and not_configured (503); the channel retries both,
+      # so a non-zero rate means grants are not landing.
       - alert: AuroraBillingWebhook5xx
         expr: sum(increase(multica_aurora_billing_webhook_events_total{result=~"handler_error|not_configured"}[10m])) > 0
         for: 0m
@@ -88,17 +94,28 @@ groups:
         annotations:
           summary: Aurora billing webhook is answering 5xx
           description: >-
-            {{ $value }} failed webhook request(s) in the last 10 minutes.
-            not_configured means the Stripe keys are unset; handler_error means
-            the event reached the ledger code and failed. Stripe retries, so
-            check server logs for "stripe webhook handling failed".
+            {{ $value }} failed webhook request(s) in the last 10 minutes, on
+            the event label that names the channel. not_configured means that
+            channel has no credentials: the Stripe keys on a Stripe event, the
+            ANTOM_* variables and MULTICA_PUBLIC_URL on an antom_*_notify
+            event. handler_error means the request reached the billing code and
+            failed; both channels retry, so check the server log for
+            "stripe webhook handling failed" or "antom ... failed" with the
+            subscription and payment ids.
 
       # A sustained share of requests the webhook rejects without a 5xx. A
       # wrong webhook secret makes every request invalid_signature; a scanner
-      # hitting the public route makes it a trickle.
+      # hitting the public route makes it a trickle. `unknown` is counted for
+      # the Stripe event labels only: the Antom handlers use it deliberately
+      # for notifications they ack without writing, which is benign traffic.
+      # Both sums are prewarmed, so the numerator is never an empty vector.
       - alert: AuroraBillingWebhookRejections
         expr: >-
-          sum(rate(multica_aurora_billing_webhook_events_total{result=~"invalid_signature|bad_request|rate_limited|unknown"}[5m]))
+          (
+            sum(rate(multica_aurora_billing_webhook_events_total{result=~"invalid_signature|bad_request|rate_limited"}[5m]))
+            +
+            sum(rate(multica_aurora_billing_webhook_events_total{result="unknown",event!~"antom_payment_notify|antom_subscription_notify"}[5m]))
+          )
           /
           sum(rate(multica_aurora_billing_webhook_events_total[5m])) > 0.2
         for: 15m
@@ -108,8 +125,10 @@ groups:
           summary: More than 20% of Aurora webhook requests are rejected
           description: >-
             Sustained for 15 minutes. invalid_signature points at a secret
-            mismatch between Stripe and STRIPE_WEBHOOK_SECRET; unknown points at
-            a call site that was added without classifying its result.
+            mismatch — STRIPE_WEBHOOK_SECRET on the Stripe route, the Antom
+            public key or key version on the Antom routes; unknown on a Stripe
+            event label points at a call site that was added without
+            classifying its result.
 
       # A settlement run failed. One run covers every subscription, so a single
       # failure is a whole month of grants missing until the next tick. Per-user
