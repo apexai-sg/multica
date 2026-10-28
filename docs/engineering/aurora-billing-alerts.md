@@ -38,10 +38,10 @@ route's; the Antom routes answer 401 for `invalid_signature`, 400/413 for
 
 | `result` | HTTP | Cause |
 | --- | --- | --- |
-| `ok` | 200 | Event verified and accepted: the ledger write landed, or the handler intentionally did not act on it (an unconsumed event type, malformed metadata it acks rather than retries, an unpaid checkout session, or an Antom notification acked without a change — an unknown subscription, an unhandled notification type, a non-payment payload on the charge route, or a write the terminal-state guard declined). |
+| `ok` | 200 | Event verified and accepted: the ledger write landed, or the handler intentionally did not act on it (an unconsumed event type, malformed metadata it acks rather than retries, an unpaid checkout session; on the Antom routes the only `ok` that grants nothing is a write the terminal-state guard declined — every other acked-without-change case is `unknown`). |
 | `handler_error` | 500 | `handleStripeEvent`, or an Antom notification's lookup, write or grant, failed — including a paid notification whose period is missing or not after its start; the channel will retry. This is the failure signal. |
 | `not_configured` | 503 | The channel is unconfigured: `Payments` is nil (`STRIPE_SECRET_KEY` or `STRIPE_WEBHOOK_SECRET` unset) on the Stripe route, `Antom` is nil on the Antom routes (its six `ANTOM_*` variables or `MULTICA_PUBLIC_URL` missing). |
-| `invalid_signature` | 401/400 | Missing or unparsable signature header: `Stripe-Signature` absent or rejected by `ConstructEvent`, or an Antom notification whose `client-id`, `request-time` and `signature` headers do not verify. |
+| `invalid_signature` | 401/400 | `Stripe-Signature` absent or rejected by `ConstructEvent`; on the Antom routes, any error from `VerifyNotification` — the `client-id`, `request-time` and `signature` headers do not verify, **or** the body does not parse after a valid signature (invalid JSON, neither `paymentId` nor `subscriptionStatus`, or a payment notification without `result.resultStatus`). |
 | `bad_request` | 400/413 | Body unreadable or above the size cap. |
 | `rate_limited` | 429 | Per-IP webhook ingress limiter refused the sender. |
 | `unknown` | — | An Antom notification acked without granting its allowance: an unknown subscription, an unhandled notification type, or a charge applied to a row whose tier the catalog does not know — the paid-but-ungranted case, whose only signal is `antom subscription allowance skipped for an unknown tier` in the server log. On the Stripe event labels only: an outcome no call site classified, which must stay at zero. |
@@ -135,37 +135,43 @@ groups:
 
       # The two Antom notification routes carry their own event labels, so the
       # Antom channel can be judged on its own instead of as a share of all
-      # webhook traffic. This rule is the per-channel version of the rejection
-      # rule above: a share-of-everything threshold can dilute an Antom-only
-      # failure below 20%, and a wrong ANTOM_PUBLIC_KEY or ANTOM_KEY_VERSION
-      # makes every authenticated notification fail. Invalid signatures also
-      # match a scanner posting junk at the public paths; the description says
-      # how to tell the two apart.
-      - alert: AuroraAntomNotificationFailures
+      # webhook traffic: the share-based rejection rule above can push an
+      # Antom-only failure under its 20% threshold on a deployment that also
+      # receives Stripe traffic. This rule covers invalid_signature only — our
+      # own 500s stay with AuroraBillingWebhook5xx, which is already absolute
+      # and needs no per-route twin. invalid_signature is recorded for two
+      # different failures: a request whose signature does not verify, and a
+      # verified request whose body will not parse.
+      - alert: AuroraAntomNotificationRejections
         expr: >-
-          sum by (event, result) (
+          sum by (event) (
             increase(multica_aurora_billing_webhook_events_total{
               event=~"antom_payment_notify|antom_subscription_notify",
-              result=~"invalid_signature|handler_error"
+              result="invalid_signature"
             }[1h])
           ) > 3
         for: 30m
         labels:
           severity: ticket
         annotations:
-          summary: Antom notifications are failing on {{ $labels.event }} ({{ $labels.result }})
+          summary: Antom notifications are being rejected on {{ $labels.event }}
           description: >-
-            More than 3 failures per hour, sustained for 30 minutes.
-            invalid_signature with a non-zero ok count on the same route is a
-            key mismatch: the Antom public key or key version does not match
-            the account that is sending, and Antom's retries cannot fix it —
-            replace ANTOM_PUBLIC_KEY/ANTOM_KEY_VERSION and restart.
-            invalid_signature with ok at zero and no subscription activity is
-            more likely a scanner on the public path. handler_error is our own
-            500 (lookup, write, grant, or a paid notification with no usable
-            billing period) and does clear on Antom's retry: see the server log
-            for "antom notification" entries carrying the subscription and
-            payment ids.
+            More than 3 rejected notifications per hour, sustained for 30
+            minutes. Compare with result="ok" on the same route, which is
+            cumulative since the process started. With ok above zero the
+            signature and key version have already been proven correct by an
+            accepted notification, so these rejects are junk or
+            stale-credential requests against a public path, or one distinct
+            payload the parser refuses; do not rotate the key. With ok at zero
+            nothing on that route has been accepted at all, and the log line
+            decides between the two causes: "antom notification failed
+            verification" means the Antom public key or key version does not
+            match the account sending, which retries cannot fix, so replace
+            ANTOM_PUBLIC_KEY/ANTOM_KEY_VERSION and restart; a decode or parse
+            message ("decode body", "neither paymentId nor
+            subscriptionStatus", "no result.resultStatus") means the signature
+            was valid and the payload could not be read — retries do not fix
+            that either, so read the body Antom sent.
 
       # An Antom notification that verified and was acked without granting
       # anything, per route. On the Antom labels `unknown` is a real outcome,
@@ -276,12 +282,15 @@ sum by (event) (
 )
 ```
 
-The first query is the one to read when either rule fires: its `event` label
-says which route, and the server log carries the ids to match the notification
-to a subscription. The second tells "Antom is not calling" from "Antom is
-calling a channel that is off", which no rate-based rule can distinguish. The
-Antom runbook in `docs/engineering/aurora-2day-payable-launch-note.md` covers
-the operator-side checklist and `cmd/antom-inquiry`.
+The first query is the one to read when the rejection rule fires: its `event`
+label says which route, and the server log carries the ids to match the
+notification to a subscription. The second is not a rate at all: because the
+counter is cumulative, it answers "has Antom ever reached these routes while
+the channel was off, since this process started", which the `not_configured`
+series in `AuroraBillingWebhook5xx` cannot — that rule only looks at the last
+10 minutes. The Antom runbook in
+`docs/engineering/aurora-2day-payable-launch-note.md` covers the operator-side
+checklist and `cmd/antom-inquiry`.
 
 ## Prerequisites: enable the metrics listener first
 

@@ -39,6 +39,12 @@ import (
 // clock an operator waits for.
 const inquiryTimeout = 60 * time.Second
 
+// antomDefaultAPIBase mirrors antomDefaultAPIBase in internal/aurora, which is
+// unexported and AntomClient keeps its resolved config private. The command
+// needs it only to show the gateway a run actually hit; the value is not a
+// secret and NewAntomClient has already validated whatever the operator set.
+const antomDefaultAPIBase = "https://open-sea-global.alipay.com"
+
 func main() {
 	subscriptionID := flag.String("subscription-id", "", "Antom subscription id to inquire")
 	flag.Parse()
@@ -56,18 +62,29 @@ func main() {
 
 func run(subscriptionID string) error {
 	// Same names and the same trimming as server/cmd/server/router.go. Currency
-	// is passed through unchanged because an inquiry carries no amount; only the
-	// checkout path depends on the tier catalog's currency.
+	// is not normalised here (the server upper-cases it and then refuses anything
+	// but the catalog's currency) because this command never charges: the
+	// inquiry body is only the subscription id.
+	apiBase := strings.TrimRight(strings.TrimSpace(os.Getenv("ANTOM_API_BASE")), "/")
 	client, err := aurora.NewAntomClient(aurora.AntomConfig{
 		ClientID:           strings.TrimSpace(os.Getenv("ANTOM_CLIENT_ID")),
 		MerchantPrivateKey: strings.TrimSpace(os.Getenv("ANTOM_MERCHANT_PRIVATE_KEY")),
 		AntomPublicKey:     strings.TrimSpace(os.Getenv("ANTOM_PUBLIC_KEY")),
 		KeyVersion:         strings.TrimSpace(os.Getenv("ANTOM_KEY_VERSION")),
-		APIBase:            strings.TrimSpace(os.Getenv("ANTOM_API_BASE")),
+		APIBase:            apiBase,
 		Currency:           strings.TrimSpace(os.Getenv("ANTOM_CURRENCY")),
 	})
 	if err != nil {
 		return err
+	}
+
+	// Printed first so the operator reads every following line in the context of
+	// the gateway it came from: the sandbox and production are separate accounts,
+	// and an inquiry answered by the wrong one looks like a plausible result.
+	if apiBase == "" {
+		fmt.Printf("api_base: %s (default; ANTOM_API_BASE unset)\n", antomDefaultAPIBase)
+	} else {
+		fmt.Printf("api_base: %s\n", apiBase)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), inquiryTimeout)
