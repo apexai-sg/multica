@@ -2636,6 +2636,43 @@ func TestAntomSubscriptionNotificationTerminates(t *testing.T) {
 	}
 }
 
+// The two fields can disagree, and both disagreements must end the
+// subscription: a TERMINATE type whose status string does not read TERMINATED
+// is still an authoritative termination, and a CANCEL that arrives with a
+// TERMINATED status is an end, not a scheduled cancellation. Ordering the
+// status check after the type checks would render "cancellation scheduled" for
+// an ended plan, and dropping the type disjunct would ack a TERMINATE as an
+// unhandled transition while the row stayed active.
+func TestAntomSubscriptionNotificationTerminationWinsOverDisagreeingFields(t *testing.T) {
+	cases := []struct {
+		name             string
+		notificationType string
+		status           string
+	}{
+		{name: "terminate_type_with_active_status", notificationType: "TERMINATE", status: "ACTIVE"},
+		{name: "cancel_type_with_terminated_status", notificationType: "CANCEL", status: "TERMINATED"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			creditTestReset(t)
+			auroraSubscriptionTestReset(t)
+			seedAntomSubscription(t, "active", "aurora-sub-x", "S1")
+			installAuroraAntom(t, &fakeAntom{
+				notification: antomSubscriptionEvent("", "S1", tc.notificationType, tc.status),
+			})
+
+			resp := postAntomNotification(t, testHandler.AntomSubscriptionNotification, antomNotifyPathSubscription)
+			resp.Want(http.StatusOK)
+			wantAntomAck(t, resp)
+
+			status, antomID, cancelAtPeriodEnd, _ := antomSubscriptionState(t)
+			if status != "canceled" || antomID != "S1" || cancelAtPeriodEnd {
+				t.Fatalf("row = %s/%s/cancel_at_period_end=%v, want canceled/S1/false", status, antomID, cancelAtPeriodEnd)
+			}
+		})
+	}
+}
+
 // A body that says TERMINATED ends the subscription even when its
 // subscriptionNotificationType is one this channel does not map. Falling into
 // the unhandled-type path would ack the termination with the row still active,
