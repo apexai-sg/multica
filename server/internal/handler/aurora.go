@@ -1513,6 +1513,7 @@ func (h *Handler) beginAuroraSubscriptionCheckout(
 		Tier:                   tier,
 		CheckoutIdempotencyKey: strToText(checkoutID),
 		CheckoutBillingCycle:   strToText(billingCycle),
+		PaymentProvider:        "stripe",
 	}); err != nil {
 		return "", err
 	}

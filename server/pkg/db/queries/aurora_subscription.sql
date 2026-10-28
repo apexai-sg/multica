@@ -1,7 +1,7 @@
 -- name: StartAuroraSubscriptionCheckout :one
--- Persist the checkout intent before calling Stripe. Reusing the stored key makes
--- retries and simultaneous tabs converge on one Stripe Checkout Session.
--- payment_provider stamps the channel the intent belongs to.
+-- Persist the checkout intent before calling the payment channel. Reusing the
+-- stored key makes retries and simultaneous tabs converge on one hosted
+-- Checkout Session. payment_provider stamps the channel the intent belongs to.
 INSERT INTO aurora_subscription (
     user_id, tier, status, stripe_customer_id, stripe_subscription_id,
     current_period_end, cancel_at_period_end, checkout_idempotency_key,
@@ -17,6 +17,9 @@ ON CONFLICT (user_id) DO UPDATE SET
     status = 'pending',
     stripe_customer_id = NULL,
     stripe_subscription_id = NULL,
+    -- A new intent belongs to no Antom subscription yet, so a late
+    -- notification for the previous one can no longer match this row.
+    antom_subscription_id = NULL,
     current_period_end = NULL,
     cancel_at_period_end = false,
     checkout_idempotency_key = EXCLUDED.checkout_idempotency_key,
@@ -67,9 +70,16 @@ RETURNING id, user_id, tier, status, stripe_customer_id, stripe_subscription_id,
 -- Antom notifications carry no ordering timestamp, so ordering comes from the
 -- row's terminal state instead: a canceled row addressed by the same Antom
 -- subscription is never rewritten, while a different antom_subscription_id is a
--- resubscription and may overwrite it. payment_provider is stamped at checkout
--- and is deliberately not written here; the checkout intent key is kept so the
--- returning browser can still resolve its own checkout.
+-- resubscription and may overwrite it. When the guard declines the write the
+-- statement returns no row, which callers read as pgx.ErrNoRows: nothing was
+-- applied, and retrying the same notification will not change that.
+-- payment_provider is stamped at checkout and is deliberately not written here;
+-- the checkout intent key is kept so the returning browser can still resolve its
+-- own checkout.
+--
+-- The INSERT branch is a safety net rather than a path to rely on: the checkout
+-- row is expected to exist first, and a row created here would carry the
+-- column default 'stripe'.
 INSERT INTO aurora_subscription (
     user_id, tier, status, antom_subscription_id, current_period_end,
     cancel_at_period_end
