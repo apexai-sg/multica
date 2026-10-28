@@ -2601,6 +2601,68 @@ func TestAntomSubscriptionNotificationTerminates(t *testing.T) {
 	}
 }
 
+// A body that says TERMINATED ends the subscription even when its
+// subscriptionNotificationType is one this channel does not map. Falling into
+// the unhandled-type path would ack the termination with the row still active,
+// granting the paid tier indefinitely because Antom never retries an ack.
+func TestAntomSubscriptionNotificationTerminatesOnStatusAlone(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "active", "aurora-sub-x", "S1")
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomSubscriptionEvent("", "S1", "SUSPEND", "TERMINATED"),
+	})
+
+	resp := postAntomNotification(t, testHandler.AntomSubscriptionNotification, antomNotifyPathSubscription)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	status, antomID, cancelAtPeriodEnd, _ := antomSubscriptionState(t)
+	if status != "canceled" || antomID != "S1" || cancelAtPeriodEnd {
+		t.Fatalf("row = %s/%s/cancel_at_period_end=%v, want canceled/S1/false", status, antomID, cancelAtPeriodEnd)
+	}
+}
+
+// A CREATE/UPDATE/CHANGE only activates the subscription when its
+// subscriptionStatus says ACTIVE. A non-ACTIVE status is not a transition this
+// channel stores, so the row is left exactly as it was.
+func TestAntomSubscriptionNotificationIgnoresNonActiveCreate(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "pending", "aurora-sub-x", "S1")
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomSubscriptionEvent("", "S1", "UPDATE", "SUSPENDED"),
+	})
+
+	resp := postAntomNotification(t, testHandler.AntomSubscriptionNotification, antomNotifyPathSubscription)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	status, antomID, cancelAtPeriodEnd, _ := antomSubscriptionState(t)
+	if status != "pending" || antomID != "S1" || cancelAtPeriodEnd {
+		t.Fatalf("row = %s/%s/cancel_at_period_end=%v, want the pending row unchanged", status, antomID, cancelAtPeriodEnd)
+	}
+}
+
+// The positive control for the status gate: the same CREATE shape that carries
+// ACTIVE does activate the row, so the two tests above cannot pass by accident.
+func TestAntomSubscriptionNotificationCreateRequiresActiveStatus(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "pending", "aurora-sub-x", "S1")
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomSubscriptionEvent("", "S1", "CREATE", "ACTIVE"),
+	})
+
+	resp := postAntomNotification(t, testHandler.AntomSubscriptionNotification, antomNotifyPathSubscription)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	if status, _, _, _ := antomSubscriptionState(t); status != "active" {
+		t.Fatalf("subscription status = %q, want active", status)
+	}
+}
+
 // A user cancel stops renewals but keeps the paid period: the row stays
 // active with cancel_at_period_end set, exactly like the Stripe semantic.
 func TestAntomSubscriptionNotificationCancelWaitsForPeriodEnd(t *testing.T) {

@@ -2315,21 +2315,30 @@ func (h *Handler) AntomSubscriptionNotification(w http.ResponseWriter, r *http.R
 	// reactivated without a TERMINATE keeps rendering "cancellation scheduled".
 	var status string
 	var cancelAtPeriodEnd *bool
-	switch notification.NotificationType {
-	case "CREATE", "UPDATE", "CHANGE":
-		status = "active"
-	case "CANCEL":
-		// Antom's cancel stops renewals at the end of the paid period; access
-		// continues until then, which is what cancel_at_period_end expresses.
-		status = "active"
-		cancel := true
-		cancelAtPeriodEnd = &cancel
-	case "TERMINATE":
+	switch {
+	case notification.NotificationType == "TERMINATE" || notification.Status == "TERMINATED":
+		// Termination is final whichever field carries it: an explicit
+		// TERMINATE is authoritative, and a body that says TERMINATED is a
+		// termination however it is labelled. Anything else would let an acked
+		// termination leave a canceled subscription granting the paid tier.
 		status = "canceled"
 		terminate := false
 		cancelAtPeriodEnd = &terminate
+	case notification.NotificationType == "CANCEL":
+		// Antom's cancel stops renewals at the end of the paid period; access
+		// continues until then, which is what cancel_at_period_end expresses.
+		// It applies whether or not the status string says ACTIVE.
+		status = "active"
+		cancel := true
+		cancelAtPeriodEnd = &cancel
+	case (notification.NotificationType == "CREATE" ||
+		notification.NotificationType == "UPDATE" ||
+		notification.NotificationType == "CHANGE") &&
+		notification.Status == "ACTIVE":
+		status = "active"
 	default:
-		// Retrying cannot turn an unhandled type into a handled one.
+		// Retrying cannot turn an unhandled type into a handled one, nor an
+		// unhandled status into one this channel stores.
 		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultUnknown)
 		slog.Warn("antom subscription notification with an unhandled type",
 			"notification_type", notification.NotificationType,
