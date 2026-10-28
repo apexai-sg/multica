@@ -87,6 +87,50 @@ func TestAuroraBillingPrewarmMatchesNormalizedLabels(t *testing.T) {
 	}
 }
 
+// TestAuroraWebhookEventsIncludeAntom pins the two Antom notification labels
+// into the prewarmed set. Antom posts to two separate public routes, so each
+// path needs its own event label: folded into "other", a sustained 401 or 500
+// on the payment path would be indistinguishable from Stripe noise and no
+// per-channel alert could fire.
+func TestAuroraWebhookEventsIncludeAntom(t *testing.T) {
+	if AuroraWebhookEventAntomPayment != "antom_payment_notify" {
+		t.Fatalf("AuroraWebhookEventAntomPayment = %q, want antom_payment_notify", AuroraWebhookEventAntomPayment)
+	}
+	if AuroraWebhookEventAntomSubscription != "antom_subscription_notify" {
+		t.Fatalf("AuroraWebhookEventAntomSubscription = %q, want antom_subscription_notify", AuroraWebhookEventAntomSubscription)
+	}
+
+	events := AllAuroraWebhookEvents()
+	for _, want := range []string{AuroraWebhookEventAntomPayment, AuroraWebhookEventAntomSubscription} {
+		found := false
+		for _, event := range events {
+			if event == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("AllAuroraWebhookEvents() = %v, missing %q", events, want)
+		}
+		if got := normalizeAuroraWebhookEvent(want); got != want {
+			t.Fatalf("normalizeAuroraWebhookEvent(%q) = %q, want itself", want, got)
+		}
+	}
+
+	// Prewarmed means the series a dashboard draws at zero is the series the
+	// handler later increments, not one created on first use.
+	m := NewBusinessMetrics()
+	for _, event := range []string{AuroraWebhookEventAntomPayment, AuroraWebhookEventAntomSubscription} {
+		if got := testutil.ToFloat64(m.auroraWebhookEvents.WithLabelValues(event, AuroraWebhookResultOK)); got != 0 {
+			t.Fatalf("prewarmed %s series = %v, want a visible zero", event, got)
+		}
+		m.RecordAuroraWebhookEvent(event, AuroraWebhookResultInvalidSignature)
+		if got := testutil.ToFloat64(m.auroraWebhookEvents.WithLabelValues(event, AuroraWebhookResultInvalidSignature)); got != 1 {
+			t.Fatalf("recorded %s invalid_signature = %v, want 1", event, got)
+		}
+	}
+}
+
 func TestAuroraBillingSettlementRunCountsPerOutcome(t *testing.T) {
 	m := NewBusinessMetrics()
 

@@ -1548,6 +1548,13 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 	// the body is read as anything but bytes). The user a purchase belongs to
 	// comes from the event's own metadata, never from request headers.
 	r.Post("/api/aurora/billing/stripe/webhook", h.StripeWebhook)
+	// Aurora's Antom subscription notifications. Also outside the authenticated
+	// group: Antom signs the raw body with its own key, so the request is
+	// authenticated by its signature headers instead (verified in the handler
+	// before the body is read as anything but bytes). The user a notification
+	// belongs to comes from the local row it matches, never from the payload.
+	r.Post("/api/aurora/billing/antom/notify/payment", h.AntomPaymentNotification)
+	r.Post("/api/aurora/billing/antom/notify/subscription", h.AntomSubscriptionNotification)
 	r.With(contactSalesRL).Post("/api/contact-sales", h.CreateContactSales)
 	// Public share-link preview — no auth: shows the workspace name/slug and
 	// inviter so a not-yet-logged-in visitor can see what they're joining.

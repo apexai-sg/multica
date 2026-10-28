@@ -2078,6 +2078,294 @@ func (h *Handler) grantSubscriptionAllowance(ctx context.Context, userID pgtype.
 	return h.Credit.EnsureMonthlyAllowance(ctx, userID, wsID, tier.MonthlyCreditsMicro(), time.Now())
 }
 
+// ---------------------------------------------------------------------------
+// Antom notifications — the charge result and the subscription lifecycle
+// ---------------------------------------------------------------------------
+
+// maxAntomNotifyBodySize caps a notification body. Both payloads are small
+// JSON documents, so the cap only bounds what a public route buffers before
+// the signature is checked.
+const maxAntomNotifyBodySize = 64 << 10
+
+// antomAckBody is the acknowledgement Antom requires, byte for byte. Antom
+// stops retrying on it, so it is written only once a notification has been
+// applied or deliberately discarded — never for a 401 or a 500.
+const antomAckBody = `{"result":{"resultCode":"SUCCESS","resultStatus":"S","resultMessage":"success"}}`
+
+func writeAntomAck(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", strconv.Itoa(len(antomAckBody)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(antomAckBody))
+}
+
+// serveAntomNotification runs the part both notification handlers must share:
+// fail closed without a channel, rate limit, cap the body, and verify the
+// signature over the exact bytes received. event is the route's metric label,
+// so a failure is attributed to the path Antom actually called.
+//
+// The helper takes the label rather than deriving it because the failures it
+// reports happen before the body is trusted, when the notification carries no
+// type to attribute them to.
+func (h *Handler) serveAntomNotification(w http.ResponseWriter, r *http.Request, event string) (aurora.AntomNotification, bool) {
+	if h.Antom == nil {
+		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultNotConfigured)
+		writeError(w, http.StatusServiceUnavailable, "antom not configured")
+		return aurora.AntomNotification{}, false
+	}
+	if h.WebhookIPRateLimiter != nil {
+		if ip := h.clientIPForRateLimit(r); ip != "" && !h.WebhookIPRateLimiter.Allow(r.Context(), ip) {
+			h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultRateLimited)
+			writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
+			return aurora.AntomNotification{}, false
+		}
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxAntomNotifyBodySize)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		// Both the size cap and an unreadable body mean the request never
+		// reached signature verification.
+		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultBadRequest)
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			writeError(w, http.StatusRequestEntityTooLarge, "request body is too large")
+			return aurora.AntomNotification{}, false
+		}
+		writeError(w, http.StatusBadRequest, "invalid body")
+		return aurora.AntomNotification{}, false
+	}
+	notification, err := h.Antom.VerifyNotification(r.Method, r.URL.Path, r.Header, body)
+	if err != nil {
+		// Logged even though Antom retries: a retry cannot fix a wrong key, so
+		// this line is the only signal an operator gets.
+		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultInvalidSignature)
+		slog.Error("antom notification failed verification", "event", event, "error", err)
+		writeError(w, http.StatusUnauthorized, "invalid signature")
+		return aurora.AntomNotification{}, false
+	}
+	return notification, true
+}
+
+// findAntomSubscription resolves the local row a verified notification belongs
+// to, stopping at the first match: the checkout key (so the first charge can
+// claim its pending intent), then the Antom subscription id (the fallback for
+// a row whose checkout key is gone). found=false means this channel knows no
+// such subscription; a caller acks that rather than retrying.
+func (h *Handler) findAntomSubscription(ctx context.Context, notification aurora.AntomNotification) (db.AuroraSubscription, bool, error) {
+	if notification.RequestID != "" {
+		row, err := h.Queries.GetAuroraSubscriptionByCheckoutKey(ctx, strToText(notification.RequestID))
+		switch {
+		case err == nil:
+			return row, true, nil
+		case !errors.Is(err, pgx.ErrNoRows):
+			return db.AuroraSubscription{}, false, err
+		}
+	}
+	if notification.SubscriptionID == "" {
+		return db.AuroraSubscription{}, false, nil
+	}
+	row, err := h.Queries.GetAuroraSubscriptionByAntomID(ctx, strToText(notification.SubscriptionID))
+	switch {
+	case err == nil:
+		return row, true, nil
+	case errors.Is(err, pgx.ErrNoRows):
+		return db.AuroraSubscription{}, false, nil
+	default:
+		return db.AuroraSubscription{}, false, err
+	}
+}
+
+// applyAntomSubscription reports false when the terminal-state guard declined
+// the write. pgx.ErrNoRows therefore means "nothing applied" — the row is
+// canceled under the same Antom subscription — not a failure worth retrying.
+// The parameters carry no payment provider: the channel is stamped at checkout
+// and a notification never moves a subscription to another one.
+func (h *Handler) applyAntomSubscription(ctx context.Context, params db.UpsertAuroraAntomSubscriptionParams) (bool, error) {
+	_, err := h.Queries.UpsertAuroraAntomSubscription(ctx, params)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// failAntomNotification reports a retryable failure: no ack, so Antom's retry
+// schedule applies. Every write on these paths is idempotent, which is what
+// makes a retry safe.
+func (h *Handler) failAntomNotification(w http.ResponseWriter, event, message string, err error) {
+	h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultHandlerError)
+	slog.Error(message, "event", event, "error", err)
+	writeError(w, http.StatusInternalServerError, "notification handling failed")
+}
+
+// AntomPaymentNotification applies one charge result. A success records the
+// period Antom reports, marks the subscription active and grants that month's
+// allowance; any other result marks it past_due and grants nothing. Mounted on
+// the public route group, so serveAntomNotification is the only thing
+// authenticating the request.
+func (h *Handler) AntomPaymentNotification(w http.ResponseWriter, r *http.Request) {
+	event := obsmetrics.AuroraWebhookEventAntomPayment
+	notification, ok := h.serveAntomNotification(w, r, event)
+	if !ok {
+		return
+	}
+	if notification.Type != "payment" {
+		// A lifecycle payload posted to the charge route would read as a failed
+		// charge ("ACTIVE" is not "S") and downgrade a paying user to past_due.
+		// Retrying cannot reroute it, so it is logged and acked.
+		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultUnknown)
+		slog.Warn("antom payment notification carried a non-payment payload", "type", notification.Type)
+		writeAntomAck(w)
+		return
+	}
+	ctx := r.Context()
+	row, found, err := h.findAntomSubscription(ctx, notification)
+	if err != nil {
+		h.failAntomNotification(w, event, "antom payment notification lookup failed", err)
+		return
+	}
+	if !found {
+		// Retrying cannot create a local row, so this is acked and logged.
+		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultUnknown)
+		slog.Warn("antom payment notification for an unknown subscription",
+			"request_id", notification.RequestID,
+			"subscription_id", notification.SubscriptionID,
+			"payment_id", notification.PaymentID)
+		writeAntomAck(w)
+		return
+	}
+	paid := notification.Status == "S"
+	if paid && (notification.PeriodEnd.IsZero() || !notification.PeriodEnd.After(notification.PeriodStart)) {
+		// A success without a usable period is not a success: acking it would
+		// stop Antom's retries and persist a wrong next-charge date. Not acked,
+		// so Antom retries a body it may fix.
+		h.failAntomNotification(w, event, "antom payment notification has no usable billing period",
+			fmt.Errorf("period start %s, period end %s", notification.PeriodStart, notification.PeriodEnd))
+		return
+	}
+	// The grant reads the catalog, and an unknown tier cannot be honoured.
+	// Retrying cannot fix it either, so it is acked and logged.
+	tier, knownTier := h.Tiers.Lookup(row.Tier)
+	if !knownTier || tier.Tier == "free" {
+		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultUnknown)
+		slog.Warn("antom payment notification for an unknown tier",
+			"subscription_id", notification.SubscriptionID, "tier", row.Tier)
+		writeAntomAck(w)
+		return
+	}
+	status := "past_due"
+	periodEnd := row.CurrentPeriodEnd
+	if paid {
+		status = "active"
+		periodEnd = pgtype.Timestamptz{Time: notification.PeriodEnd, Valid: true}
+	}
+	antomID := row.AntomSubscriptionID
+	if notification.SubscriptionID != "" {
+		antomID = strToText(notification.SubscriptionID)
+	}
+	applied, err := h.applyAntomSubscription(ctx, db.UpsertAuroraAntomSubscriptionParams{
+		UserID:              row.UserID,
+		Tier:                row.Tier,
+		Status:              status,
+		AntomSubscriptionID: antomID,
+		CurrentPeriodEnd:    periodEnd,
+		// A charge result never changes whether renewals are being stopped.
+		CancelAtPeriodEnd: row.CancelAtPeriodEnd,
+	})
+	if err != nil {
+		h.failAntomNotification(w, event, "antom payment notification write failed", err)
+		return
+	}
+	// applied=false is the terminal-state guard: the subscription was
+	// terminated under the same Antom id, so there is nothing to grant.
+	if applied && paid {
+		if err := h.grantSubscriptionAllowance(ctx, row.UserID, tier); err != nil {
+			h.failAntomNotification(w, event, "antom subscription allowance grant failed", err)
+			return
+		}
+	}
+	h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultOK)
+	writeAntomAck(w)
+}
+
+// AntomSubscriptionNotification applies one lifecycle transition. Antom sends
+// no ordering timestamp, so the states are written explicitly and any arrival
+// order converges; the terminal-state guard in the upsert keeps a late CREATE
+// from resurrecting a terminated subscription.
+func (h *Handler) AntomSubscriptionNotification(w http.ResponseWriter, r *http.Request) {
+	event := obsmetrics.AuroraWebhookEventAntomSubscription
+	notification, ok := h.serveAntomNotification(w, r, event)
+	if !ok {
+		return
+	}
+	// cancelAtPeriodEnd stays nil for the status-only transitions: only CANCEL
+	// sets the flag and only TERMINATE clears it, so an UPDATE cannot silently
+	// drop a cancel the user already asked for.
+	var status string
+	var cancelAtPeriodEnd *bool
+	switch notification.NotificationType {
+	case "CREATE", "UPDATE", "CHANGE":
+		status = "active"
+	case "CANCEL":
+		// Antom's cancel stops renewals at the end of the paid period; access
+		// continues until then, which is what cancel_at_period_end expresses.
+		status = "active"
+		cancel := true
+		cancelAtPeriodEnd = &cancel
+	case "TERMINATE":
+		status = "canceled"
+		terminate := false
+		cancelAtPeriodEnd = &terminate
+	default:
+		// Retrying cannot turn an unhandled type into a handled one.
+		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultUnknown)
+		slog.Warn("antom subscription notification with an unhandled type",
+			"notification_type", notification.NotificationType,
+			"status", notification.Status,
+			"subscription_id", notification.SubscriptionID)
+		writeAntomAck(w)
+		return
+	}
+	ctx := r.Context()
+	row, found, err := h.findAntomSubscription(ctx, notification)
+	if err != nil {
+		h.failAntomNotification(w, event, "antom subscription notification lookup failed", err)
+		return
+	}
+	if !found {
+		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultUnknown)
+		slog.Warn("antom subscription notification for an unknown subscription",
+			"notification_type", notification.NotificationType,
+			"subscription_id", notification.SubscriptionID)
+		writeAntomAck(w)
+		return
+	}
+	cancel := row.CancelAtPeriodEnd
+	if cancelAtPeriodEnd != nil {
+		cancel = *cancelAtPeriodEnd
+	}
+	antomID := row.AntomSubscriptionID
+	if notification.SubscriptionID != "" {
+		antomID = strToText(notification.SubscriptionID)
+	}
+	// A lifecycle transition carries no period, so the stored period end is
+	// what the last charge reported and is left alone. A declined write is the
+	// guard refusing a late CREATE on a terminated subscription: the terminal
+	// state stands and the notification is still acked.
+	if _, err := h.applyAntomSubscription(ctx, db.UpsertAuroraAntomSubscriptionParams{
+		UserID:              row.UserID,
+		Tier:                row.Tier,
+		Status:              status,
+		AntomSubscriptionID: antomID,
+		CurrentPeriodEnd:    row.CurrentPeriodEnd,
+		CancelAtPeriodEnd:   cancel,
+	}); err != nil {
+		h.failAntomNotification(w, event, "antom subscription notification write failed", err)
+		return
+	}
+	h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultOK)
+	writeAntomAck(w)
+}
+
 // stripeSubscriptionStatus maps Stripe's lifecycle onto the three states this
 // product stores. Anything that is not in good standing becomes "past_due" and
 // therefore stops granting; the entitlement gate already treats a non-active

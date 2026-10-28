@@ -1821,6 +1821,17 @@ type fakeAntom struct {
 	cancelIDs []string
 	// createErr, when set, is what CreateSubscription returns instead of a URL.
 	createErr error
+	// notification is the verified payload VerifyNotification returns: the
+	// signature itself is covered in internal/aurora, so handler tests inject
+	// the post-verification shape.
+	notification aurora.AntomNotification
+	// verifyErr, when set, is what VerifyNotification returns instead — the
+	// only way a handler test can reach the reject-an-unverified-request path.
+	verifyErr error
+	// verifyPaths records the path each notification handed to verification.
+	// The path is part of the signed content, so a handler that passed
+	// anything else would make every real notification fail to verify.
+	verifyPaths []string
 }
 
 func (f *fakeAntom) CreateSubscription(ctx context.Context, req aurora.AntomSubscriptionRequest) (string, error) {
@@ -1841,7 +1852,14 @@ func (f *fakeAntom) InquirySubscription(ctx context.Context, subscriptionID stri
 }
 
 func (f *fakeAntom) VerifyNotification(method, path string, headers http.Header, body []byte) (aurora.AntomNotification, error) {
-	return aurora.AntomNotification{}, errors.New("fakeAntom: notifications are not part of the checkout path")
+	f.verifyPaths = append(f.verifyPaths, path)
+	if f.verifyErr != nil {
+		return aurora.AntomNotification{}, f.verifyErr
+	}
+	if f.notification.Type == "" {
+		return aurora.AntomNotification{}, errors.New("fakeAntom: VerifyNotification called without a notification configured")
+	}
+	return f.notification, nil
 }
 
 // installAuroraAntom swaps in the Antom channel with the same priced catalog and
@@ -2322,6 +2340,495 @@ func TestCreateSubscriptionCheckoutReusesPendingIntentOnSameProvider(t *testing.
 	provider, key, _, _ := auroraSubscriptionCheckoutRow(t)
 	if provider != "antom" || key != "aurora-sub-existing" {
 		t.Fatalf("row = provider %q key %q, want the reused Antom intent", provider, key)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Antom notifications
+// ---------------------------------------------------------------------------
+
+// wantAntomAckBody is the acknowledgement Antom requires, byte for byte. A
+// valid JSON body that differs even in field order leaves the notification
+// unconfirmed, so the assertion is on the exact bytes.
+const wantAntomAckBody = `{"result":{"resultCode":"SUCCESS","resultStatus":"S","resultMessage":"success"}}`
+
+// postAntomNotification drives one public notification route. The body and
+// headers are placeholders: fakeAntom decides what verification yields, so
+// these tests cover the handler's routing, state transitions and crediting,
+// while the signature itself is verified against the real client in
+// internal/aurora.
+func postAntomNotification(t *testing.T, handler http.HandlerFunc, path string) *testutil.Response {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"subscriptionId":"S1"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("signature", "algorithm=RSA256,keyVersion=1,signature=fake")
+	return testutil.Call(t, handler, req)
+}
+
+func wantAntomAck(t *testing.T, resp *testutil.Response) {
+	t.Helper()
+	if body := resp.Text(); body != wantAntomAckBody {
+		t.Fatalf("ack body = %q, want %q", body, wantAntomAckBody)
+	}
+}
+
+// seedAntomSubscription puts the fixture user's row in the shape a checkout
+// leaves it. An empty string stays SQL NULL, which is how a test expresses a
+// checkout key that is no longer on the row.
+func seedAntomSubscription(t *testing.T, status, checkoutKey, antomID string) {
+	t.Helper()
+	cols := testutil.Cols{
+		"user_id":          testUserID,
+		"tier":             "creator",
+		"status":           status,
+		"payment_provider": "antom",
+	}
+	if checkoutKey != "" {
+		cols["checkout_idempotency_key"] = checkoutKey
+	}
+	if antomID != "" {
+		cols["antom_subscription_id"] = antomID
+	}
+	dbfx.Insert(t, "aurora_subscription", cols)
+}
+
+// antomSubscriptionState reads the columns the notification handlers own.
+func antomSubscriptionState(t *testing.T) (status, antomID string, cancelAtPeriodEnd bool, periodEnd *time.Time) {
+	t.Helper()
+	if err := testPool.QueryRow(context.Background(),
+		`SELECT status, coalesce(antom_subscription_id, ''), cancel_at_period_end, current_period_end
+		   FROM aurora_subscription WHERE user_id = $1`,
+		testUserID).Scan(&status, &antomID, &cancelAtPeriodEnd, &periodEnd); err != nil {
+		t.Fatalf("load aurora_subscription: %v", err)
+	}
+	return status, antomID, cancelAtPeriodEnd, periodEnd
+}
+
+func antomPaymentNotification(requestID, subscriptionID, status string, start, end time.Time) aurora.AntomNotification {
+	return aurora.AntomNotification{
+		Type:           "payment",
+		RequestID:      requestID,
+		SubscriptionID: subscriptionID,
+		Status:         status,
+		PaymentID:      "P1",
+		PeriodStart:    start,
+		PeriodEnd:      end,
+	}
+}
+
+// antomSubscriptionEvent builds a notifySubscription payload. requestID is the
+// subscriptionRequestId Antom echoes back: the only way a notification about a
+// brand-new subscription id can find the row it belongs to.
+func antomSubscriptionEvent(requestID, subscriptionID, notificationType, status string) aurora.AntomNotification {
+	return aurora.AntomNotification{
+		Type:             "subscription",
+		RequestID:        requestID,
+		SubscriptionID:   subscriptionID,
+		NotificationType: notificationType,
+		Status:           status,
+	}
+}
+
+func antomBalance(t *testing.T) int64 {
+	t.Helper()
+	bal, err := testHandler.Credit.Balance(context.Background(), parseUUID(testUserID))
+	if err != nil {
+		t.Fatalf("Balance: %v", err)
+	}
+	return bal
+}
+
+// The first successful charge turns the pending intent into the live
+// subscription and grants the month's credits, so the buyer can generate
+// without waiting for the settlement loop.
+func TestAntomPaymentNotificationGrantsMonthlyAllowance(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "pending", "aurora-sub-x", "")
+	periodStart := time.Now().UTC().Truncate(time.Second)
+	periodEnd := periodStart.Add(30 * 24 * time.Hour)
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomPaymentNotification("aurora-sub-x", "S1", "S", periodStart, periodEnd),
+	})
+
+	resp := postAntomNotification(t, testHandler.AntomPaymentNotification, antomNotifyPathPayment)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	status, antomID, _, end := antomSubscriptionState(t)
+	if status != "active" || antomID != "S1" {
+		t.Fatalf("row = %s/%s, want active/S1", status, antomID)
+	}
+	if end == nil || !end.UTC().Equal(periodEnd) {
+		t.Fatalf("current_period_end = %v, want %v", end, periodEnd)
+	}
+	if got, want := antomBalance(t), int64(1900)*microCreditsPerCredit; got != want {
+		t.Fatalf("balance = %d, want %d (one month of creator credits)", got, want)
+	}
+}
+
+// The checkout key is the first match, but it is not the only one: a row whose
+// key is gone must still be found by the Antom subscription id, or a renewing
+// subscriber is granted nothing.
+func TestAntomPaymentNotificationMatchesByAntomIDWhenRequestKeyIsGone(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "past_due", "", "S1")
+	periodStart := time.Now().UTC().Truncate(time.Second)
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomPaymentNotification("aurora-sub-gone", "S1", "S", periodStart, periodStart.Add(30*24*time.Hour)),
+	})
+
+	resp := postAntomNotification(t, testHandler.AntomPaymentNotification, antomNotifyPathPayment)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	if status, antomID, _, _ := antomSubscriptionState(t); status != "active" || antomID != "S1" {
+		t.Fatalf("row = %s/%s, want the row matched by its Antom id", status, antomID)
+	}
+	if got, want := antomBalance(t), int64(1900)*microCreditsPerCredit; got != want {
+		t.Fatalf("balance = %d, want %d", got, want)
+	}
+}
+
+// Antom retries, so the same charge arrives more than once. The allowance is
+// keyed on the natural month and must not be double-granted.
+func TestAntomPaymentNotificationIsIdempotent(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "pending", "aurora-sub-x", "")
+	periodStart := time.Now().UTC().Truncate(time.Second)
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomPaymentNotification("aurora-sub-x", "S1", "S", periodStart, periodStart.Add(30*24*time.Hour)),
+	})
+
+	for range 2 {
+		resp := postAntomNotification(t, testHandler.AntomPaymentNotification, antomNotifyPathPayment)
+		resp.Want(http.StatusOK)
+		wantAntomAck(t, resp)
+	}
+
+	if got, want := antomBalance(t), int64(1900)*microCreditsPerCredit; got != want {
+		t.Fatalf("balance after a redelivered charge = %d, want %d (granted once)", got, want)
+	}
+}
+
+// A failed charge downgrades the row without moving the paid-through date:
+// the user keeps what was already paid for, and the settlement scan stops
+// granting.
+func TestAntomPaymentNotificationMarksPastDueOnFailure(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "pending", "aurora-sub-x", "")
+	stored := time.Now().Add(10 * 24 * time.Hour).UTC().Truncate(time.Second)
+	if _, err := testPool.Exec(context.Background(),
+		`UPDATE aurora_subscription SET current_period_end = $1 WHERE user_id = $2`,
+		stored, testUserID); err != nil {
+		t.Fatalf("seed current_period_end: %v", err)
+	}
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomPaymentNotification("aurora-sub-x", "S1", "F", time.Time{}, time.Time{}),
+	})
+
+	resp := postAntomNotification(t, testHandler.AntomPaymentNotification, antomNotifyPathPayment)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	status, antomID, _, end := antomSubscriptionState(t)
+	if status != "past_due" || antomID != "S1" {
+		t.Fatalf("row = %s/%s, want past_due/S1", status, antomID)
+	}
+	if end == nil || !end.UTC().Equal(stored) {
+		t.Fatalf("current_period_end = %v, want the stored %v", end, stored)
+	}
+	if got := antomBalance(t); got != 0 {
+		t.Fatalf("balance after a failed charge = %d, want 0", got)
+	}
+}
+
+// A "successful" charge with no usable period is not success: acking it would
+// stop Antom's retries and persist a wrong next-charge date. It is a 500 so
+// Antom keeps trying, and nothing about the row changes.
+func TestAntomPaymentNotificationRejectsPaymentWithoutPeriod(t *testing.T) {
+	start := time.Now().UTC().Truncate(time.Second)
+	for name, notification := range map[string]aurora.AntomNotification{
+		"missing periodEnd": antomPaymentNotification("aurora-sub-x", "S1", "S", start, time.Time{}),
+		"periodEnd not after periodStart": antomPaymentNotification(
+			"aurora-sub-x", "S1", "S", start, start),
+	} {
+		t.Run(name, func(t *testing.T) {
+			creditTestReset(t)
+			auroraSubscriptionTestReset(t)
+			seedAntomSubscription(t, "pending", "aurora-sub-x", "")
+			installAuroraAntom(t, &fakeAntom{notification: notification})
+
+			resp := postAntomNotification(t, testHandler.AntomPaymentNotification, antomNotifyPathPayment)
+			resp.Want(http.StatusInternalServerError)
+			if body := resp.Text(); body == wantAntomAckBody {
+				t.Fatal("a payment without a usable period was acknowledged")
+			}
+
+			status, antomID, _, end := antomSubscriptionState(t)
+			if status != "pending" || antomID != "" || end != nil {
+				t.Fatalf("row = %s/%s/%v, want the pending intent untouched", status, antomID, end)
+			}
+			if got := antomBalance(t); got != 0 {
+				t.Fatalf("balance = %d, want no grant", got)
+			}
+		})
+	}
+}
+
+func TestAntomSubscriptionNotificationTerminates(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "active", "aurora-sub-x", "S1")
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomSubscriptionEvent("", "S1", "TERMINATE", "TERMINATED"),
+	})
+
+	resp := postAntomNotification(t, testHandler.AntomSubscriptionNotification, antomNotifyPathSubscription)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	status, antomID, cancelAtPeriodEnd, _ := antomSubscriptionState(t)
+	if status != "canceled" || antomID != "S1" || cancelAtPeriodEnd {
+		t.Fatalf("row = %s/%s/cancel_at_period_end=%v, want canceled/S1/false", status, antomID, cancelAtPeriodEnd)
+	}
+}
+
+// A user cancel stops renewals but keeps the paid period: the row stays
+// active with cancel_at_period_end set, exactly like the Stripe semantic.
+func TestAntomSubscriptionNotificationCancelWaitsForPeriodEnd(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "active", "aurora-sub-x", "S1")
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomSubscriptionEvent("", "S1", "CANCEL", "ACTIVE"),
+	})
+
+	resp := postAntomNotification(t, testHandler.AntomSubscriptionNotification, antomNotifyPathSubscription)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	status, antomID, cancelAtPeriodEnd, _ := antomSubscriptionState(t)
+	if status != "active" || antomID != "S1" || !cancelAtPeriodEnd {
+		t.Fatalf("row = %s/%s/cancel_at_period_end=%v, want active/S1/true", status, antomID, cancelAtPeriodEnd)
+	}
+}
+
+// Termination is final for that Antom subscription. A CREATE redelivered after
+// it must be acked and ignored — the terminal-state guard declines the write,
+// and pgx.ErrNoRows there means "nothing applied", not "retry".
+func TestAntomSubscriptionNotificationIgnoresLateCreate(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "active", "aurora-sub-x", "S1")
+	fa := &fakeAntom{notification: antomSubscriptionEvent("", "S1", "TERMINATE", "TERMINATED")}
+	installAuroraAntom(t, fa)
+
+	first := postAntomNotification(t, testHandler.AntomSubscriptionNotification, antomNotifyPathSubscription)
+	first.Want(http.StatusOK)
+	wantAntomAck(t, first)
+
+	fa.notification = antomSubscriptionEvent("", "S1", "CREATE", "ACTIVE")
+	resp := postAntomNotification(t, testHandler.AntomSubscriptionNotification, antomNotifyPathSubscription)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	if status, _, _, _ := antomSubscriptionState(t); status != "canceled" {
+		t.Fatalf("subscription status = %q, want the terminated state to hold", status)
+	}
+}
+
+// A new Antom subscription id is a resubscription, not a late event: it may
+// overwrite the canceled row, which is what lets a returning customer pay
+// again without a second local row.
+func TestAntomSubscriptionNotificationAcceptsResubscribe(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "canceled", "aurora-sub-x", "S1")
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomSubscriptionEvent("aurora-sub-x", "S2", "CREATE", "ACTIVE"),
+	})
+
+	resp := postAntomNotification(t, testHandler.AntomSubscriptionNotification, antomNotifyPathSubscription)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	status, antomID, _, _ := antomSubscriptionState(t)
+	if status != "active" || antomID != "S2" {
+		t.Fatalf("row = %s/%s, want the resubscription active under S2", status, antomID)
+	}
+}
+
+// The route is public, so an unverified request must be refused before any
+// accounting happens — on both paths.
+func TestAntomNotificationRejectsBadSignature(t *testing.T) {
+	for name, route := range map[string]struct {
+		handler http.HandlerFunc
+		path    string
+	}{
+		"payment":      {testHandler.AntomPaymentNotification, antomNotifyPathPayment},
+		"subscription": {testHandler.AntomSubscriptionNotification, antomNotifyPathSubscription},
+	} {
+		t.Run(name, func(t *testing.T) {
+			creditTestReset(t)
+			auroraSubscriptionTestReset(t)
+			seedAntomSubscription(t, "pending", "aurora-sub-x", "")
+			fa := &fakeAntom{verifyErr: errors.New("antom notification: signature does not verify")}
+			installAuroraAntom(t, fa)
+
+			resp := postAntomNotification(t, route.handler, route.path)
+			resp.Want(http.StatusUnauthorized)
+			if body := resp.Text(); body == wantAntomAckBody {
+				t.Fatal("an unverified notification was acknowledged")
+			}
+			if len(fa.verifyPaths) != 1 || fa.verifyPaths[0] != route.path {
+				t.Fatalf("verified path = %v, want the request path %q", fa.verifyPaths, route.path)
+			}
+
+			status, antomID, _, end := antomSubscriptionState(t)
+			if status != "pending" || antomID != "" || end != nil {
+				t.Fatalf("row = %s/%s/%v, want nothing written", status, antomID, end)
+			}
+			if got := antomBalance(t); got != 0 {
+				t.Fatalf("balance = %d, want 0", got)
+			}
+		})
+	}
+}
+
+// A lifecycle payload delivered to the charge route reads as "not S" and would
+// downgrade a paying user, so the route checks what it received first.
+func TestAntomPaymentNotificationIgnoresSubscriptionPayload(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "active", "aurora-sub-x", "S1")
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomSubscriptionEvent("aurora-sub-x", "S1", "CANCEL", "ACTIVE"),
+	})
+
+	resp := postAntomNotification(t, testHandler.AntomPaymentNotification, antomNotifyPathPayment)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	status, _, cancelAtPeriodEnd, _ := antomSubscriptionState(t)
+	if status != "active" || cancelAtPeriodEnd {
+		t.Fatalf("row = %s/cancel_at_period_end=%v, want the subscription untouched", status, cancelAtPeriodEnd)
+	}
+	if got := antomBalance(t); got != 0 {
+		t.Fatalf("balance = %d, want no grant", got)
+	}
+}
+
+// A notification type this channel does not act on is acked and discarded:
+// retrying cannot turn it into a handled one.
+func TestAntomSubscriptionNotificationAcksUnhandledType(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "active", "aurora-sub-x", "S1")
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomSubscriptionEvent("", "S1", "SUSPEND", "SUSPENDED"),
+	})
+
+	resp := postAntomNotification(t, testHandler.AntomSubscriptionNotification, antomNotifyPathSubscription)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	if status, _, cancelAtPeriodEnd, _ := antomSubscriptionState(t); status != "active" || cancelAtPeriodEnd {
+		t.Fatalf("row = %s/cancel_at_period_end=%v, want the row untouched", status, cancelAtPeriodEnd)
+	}
+}
+
+// A row whose tier is not in this deployment's catalog cannot be granted, and
+// a retry cannot add the tier back.
+func TestAntomPaymentNotificationAcksUnknownTier(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+		"user_id": testUserID, "tier": "retired-plan", "status": "pending",
+		"payment_provider": "antom", "checkout_idempotency_key": "aurora-sub-x",
+	})
+	periodStart := time.Now().UTC().Truncate(time.Second)
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomPaymentNotification("aurora-sub-x", "S1", "S", periodStart, periodStart.Add(30*24*time.Hour)),
+	})
+
+	resp := postAntomNotification(t, testHandler.AntomPaymentNotification, antomNotifyPathPayment)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	if status, _, _, _ := antomSubscriptionState(t); status != "pending" {
+		t.Fatalf("subscription status = %q, want the row untouched", status)
+	}
+	if got := antomBalance(t); got != 0 {
+		t.Fatalf("balance = %d, want no grant", got)
+	}
+}
+
+// Retrying cannot conjure a local row, so an unmatched notification is acked
+// and logged instead of being replayed eight times.
+func TestAntomNotificationAcksUnknownSubscription(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	periodStart := time.Now().UTC().Truncate(time.Second)
+	installAuroraAntom(t, &fakeAntom{
+		notification: antomPaymentNotification("aurora-sub-missing", "S-missing", "S", periodStart, periodStart.Add(30*24*time.Hour)),
+	})
+
+	resp := postAntomNotification(t, testHandler.AntomPaymentNotification, antomNotifyPathPayment)
+	resp.Want(http.StatusOK)
+	wantAntomAck(t, resp)
+
+	if n := dbfx.Count(t, `SELECT count(*) FROM aurora_subscription WHERE user_id = $1`, testUserID); n != 0 {
+		t.Fatalf("subscription rows = %d, want none created for an unknown notification", n)
+	}
+	if got := antomBalance(t); got != 0 {
+		t.Fatalf("balance = %d, want 0", got)
+	}
+}
+
+// An unconfigured channel fails closed: nothing is acked, so a notification
+// left unhandled is not recorded as delivered.
+func TestAntomNotificationFailsClosedWithoutProvider(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	installAuroraAntom(t, nil)
+
+	for name, route := range map[string]struct {
+		handler http.HandlerFunc
+		path    string
+	}{
+		"payment":      {testHandler.AntomPaymentNotification, antomNotifyPathPayment},
+		"subscription": {testHandler.AntomSubscriptionNotification, antomNotifyPathSubscription},
+	} {
+		t.Run(name, func(t *testing.T) {
+			resp := postAntomNotification(t, route.handler, route.path)
+			resp.Want(http.StatusServiceUnavailable)
+			if body := resp.Text(); body == wantAntomAckBody {
+				t.Fatal("a notification was acknowledged by a deployment that cannot process it")
+			}
+		})
+	}
+}
+
+func TestAntomNotificationRejectsOversizedBody(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "pending", "aurora-sub-x", "")
+	fa := &fakeAntom{verifyErr: errors.New("verification must not run")}
+	installAuroraAntom(t, fa)
+
+	req := httptest.NewRequest(http.MethodPost, antomNotifyPathPayment,
+		strings.NewReader(strings.Repeat("x", maxAntomNotifyBodySize+1)))
+	req.Header.Set("Content-Type", "application/json")
+	testutil.Call(t, testHandler.AntomPaymentNotification, req).Want(http.StatusRequestEntityTooLarge)
+
+	if len(fa.verifyPaths) != 0 {
+		t.Fatalf("verification ran on an oversized body: %v", fa.verifyPaths)
+	}
+	if status, _, _, _ := antomSubscriptionState(t); status != "pending" {
+		t.Fatalf("subscription status = %q, want the row untouched", status)
 	}
 }
 

@@ -100,11 +100,12 @@ type BusinessMetrics struct {
 	events *businessEventMetrics
 }
 
-// Aurora billing webhook outcomes. Handler.StripeWebhook has exactly one early
-// return per value (a rejected body covers both 400 and 413), so the result
-// label is the classification of how a webhook request ended. Two of them are
-// expected: ok, and not_configured while STRIPE_SECRET_KEY is unset. The other
-// five mean the webhook could not do its job.
+// Aurora billing webhook outcomes. Handler.StripeWebhook and the two Antom
+// notification handlers have exactly one early return per value (a rejected
+// body covers both 400 and 413), so the result label is the classification of
+// how a webhook request ended. Two of them are expected: ok, and
+// not_configured while the channel has no credentials. The other five mean the
+// webhook could not do its job.
 const (
 	AuroraWebhookResultOK               = "ok"
 	AuroraWebhookResultInvalidSignature = "invalid_signature"
@@ -113,8 +114,10 @@ const (
 	AuroraWebhookResultRateLimited      = "rate_limited"
 	AuroraWebhookResultBadRequest       = "bad_request"
 	// AuroraWebhookResultUnknown is the fallback for an outcome matching no
-	// branch above. It must stay at zero: a non-zero rate means a call site was
-	// added without classifying its result.
+	// branch above. On the Stripe path it must stay at zero: a non-zero rate
+	// means a call site was added without classifying its result. The Antom
+	// handlers also use it deliberately for a notification they discard
+	// without writing — an unknown subscription, tier or notification type.
 	AuroraWebhookResultUnknown = "unknown"
 )
 
@@ -122,21 +125,34 @@ const (
 // event was verified, so there is no event type to attribute it to.
 const AuroraWebhookEventUnknown = "unknown"
 
+// AuroraWebhookEventAntomPayment and AuroraWebhookEventAntomSubscription label
+// the two Antom notification routes. Antom sends no Stripe event type, and its
+// two paths fail for different reasons (a charge result versus a lifecycle
+// transition), so each gets its own event label instead of folding into
+// "other".
+const (
+	AuroraWebhookEventAntomPayment      = "antom_payment_notify"
+	AuroraWebhookEventAntomSubscription = "antom_subscription_notify"
+)
+
 // Aurora monthly settlement outcomes. There is one increment per run.
 const (
 	AuroraSettlementResultOK     = "ok"
 	AuroraSettlementResultFailed = "failed"
 )
 
-// knownAuroraWebhookEvents maps the raw Stripe event types this handler
-// consumes onto their event label. RecordAuroraWebhookEvent is called with the
-// raw type, while prewarming uses the labels, so init also makes every label
-// resolve to itself.
+// knownAuroraWebhookEvents maps the raw event types this handler consumes onto
+// their event label: Stripe's event types, and the two Antom notification
+// routes, whose label is also the name the handlers pass in.
+// RecordAuroraWebhookEvent is called with the raw type, while prewarming uses
+// the labels, so init also makes every label resolve to itself.
 var knownAuroraWebhookEvents = map[string]string{
 	"checkout.session.completed":               "checkout_session_completed",
 	"checkout.session.async_payment_succeeded": "checkout_session_async_payment_succeeded",
 	"customer.subscription.updated":            "customer_subscription_updated",
 	"customer.subscription.deleted":            "customer_subscription_deleted",
+	AuroraWebhookEventAntomPayment:             AuroraWebhookEventAntomPayment,
+	AuroraWebhookEventAntomSubscription:        AuroraWebhookEventAntomSubscription,
 }
 
 func init() {
@@ -156,6 +172,8 @@ func AllAuroraWebhookEvents() []string {
 		"checkout_session_async_payment_succeeded",
 		"customer_subscription_updated",
 		"customer_subscription_deleted",
+		AuroraWebhookEventAntomPayment,
+		AuroraWebhookEventAntomSubscription,
 		"other",
 		AuroraWebhookEventUnknown,
 	}
