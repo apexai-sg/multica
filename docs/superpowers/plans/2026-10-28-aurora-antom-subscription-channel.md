@@ -111,7 +111,7 @@ git commit -m "feat(aurora): add Antom client config and RSA2 request signing"
 func TestCreateSubscriptionPostsSignedRequest(t *testing.T)
 // 断言：方法 POST、路径 /ams/api/v1/subscriptions/create、头 client-id / request-time / signature 齐全，
 // 且 signature 能用测试公钥验签；body 里 subscriptionRequestId == "aurora-sub-test"，
-// paymentAmount.value == "19.00"、currency == "SGD"；
+// paymentAmount.value == "1900"（最小单位）、currency == "SGD"；
 // 返回 {"result":{"resultStatus":"S","resultCode":"SUCCESS"},"normalUrl":"https://checkout.example/x"} → 返回该 URL
 func TestCreateSubscriptionRejectsFailedResult(t *testing.T) // resultStatus=F → 返回 error，错误文本包含 resultCode
 func TestCancelSubscriptionSendsCANCEL(t *testing.T) // body cancellationType == "CANCEL"，subscriptionId 透传
@@ -270,7 +270,7 @@ Expected: 生成成功，无 diff 报错
 
 - [ ] **Step 3: Run the migration and the existing subscription tests**
 
-Run: `make test`（Makefile 会先 `ensure-postgres` 再 `migrate up`）
+Run: `cd server && go run ./cmd/migrate up`（`make test` 在 `internal/aurora` 有与本任务无关的既有红，勿用作门禁）
 Expected: 迁移应用成功；既有的 aurora 订阅测试全绿（Stripe 路径未受影响）
 
 - [ ] **Step 4: Commit**
@@ -305,7 +305,7 @@ func TestCreateSubscriptionCheckoutRejectsUnknownProvider(t *testing.T)  // prov
 func TestCreateSubscriptionCheckoutDefaultsToStripe(t *testing.T)        // 无 provider 字段 → 走 Stripe（fakePayments 记录到 checkout key）
 func TestCreateSubscriptionCheckoutRunsOnAntom(t *testing.T)
 // provider="antom", tier="creator", monthly → 200 {"checkoutUrl":"https://antom.example/auth"}；
-// fakeAntom 收到的 Amount=="19.00"、Currency=="SGD"、RequestID 前缀 "aurora-sub-"、Tier=="creator"
+// fakeAntom 收到的 Amount=="1900"（最小单位）、Currency=="SGD"、RequestID 前缀 "aurora-sub-"、Tier=="creator"
 func TestCreateSubscriptionCheckoutAntomRejectsYearly(t *testing.T)      // billingCycle="yearly" + provider="antom" → 400
 func TestCreateSubscriptionCheckoutAntomFailsClosedWithoutClient(t *testing.T) // h.Antom == nil → 503
 func TestCreateSubscriptionCheckoutAntomConflictWhenSubscribed(t *testing.T)  // 已存在 active 行 → 409
@@ -317,7 +317,7 @@ func TestCreateSubscriptionCheckoutReusesPendingIntentOnSameProvider(t *testing.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `make test` 后用 `cd server && go test ./internal/handler/ -run 'TestCreateSubscriptionCheckout' -v`
+Run: `cd server && go test ./internal/handler/ -run 'TestCreateSubscriptionCheckout' -v`
 Expected: FAIL，`unknown field provider` / `Handler.Antom` 未定义
 
 - [ ] **Step 3: Implement provider dispatch**
