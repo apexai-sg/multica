@@ -322,7 +322,18 @@ Expected: FAIL，`unknown field provider` / `Handler.Antom` 未定义
 
 - [ ] **Step 3: Implement provider dispatch**
 
-`CreateAuroraCheckout`：解析请求体后先把 `provider` 归一化（空 → `"stripe"`；不在 `{"stripe","antom"}` → 400 `"unknown provider"`）。Stripe 分支保持现有代码不变；Antom 分支要求 `h.Antom != nil`（否则 503）且 `billingCycle == "monthly"`（否则 400 `"billingCycle must be monthly for this provider"`），金额从档位表的最小单位字段取（`AntomAmountMinorMonthly`：`"1900"` / `"5900"` / `"16900"`），两条通知 URL 由 `h.cfg.PublicURL` 拼出（`PublicURL` 为空时渠道在构造阶段就不可用，见 Task 8），调 `CreateSubscription`，返回 `{"checkoutUrl": url}`。
+`CreateAuroraCheckout`：解析请求体后先把 `provider` 归一化（空 → `"stripe"`；不在 `{"stripe","antom"}` → 400 `"unknown provider"`）。
+
+**`h.Payments == nil` 的 503 与 `priceID == ""` 的 503 都属于 Stripe 分支**，provider 分发之前不能有任何 Stripe 专用前置检查——否则只配 Antom 的部署永远走不到 Antom。
+
+Stripe 分支保持现有代码不变；Antom 分支要求 `h.Antom != nil`（否则 503 `"antom not configured"`）且 `billingCycle == "monthly"`（否则 400 `"billingCycle must be monthly for this provider"`），金额从档位表的最小单位字段取（`AntomAmountMinorMonthly`：`"1900"` / `"5900"` / `"16900"`），构造 `AntomSubscriptionRequest`：
+
+- `RequestID` **就是** `beginAuroraSubscriptionCheckout` 返回的 checkout idempotency key（`aurora-sub-<uuid>`）。Antom 的 create 响应不带订阅号，Task 6 只能靠通知里的 `subscriptionRequestId` 回查这一行，前缀不相等就等于永久匹配不上。
+- `RedirectURL` = `req.SuccessURL`（已经过 `validCheckoutURL` 校验）；`PaymentNotifyURL` / `SubscriptionNotifyURL` 由 `h.cfg.PublicURL` 拼出（`PublicURL` 为空时渠道在构造阶段就不可用，见 Task 8）。
+- `StartTime` = `time.Now().UTC()`：零值会被序列化成 0001 年。
+- `Currency` = 配置里的 `SGD`。
+
+调 `CreateSubscription`，返回 `{"checkoutUrl": url}`。
 
 同时给 `server/internal/aurora/tiers.go` 的 `Tier` 增加 `AntomAmountMinorMonthly string` 字段，在 `NewTierCatalog` 里写成 `"1900"` / `"5900"` / `"16900"`，并在 `tiers_test.go` 断言这三个值（这是 R2 补的计划缺口）。
 
@@ -332,6 +343,9 @@ Expected: FAIL，`unknown field provider` / `Handler.Antom` 未定义
 - 已有未过期的 `pending` 行且 `payment_provider` 与本次请求不同 → 409（不替换：被替换掉的
   Stripe 会话用户仍可能完成，那会让 webhook 永远匹配不上、Stripe 重试三天）。
 - 未过期的 `pending` 行且渠道相同、档位与周期相同 → 复用原 `checkout_idempotency_key`。
+- 未过期的 `pending` 行、渠道相同但档位或周期不同 → 保持现有行为（409）。
+
+迁移把既有行默认成 `payment_provider='stripe'`，所以升级前留下的 `pending` 意图一律按 Stripe 对待。
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -375,6 +389,9 @@ func TestAntomPaymentNotificationIsIdempotent(t *testing.T)
 // 同一条通知投两次 → 200 两次，积分只发一次
 func TestAntomPaymentNotificationMarksPastDueOnFailure(t *testing.T)
 // resultStatus=F → 行 status="past_due"，不发积分，current_period_end 不变
+func TestAntomPaymentNotificationRejectsPaymentWithoutPeriod(t *testing.T)
+// payment 的 resultStatus=S 但 periodEndTime 缺失（或早于 periodStartTime）→ 500 且不确认，
+// 行不变、不发积分（确认会让 Antom 停止重试并留下错误的下次扣费日）
 func TestAntomSubscriptionNotificationTerminates(t *testing.T)
 // TERMINATE → status="canceled"，cancel_at_period_end=false
 func TestAntomSubscriptionNotificationCancelWaitsForPeriodEnd(t *testing.T)
@@ -406,9 +423,11 @@ Expected: FAIL，handler 与 label 未定义
 `GetAuroraSubscriptionByAntomID(SubscriptionID)` → 都没有则记日志、确认、返回
 `HandlerError` 之外的结果标签（用 `Unknown`），**不重试**。
 
-`AntomPaymentNotification`：`Status=="S"` 时用 `UpsertAuroraAntomSubscription`
-（`PaymentProvider="antom"`、`Status="active"`、`CurrentPeriodEnd=PeriodEnd`、
-`AntomSubscriptionID=SubscriptionID`）；返回 `pgx.ErrNoRows` 说明命中终态守卫（已终止的
+`AntomPaymentNotification`：`Status=="S"` 时先校验期间——`PeriodEnd` 为零值或不晚于
+`PeriodStart` → 记错误日志、**返回 500 且不确认**（确认会让 Antom 停止重试，并把一个错误的
+下次扣费日写进库）；校验通过再用 `UpsertAuroraAntomSubscription`（`Status="active"`、
+`CurrentPeriodEnd=PeriodEnd`、`AntomSubscriptionID=SubscriptionID`；该查询不带
+`PaymentProvider` 参数，渠道在结账时已写入）；返回 `pgx.ErrNoRows` 说明命中终态守卫（已终止的
 同一订阅），确认且不发积分；写入成功才 `grantSubscriptionAllowance(ctx, row.UserID, tier)`。
 `Status!="S"` 时以 `Status="past_due"` 写入且不发积分。
 
