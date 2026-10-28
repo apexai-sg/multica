@@ -612,15 +612,18 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 	// UI from offering a checkout that cannot finish, instead of failing after
 	// the user has left for Antom. Same rule as Stripe for the interface field —
 	// never assign a nil concrete pointer, because every checkout reads
-	// h.Antom == nil as "this channel is off". No branch logs any part of the
-	// configuration; the error names the missing or unusable field only.
+	// h.Antom == nil as "this channel is off". No branch logs a credential: the
+	// clientId, merchant private key and Antom public key values never reach the
+	// log, while the currency value, the API base and NewAntomClient's error
+	// text do.
 	//
 	// ANTOM_CURRENCY stays the single currency input (R21), but it is not free
 	// text: the tier catalog's Antom amounts are bare minor units priced in
-	// aurora.AntomCurrency, so charging any other currency would send S$19/59/169
-	// as that currency's numbers — 25-35% under the intended price — and Antom
-	// rejects a lower-case code at the first create. Empty keeps the documented
-	// default; anything else must equal the catalog's currency.
+	// aurora.AntomCurrency, so charging any other currency would send the
+	// S$19/59/169 numbers as that currency's numbers — the amount is then
+	// necessarily wrong, since nothing converts prices — and Antom rejects a
+	// lower-case code at the first create. Empty keeps the documented default;
+	// anything else must equal the catalog's currency.
 	antomCurrency := strings.ToUpper(strings.TrimSpace(cfg.AntomCurrency))
 	if antomCurrency == "" {
 		antomCurrency = aurora.AntomCurrency
