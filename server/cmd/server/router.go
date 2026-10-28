@@ -470,6 +470,17 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 		AuroraStripePriceProYearly:       strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_PRO_YEARLY")),
 		AuroraStripePriceTopup5:          strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_TOPUP_5")),
 		AuroraStripePriceTopup20:         strings.TrimSpace(os.Getenv("AURORA_STRIPE_PRICE_TOPUP_20")),
+		// Aurora's Antom subscription channel. The keys stay server-side for the
+		// same reason as Stripe's: the merchant private key signs every charge.
+		// All six together decide whether the channel exists; a partial set
+		// leaves it off (503) rather than half-working, and handler.New also
+		// requires MULTICA_PUBLIC_URL for the notification callbacks.
+		AntomClientID:           strings.TrimSpace(os.Getenv("ANTOM_CLIENT_ID")),
+		AntomMerchantPrivateKey: strings.TrimSpace(os.Getenv("ANTOM_MERCHANT_PRIVATE_KEY")),
+		AntomPublicKey:          strings.TrimSpace(os.Getenv("ANTOM_PUBLIC_KEY")),
+		AntomKeyVersion:         strings.TrimSpace(os.Getenv("ANTOM_KEY_VERSION")),
+		AntomAPIBase:            strings.TrimSpace(os.Getenv("ANTOM_API_BASE")),
+		AntomCurrency:           strings.TrimSpace(os.Getenv("ANTOM_CURRENCY")),
 	}
 	h := handler.New(queries, pool, hub, bus, emailSvc, store, cfSigner, analyticsClient, signupConfig, daemonHub)
 	invitationRateLimits := handler.DefaultInvitationRateLimits()
@@ -1548,6 +1559,13 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 	// the body is read as anything but bytes). The user a purchase belongs to
 	// comes from the event's own metadata, never from request headers.
 	r.Post("/api/aurora/billing/stripe/webhook", h.StripeWebhook)
+	// Aurora's Antom subscription notifications. Also outside the authenticated
+	// group: Antom signs the raw body with its own key, so the request is
+	// authenticated by its signature headers instead (verified in the handler
+	// before the body is read as anything but bytes). The user a notification
+	// belongs to comes from the local row it matches, never from the payload.
+	r.Post("/api/aurora/billing/antom/notify/payment", h.AntomPaymentNotification)
+	r.Post("/api/aurora/billing/antom/notify/subscription", h.AntomSubscriptionNotification)
 	r.With(contactSalesRL).Post("/api/contact-sales", h.CreateContactSales)
 	// Public share-link preview — no auth: shows the workspace name/slug and
 	// inviter so a not-yet-logged-in visitor can see what they're joining.
@@ -2131,6 +2149,10 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 			// subscription, not on a task's credits.
 			r.With(handler.RequireHumanActor).Post("/api/aurora/billing/portal", h.CreateAuroraBillingPortal)
 			r.With(handler.RequireHumanActor).Get("/api/aurora/billing/subscription", h.GetAuroraSubscription)
+			// Antom has no billing portal, so its subscriptions are cancelled
+			// in-app. Human-only for the same reason as the portal: it acts on
+			// the account's subscription, not on a task's credits.
+			r.With(handler.RequireHumanActor).Post("/api/aurora/billing/subscription/cancel", h.CancelAuroraSubscription)
 			r.With(handler.RequireHumanActor).Get("/api/aurora/billing/topups", h.ListAuroraTopups)
 
 			// Assignee frequency

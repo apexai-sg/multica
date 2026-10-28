@@ -208,11 +208,18 @@
         "canceled": "已取消",
         "unknown": "未知"
       },
+      "providers": {
+        "stripe": "Stripe",
+        "antom": "Antom"
+      },
       "renews_on": "{{date}} 续费",
       "cancel_scheduled": "到期后结束。",
       "usage_label": "本月生成次数",
       "usage_value": "{{used}} / {{limit}}",
-      "subscribe": "订阅",
+      "subscribe_with": "通过 {{provider}} 订阅",
+      "no_channel": "该实例不售卖套餐。",
+      "cancel": "取消订阅",
+      "cancel_failed": "无法取消订阅，请稍后再试。",
       "manage": "管理订阅",
       "manage_failed": "无法打开订阅管理，请稍后再试。"
     },

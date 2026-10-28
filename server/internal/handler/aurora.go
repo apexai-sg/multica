@@ -1387,17 +1387,32 @@ func (h *Handler) DeleteAuroraAsset(w http.ResponseWriter, r *http.Request) {
 // (Plan 5 Tasks 3 and 7)
 // ---------------------------------------------------------------------------
 
-// CreateAuroraCheckout starts a subscription checkout for the caller.
+// The payment channels a subscription checkout can start on. "stripe" also
+// answers a request that names no channel, which is what every client predating
+// Antom sends.
+const (
+	paymentProviderStripe = "stripe"
+	paymentProviderAntom  = "antom"
+)
+
+// Antom notification endpoints, appended to the public API origin. The router
+// serves both; the checkout hands them to Antom so a later payment or state
+// change can be matched back to the row.
+const (
+	antomNotifyPathPayment      = "/api/aurora/billing/antom/notify/payment"
+	antomNotifyPathSubscription = "/api/aurora/billing/antom/notify/subscription"
+)
+
+// CreateAuroraCheckout starts a subscription checkout for the caller on the
+// provider the request names (Stripe when it names none).
 //
-// Fail-closed by construction: with no configured payment provider the
-// endpoint answers 503 rather than letting a client believe it bought
-// something, and a tier whose price id is unset is a 503 too, because the
-// alternative is charging whatever price the default happens to be.
+// Fail-closed by construction: with a channel unconfigured the endpoint answers
+// 503 rather than letting a client believe it bought something, and a Stripe
+// tier whose price id is unset is a 503 too, because the alternative is
+// charging whatever price the default happens to be. Both checks live inside
+// their own branch, after the provider dispatch: a deployment that configures
+// only Antom must still be able to sell through it.
 func (h *Handler) CreateAuroraCheckout(w http.ResponseWriter, r *http.Request) {
-	if h.Payments == nil {
-		writeError(w, http.StatusServiceUnavailable, "payments not configured")
-		return
-	}
 	userID, ok := requireUserID(w, r)
 	if !ok {
 		return
@@ -1411,13 +1426,40 @@ func (h *Handler) CreateAuroraCheckout(w http.ResponseWriter, r *http.Request) {
 		BillingCycle string `json:"billingCycle"`
 		SuccessURL   string `json:"successUrl"`
 		CancelURL    string `json:"cancelUrl"`
+		Provider     string `json:"provider"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	provider := req.Provider
+	if provider == "" {
+		provider = paymentProviderStripe
+	}
+	if provider != paymentProviderStripe && provider != paymentProviderAntom {
+		// Guessing would charge the user through a channel they did not pick.
+		writeError(w, http.StatusBadRequest, "unknown provider")
+		return
+	}
+	// Channel availability is a deployment fact, so it is answered before the
+	// request body is judged. Each check names its own channel: an Antom-only
+	// deployment must not be refused by the Stripe precondition, and vice versa.
+	switch provider {
+	case paymentProviderStripe:
+		if h.Payments == nil {
+			writeError(w, http.StatusServiceUnavailable, "payments not configured")
+			return
+		}
+	case paymentProviderAntom:
+		if h.Antom == nil {
+			writeError(w, http.StatusServiceUnavailable, "antom not configured")
+			return
+		}
+	}
 	// The client supplies the workspace route because it knows the slug, while the
-	// server pins that route to a configured app origin before giving it to Stripe.
+	// server pins that route to a configured app origin before handing it to the
+	// payment channel. Antom ignores cancelUrl: closing its page sends no
+	// callback, so the row simply stays pending and the return page polls.
 	if !h.validCheckoutURL(req.SuccessURL) || !h.validCheckoutURL(req.CancelURL) {
 		writeError(w, http.StatusBadRequest, "successUrl and cancelUrl must use a trusted app origin")
 		return
@@ -1427,24 +1469,40 @@ func (h *Handler) CreateAuroraCheckout(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "unknown tier")
 		return
 	}
+	// Channel price and period preconditions run before the intent is persisted:
+	// a checkout that cannot be created must not leave a pending row behind.
 	var priceID string
-	switch req.BillingCycle {
-	case "monthly":
-		priceID = tier.StripePriceMonthly
-	case "yearly":
-		priceID = tier.StripePriceYearly
-	default:
-		// Billing period changes what Stripe charges, so an unknown value is
-		// never safe to coerce to the monthly default.
-		writeError(w, http.StatusBadRequest, "billingCycle must be monthly or yearly")
-		return
-	}
-	if priceID == "" {
-		writeError(w, http.StatusServiceUnavailable, "tier price not configured")
-		return
+	switch provider {
+	case paymentProviderStripe:
+		switch req.BillingCycle {
+		case "monthly":
+			priceID = tier.StripePriceMonthly
+		case "yearly":
+			priceID = tier.StripePriceYearly
+		default:
+			// Billing period changes what Stripe charges, so an unknown value is
+			// never safe to coerce to the monthly default.
+			writeError(w, http.StatusBadRequest, "billingCycle must be monthly or yearly")
+			return
+		}
+		if priceID == "" {
+			writeError(w, http.StatusServiceUnavailable, "tier price not configured")
+			return
+		}
+	case paymentProviderAntom:
+		if req.BillingCycle != "monthly" {
+			// The Antom contract created here is monthly-only; there is no yearly
+			// period rule to fall back to.
+			writeError(w, http.StatusBadRequest, "billingCycle must be monthly for this provider")
+			return
+		}
+		if tier.AntomAmountMinorMonthly == "" {
+			writeError(w, http.StatusServiceUnavailable, "tier price not configured")
+			return
+		}
 	}
 	checkoutID, err := h.beginAuroraSubscriptionCheckout(
-		r.Context(), userUUID, tier.Tier, req.BillingCycle,
+		r.Context(), userUUID, tier.Tier, req.BillingCycle, provider,
 	)
 	if err != nil {
 		if errors.Is(err, errAuroraSubscriptionConflict) {
@@ -1454,23 +1512,51 @@ func (h *Handler) CreateAuroraCheckout(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to start checkout")
 		return
 	}
-	checkoutURL, err := h.Payments.CreateSubscriptionCheckout(r.Context(), priceID,
-		req.SuccessURL, req.CancelURL, userID, tier.Tier, checkoutID)
+	var checkoutURL string
+	switch provider {
+	case paymentProviderStripe:
+		checkoutURL, err = h.Payments.CreateSubscriptionCheckout(r.Context(), priceID,
+			req.SuccessURL, req.CancelURL, userID, tier.Tier, checkoutID)
+	case paymentProviderAntom:
+		checkoutURL, err = h.Antom.CreateSubscription(r.Context(), aurora.AntomSubscriptionRequest{
+			// Antom's create response carries no subscription id, so the request id
+			// is the only way the later notification can find this row: it must be
+			// exactly the persisted checkout key, not a similar prefix.
+			RequestID:             checkoutID,
+			Tier:                  tier.Tier,
+			Amount:                tier.AntomAmountMinorMonthly,
+			Currency:              aurora.AntomCurrency,
+			RedirectURL:           req.SuccessURL,
+			PaymentNotifyURL:      h.antomNotifyURL(antomNotifyPathPayment),
+			SubscriptionNotifyURL: h.antomNotifyURL(antomNotifyPathSubscription),
+			// A zero time serialises as year 0001, which Antom would reject.
+			StartTime: time.Now().UTC(),
+		})
+	}
 	if err != nil {
-		slog.Error("failed to create aurora subscription checkout", "tier", tier.Tier, "error", err)
+		slog.Error("failed to create aurora subscription checkout",
+			"provider", provider, "tier", tier.Tier, "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create checkout")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"checkoutUrl": checkoutURL})
 }
 
+// antomNotifyURL builds one Antom notification endpoint on the public API
+// origin. The channel is only constructed when PublicURL is configured, so this
+// never has to invent an address.
+func (h *Handler) antomNotifyURL(path string) string {
+	return strings.TrimRight(h.cfg.PublicURL, "/") + path
+}
+
 // beginAuroraSubscriptionCheckout persists or reuses one pending checkout per
-// user before any Stripe request leaves the process. The user advisory lock
-// closes the two-tab race; Stripe's idempotency key closes retries after commit.
+// user before any provider request leaves the process. The user advisory lock
+// closes the two-tab race; the provider's idempotency key closes retries after
+// commit.
 func (h *Handler) beginAuroraSubscriptionCheckout(
 	ctx context.Context,
 	userID pgtype.UUID,
-	tier, billingCycle string,
+	tier, billingCycle, provider string,
 ) (string, error) {
 	tx, err := h.TxStarter.Begin(ctx)
 	if err != nil {
@@ -1489,14 +1575,22 @@ func (h *Handler) beginAuroraSubscriptionCheckout(
 	switch {
 	case err == nil && sub.Status == "pending":
 		fresh := sub.UpdatedAt.Valid && time.Since(sub.UpdatedAt.Time) < auroraCheckoutIntentTTL
-		sameProduct := sub.Tier == tier && sub.CheckoutBillingCycle.Valid && sub.CheckoutBillingCycle.String == billingCycle
-		if fresh && sameProduct && sub.CheckoutIdempotencyKey.Valid && sub.CheckoutIdempotencyKey.String != "" {
-			if err := tx.Commit(ctx); err != nil {
-				return "", err
-			}
-			return sub.CheckoutIdempotencyKey.String, nil
-		}
 		if fresh {
+			// A pending intent on another channel is never replaced: the user may
+			// still complete the session that channel holds, and a replaced Stripe
+			// session's webhook would never match this row (Stripe retries it for
+			// days). Rows created before Antom existed carry the migration's
+			// 'stripe' default, so they are judged on that channel.
+			if sub.PaymentProvider != provider {
+				return "", errAuroraSubscriptionConflict
+			}
+			sameProduct := sub.Tier == tier && sub.CheckoutBillingCycle.Valid && sub.CheckoutBillingCycle.String == billingCycle
+			if sameProduct && sub.CheckoutIdempotencyKey.Valid && sub.CheckoutIdempotencyKey.String != "" {
+				if err := tx.Commit(ctx); err != nil {
+					return "", err
+				}
+				return sub.CheckoutIdempotencyKey.String, nil
+			}
 			return "", errAuroraSubscriptionConflict
 		}
 	case err == nil && sub.Status != "canceled":
@@ -1513,6 +1607,7 @@ func (h *Handler) beginAuroraSubscriptionCheckout(
 		Tier:                   tier,
 		CheckoutIdempotencyKey: strToText(checkoutID),
 		CheckoutBillingCycle:   strToText(billingCycle),
+		PaymentProvider:        provider,
 	}); err != nil {
 		return "", err
 	}
@@ -1983,6 +2078,316 @@ func (h *Handler) grantSubscriptionAllowance(ctx context.Context, userID pgtype.
 	return h.Credit.EnsureMonthlyAllowance(ctx, userID, wsID, tier.MonthlyCreditsMicro(), time.Now())
 }
 
+// ---------------------------------------------------------------------------
+// Antom notifications — the charge result and the subscription lifecycle
+// ---------------------------------------------------------------------------
+
+// maxAntomNotifyBodySize caps a notification body. Both payloads are small
+// JSON documents, so the cap only bounds what a public route buffers before
+// the signature is checked.
+const maxAntomNotifyBodySize = 64 << 10
+
+// antomAckBody is the acknowledgement Antom requires, byte for byte. Antom
+// stops retrying on it, so it is written only once a notification has been
+// applied or deliberately discarded — never for a 401 or a 500.
+const antomAckBody = `{"result":{"resultCode":"SUCCESS","resultStatus":"S","resultMessage":"success"}}`
+
+func writeAntomAck(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", strconv.Itoa(len(antomAckBody)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(antomAckBody))
+}
+
+// serveAntomNotification runs the part both notification handlers must share:
+// fail closed without a channel, rate limit, cap the body, and verify the
+// signature over the exact bytes received. event is the route's metric label,
+// so a failure is attributed to the path Antom actually called.
+//
+// The helper takes the label rather than deriving it because the failures it
+// reports happen before the body is trusted, when the notification carries no
+// type to attribute them to.
+func (h *Handler) serveAntomNotification(w http.ResponseWriter, r *http.Request, event string) (aurora.AntomNotification, bool) {
+	if h.Antom == nil {
+		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultNotConfigured)
+		writeError(w, http.StatusServiceUnavailable, "antom not configured")
+		return aurora.AntomNotification{}, false
+	}
+	if h.WebhookIPRateLimiter != nil {
+		if ip := h.clientIPForRateLimit(r); ip != "" && !h.WebhookIPRateLimiter.Allow(r.Context(), ip) {
+			h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultRateLimited)
+			writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
+			return aurora.AntomNotification{}, false
+		}
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxAntomNotifyBodySize)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		// Both the size cap and an unreadable body mean the request never
+		// reached signature verification.
+		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultBadRequest)
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			writeError(w, http.StatusRequestEntityTooLarge, "request body is too large")
+			return aurora.AntomNotification{}, false
+		}
+		writeError(w, http.StatusBadRequest, "invalid body")
+		return aurora.AntomNotification{}, false
+	}
+	notification, err := h.Antom.VerifyNotification(r.Method, r.URL.Path, r.Header, body)
+	if err != nil {
+		// Logged even though Antom retries: a retry cannot fix a wrong key, so
+		// this line is the only signal an operator gets.
+		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultInvalidSignature)
+		slog.Error("antom notification failed verification", "event", event, "error", err)
+		writeError(w, http.StatusUnauthorized, "invalid signature")
+		return aurora.AntomNotification{}, false
+	}
+	return notification, true
+}
+
+// findAntomSubscription resolves the local row a verified notification belongs
+// to, stopping at the first match: the checkout key (so the first charge can
+// claim its pending intent), then the Antom subscription id (the fallback for
+// a row whose checkout key is gone). found=false means this channel knows no
+// such subscription; a caller acks that rather than retrying.
+func (h *Handler) findAntomSubscription(ctx context.Context, notification aurora.AntomNotification) (db.AuroraSubscription, bool, error) {
+	if notification.RequestID != "" {
+		row, err := h.Queries.GetAuroraSubscriptionByCheckoutKey(ctx, strToText(notification.RequestID))
+		switch {
+		case err == nil:
+			return row, true, nil
+		case !errors.Is(err, pgx.ErrNoRows):
+			return db.AuroraSubscription{}, false, err
+		}
+	}
+	if notification.SubscriptionID == "" {
+		return db.AuroraSubscription{}, false, nil
+	}
+	row, err := h.Queries.GetAuroraSubscriptionByAntomID(ctx, strToText(notification.SubscriptionID))
+	switch {
+	case err == nil:
+		return row, true, nil
+	case errors.Is(err, pgx.ErrNoRows):
+		return db.AuroraSubscription{}, false, nil
+	default:
+		return db.AuroraSubscription{}, false, err
+	}
+}
+
+// applyAntomSubscription reports false when the terminal-state guard declined
+// the write. pgx.ErrNoRows therefore means "nothing applied" — the row is
+// canceled under the same Antom subscription — not a failure worth retrying.
+// The parameters carry no payment provider: the channel is stamped at checkout
+// and a notification never moves a subscription to another one.
+func (h *Handler) applyAntomSubscription(ctx context.Context, params db.UpsertAuroraAntomSubscriptionParams) (bool, error) {
+	_, err := h.Queries.UpsertAuroraAntomSubscription(ctx, params)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// failAntomNotification reports a retryable failure: no ack, so Antom's retry
+// schedule applies. Every write on these paths is idempotent, which is what
+// makes a retry safe. The notification's identifiers are logged so a retried
+// failure can be traced back to the subscription and charge it was about.
+func (h *Handler) failAntomNotification(w http.ResponseWriter, event, message string, notification aurora.AntomNotification, err error) {
+	h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultHandlerError)
+	slog.Error(message, "event", event,
+		"request_id", notification.RequestID,
+		"subscription_id", notification.SubscriptionID,
+		"payment_id", notification.PaymentID,
+		"error", err)
+	writeError(w, http.StatusInternalServerError, "notification handling failed")
+}
+
+// AntomPaymentNotification applies one charge result. A success records the
+// period Antom reports, marks the subscription active and grants that month's
+// allowance; any other result marks it past_due and grants nothing. Mounted on
+// the public route group, so serveAntomNotification is the only thing
+// authenticating the request.
+func (h *Handler) AntomPaymentNotification(w http.ResponseWriter, r *http.Request) {
+	event := obsmetrics.AuroraWebhookEventAntomPayment
+	notification, ok := h.serveAntomNotification(w, r, event)
+	if !ok {
+		return
+	}
+	if notification.Type != "payment" {
+		// A lifecycle payload posted to the charge route would read as a failed
+		// charge ("ACTIVE" is not "S") and downgrade a paying user to past_due.
+		// Retrying cannot reroute it, so it is logged and acked.
+		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultUnknown)
+		slog.Warn("antom payment notification carried a non-payment payload", "type", notification.Type)
+		writeAntomAck(w)
+		return
+	}
+	ctx := r.Context()
+	row, found, err := h.findAntomSubscription(ctx, notification)
+	if err != nil {
+		h.failAntomNotification(w, event, "antom payment notification lookup failed", notification, err)
+		return
+	}
+	if !found {
+		// Retrying cannot create a local row, so this is acked and logged.
+		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultUnknown)
+		slog.Warn("antom payment notification for an unknown subscription",
+			"request_id", notification.RequestID,
+			"subscription_id", notification.SubscriptionID,
+			"payment_id", notification.PaymentID)
+		writeAntomAck(w)
+		return
+	}
+	paid := notification.Status == "S"
+	if paid && (notification.PeriodEnd.IsZero() || !notification.PeriodEnd.After(notification.PeriodStart)) {
+		// A success without a usable period is not a success: acking it would
+		// stop Antom's retries and persist a wrong next-charge date. Not acked,
+		// so Antom retries a body it may fix.
+		h.failAntomNotification(w, event, "antom payment notification has no usable billing period", notification,
+			fmt.Errorf("period start %s, period end %s", notification.PeriodStart, notification.PeriodEnd))
+		return
+	}
+	status := "past_due"
+	periodEnd := row.CurrentPeriodEnd
+	if paid {
+		status = "active"
+		// Antom notifications carry no ordering timestamp, so a very late
+		// retry can move the period end backwards; the next charge's period
+		// corrects it. Nothing better than "apply what arrived" exists here.
+		periodEnd = pgtype.Timestamptz{Time: notification.PeriodEnd, Valid: true}
+	}
+	antomID := row.AntomSubscriptionID
+	if notification.SubscriptionID != "" {
+		antomID = strToText(notification.SubscriptionID)
+	}
+	applied, err := h.applyAntomSubscription(ctx, db.UpsertAuroraAntomSubscriptionParams{
+		UserID:              row.UserID,
+		Tier:                row.Tier,
+		Status:              status,
+		AntomSubscriptionID: antomID,
+		CurrentPeriodEnd:    periodEnd,
+		// A charge result never changes whether renewals are being stopped.
+		CancelAtPeriodEnd: row.CancelAtPeriodEnd,
+	})
+	if err != nil {
+		h.failAntomNotification(w, event, "antom payment notification write failed", notification, err)
+		return
+	}
+	result := obsmetrics.AuroraWebhookResultOK
+	// applied=false is the terminal-state guard: the subscription was
+	// terminated under the same Antom id, so there is nothing to grant.
+	if applied && paid {
+		// The charge is recorded either way. A tier this deployment no longer
+		// sells cannot be granted, and returning before the write would leave a
+		// paid row pending with no period, which nothing repairs until the next
+		// cycle; so only the grant is skipped, and the outcome stays visible as
+		// "unknown" rather than being reported as ok.
+		tier, knownTier := h.Tiers.Lookup(row.Tier)
+		switch {
+		case !knownTier || tier.Tier == "free":
+			slog.Warn("antom subscription allowance skipped for an unknown tier",
+				"tier", row.Tier, "subscription_id", notification.SubscriptionID)
+			result = obsmetrics.AuroraWebhookResultUnknown
+		default:
+			if err := h.grantSubscriptionAllowance(ctx, row.UserID, tier); err != nil {
+				h.failAntomNotification(w, event, "antom subscription allowance grant failed", notification, err)
+				return
+			}
+		}
+	}
+	h.Metrics.RecordAuroraWebhookEvent(event, result)
+	writeAntomAck(w)
+}
+
+// AntomSubscriptionNotification applies one lifecycle transition. Antom sends
+// no ordering timestamp, so the states are written explicitly and any arrival
+// order converges; the terminal-state guard in the upsert keeps a late CREATE
+// from resurrecting a terminated subscription.
+func (h *Handler) AntomSubscriptionNotification(w http.ResponseWriter, r *http.Request) {
+	event := obsmetrics.AuroraWebhookEventAntomSubscription
+	notification, ok := h.serveAntomNotification(w, r, event)
+	if !ok {
+		return
+	}
+	// cancelAtPeriodEnd stays nil for the status-only transitions: only CANCEL
+	// sets the flag and only TERMINATE clears it, so an UPDATE cannot silently
+	// drop a cancel the user already asked for. R22 trade-off: a subscription
+	// reactivated without a TERMINATE keeps rendering "cancellation scheduled".
+	var status string
+	var cancelAtPeriodEnd *bool
+	switch {
+	case notification.NotificationType == "TERMINATE" || notification.Status == "TERMINATED":
+		// Termination is final whichever field carries it: an explicit
+		// TERMINATE is authoritative, and a body that says TERMINATED is a
+		// termination however it is labelled. Anything else would let an acked
+		// termination leave a canceled subscription granting the paid tier.
+		status = "canceled"
+		terminate := false
+		cancelAtPeriodEnd = &terminate
+	case notification.NotificationType == "CANCEL":
+		// Antom's cancel stops renewals at the end of the paid period; access
+		// continues until then, which is what cancel_at_period_end expresses.
+		// It applies whether or not the status string says ACTIVE.
+		status = "active"
+		cancel := true
+		cancelAtPeriodEnd = &cancel
+	case (notification.NotificationType == "CREATE" ||
+		notification.NotificationType == "UPDATE" ||
+		notification.NotificationType == "CHANGE") &&
+		notification.Status == "ACTIVE":
+		status = "active"
+	default:
+		// Retrying cannot turn an unhandled type into a handled one, nor an
+		// unhandled status into one this channel stores.
+		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultUnknown)
+		slog.Warn("antom subscription notification with an unhandled type",
+			"notification_type", notification.NotificationType,
+			"status", notification.Status,
+			"subscription_id", notification.SubscriptionID)
+		writeAntomAck(w)
+		return
+	}
+	ctx := r.Context()
+	row, found, err := h.findAntomSubscription(ctx, notification)
+	if err != nil {
+		h.failAntomNotification(w, event, "antom subscription notification lookup failed", notification, err)
+		return
+	}
+	if !found {
+		h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultUnknown)
+		slog.Warn("antom subscription notification for an unknown subscription",
+			"notification_type", notification.NotificationType,
+			"subscription_id", notification.SubscriptionID)
+		writeAntomAck(w)
+		return
+	}
+	cancel := row.CancelAtPeriodEnd
+	if cancelAtPeriodEnd != nil {
+		cancel = *cancelAtPeriodEnd
+	}
+	antomID := row.AntomSubscriptionID
+	if notification.SubscriptionID != "" {
+		antomID = strToText(notification.SubscriptionID)
+	}
+	// A lifecycle transition carries no period, so the stored period end is
+	// what the last charge reported and is left alone. A declined write is the
+	// guard refusing a late CREATE on a terminated subscription: the terminal
+	// state stands and the notification is still acked.
+	if _, err := h.applyAntomSubscription(ctx, db.UpsertAuroraAntomSubscriptionParams{
+		UserID:              row.UserID,
+		Tier:                row.Tier,
+		Status:              status,
+		AntomSubscriptionID: antomID,
+		CurrentPeriodEnd:    row.CurrentPeriodEnd,
+		CancelAtPeriodEnd:   cancel,
+	}); err != nil {
+		h.failAntomNotification(w, event, "antom subscription notification write failed", notification, err)
+		return
+	}
+	h.Metrics.RecordAuroraWebhookEvent(event, obsmetrics.AuroraWebhookResultOK)
+	writeAntomAck(w)
+}
+
 // stripeSubscriptionStatus maps Stripe's lifecycle onto the three states this
 // product stores. Anything that is not in good standing becomes "past_due" and
 // therefore stops granting; the entitlement gate already treats a non-active
@@ -2042,40 +2447,56 @@ type AuroraSubscriptionUsage struct {
 // when there is no row at all, which is what tells a canceled subscriber apart
 // from one who never subscribed.
 type AuroraSubscriptionResponse struct {
-	Tier              string                   `json:"tier"`
-	Status            string                   `json:"status"`
-	CurrentPeriodEnd  *string                  `json:"currentPeriodEnd"`
-	CancelAtPeriodEnd bool                     `json:"cancelAtPeriodEnd"`
-	Limits            AuroraSubscriptionLimits `json:"limits"`
-	Usage             AuroraSubscriptionUsage  `json:"usage"`
+	Tier   string `json:"tier"`
+	Status string `json:"status"`
+	// Provider is the channel the stored row is on, empty when there is no
+	// row. It decides whether the plan screen offers the in-app Antom cancel
+	// or the Stripe portal.
+	Provider string `json:"provider"`
+	// AvailableProviders lists the channels this deployment can sell through,
+	// Stripe first and Antom second. It is always an array — an empty one when
+	// neither is configured — so the client never has to handle null.
+	AvailableProviders []string                 `json:"availableProviders"`
+	CurrentPeriodEnd   *string                  `json:"currentPeriodEnd"`
+	CancelAtPeriodEnd  bool                     `json:"cancelAtPeriodEnd"`
+	Limits             AuroraSubscriptionLimits `json:"limits"`
+	Usage              AuroraSubscriptionUsage  `json:"usage"`
 }
 
-// GetAuroraSubscription reports the caller's plan, its limits and this month's
-// usage. Like the other billing reads it is account-scoped: the plan belongs to
-// the user, not to the workspace the request is made from.
-func (h *Handler) GetAuroraSubscription(w http.ResponseWriter, r *http.Request) {
-	userUUID, ok := auroraBillingUser(w, r)
-	if !ok {
-		return
+// availableSubscriptionProviders reports the configured subscription channels
+// in a fixed order. The order is part of the response contract, not a
+// preference: a client renders the buttons in list order.
+func (h *Handler) availableSubscriptionProviders() []string {
+	providers := make([]string, 0, 2)
+	if h.Payments != nil {
+		providers = append(providers, "stripe")
 	}
-	limits, err := aurora.LimitsForUser(r.Context(), h.Queries, h.Tiers, userUUID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load subscription")
-		return
+	if h.Antom != nil {
+		providers = append(providers, "antom")
 	}
-	usedThisMonth, err := h.Queries.CountGenerationsThisMonth(r.Context(), userUUID)
+	return providers
+}
+
+// buildAuroraSubscriptionResponse assembles the plan screen's whole state for
+// one user. The read and the cancel endpoint both answer with this shape, so
+// they are built here once and cannot drift apart.
+func (h *Handler) buildAuroraSubscriptionResponse(ctx context.Context, userUUID pgtype.UUID) (AuroraSubscriptionResponse, error) {
+	limits, err := aurora.LimitsForUser(ctx, h.Queries, h.Tiers, userUUID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load usage")
-		return
+		return AuroraSubscriptionResponse{}, fmt.Errorf("load limits: %w", err)
 	}
-	activeGenerations, err := h.Queries.CountActiveGenerations(r.Context(), userUUID)
+	usedThisMonth, err := h.Queries.CountGenerationsThisMonth(ctx, userUUID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load usage")
-		return
+		return AuroraSubscriptionResponse{}, fmt.Errorf("load usage: %w", err)
+	}
+	activeGenerations, err := h.Queries.CountActiveGenerations(ctx, userUUID)
+	if err != nil {
+		return AuroraSubscriptionResponse{}, fmt.Errorf("load usage: %w", err)
 	}
 
 	response := AuroraSubscriptionResponse{
-		Tier: limits.Tier,
+		Tier:               limits.Tier,
+		AvailableProviders: h.availableSubscriptionProviders(),
 		Limits: AuroraSubscriptionLimits{
 			GenerationsPerMonth: limits.GenerationsPerMonth,
 			Concurrency:         limits.Concurrency,
@@ -2086,16 +2507,16 @@ func (h *Handler) GetAuroraSubscription(w http.ResponseWriter, r *http.Request) 
 		},
 	}
 
-	sub, err := h.Queries.GetAuroraSubscriptionByUser(r.Context(), userUUID)
+	sub, err := h.Queries.GetAuroraSubscriptionByUser(ctx, userUUID)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		// No plan row: the free tier with no period. Not an error — a user who
 		// has never subscribed is the common case.
 	case err != nil:
-		writeError(w, http.StatusInternalServerError, "failed to load subscription")
-		return
+		return AuroraSubscriptionResponse{}, fmt.Errorf("load subscription: %w", err)
 	default:
 		response.Status = sub.Status
+		response.Provider = sub.PaymentProvider
 		response.CancelAtPeriodEnd = sub.CancelAtPeriodEnd
 		if sub.CurrentPeriodEnd.Valid {
 			end := sub.CurrentPeriodEnd.Time.UTC().Format(time.RFC3339Nano)
@@ -2103,6 +2524,103 @@ func (h *Handler) GetAuroraSubscription(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
+	return response, nil
+}
+
+// GetAuroraSubscription reports the caller's plan, its limits and this month's
+// usage. Like the other billing reads it is account-scoped: the plan belongs to
+// the user, not to the workspace the request is made from.
+func (h *Handler) GetAuroraSubscription(w http.ResponseWriter, r *http.Request) {
+	userUUID, ok := auroraBillingUser(w, r)
+	if !ok {
+		return
+	}
+	response, err := h.buildAuroraSubscriptionResponse(r.Context(), userUUID)
+	if err != nil {
+		slog.Error("failed to load aurora subscription", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load subscription")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"subscription": response})
+}
+
+// CancelAuroraSubscription stops renewals for the caller's Antom subscription.
+// Antom has no billing portal, so this endpoint is the whole cancellation path
+// for that channel; a Stripe row is pointed at the portal instead. The channel
+// and the subscription id both come from the stored row, never from the
+// request, so a caller can neither cancel another account's subscription nor
+// choose a channel the row is not on.
+//
+// Antom's CANCEL leaves the paid period active, so only cancel_at_period_end
+// changes here. A TERMINATE notification is the one thing that clears the flag
+// (R22); this endpoint and the CREATE/UPDATE/CHANGE notifications never do.
+func (h *Handler) CancelAuroraSubscription(w http.ResponseWriter, r *http.Request) {
+	userUUID, ok := auroraBillingUser(w, r)
+	if !ok {
+		return
+	}
+	sub, err := h.Queries.GetAuroraSubscriptionByUser(r.Context(), userUUID)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		writeError(w, http.StatusNotFound, "no subscription to cancel")
+		return
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "failed to load subscription")
+		return
+	}
+	// The check comes before the update so the caller gets the specific
+	// reason; the write itself is also guarded, which covers a termination
+	// arriving between this read and that write.
+	if sub.PaymentProvider != "antom" {
+		writeError(w, http.StatusConflict, "this subscription is managed by Stripe; use the billing portal")
+		return
+	}
+	// A row that already reached canceled has nothing left to stop, and
+	// submitting it to Antom again would reset cancel_at_period_end on a
+	// subscription the termination already ended.
+	if sub.Status == "canceled" {
+		writeError(w, http.StatusConflict, "subscription already canceled")
+		return
+	}
+	if h.Antom == nil {
+		writeError(w, http.StatusServiceUnavailable, "antom not configured")
+		return
+	}
+	if !sub.AntomSubscriptionID.Valid || sub.AntomSubscriptionID.String == "" {
+		// A pending row has no subscription at Antom yet, so there is nothing
+		// to stop renewing and an empty id must not reach the provider.
+		writeError(w, http.StatusConflict, "subscription has no Antom id")
+		return
+	}
+	// The provider call comes first, and a failure changes nothing locally:
+	// the user can retry, and the server never claims a cancellation Antom did
+	// not accept.
+	if err := h.Antom.CancelSubscription(r.Context(), sub.AntomSubscriptionID.String); err != nil {
+		slog.Error("failed to cancel aurora antom subscription", "error", err)
+		writeError(w, http.StatusBadGateway, "failed to cancel subscription")
+		return
+	}
+	if _, err := h.Queries.MarkAuroraSubscriptionCancelAtPeriodEnd(r.Context(), userUUID); err != nil {
+		// Antom already accepted the cancel; only the local flag is pending.
+		// A retry self-heals if Antom's cancel is idempotent, so this is not
+		// the "nothing happened" failure the 5xx might suggest. A declined
+		// update (no row) means a termination won the race since the read
+		// above: the row is already canceled, which is the same answer the
+		// pre-read gives.
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusConflict, "subscription already canceled")
+			return
+		}
+		slog.Error("failed to record aurora subscription cancellation", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to update subscription")
+		return
+	}
+	response, err := h.buildAuroraSubscriptionResponse(r.Context(), userUUID)
+	if err != nil {
+		slog.Error("failed to load aurora subscription after cancel", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load subscription")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"subscription": response})
 }
 

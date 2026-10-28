@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceId } from "../hooks";
 import {
+  cancelAuroraSubscription,
   createAuroraBillingPortal,
   createAuroraCheckout,
   createAuroraGeneration,
@@ -132,6 +133,29 @@ export function useCreateAuroraBillingPortal() {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: auroraWalletKeys.subscription() });
       qc.invalidateQueries({ queryKey: auroraWalletKeys.balance() });
+    },
+  });
+}
+
+/**
+ * Cancels the caller's Antom subscription in the app.
+ *
+ * The endpoint takes no input — the server reads the caller's one subscription
+ * row — and answers with the plan afterwards, so the result is written straight
+ * into the cache and the plan is invalidated to confirm it. Cancelling at the
+ * period end does not move the wallet, so the balance is left alone.
+ *
+ * A 409 (not an Antom row, or already canceled) and a 502 (Antom refused) both
+ * leave the plan unchanged, so the screen only reports them; nothing is
+ * invalidated on failure.
+ */
+export function useCancelAuroraSubscription() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => cancelAuroraSubscription(),
+    onSuccess: (subscription) => {
+      qc.setQueryData(auroraWalletKeys.subscription(), subscription);
+      qc.invalidateQueries({ queryKey: auroraWalletKeys.subscription() });
     },
   });
 }

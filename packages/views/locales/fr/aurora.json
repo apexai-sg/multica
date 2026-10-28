@@ -212,11 +212,18 @@
         "canceled": "Annulé",
         "unknown": "Inconnu"
       },
+      "providers": {
+        "stripe": "Stripe",
+        "antom": "Antom"
+      },
       "renews_on": "Renouvellement le {{date}}",
       "cancel_scheduled": "Se termine à la fin de la période.",
       "usage_label": "Générations ce mois-ci",
       "usage_value": "{{used}} sur {{limit}}",
-      "subscribe": "S'abonner",
+      "subscribe_with": "S'abonner avec {{provider}}",
+      "no_channel": "Les forfaits ne sont pas en vente sur cette instance.",
+      "cancel": "Annuler l'abonnement",
+      "cancel_failed": "Impossible d'annuler votre abonnement. Réessayez dans un instant.",
       "manage": "Gérer l'abonnement",
       "manage_failed": "Impossible d'ouvrir la gestion de l'abonnement. Réessayez dans un instant."
     },

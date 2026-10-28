@@ -1,7 +1,9 @@
 import { z } from "zod";
-import type {
-  AuroraRuntimeState,
-  AuroraSkillAttachmentRule,
+import {
+  isAuroraPaymentProvider,
+  type AuroraPaymentProvider,
+  type AuroraRuntimeState,
+  type AuroraSkillAttachmentRule,
 } from "./types";
 
 /**
@@ -276,6 +278,26 @@ export const auroraTransactionsSchema = z.object({
 });
 
 /**
+ * The channels a deployment sells through, narrowed to the ones this build can
+ * charge with.
+ *
+ * Unknown entries are dropped one by one rather than failing the array: a
+ * channel from a newer server must cost only its own button, not the buttons
+ * for the channels this build does know. Duplicates are collapsed too: the list
+ * is rendered as buttons keyed by channel, so a repeated entry would be a
+ * duplicate React key and a second identical button. A body whose field is not
+ * a list at all collapses to no channels, for the same reason — the plan read
+ * is the purchase boundary and must not fail over its button list.
+ */
+const auroraAvailableProvidersSchema = z
+  .array(z.unknown())
+  .catch([])
+  .default([])
+  .transform((values): AuroraPaymentProvider[] => [
+    ...new Set(values.filter(isAuroraPaymentProvider)),
+  ]);
+
+/**
  * GET /api/aurora/billing/subscription.
  *
  * `tier` is the tier the server's gates actually apply — a canceled plan
@@ -284,6 +306,11 @@ export const auroraTransactionsSchema = z.object({
  * what let the screen say "Free" without claiming a canceled plan is still
  * running.
  *
+ * `provider` is the channel the stored row is on, empty when there is no row.
+ * It decides whether the screen offers the Stripe portal or the in-app Antom
+ * cancel; a server that predates the field reads as Stripe, the only channel
+ * such a server could have sold through.
+ *
  * Every field carries a default because the endpoint is the one the plan screen
  * renders first: a server that predates it (or a degraded body) must still
  * produce a free-plan card rather than a blank screen.
@@ -291,6 +318,8 @@ export const auroraTransactionsSchema = z.object({
 export const auroraSubscriptionSchema = z.object({
   tier: z.string().default("free"),
   status: z.string().default(""),
+  provider: z.string().default("stripe"),
+  availableProviders: auroraAvailableProvidersSchema,
   currentPeriodEnd: z.string().nullable().default(null),
   cancelAtPeriodEnd: z.boolean().default(false),
   limits: z

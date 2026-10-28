@@ -77,6 +77,8 @@ const AURORA_RUNTIME_PATH = "/api/aurora/runtime";
 const AURORA_BALANCE_PATH = "/api/aurora/billing/balance";
 const AURORA_TRANSACTIONS_PATH = "/api/aurora/billing/transactions";
 const AURORA_SUBSCRIPTION_PATH = "/api/aurora/billing/subscription";
+const AURORA_SUBSCRIPTION_CANCEL_PATH =
+  "/api/aurora/billing/subscription/cancel";
 const AURORA_TOPUPS_PATH = "/api/aurora/billing/topups";
 const AURORA_CHECKOUT_PATH = "/api/aurora/billing/checkout";
 const AURORA_TOPUP_CHECKOUT_PATH = "/api/aurora/billing/topup/checkout";
@@ -96,6 +98,7 @@ const RUNTIME_ENDPOINT = `GET ${AURORA_RUNTIME_PATH}`;
 const BALANCE_ENDPOINT = `GET ${AURORA_BALANCE_PATH}`;
 const TRANSACTIONS_ENDPOINT = `GET ${AURORA_TRANSACTIONS_PATH}`;
 const SUBSCRIPTION_ENDPOINT = `GET ${AURORA_SUBSCRIPTION_PATH}`;
+const CANCEL_SUBSCRIPTION_ENDPOINT = `POST ${AURORA_SUBSCRIPTION_CANCEL_PATH}`;
 const TOPUPS_ENDPOINT = `GET ${AURORA_TOPUPS_PATH}`;
 const CHECKOUT_ENDPOINT = `POST ${AURORA_CHECKOUT_PATH}`;
 const TOPUP_CHECKOUT_ENDPOINT = `POST ${AURORA_TOPUP_CHECKOUT_PATH}`;
@@ -305,13 +308,16 @@ export function parseAuroraTransactions(
  * fallback object lets us retain parseWithFallback's boundary diagnostics while
  * promoting degradation to a visible query error.
  */
-export function parseAuroraSubscription(data: unknown): AuroraSubscription {
+export function parseAuroraSubscription(
+  data: unknown,
+  endpoint: string = SUBSCRIPTION_ENDPOINT,
+): AuroraSubscription {
   const fallback = { subscription: auroraSubscriptionSchema.parse({}) };
   const parsed = parseWithFallback<{ subscription: AuroraSubscription }>(
     data,
     auroraSubscriptionResponseSchema,
     fallback,
-    { endpoint: SUBSCRIPTION_ENDPOINT },
+    { endpoint },
   );
   if (parsed === fallback) throw new Error("invalid subscription response");
   return parsed.subscription;
@@ -548,6 +554,26 @@ export async function createAuroraTopupCheckout(
     body: JSON.stringify(request),
   });
   return parseAuroraTopupCheckout(raw);
+}
+
+/**
+ * Stops an Antom subscription renewing, and returns the plan afterwards.
+ *
+ * Antom has no hosted portal, so this is the in-app cancel: the server asks the
+ * provider to cancel and flags the row to end with its period. The answer is
+ * the same body the read serves, so the caller gets the updated plan without a
+ * second request — and a malformed one throws rather than leaving the control
+ * with neither a result nor an error.
+ *
+ * Throws `ApiError` with 409 when the row is not an Antom subscription, has no
+ * Antom id, or is already canceled, and 502 when Antom itself refuses. Neither
+ * leaves the plan changed, so both are reported rather than retried.
+ */
+export async function cancelAuroraSubscription(): Promise<AuroraSubscription> {
+  const raw = await api.requestJson(AURORA_SUBSCRIPTION_CANCEL_PATH, {
+    method: "POST",
+  });
+  return parseAuroraSubscription(raw, CANCEL_SUBSCRIPTION_ENDPOINT);
 }
 
 /**

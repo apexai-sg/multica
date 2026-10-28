@@ -199,6 +199,30 @@ type Config struct {
 	AuroraStripePriceProYearly       string
 	AuroraStripePriceTopup5          string
 	AuroraStripePriceTopup20         string
+	// Antom* configure Aurora's second subscription channel. Like the Stripe
+	// keys they are server-side only: the merchant private key signs every
+	// request, and the Antom public key is what authenticates an incoming
+	// notification. Three are required — ClientID, MerchantPrivateKey,
+	// AntomPublicKey — and three have defaults — KeyVersion ("1"), APIBase (the
+	// Singapore gateway) and Currency (the catalog's currency); see
+	// aurora.NewAntomClient. A half-configured deployment gets a nil provider,
+	// which every checkout reads as "this channel is off" (503), rather than a
+	// provider that breaks at the first payment. AntomCurrency is the single
+	// currency input (R21): AntomClient charges its configured currency and
+	// ignores the per-request Currency field, and New refuses a currency the
+	// tier catalog does not price.
+	//   - AntomClientID           -> ANTOM_CLIENT_ID
+	//   - AntomMerchantPrivateKey -> ANTOM_MERCHANT_PRIVATE_KEY
+	//   - AntomPublicKey          -> ANTOM_PUBLIC_KEY
+	//   - AntomKeyVersion         -> ANTOM_KEY_VERSION
+	//   - AntomAPIBase            -> ANTOM_API_BASE
+	//   - AntomCurrency           -> ANTOM_CURRENCY
+	AntomClientID           string
+	AntomMerchantPrivateKey string
+	AntomPublicKey          string
+	AntomKeyVersion         string
+	AntomAPIBase            string
+	AntomCurrency           string
 	// GitExtraCACerts is the PEM of the private CAs the operator added to the
 	// backend's trust store through SSL_CERT_DIR (see internal/gitca). It is
 	// handed to daemons with the workspace repos so their git can reach a
@@ -278,6 +302,11 @@ type Handler struct {
 	// keys, which every billing endpoint reads as "payments disabled" and
 	// answers 503 — never as "free". Tests substitute a fake.
 	Payments aurora.PaymentProvider
+	// Antom is Aurora's Antom subscription surface. Nil when the deployment has
+	// no usable Antom configuration or no public URL for its notifications,
+	// which the checkout reads as "this channel is off" and answers 503 for —
+	// never as an error for the Stripe channel. Tests substitute a fake.
+	Antom aurora.AntomProvider
 	// Tiers is Aurora's product catalog: what each plan grants and what it
 	// limits. Built once from config, so the numbers have a single source.
 	Tiers *aurora.TierCatalog
@@ -578,6 +607,47 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 	if stripeProvider := aurora.NewStripeProvider(cfg.StripeSecretKey, cfg.StripeWebhookSecret); stripeProvider != nil {
 		payments = stripeProvider
 	}
+	// Antom builds its notification URLs from the deployment's public URL, so a
+	// deployment without one has no channel at all: turning it off here keeps the
+	// UI from offering a checkout that cannot finish, instead of failing after
+	// the user has left for Antom. Same rule as Stripe for the interface field —
+	// never assign a nil concrete pointer, because every checkout reads
+	// h.Antom == nil as "this channel is off". No branch logs a credential: the
+	// clientId, merchant private key and Antom public key values never reach the
+	// log, while the currency value, the API base and NewAntomClient's error
+	// text do.
+	//
+	// ANTOM_CURRENCY stays the single currency input (R21), but it is not free
+	// text: the tier catalog's Antom amounts are bare minor units priced in
+	// aurora.AntomCurrency, so charging any other currency would send the
+	// S$19/59/169 numbers as that currency's numbers — the amount is then
+	// necessarily wrong, since nothing converts prices — and Antom rejects a
+	// lower-case code at the first create. Empty keeps the documented default;
+	// anything else must equal the catalog's currency.
+	antomCurrency := strings.ToUpper(strings.TrimSpace(cfg.AntomCurrency))
+	if antomCurrency == "" {
+		antomCurrency = aurora.AntomCurrency
+	}
+	var antom aurora.AntomProvider
+	if cfg.PublicURL == "" {
+		slog.Warn("antom payments disabled: MULTICA_PUBLIC_URL is unset")
+	} else if antomCurrency != aurora.AntomCurrency {
+		slog.Warn("antom payments disabled: currency the tier catalog does not price",
+			"configured", antomCurrency, "catalog", aurora.AntomCurrency)
+	} else if antomClient, err := aurora.NewAntomClient(aurora.AntomConfig{
+		ClientID:           cfg.AntomClientID,
+		MerchantPrivateKey: cfg.AntomMerchantPrivateKey,
+		AntomPublicKey:     cfg.AntomPublicKey,
+		KeyVersion:         cfg.AntomKeyVersion,
+		APIBase:            cfg.AntomAPIBase,
+		Currency:           antomCurrency,
+	}); err != nil {
+		slog.Warn("antom payments disabled", "error", err)
+	} else if antomClient == nil {
+		slog.Warn("antom payments disabled: new client is nil")
+	} else {
+		antom = antomClient
+	}
 	h := &Handler{
 		Queries:                queries,
 		ReadSelector:           dbreader.NewPrimaryOnly(queries),
@@ -596,6 +666,7 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 		Credit:                 creditSvc,
 		Moderation:             aurora.NewDefaultModerator(),
 		Payments:               payments,
+		Antom:                  antom,
 		Tiers: aurora.NewTierCatalog(
 			cfg.AuroraStripePriceCreatorMonthly,
 			cfg.AuroraStripePriceCreatorYearly,

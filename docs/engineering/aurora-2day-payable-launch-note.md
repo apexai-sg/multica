@@ -30,6 +30,8 @@
 | #55 | T11 告警 | Eng | 另一实现者交付，本说明不验收 |
 | #56 | T12 线上冒烟 | Owner + Ops | owner/ops — 本环境未执行（见 T12） |
 
+#48 / #50 另外有一条**不依赖 Stripe**的验收路径：Antom 渠道与 Stripe 各自独立开关，这两张票可以改在 Antom 沙箱验收（前置条件见下）。其余票不受影响：#45 没有 Antom 对应物（金额来自服务端档位表，不在支付后台建价格对象），#46 / #47 的验收对象仍是 Stripe 的环境变量与 Stripe endpoint。见下文「Antom — 第二条订阅渠道」。
+
 ## T1 — Stripe products and prices (#45)
 
 **状态：owner/ops — 本环境未执行。**
@@ -195,6 +197,233 @@ Dashboard → Webhooks → 选该 endpoint → Send test event（例如 `checkou
 - 期望 `200`，响应体 `{"received":true}`；
 - 服务端日志里没有 `invalid signature`；
 - 若 400，先查 secret 与模式是否配错；若 500 且日志有 `stripe webhook handling failed`，是可重试的处理失败（Stripe 会重投，ledger 幂等键保证安全）；若 `200` 但日志有 `stripe event with invalid userId metadata`，说明 Checkout 的 metadata 没带上（配置/代码问题），事件被显式 ack 掉，不会自动修复。
+
+## Antom — 第二条订阅渠道（#48/#50 的第二条验收路径）
+
+**状态：code-complete；owner/ops 前置未执行。**
+
+Antom 与 Stripe 是两条并列渠道，各自独立开关：`handler.New` 里 `h.Payments`（Stripe）与
+`h.Antom`（Antom）分开构造，一条没配好不影响另一条。因此 **#48（测试模式端到端）与 #50
+（权益回读）可以改在 Antom 沙箱上验收**，不必等 Stripe 凭证。#45（Stripe 产品与价格）没有
+Antom 对应物——Antom 的金额来自服务端档位表（`server/internal/aurora/tiers.go` 的
+`AntomAmountMinorMonthly`，`"1900"`/`"5900"`/`"16900"`，是**最小单位整数串**），不在 Antom
+后台建价格对象；#46 / #47 的验收对象仍是 Stripe 变量与 Stripe endpoint，本节的 Antom 前置
+条件不改变它们的票面范围。
+
+### 环境变量
+
+值与 Stripe 一样只在**启动时读一次**（`server/cmd/server/router.go` 的 `AntomClientID` …
+`AntomCurrency` 六项），client 在 `handler.New` 的 `antomCurrency` 分支构造
+（`server/internal/handler/handler.go`）。注入后必须重启/重新部署。
+
+| env 变量 | 作用 | 缺失或非法时 |
+|---|---|---|
+| `ANTOM_CLIENT_ID` | 商户 clientId，既签出站请求也认入站通知的 `client-id` 头 | 空 → 渠道关闭 |
+| `ANTOM_MERCHANT_PRIVATE_KEY` | 商户 RSA 私钥（PEM 或裸 base64 DER，≥2048 位），签每次 API 调用 | 空或解析失败 → 渠道关闭 |
+| `ANTOM_PUBLIC_KEY` | Antom 公钥，验入站通知的 `signature` 头 | 空或解析失败 → 渠道关闭 |
+| `ANTOM_KEY_VERSION` | 签名头里的密钥版本，缺省 `1` | 空 → `1`；与 Antom 侧配置不一致 → 所有通知 401 |
+| `ANTOM_API_BASE` | 区域网关，缺省 `https://open-sea-global.alipay.com` | 空 → 默认；不在官方白名单 → 渠道关闭 |
+| `ANTOM_CURRENCY` | 唯一的币种输入，缺省 `SGD` | 空 → `SGD`；规范化（大写、去空白）后不等于 `SGD` → 渠道关闭 |
+
+`ANTOM_API_BASE` 只接受这六个官方 origin（`antomAPIBaseAllowed`，`server/internal/aurora/antom.go`）：
+`https://open-sea-global.alipay.com`、`https://open-na-global.alipay.com`、
+`https://open-de-global.alipay.com`、`https://open.antglobal-us.com`、
+`https://open-sea.alipay.com`、`https://open-na.alipay.com`。白名单按整个 origin 比较
+（所以 `open-sea-global.alipay.com.evil.example.com` 这类前缀伪装也过不了）。**沙箱联调前先
+拿 Antom 后台给出的网关地址核对这张表**：沙箱若用表外域名，`NewAntomClient` 会拒绝，
+渠道整体关闭——这属于要先改代码再验收的情形，不是配置问题。
+
+币种为什么不能改：档位表里 Antom 的金额是裸的最小单位（`"1900"`），只有币种同为 `SGD`
+才是 S$19.00；换成别的币种，S$19/59/169 这几个数字会被当成该币种的最小单位原样收，金额
+必然与价目表不符（这里不做汇率换算，也不该做）。所以 `ANTOM_CURRENCY` 不是自由文本，
+非 `SGD` 一律 fail-closed。
+
+`MULTICA_PUBLIC_URL` 也要设，而且必须是 **API 的公网 origin**（AWS 共置部署里是 `mcapi`，
+不是 app 的 `aod`）：两条通知 URL 由它拼出（`Handler.antomNotifyURL`），为空时 Antom
+渠道不启用——通知地址都拼不出来的渠道，卖出去就是一笔收不到账的订阅。
+
+渠道关闭的表现：`GET /api/aurora/billing/subscription` 的 `availableProviders` 里没有
+`antom`（`Handler.availableSubscriptionProviders`），`POST /api/aurora/billing/checkout`
+带 `"provider":"antom"` 时答 `503 antom not configured`。启动日志会给出原因，并且不打印任何
+**凭证**——clientId、商户私钥、Antom 公钥的值都不进日志；会出现的只有币种值
+（`"configured"` 字段）、API base（`APIBase %q is not an official Antom gateway` 里的地址）
+和通用的错误文本：`antom payments disabled: MULTICA_PUBLIC_URL is unset`、
+`antom payments disabled: currency the tier catalog does not price`、或
+`antom payments disabled` + 具体的缺项/解析错误。
+
+### 两条通知 URL
+
+由 `MULTICA_PUBLIC_URL` 加固定路径拼成，checkout 时作为 `paymentNotificationUrl` /
+`subscriptionNotificationUrl` 交给 Antom：
+
+- `POST {MULTICA_PUBLIC_URL}/api/aurora/billing/antom/notify/payment` —— 每期扣款结果。
+- `POST {MULTICA_PUBLIC_URL}/api/aurora/billing/antom/notify/subscription` —— 订阅生命周期
+  （`CREATE` / `UPDATE` / `CHANGE` / `CANCEL` / `TERMINATE`）。
+
+两条都在**公开**路由组（`server/cmd/server/router.go` 的 `AntomPaymentNotification` /
+`AntomSubscriptionNotification` 注册处，位于认证分组之外）：没有 session 认证，
+`client-id` / `request-time` / `signature` 三个头是唯一认证，body 上限 64 KiB。它们不该被
+WAF 规则拦（是普通 JSON POST），但要确认**公网可达**——按现有「WAF 按 host 逐条列支」的
+结构性债，加域名时容易漏。
+
+响应语义（全部落在 `server/internal/handler/aurora.go` 的 `serveAntomNotification` 与两个
+handler 里）：
+
+| 我们的响应 | 含义 |
+|---|---|
+| `200` + 固定确认报文 | 已落库，或**故意丢弃**（未知订阅、不支持的通知类型、扣款路由收到生命周期负载）。Antom 见到它才停止重试 |
+| `401` | `VerifyNotification` 返回任何错误，两种原因：①**验签不过**（`client-id`/`request-time`/`signature` 任一不符）；②**验签通过但报文读不懂**（JSON 非法、既无 `paymentId` 也无 `subscriptionStatus`、付款通知缺 `result.resultStatus`）。两种都记 `result="invalid_signature"`，日志里是同一句 `antom notification failed verification`，靠 `error` 字段区分：签名类是 `antom notification: signature does not verify`（或 `client-id`/`client`/`keyVersion` 相关），解析类是 `decode body` / `neither paymentId nor subscriptionStatus` / `no result.resultStatus`。签名错的重发也过不了；报文读不懂则是 Antom 签过、我们的解析器却不认的 body——签名覆盖**收到的确切字节**，`verifyAntomNotificationSignature` 又在解析之前执行，所以传输中损坏的 body 只会落成验签失败或 `413`，根本到不了解析器。因此重发同一份 body 必然同样失败，只有 Antom 自己重新生成一份合法报文才会恢复：`parseAntomNotification` 对缺 `result.resultStatus` 的付款通知特意返回错误而不 ack，等的就是这一次重新生成 |
+| `400` / `413` | 请求体读不出来（`400 invalid body`）或超过 `maxAntomNotifyBodySize`（64 KiB，`413 request body is too large`），记 `result="bad_request"`，发生在验签之前。`400` 可能是传输中断、重试有机会恢复；`413` 是同一个 body 必然重演——上限是代码里的常量，只能改常量或让 Antom 发更小的报文 |
+| `503` | 渠道关着（`h.Antom == nil`，`antom not configured`），记 `result="not_configured"`。沙箱联调最容易先撞上的就是这一条：先回上面的环境变量一节核对六个 `ANTOM_*` 与 `MULTICA_PUBLIC_URL` |
+| `500` | 可重试失败：查行/写库/授积分出错，或付款通知声称成功但没带可用的账期。**不确认**，让 Antom 重发 |
+| `429` | webhook 入口的按 IP 限流（`Handler.WebhookIPRateLimiter`；默认内存实现，配了 Redis 时用 Redis）。正常投递不该撞上；撞上说明该来源 IP 在短时间里高频打公开路径，Antom 会按重试策略重发 |
+
+确认报文必须逐字节是下面这一行（`antomAckBody`），格式不对 Antom 视为未确认：
+
+```json
+{"result":{"resultCode":"SUCCESS","resultStatus":"S","resultMessage":"success"}}
+```
+
+### 沙箱「不重试」这一差异
+
+生产：Antom 在 24 小时内最多重试 8 次，间隔 0s / 2m / 10m / 10m / 1h / 2h / 6h / 15h。
+**沙箱不重试**——确认报文不对、或我们答 500，这一期通知就直接丢了，不会自己回来。
+
+后果很具体：沙箱联调时不能只看「订阅好像生效了」，必须逐条确认每一次通知都回了 `200`。
+`middleware.RequestLogger` 给每个请求打一条 `http request`（`path`、`status`、`duration`；
+200 是 Info，4xx 是 Warn，5xx 是 Error，且 Antom 这两条路径不做路径打码），所以「回没回
+200」能在服务端日志里逐条查到。
+
+但**确认报文的字节内容不进日志**：成功路径没有再打一条 slog。要验证报文格式本身，靠
+`server/internal/handler/aurora_test.go` 的 `wantAntomAckBody`（逐字节断言），或者用 `curl`
+按 Antom 的签名规则手工投一条，看响应体。也正因为如此，确认报文只有一个序列化出口
+（所有 ack 分支共用 `writeAntomAck`）。
+
+生产验证时相反：`500` 是**正常**的失败信号，渠道会重投，所以 `handler_error` 的告警在
+重投期间持续为真属预期。`401` 要分两类看：签名类（公钥或密钥版本不对）重投也永远不会
+好转；解析类则可能在 Antom 重新生成一份合法报文后恢复（见上表的 `401` 行）。
+
+### 取消语义：`CANCEL` vs `TERMINATE`
+
+用户在本产品里取消走 `POST /api/aurora/billing/subscription/cancel`
+（`Handler.CancelAuroraSubscription`），服务端向 Antom 发的是
+`cancellationType: CANCEL`（`AntomClient.CancelSubscription`）：
+
+- `CANCEL` = **停止续费、当期继续**。本地写 `status = active` + `cancel_at_period_end = true`，
+  用户保留已付到 `current_period_end` 的权益。这是与 Stripe 侧 `cancel_at_period_end` 一致的语义。
+- `TERMINATE` = 立即终止。**我们从不发送**它；它只在 Antom 侧真的结束订阅时作为通知到达，
+  把本地落成 `status = canceled`、`cancel_at_period_end = false`。
+
+两条通知路径对这些状态的处理：`CREATE`/`UPDATE`/`CHANGE` → `active`（且**不改动**
+`cancel_at_period_end`，所以用户已提出的取消不会被一条 UPDATE 悄悄撤销）；`CANCEL` →
+`active` + `cancel_at_period_end = true`；`TERMINATE` → `canceled`。乱序到达也能收敛：
+`canceled` 是终态，晚到的 `CREATE` 被 upsert 的终态守卫拒掉（仍是确认 200，不重试）。
+
+取消接口的非 200 分支：`404 no subscription to cancel`（该用户没有订阅行）；`409` 三种——
+该订阅由 Stripe 管理、已 `canceled`、或本地行还没有 `antom_subscription_id`（`pending` 行）；
+`502` Antom 拒绝或不可达（此时本地什么都没改，可以重试）；`503 antom not configured` 是这里
+唯一的配置类失败；`500` 两种原因——`failed to load subscription`（读行或取消后读响应失败）、
+`failed to update subscription`（Antom **已接受**取消，只是本地 `cancel_at_period_end` 没写
+进去，随后的 CANCEL 通知会把标志补上）。`past_due` 行也可以取消。
+
+### 扣款失败 → `past_due` 的含义
+
+扣款通知的 `result.resultStatus` 不是 `S` 时，本地把该行置为 `past_due`、**不授予**当月
+积分，`current_period_end` 保留上一次成功通知的值（`AntomPaymentNotification` 里
+`paid := notification.Status == "S"`，只有 `paid` 为真才改账期）。
+
+- `past_due` 不是 `active`，所以下一次权益读取（`LimitsForUser`）按 **free** 档算：10 次/月、
+  并发 1（free 档在 `server/internal/aurora/tiers.go`）。生成入口先按这两条硬门槛判定
+  （`createAuroraGenerationWithEntitlement` 里 `usedThisMonth >= limits.GenerationsPerMonth`、
+  `activeGenerations >= limits.Concurrency`），之后才看余额——所以**本月已用满 10 次的用户
+  即使钱包里还有积分，也生成不了**。
+- 降级本身**不回收**已发放的积分，余额留在钱包里，恢复 `active` 后可以继续用。但月额度有
+  时间上限：月度授予的未用余额会在该**授予月份**结算时按 `expire` 扣掉
+  （`server/internal/aurora/settlement.go` 的 `expireUserMonth` → `CreditService.Expire`；
+  `expire` 行的 reference 是 `<userID>:<YYYY-MM>`，对应被汇总的
+  `sub:<userID>:<YYYY-MM>` 授予行）。top-up 与注册赠送
+  **不过期**（`SumMonthlyGrantInWindow` 只汇总 `kind='adjustment'` 且 `reference LIKE 'sub:%'`
+  的行）。所以「恢复 `active` 就能接着用」只对 top-up 与赠送成立，对没花完的月额度不成立。
+- 消费能力另外被 free 档的次数/并发限制卡住（见上一条），这与余额是否过期是两回事。
+- 本地**没有**自动重试扣款，也没有「补款后恢复」的专门路径：恢复靠 Antom 下一次成功扣款的
+  通知（同样是 `active` + 授予），降级只是一个状态。
+- 计费页对 `past_due` 行仍给「取消」入口（`CancelAuroraSubscription` 只拒 `canceled`），
+  用户不会因为扣款失败而无法退订。
+- 这条分支在沙箱里不容易造出来（沙箱不会自动重跑扣款），验收时如未现场观察到，就在
+  launch review 里记「past_due 仅单元测试覆盖、未现场观察」。
+
+### 对账：`antom-inquiry`
+
+唯一的对账手段，只读、无管理路由（多一个带鉴权的对外面，比少一次手动对账更贵）。
+在部署环境里带同一组 env 跑：
+
+```sh
+cd server
+go run ./cmd/antom-inquiry -subscription-id <antom subscriptionId>
+```
+
+输出四行，第一行是这次实际打到的网关（沙箱与生产是两套账号，看错网关会把结果读成假的）：
+
+```
+api_base: https://open-sea-global.alipay.com (default; ANTOM_API_BASE unset)
+subscription_id: 2026...
+status: <Antom 原样返回的订阅状态>
+current_period_end: 2026-11-28T00:00:00Z
+```
+
+`api_base` 打印的是**生效值**：设了 `ANTOM_API_BASE` 就原样回显（去掉末尾 `/`），没设则显示
+默认网关并注明来源。它不是密钥，命令也没有额外的鉴权面——能跑它就已经有部署环境的凭证。
+
+退出码：`0` = Antom 认这笔订阅且查询成功（`resultStatus == "S"` 且响应里带 `subscription`
+对象）；非 `0` = 失败，原因在 stderr。具体的非零值：`1` 是 Antom 返回非成功结果、响应里没有
+`subscription`、`currentPeriodEndTime` 解析失败或凭证不可用；`2` 是没给 `-subscription-id`。
+注意 `go run` 会把程序退出码折叠成 `1` 并额外打印一行 `exit status N`——要拿精确值就先
+`go build ./cmd/antom-inquiry` 再跑二进制，或者直接看那行。`current_period_end` 打印
+`(not reported)` 表示 Antom 没带这个字段，不是错误。
+
+命令**不写数据库**，也不能重投通知：它只回答「Antom 那边现在是什么状态」，再和数据库对照。
+
+判读（`<id>` 取自本地行 `aurora_subscription.antom_subscription_id`）：
+
+| 命令结果 | 本地行 | 结论与动作 |
+|---|---|---|
+| `status` 与 `current_period_end` 与本地一致 | `active` | 通知已落库，用户看到的异常在别处：前端没刷新，或权益按 free 算是因为本地 `status` 真不是 `active` |
+| Antom 有这笔订阅、状态/期次已更新 | 还是 `pending` | **一条通知都没落库**：两种通知都带 `subscriptionRequestId`，所以 `pending` 说明 `notify/payment` 与 `notify/subscription` 都没到（或都失败了）。逐条查服务端日志里这两条路径的 `http request`：有没有 200、有没有 401/500/503。沙箱不重试，丢了只能重建订阅，或按 T10 的人工补账规则处理 |
+| Antom 说已终止（`TERMINATE`） | `active` | 那条 CANCEL/TERMINATE 通知丢了。生产上先等 Antom 重投完 8 次；沙箱上只能手工改行（破坏性操作，需授权） |
+| 非 0 + stderr `antom /ams/api/v1/subscriptions/inquireSubscription failed: <code> <message>` | 任意 | 订阅 id 错、商户号不匹配，或拿沙箱 id 去查生产（反之亦然） |
+| 非 0 + stderr `antom config: ...` | — | 环境变量不完整或私钥/公钥解析失败（未发出任何请求），先按上表核对 env |
+
+注意两个限制：
+
+1. **首期通知到达前，本地没有 `antom_subscription_id`**（Antom 的 create 响应不带订阅 id，
+   只能从通知的 `subscriptionId` 学来）。此时 CLI 无从查起，只能去 Antom 后台按
+   `subscriptionRequestId` 找——那正是本地行的 `checkout_idempotency_key`
+   （`aurora-sub-<uuid>`）。服务端匹配通知时先按它查、再按 Antom 订阅 id 兜底。
+2. CLI 用的 `ANTOM_*` 是**当前 shell** 的值，不是服务的：沙箱与生产是两套 clientId/密钥，
+   别在生产机器上用导出的沙箱 env 跑。
+
+### 沙箱验收清单（#48 / #50 走这条）
+
+每步都要看到证据，不做推断：
+
+| # | 操作 | 通过标准 |
+|---|---|---|
+| 1 | 注入沙箱六个 `ANTOM_*` + `MULTICA_PUBLIC_URL`，重启（`ANTOM_API_BASE` 必须是上面白名单里的官方网关：表外地址会让渠道在启动时关闭，那就得先改代码） | 启动日志没有 `antom payments disabled`；`GET /api/aurora/billing/subscription` 的 `availableProviders` 含 `antom` |
+| 2 | 计费页点 Antom 订阅 Creator | `POST /api/aurora/billing/checkout` 带 `"provider":"antom"`、`"billingCycle":"monthly"` 回 200，`checkoutUrl` 是 Antom 授权页（`normalUrl`） |
+| 3 | 完成授权 | 日志有 `http request` 且 `path=/api/aurora/billing/antom/notify/payment`、`status=200`；本地行 `active`、`current_period_end` = 通知的 `periodEndTime`、`antom_subscription_id` 落地；当月档位积分已到账 |
+| 4 | 重复投同一条扣款通知 | 200；余额不变、无新流水行（月度授予按 `EnsureMonthlyAllowance` 幂等） |
+| 5 | Antom 侧 `notifySubscription` 的 CREATE / CANCEL / TERMINATE | 分别落 `active` / `active` + `cancelAtPeriodEnd=true` / `canceled`；乱序投递不改变最终态 |
+| 6 | #50 权益回读：按 T6 的读回步骤，把订阅状态依次造到 `active`→`past_due`→`canceled` | `active` 时是付费档上限；`past_due`/`canceled` 回落 free。Stripe Portal 那一步换成 Antom 渠道：`past_due`/`canceled` 由 Antom 侧或通知驱动，本产品自己的取消接口只产生「到期取消」 |
+| 7 | 负向：伪造签名、错 `client-id`、错 `ANTOM_KEY_VERSION` | 401 且无任何写入（日志有 `antom notification failed verification`） |
+
+第 6 步与 T6 的差别值得记下：T6 写的是 Stripe Portal 的两条取消路径；Antom 没有 portal，
+用户取消只能走本产品的 `POST /api/aurora/billing/subscription/cancel`，得到的是「到期取消」
+（`CANCEL`），立即取消只会来自 Antom 侧的 `TERMINATE`。
+
+这一轮还要把 Antom 的两组枚举值确认掉：`subscriptionStatus` 与 `result.resultStatus` 都不得
+存在表示「处理中」或「未知」的取值——`resultStatus != "S"` 会被落成 `past_due` 并确认 200
+（Antom 不再重发），而 `CREATE`/`UPDATE`/`CHANGE` 上落在 `{ACTIVE, TERMINATED}` 之外的
+`subscriptionStatus` 同样只回 200、不改动行。
 
 ## T4 — Test-mode end-to-end (#48)
 

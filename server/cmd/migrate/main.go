@@ -140,6 +140,7 @@ var pgBigmOperatorClass = extensionOperatorClass{
 // they are still pending: a fresh self-hosted install, which is exactly where an
 // interrupted build would otherwise leave a permanently unusable index.
 var concurrentIndexCleanups = map[string]string{
+	"5201_aurora_subscription_antom_id_index":                   "aurora_subscription_antom_id_key",
 	"588_aurora_asset_media_url_idx":                            "aurora_asset_media_url_idx",
 	"587_aurora_generation_issue_idx":                           "aurora_generation_issue_idx",
 	"584_fleet_nodes_workspace_index":                           "public.fleet_nodes_workspace_idx",

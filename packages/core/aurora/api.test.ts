@@ -4,6 +4,7 @@ import { ApiError, setApiInstance } from "../api";
 import type { ApiClient } from "../api/client";
 import {
   auroraAssetDownloadPath,
+  cancelAuroraSubscription,
   createAuroraBillingPortal,
   createAuroraCheckout,
   createAuroraGeneration,
@@ -585,15 +586,19 @@ describe("request paths", () => {
     await createAuroraCheckout({
       tier: "creator",
       billingCycle: "monthly",
+      provider: "antom",
       ...returnURLs,
     });
 
     expect(requests[0]?.path).toBe("/api/aurora/billing/checkout");
     expect(requests[0]?.init?.method).toBe("POST");
+    // The channel travels with the plan: the server falls back to Stripe only
+    // when the field is absent.
     expect(requests[0]?.init?.body).toBe(
       JSON.stringify({
         tier: "creator",
         billingCycle: "monthly",
+        provider: "antom",
         ...returnURLs,
       }),
     );
@@ -601,6 +606,25 @@ describe("request paths", () => {
     requests = installFakeClient({ checkoutUrl: "https://stripe.test/2" });
     await createAuroraTopupCheckout({ topupId: "t5", ...returnURLs });
     expect(requests[0]?.path).toBe("/api/aurora/billing/topup/checkout");
+  });
+
+  it("cancels the subscription with a parameterless POST and reads the plan", async () => {
+    const requests = installFakeClient({
+      subscription: {
+        tier: "creator",
+        status: "active",
+        provider: "antom",
+        cancelAtPeriodEnd: true,
+      },
+    });
+
+    const subscription = await cancelAuroraSubscription();
+
+    expect(requests[0]?.path).toBe("/api/aurora/billing/subscription/cancel");
+    expect(requests[0]?.init?.method).toBe("POST");
+    expect(requests[0]?.init?.body).toBeUndefined();
+    expect(subscription.cancelAtPeriodEnd).toBe(true);
+    expect(subscription.provider).toBe("antom");
   });
 
   it("posts the portal return URL and reads the portal URL", async () => {
