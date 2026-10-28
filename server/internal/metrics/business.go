@@ -116,8 +116,9 @@ const (
 	// AuroraWebhookResultUnknown is the fallback for an outcome matching no
 	// branch above. On the Stripe path it must stay at zero: a non-zero rate
 	// means a call site was added without classifying its result. The Antom
-	// handlers also use it deliberately for a notification they discard
-	// without writing — an unknown subscription, tier or notification type.
+	// handlers also use it deliberately for a notification they ack without
+	// granting — an unknown subscription, an unhandled notification type, or a
+	// charge on a row whose tier the catalog no longer knows.
 	AuroraWebhookResultUnknown = "unknown"
 )
 

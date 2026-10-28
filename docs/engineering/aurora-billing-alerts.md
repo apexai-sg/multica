@@ -38,13 +38,13 @@ route's; the Antom routes answer 401 for `invalid_signature`, 400/413 for
 
 | `result` | HTTP | Cause |
 | --- | --- | --- |
-| `ok` | 200 | Event verified and accepted: the ledger write landed, or the handler intentionally did not act on it (an unconsumed event type, malformed metadata it acks rather than retries, an unpaid checkout session, or an Antom notification discarded on purpose — an unknown subscription or an unhandled notification type). |
-| `handler_error` | 500 | `handleStripeEvent`, or an Antom notification's lookup, write or grant, failed; the channel will retry. This is the failure signal. |
+| `ok` | 200 | Event verified and accepted: the ledger write landed, or the handler intentionally did not act on it (an unconsumed event type, malformed metadata it acks rather than retries, an unpaid checkout session, or an Antom notification acked without a change — an unknown subscription, an unhandled notification type, a non-payment payload on the charge route, or a write the terminal-state guard declined). |
+| `handler_error` | 500 | `handleStripeEvent`, or an Antom notification's lookup, write or grant, failed — including a paid notification whose period is missing or not after its start; the channel will retry. This is the failure signal. |
 | `not_configured` | 503 | The channel is unconfigured: `Payments` is nil (`STRIPE_SECRET_KEY` or `STRIPE_WEBHOOK_SECRET` unset) on the Stripe route, `Antom` is nil on the Antom routes (its six `ANTOM_*` variables or `MULTICA_PUBLIC_URL` missing). |
 | `invalid_signature` | 401/400 | Missing or unparsable signature header: `Stripe-Signature` absent or rejected by `ConstructEvent`, or an Antom notification whose `client-id`, `request-time` and `signature` headers do not verify. |
 | `bad_request` | 400/413 | Body unreadable or above the size cap. |
 | `rate_limited` | 429 | Per-IP webhook ingress limiter refused the sender. |
-| `unknown` | — | An Antom notification acknowledged without a write (unknown subscription, tier or notification type), or — on the Stripe event labels only — an outcome no call site classified. Must stay at zero on the Stripe labels. |
+| `unknown` | — | An Antom notification acked without granting its allowance: an unknown subscription, an unhandled notification type, or a charge applied to a row whose tier the catalog does not know — the paid-but-ungranted case, whose only signal is `antom subscription allowance skipped for an unknown tier` in the server log. On the Stripe event labels only: an outcome no call site classified, which must stay at zero. |
 
 `event` is the Stripe event type from the verified payload
 (`checkout.session.completed`, `checkout.session.async_payment_succeeded`,
@@ -106,8 +106,11 @@ groups:
       # A sustained share of requests the webhook rejects without a 5xx. A
       # wrong webhook secret makes every request invalid_signature; a scanner
       # hitting the public route makes it a trickle. `unknown` is counted for
-      # the Stripe event labels only: the Antom handlers use it deliberately
-      # for notifications they ack without writing, which is benign traffic.
+      # the Stripe event labels only. The Antom handlers use it for
+      # notifications they ack without granting, which is mostly benign — the
+      # exception is a paid charge on a row whose tier the catalog no longer
+      # knows, and that case is visible only in the server log
+      # ("antom subscription allowance skipped for an unknown tier").
       # Both sums are prewarmed, so the numerator is never an empty vector.
       - alert: AuroraBillingWebhookRejections
         expr: >-

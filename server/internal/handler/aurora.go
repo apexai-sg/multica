@@ -2311,15 +2311,12 @@ func (h *Handler) AntomSubscriptionNotification(w http.ResponseWriter, r *http.R
 	}
 	// cancelAtPeriodEnd stays nil for the status-only transitions: only CANCEL
 	// sets the flag and only TERMINATE clears it, so an UPDATE cannot silently
-	// drop a cancel the user already asked for.
+	// drop a cancel the user already asked for. R22 trade-off: a subscription
+	// reactivated without a TERMINATE keeps rendering "cancellation scheduled".
 	var status string
 	var cancelAtPeriodEnd *bool
 	switch notification.NotificationType {
 	case "CREATE", "UPDATE", "CHANGE":
-		// R22: only TERMINATE clears cancel_at_period_end, so a subscription
-		// reactivated without one keeps rendering "cancellation scheduled".
-		// The alternative — clearing it here — would let an UPDATE silently
-		// drop a cancel the user already asked for.
 		status = "active"
 	case "CANCEL":
 		// Antom's cancel stops renewals at the end of the paid period; access
