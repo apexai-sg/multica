@@ -37,6 +37,10 @@ type AntomConfig struct {
 	APIBase string
 	// Currency is the settlement currency; empty selects SGD.
 	Currency string
+	// SettlementCurrency names the currency Antom settles against when the
+	// merchant contract carries several. It is optional: empty leaves the field
+	// out and Antom uses the contract default.
+	SettlementCurrency string
 }
 
 const (
@@ -72,8 +76,9 @@ type AntomProvider interface {
 }
 
 // AntomSubscriptionRequest is the server-side intent for one subscription.
-// Amount is already in the two-decimal form Antom receives ("19.00"); the tier
-// catalog owns the price and a request body never supplies it.
+// Amount is the integer string in the currency's smallest unit ("1900" is
+// S$19.00); the tier catalog owns the price and a request body never supplies
+// it.
 type AntomSubscriptionRequest struct {
 	RequestID             string
 	Tier                  string
@@ -160,6 +165,9 @@ func NewAntomClient(cfg AntomConfig) (*AntomClient, error) {
 	if cfg.Currency == "" {
 		cfg.Currency = antomDefaultCurrency
 	}
+	// SettlementCurrency has no default: empty means "use the contract's
+	// default", which Antom expresses by omitting the field entirely.
+	cfg.SettlementCurrency = strings.ToUpper(strings.TrimSpace(cfg.SettlementCurrency))
 	if cfg.KeyVersion == "" {
 		cfg.KeyVersion = antomDefaultKeyVersion
 	}
@@ -302,20 +310,54 @@ type antomOrderInfo struct {
 	OrderAmount antomAmount `json:"orderAmount"`
 }
 
+type antomEnv struct {
+	TerminalType string `json:"terminalType"`
+}
+
+// antomSettlementStrategy omits an empty currency, which is how Antom is told
+// to settle in the contract's default currency.
+type antomSettlementStrategy struct {
+	SettlementCurrency string `json:"settlementCurrency,omitempty"`
+}
+
 // antomSubscriptionCreateRequest is the /subscriptions/create body. The
 // notification URLs are supplied by the caller because they are deployment
 // facts (the public API origin), not client identity.
 type antomSubscriptionCreateRequest struct {
-	SubscriptionRequestID       string             `json:"subscriptionRequestId"`
-	SubscriptionDescription     string             `json:"subscriptionDescription"`
-	SubscriptionRedirectURL     string             `json:"subscriptionRedirectUrl"`
-	SubscriptionStartTime       string             `json:"subscriptionStartTime"`
-	PeriodRule                  antomPeriodRule    `json:"periodRule"`
-	PaymentMethod               antomPaymentMethod `json:"paymentMethod"`
-	SubscriptionNotificationURL string             `json:"subscriptionNotificationUrl"`
-	PaymentNotificationURL      string             `json:"paymentNotificationUrl"`
-	OrderInfo                   antomOrderInfo     `json:"orderInfo"`
-	PaymentAmount               antomAmount        `json:"paymentAmount"`
+	SubscriptionRequestID       string                  `json:"subscriptionRequestId"`
+	SubscriptionDescription     string                  `json:"subscriptionDescription"`
+	SubscriptionRedirectURL     string                  `json:"subscriptionRedirectUrl"`
+	SubscriptionStartTime       string                  `json:"subscriptionStartTime"`
+	PeriodRule                  antomPeriodRule         `json:"periodRule"`
+	PaymentMethod               antomPaymentMethod      `json:"paymentMethod"`
+	SubscriptionNotificationURL string                  `json:"subscriptionNotificationUrl"`
+	PaymentNotificationURL      string                  `json:"paymentNotificationUrl"`
+	OrderInfo                   antomOrderInfo          `json:"orderInfo"`
+	PaymentAmount               antomAmount             `json:"paymentAmount"`
+	Env                         antomEnv                `json:"env"`
+	SettlementStrategy          antomSettlementStrategy `json:"settlementStrategy"`
+}
+
+// validateAntomMinorUnits rejects an amount Antom would not read as a positive
+// integer count of the currency's smallest unit: a decimal point, a sign or
+// zero is a caller bug, not a value to forward.
+func validateAntomMinorUnits(value string) error {
+	if value == "" {
+		return fmt.Errorf("amount is required")
+	}
+	positive := false
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return fmt.Errorf("amount %q must be an integer string in the currency's smallest unit", value)
+		}
+		if r != '0' {
+			positive = true
+		}
+	}
+	if !positive {
+		return fmt.Errorf("amount %q must be positive", value)
+	}
+	return nil
 }
 
 // post signs and sends one Antom API request, then enforces the result
@@ -376,10 +418,13 @@ func (c *AntomClient) post(ctx context.Context, path string, body any) ([]byte, 
 }
 
 // CreateSubscription asks Antom for the authorization URL. Card is the method a
-// recurring contract supports; the hosted page then collects the payment
-// details that bind future periods.
+// recurring contract supports: auto-charge vaults a card, so the merchant
+// account must have card acquiring enabled.
 func (c *AntomClient) CreateSubscription(ctx context.Context, req AntomSubscriptionRequest) (string, error) {
-	// The channel settles in its configured currency; the tier catalog reports
+	if err := validateAntomMinorUnits(req.Amount); err != nil {
+		return "", fmt.Errorf("antom %s: %w", antomPathCreateSubscription, err)
+	}
+	// The channel charges in its configured currency; the tier catalog reports
 	// the same code, so a configured deployment cannot diverge here.
 	amount := antomAmount{Currency: c.cfg.Currency, Value: req.Amount}
 	payload := antomSubscriptionCreateRequest{
@@ -393,6 +438,10 @@ func (c *AntomClient) CreateSubscription(ctx context.Context, req AntomSubscript
 		PaymentNotificationURL:      req.PaymentNotifyURL,
 		OrderInfo:                   antomOrderInfo{OrderAmount: amount},
 		PaymentAmount:               amount,
+		// The authorization link opens in a browser, so the buyer's terminal is
+		// reported as WEB.
+		Env:                antomEnv{TerminalType: "WEB"},
+		SettlementStrategy: antomSettlementStrategy{SettlementCurrency: c.cfg.SettlementCurrency},
 	}
 
 	responseBody, err := c.post(ctx, antomPathCreateSubscription, payload)
@@ -425,7 +474,8 @@ func (c *AntomClient) CancelSubscription(ctx context.Context, subscriptionID str
 }
 
 // InquirySubscription reads the subscription state used for reconciliation. A
-// missing end time stays zero rather than failing an otherwise valid answer.
+// response without the subscription object is an error: an empty state would
+// look like a valid "not found" and hide a contract break.
 func (c *AntomClient) InquirySubscription(ctx context.Context, subscriptionID string) (AntomSubscriptionState, error) {
 	responseBody, err := c.post(ctx, antomPathInquirySubscription, struct {
 		SubscriptionID string `json:"subscriptionId"`
@@ -435,18 +485,26 @@ func (c *AntomClient) InquirySubscription(ctx context.Context, subscriptionID st
 	}
 
 	var response struct {
-		SubscriptionID       string `json:"subscriptionId"`
-		SubscriptionStatus   string `json:"subscriptionStatus"`
-		CurrentPeriodEndTime string `json:"currentPeriodEndTime"`
+		Subscription *struct {
+			SubscriptionID       string `json:"subscriptionId"`
+			Status               string `json:"status"`
+			CurrentPeriodEndTime string `json:"currentPeriodEndTime"`
+		} `json:"subscription"`
 	}
 	if err := json.Unmarshal(responseBody, &response); err != nil {
 		return AntomSubscriptionState{}, fmt.Errorf("antom %s: decode response: %w", antomPathInquirySubscription, err)
 	}
-	state := AntomSubscriptionState{SubscriptionID: response.SubscriptionID, Status: response.SubscriptionStatus}
-	if response.CurrentPeriodEndTime != "" {
-		parsed, err := time.Parse(time.RFC3339, response.CurrentPeriodEndTime)
+	if response.Subscription == nil || response.Subscription.SubscriptionID == "" {
+		return AntomSubscriptionState{}, fmt.Errorf("antom %s failed: response has no subscription", antomPathInquirySubscription)
+	}
+	state := AntomSubscriptionState{
+		SubscriptionID: response.Subscription.SubscriptionID,
+		Status:         response.Subscription.Status,
+	}
+	if response.Subscription.CurrentPeriodEndTime != "" {
+		parsed, err := time.Parse(time.RFC3339, response.Subscription.CurrentPeriodEndTime)
 		if err != nil {
-			return AntomSubscriptionState{}, fmt.Errorf("antom %s: parse currentPeriodEndTime %q: %w", antomPathInquirySubscription, response.CurrentPeriodEndTime, err)
+			return AntomSubscriptionState{}, fmt.Errorf("antom %s: parse currentPeriodEndTime %q: %w", antomPathInquirySubscription, response.Subscription.CurrentPeriodEndTime, err)
 		}
 		state.CurrentPeriodEnd = parsed
 	}

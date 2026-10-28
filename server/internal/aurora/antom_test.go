@@ -232,7 +232,11 @@ type antomTestRequest struct {
 // construction because the real constructor only accepts official origins.
 func newAntomTestGateway(t *testing.T, response string) (*AntomClient, <-chan antomTestRequest) {
 	t.Helper()
-	client := newTestAntomClient(t)
+	return newAntomTestGatewayFor(t, newTestAntomClient(t), response)
+}
+
+func newAntomTestGatewayFor(t *testing.T, client *AntomClient, response string) (*AntomClient, <-chan antomTestRequest) {
+	t.Helper()
 	requests := make(chan antomTestRequest, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
@@ -287,7 +291,7 @@ func antomTestSubscriptionRequest() AntomSubscriptionRequest {
 	return AntomSubscriptionRequest{
 		RequestID:             "aurora-sub-test",
 		Tier:                  "creator",
-		Amount:                "19.00",
+		Amount:                "1900",
 		Currency:              "SGD",
 		RedirectURL:           "https://aod.example/billing/complete",
 		PaymentNotifyURL:      "https://api.example/api/aurora/billing/antom/notify/payment",
@@ -331,6 +335,10 @@ func TestCreateSubscriptionPostsSignedRequest(t *testing.T) {
 			OrderAmount antomTestAmount `json:"orderAmount"`
 		} `json:"orderInfo"`
 		PaymentAmount antomTestAmount `json:"paymentAmount"`
+		Env           struct {
+			TerminalType string `json:"terminalType"`
+		} `json:"env"`
+		SettlementStrategy map[string]string `json:"settlementStrategy"`
 	}
 	if err := json.Unmarshal(got.body, &body); err != nil {
 		t.Fatalf("decode request body: %v", err)
@@ -356,11 +364,61 @@ func TestCreateSubscriptionPostsSignedRequest(t *testing.T) {
 	if body.SubscriptionNotificationURL != "https://api.example/api/aurora/billing/antom/notify/subscription" {
 		t.Errorf("subscriptionNotificationUrl = %q", body.SubscriptionNotificationURL)
 	}
-	if body.PaymentAmount.Value != "19.00" || body.PaymentAmount.Currency != "SGD" {
-		t.Errorf("paymentAmount = %+v, want 19.00 SGD", body.PaymentAmount)
+	if body.PaymentAmount.Value != "1900" || body.PaymentAmount.Currency != "SGD" {
+		t.Errorf("paymentAmount = %+v, want 1900 SGD (minor units)", body.PaymentAmount)
 	}
 	if body.OrderInfo.OrderAmount != body.PaymentAmount {
 		t.Errorf("orderInfo.orderAmount = %+v, want the same amount as paymentAmount", body.OrderInfo.OrderAmount)
+	}
+	if body.Env.TerminalType != "WEB" {
+		t.Errorf("env.terminalType = %q, want WEB", body.Env.TerminalType)
+	}
+	if len(body.SettlementStrategy) != 0 {
+		t.Errorf("settlementStrategy = %+v, want an empty object when no settlement currency is configured", body.SettlementStrategy)
+	}
+}
+
+func TestCreateSubscriptionSendsConfiguredSettlementCurrency(t *testing.T) {
+	priv, pub := newTestAntomKeys(t)
+	client, err := NewAntomClient(AntomConfig{
+		ClientID:           "SANDBOX_1",
+		MerchantPrivateKey: priv,
+		AntomPublicKey:     pub,
+		SettlementCurrency: " sgd ",
+	})
+	if err != nil {
+		t.Fatalf("NewAntomClient: %v", err)
+	}
+	if client.cfg.SettlementCurrency != "SGD" {
+		t.Fatalf("SettlementCurrency = %q, want the normalized code SGD", client.cfg.SettlementCurrency)
+	}
+	client, requests := newAntomTestGatewayFor(t, client, `{"result":{"resultStatus":"S","resultCode":"SUCCESS"},"normalUrl":"https://checkout.example/x"}`)
+
+	if _, err := client.CreateSubscription(context.Background(), antomTestSubscriptionRequest()); err != nil {
+		t.Fatalf("CreateSubscription: %v", err)
+	}
+
+	got := <-requests
+	var body struct {
+		SettlementStrategy map[string]string `json:"settlementStrategy"`
+	}
+	if err := json.Unmarshal(got.body, &body); err != nil {
+		t.Fatalf("decode request body: %v", err)
+	}
+	if body.SettlementStrategy["settlementCurrency"] != "SGD" {
+		t.Errorf("settlementStrategy = %+v, want settlementCurrency SGD", body.SettlementStrategy)
+	}
+}
+
+func TestCreateSubscriptionRejectsInvalidAmount(t *testing.T) {
+	client, _ := newAntomTestGateway(t, `{"result":{"resultStatus":"S","resultCode":"SUCCESS"},"normalUrl":"https://checkout.example/x"}`)
+
+	for _, amount := range []string{"", "19.00", "1900.00", "-1900", "0", "000"} {
+		req := antomTestSubscriptionRequest()
+		req.Amount = amount
+		if _, err := client.CreateSubscription(context.Background(), req); err == nil {
+			t.Errorf("amount %q was accepted", amount)
+		}
 	}
 }
 
@@ -421,7 +479,7 @@ func TestCancelSubscriptionRejectsFailedResult(t *testing.T) {
 }
 
 func TestInquirySubscriptionReadsState(t *testing.T) {
-	client, requests := newAntomTestGateway(t, `{"result":{"resultStatus":"S"},"subscriptionId":"S1","subscriptionStatus":"ACTIVE","periodRule":{"periodType":"MONTH","periodCount":"1"},"currentPeriodEndTime":"2026-11-28T12:00:00+08:00"}`)
+	client, requests := newAntomTestGateway(t, `{"result":{"resultStatus":"S"},"subscription":{"subscriptionId":"S1","status":"ACTIVE","currentPeriodStartTime":"2026-10-28T12:00:00+08:00","currentPeriodEndTime":"2026-11-28T12:00:00+08:00","paymentAmount":{"currency":"SGD","value":"1900"}}}`)
 
 	state, err := client.InquirySubscription(context.Background(), "S1")
 	if err != nil {
@@ -449,5 +507,17 @@ func TestInquirySubscriptionReadsState(t *testing.T) {
 	}
 	if body.SubscriptionID != "S1" {
 		t.Errorf("subscriptionId = %q, want S1", body.SubscriptionID)
+	}
+}
+
+func TestInquirySubscriptionRejectsMissingSubscription(t *testing.T) {
+	for _, response := range []string{
+		`{"result":{"resultStatus":"S"}}`,
+		`{"result":{"resultStatus":"S"},"subscription":{}}`,
+	} {
+		client, _ := newAntomTestGateway(t, response)
+		if _, err := client.InquirySubscription(context.Background(), "S1"); err == nil {
+			t.Errorf("response %s was accepted as a subscription state", response)
+		}
 	}
 }
