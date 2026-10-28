@@ -133,6 +133,76 @@ groups:
             event label points at a call site that was added without
             classifying its result.
 
+      # The two Antom notification routes carry their own event labels, so the
+      # Antom channel can be judged on its own instead of as a share of all
+      # webhook traffic. This rule is the per-channel version of the rejection
+      # rule above: a share-of-everything threshold can dilute an Antom-only
+      # failure below 20%, and a wrong ANTOM_PUBLIC_KEY or ANTOM_KEY_VERSION
+      # makes every authenticated notification fail. Invalid signatures also
+      # match a scanner posting junk at the public paths; the description says
+      # how to tell the two apart.
+      - alert: AuroraAntomNotificationFailures
+        expr: >-
+          sum by (event, result) (
+            increase(multica_aurora_billing_webhook_events_total{
+              event=~"antom_payment_notify|antom_subscription_notify",
+              result=~"invalid_signature|handler_error"
+            }[1h])
+          ) > 3
+        for: 30m
+        labels:
+          severity: ticket
+        annotations:
+          summary: Antom notifications are failing on {{ $labels.event }} ({{ $labels.result }})
+          description: >-
+            More than 3 failures per hour, sustained for 30 minutes.
+            invalid_signature with a non-zero ok count on the same route is a
+            key mismatch: the Antom public key or key version does not match
+            the account that is sending, and Antom's retries cannot fix it —
+            replace ANTOM_PUBLIC_KEY/ANTOM_KEY_VERSION and restart.
+            invalid_signature with ok at zero and no subscription activity is
+            more likely a scanner on the public path. handler_error is our own
+            500 (lookup, write, grant, or a paid notification with no usable
+            billing period) and does clear on Antom's retry: see the server log
+            for "antom notification" entries carrying the subscription and
+            payment ids.
+
+      # An Antom notification that verified and was acked without granting
+      # anything, per route. On the Antom labels `unknown` is a real outcome,
+      # not an unclassified branch, so unlike the Stripe labels a non-zero
+      # value is expected sometimes: an unknown subscription, an unhandled
+      # notification type, or a lifecycle payload posted to the charge route.
+      # The one case that loses money is a paid charge applied to a row whose
+      # tier the catalog no longer knows — the charge is recorded, the
+      # allowance is not granted, and the only signal is the log line below.
+      # That is why any occurrence is a ticket rather than silence.
+      - alert: AuroraAntomNotificationAckedUnchanged
+        expr: >-
+          sum by (event) (
+            increase(multica_aurora_billing_webhook_events_total{
+              event=~"antom_payment_notify|antom_subscription_notify",
+              result="unknown"
+            }[1h])
+          ) > 0
+        for: 0m
+        labels:
+          severity: ticket
+        annotations:
+          summary: Antom is acking notifications that grant nothing ({{ $labels.event }})
+          description: >-
+            {{ $value }} notification(s) in the last hour were verified and
+            acked without an effect. Match the log line to the case:
+            "antom subscription allowance skipped for an unknown tier" is the
+            one that loses money — the charge is recorded, the allowance is
+            not granted, and the user paid for credits they did not receive.
+            "antom payment notification for an unknown subscription",
+            "antom subscription notification for an unknown subscription",
+            "antom payment notification carried a non-payment payload" and
+            "antom subscription notification with an unhandled type" are the
+            benign ones: a row this deployment does not have, a payload on the
+            wrong route, or a type the channel does not act on. None of them
+            clears on retry, which is why they are acked instead.
+
       # A settlement run failed. One run covers every subscription, so a single
       # failure is a whole month of grants missing until the next tick. Per-user
       # grant skips return nil and land in result="ok", so this rule cannot see
@@ -178,6 +248,40 @@ groups:
             is also firing, then the free-tier grant and the tier grants. The
             counter has no per-user label by design.
 ```
+
+## Antom channel queries
+
+Both Antom event labels are in the prewarm list
+(`AllAuroraWebhookEvents()`), so their zero-valued series exist before the
+first notification and these queries return `0` rather than an empty result.
+Neither is an alert; they answer the two questions the rules above cannot.
+
+```promql
+# Everything the two Antom routes did in the last hour, by route and outcome.
+sum by (event, result) (
+  increase(multica_aurora_billing_webhook_events_total{
+    event=~"antom_payment_notify|antom_subscription_notify"
+  }[1h])
+)
+
+# Non-zero means Antom reached a route while the channel was unconfigured
+# (503): the deployment is receiving notifications it cannot act on. The
+# counter is cumulative, so it stays non-zero until the process restarts —
+# read it as "has this happened since startup", not as a live rate.
+sum by (event) (
+  multica_aurora_billing_webhook_events_total{
+    event=~"antom_payment_notify|antom_subscription_notify",
+    result="not_configured"
+  }
+)
+```
+
+The first query is the one to read when either rule fires: its `event` label
+says which route, and the server log carries the ids to match the notification
+to a subscription. The second tells "Antom is not calling" from "Antom is
+calling a channel that is off", which no rate-based rule can distinguish. The
+Antom runbook in `docs/engineering/aurora-2day-payable-launch-note.md` covers
+the operator-side checklist and `cmd/antom-inquiry`.
 
 ## Prerequisites: enable the metrics listener first
 
