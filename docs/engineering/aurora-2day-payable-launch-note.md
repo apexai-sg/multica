@@ -214,8 +214,10 @@ Dashboard → Webhooks → 选该 endpoint → Send test event（例如 `checkou
 | 迁移 | `5200_aurora_subscription_payment_provider`、`5201_aurora_subscription_antom_id_index`、`592_runtime_shared_with` 已应用；`aurora_subscription.payment_provider` 与 `.antom_subscription_id` 两列在 |
 | 渠道构造 | 后端日志**零**条 `antom payments disabled` —— 凭证解析成功、`MULTICA_PUBLIC_URL` 已设、`ANTOM_CURRENCY=SGD` 与档位表一致 |
 | 网关连通 | `go run ./cmd/antom-inquiry -subscription-id <dummy>` → `SUBSCRIPTION_NOT_EXIST`：签名、client-id、白名单网关三项同时被生产网关接受，且未产生任何扣款 |
+| 回跳白名单 | `CORS_ALLOWED_ORIGINS` 曾只有 `https://mca.apexxai.net`，而 Aurora 前端在 `aod`，`successUrl` 由 `window.location.origin` 拼出 → 结账一律 **400 `successUrl and cancelUrl must use a trusted app origin`**。已加 `https://aod.apexxai.net`（apexai-sg/aws-deploy#18 + 生产 `.env`） |
+| 商户合约 | ⛔ **未开通**：真实 `createSubscription` 回 `PAYMENT_NOT_QUALIFIED` — "does not have contract for agreement pay"。请求已过签名/网关/金额/币种/回跳全部校验，卡在 Antom 的业务准入 |
 
-**只剩两件读探针证明不了的事**，都要一次真实扣款才能验：商户合约是否开通了**订阅产品**（查询接口不带该产品也能成功），以及**SGD 结算**（渠道按 `value="1900"` + `SGD` 下单，合约不能按 SGD 结算时 create 就失败）。验收单是 #61，用 S$19 creator 月付跑一遍 subscribe → grant → generate → cancel → terminate；在它通过之前 #48 / #50 不关闭。
+**只剩两件读探针证明不了的事**，都要一次真实扣款才能验。第一件已有答案：**商户合约没有开通协议支付（agreement pay）** —— 10:00 的真实 `createSubscription` 回 `PAYMENT_NOT_QUALIFIED`。需 Antom 侧开通「协议支付/代扣」并确认 SGD 结算。第二件（**SGD 结算**）要等 create 成功才知道。验收单是 #61，用 S$19 creator 月付跑一遍 subscribe → grant → generate → cancel → terminate；在它通过之前 #48 / #50 不关闭。注意：开通前每次点 Antom 都会因渠道失败留下一行 `pending` 并把计费页锁死（#63），别反复试。
 
 Antom 与 Stripe 是两条并列渠道，各自独立开关：`handler.New` 里 `h.Payments`（Stripe）与
 `h.Antom`（Antom）分开构造，一条没配好不影响另一条。**#48（测试模式端到端）与 #50
