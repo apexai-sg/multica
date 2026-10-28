@@ -2568,9 +2568,9 @@ func (h *Handler) CancelAuroraSubscription(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusInternalServerError, "failed to load subscription")
 		return
 	}
-	// The check comes before the update: MarkAuroraSubscriptionCancelAtPeriodEnd
-	// is unconditional and would happily flag a row this endpoint must not
-	// touch.
+	// The check comes before the update so the caller gets the specific
+	// reason; the write itself is also guarded, which covers a termination
+	// arriving between this read and that write.
 	if sub.PaymentProvider != "antom" {
 		writeError(w, http.StatusConflict, "this subscription is managed by Stripe; use the billing portal")
 		return
@@ -2603,7 +2603,14 @@ func (h *Handler) CancelAuroraSubscription(w http.ResponseWriter, r *http.Reques
 	if _, err := h.Queries.MarkAuroraSubscriptionCancelAtPeriodEnd(r.Context(), userUUID); err != nil {
 		// Antom already accepted the cancel; only the local flag is pending.
 		// A retry self-heals if Antom's cancel is idempotent, so this is not
-		// the "nothing happened" failure the 5xx might suggest.
+		// the "nothing happened" failure the 5xx might suggest. A declined
+		// update (no row) means a termination won the race since the read
+		// above: the row is already canceled, which is the same answer the
+		// pre-read gives.
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusConflict, "subscription already canceled")
+			return
+		}
 		slog.Error("failed to record aurora subscription cancellation", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update subscription")
 		return

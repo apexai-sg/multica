@@ -138,9 +138,15 @@ FROM aurora_subscription
 WHERE checkout_idempotency_key = $1;
 
 -- name: MarkAuroraSubscriptionCancelAtPeriodEnd :one
+-- Guarded so a termination that lands between the caller's read and this write
+-- is never overwritten: a canceled row has nothing left to stop, and flipping
+-- the flag there would render "cancellation scheduled" for an ended plan. A
+-- declined write returns no row, which callers read as pgx.ErrNoRows.
 UPDATE aurora_subscription
 SET cancel_at_period_end = true, updated_at = now()
 WHERE user_id = $1
+  AND payment_provider = 'antom'
+  AND status <> 'canceled'
 RETURNING id, user_id, tier, status, stripe_customer_id, stripe_subscription_id,
           current_period_end, cancel_at_period_end, created_at, updated_at,
           checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at,

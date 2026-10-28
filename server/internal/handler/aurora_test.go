@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/multica-ai/multica/server/internal/aurora"
@@ -4094,6 +4095,42 @@ func TestCancelAuroraSubscriptionRejectsAlreadyCanceled(t *testing.T) {
 	}
 	if cancelAtPeriodEnd, status := auroraSubscriptionCancelFlag(t); cancelAtPeriodEnd || status != "canceled" {
 		t.Fatalf("row = cancel_at_period_end %v status %q, want false/canceled", cancelAtPeriodEnd, status)
+	}
+}
+
+// The cancel endpoint's pre-read answers 409 for a row that is already
+// canceled, so an endpoint-level test never reaches the query's guard: only a
+// termination landing between that read and the write does. The statement is
+// therefore exercised directly, and the handler maps its no-row result to the
+// same 409 "subscription already canceled" the pre-read gives.
+func TestMarkAuroraSubscriptionCancelAtPeriodEndSkipsCanceledRow(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	seedAntomSubscription(t, "canceled", "aurora-sub-x", "S1")
+
+	if _, err := testHandler.Queries.MarkAuroraSubscriptionCancelAtPeriodEnd(context.Background(), parseUUID(testUserID)); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("MarkAuroraSubscriptionCancelAtPeriodEnd on a canceled row: err = %v, want pgx.ErrNoRows", err)
+	}
+	if cancelAtPeriodEnd, status := auroraSubscriptionCancelFlag(t); cancelAtPeriodEnd || status != "canceled" {
+		t.Fatalf("row = cancel_at_period_end %v status %q, want the canceled row untouched", cancelAtPeriodEnd, status)
+	}
+
+	// Positive control: an active Antom row is updated, so the assertions above
+	// cannot pass merely because the statement writes nothing.
+	if _, err := testPool.Exec(context.Background(),
+		`DELETE FROM aurora_subscription WHERE user_id = $1`, testUserID); err != nil {
+		t.Fatalf("clear aurora_subscription: %v", err)
+	}
+	seedAntomSubscription(t, "active", "aurora-sub-x", "S1")
+	row, err := testHandler.Queries.MarkAuroraSubscriptionCancelAtPeriodEnd(context.Background(), parseUUID(testUserID))
+	if err != nil {
+		t.Fatalf("MarkAuroraSubscriptionCancelAtPeriodEnd on an active row: %v", err)
+	}
+	if !row.CancelAtPeriodEnd {
+		t.Fatal("returned row cancel_at_period_end = false, want true")
+	}
+	if cancelAtPeriodEnd, status := auroraSubscriptionCancelFlag(t); !cancelAtPeriodEnd || status != "active" {
+		t.Fatalf("row = cancel_at_period_end %v status %q, want true/active", cancelAtPeriodEnd, status)
 	}
 }
 
