@@ -208,11 +208,18 @@
         "canceled": "解約済み",
         "unknown": "不明"
       },
+      "providers": {
+        "stripe": "Stripe",
+        "antom": "Antom"
+      },
       "renews_on": "{{date}} に更新",
       "cancel_scheduled": "期間終了時に終了します。",
       "usage_label": "今月の生成回数",
       "usage_value": "{{used}} / {{limit}}",
       "subscribe": "購読する",
+      "subscribe_with": "{{provider}} で購読する",
+      "cancel": "サブスクリプションを解約",
+      "cancel_failed": "サブスクリプションを解約できませんでした。しばらくしてからもう一度お試しください。",
       "manage": "サブスクリプションを管理",
       "manage_failed": "サブスクリプション管理を開けませんでした。しばらくしてからもう一度お試しください。"
     },

@@ -210,11 +210,18 @@
         "canceled": "Canceled",
         "unknown": "Unknown"
       },
+      "providers": {
+        "stripe": "Stripe",
+        "antom": "Antom"
+      },
       "renews_on": "Renews {{date}}",
       "cancel_scheduled": "Ends at the end of the period.",
       "usage_label": "Generations this month",
       "usage_value": "{{used}} of {{limit}}",
       "subscribe": "Subscribe",
+      "subscribe_with": "Subscribe with {{provider}}",
+      "cancel": "Cancel subscription",
+      "cancel_failed": "Could not cancel your subscription. Try again shortly.",
       "manage": "Manage subscription",
       "manage_failed": "Could not open subscription management. Try again shortly."
     },

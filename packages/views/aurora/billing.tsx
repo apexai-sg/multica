@@ -15,9 +15,11 @@ import {
   useAuroraSubscription,
   useAuroraTopups,
   useAuroraTransactions,
+  useCancelAuroraSubscription,
   useCreateAuroraBillingPortal,
   useCreateAuroraCheckout,
   useCreateAuroraTopupCheckout,
+  type AuroraPaymentProvider,
   type AuroraSubscription,
   type AuroraTransaction,
 } from "@multica/core/aurora";
@@ -66,6 +68,7 @@ export function AuroraBilling() {
   const checkout = useCreateAuroraCheckout();
   const topupCheckout = useCreateAuroraTopupCheckout();
   const portal = useCreateAuroraBillingPortal();
+  const cancelSubscription = useCancelAuroraSubscription();
   const checkoutReturned = navigation.searchParams.get("checkout") === "success";
   const { refetch: refetchBalance } = balanceQuery;
   const { refetch: refetchTransactions } = transactionsQuery;
@@ -183,6 +186,7 @@ export function AuroraBilling() {
   const subscription = subscriptionQuery.data;
   const checkoutError = checkout.error ?? topupCheckout.error;
   const portalError = portal.error;
+  const cancelError = cancelSubscription.error;
 
   return (
     <div className="aurora-page">
@@ -232,16 +236,26 @@ export function AuroraBilling() {
               canCheckout={returnURLs !== null}
               managePending={portal.isPending}
               canManage={portalReturnURL !== null}
-              onSubscribe={(tier) => {
+              cancelPending={cancelSubscription.isPending}
+              onSubscribe={(tier, provider) => {
                 if (!returnURLs) return;
+                // Both channels are sold on the monthly period: Antom's
+                // contract is monthly-only, and the price table above quotes a
+                // monthly price.
                 checkout.mutate(
-                  { tier, billingCycle: "monthly", ...returnURLs },
+                  {
+                    tier,
+                    billingCycle: "monthly",
+                    provider,
+                    ...returnURLs,
+                  },
                   {
                     onSuccess: (checkoutUrl) =>
                       openExternal(checkoutUrl, { webTarget: "same-tab" }),
                   },
                 );
               }}
+              onCancel={() => cancelSubscription.mutate()}
               onManage={() => {
                 if (!portalReturnURL) return;
                 portal.mutate(
@@ -273,6 +287,15 @@ export function AuroraBilling() {
               {isAuroraPaymentsUnavailableError(portalError)
                 ? t(($) => $.billing.checkout.unavailable)
                 : t(($) => $.billing.subscription.manage_failed)}
+            </p>
+          ) : null}
+
+          {/* A 409 (not an Antom row, or already canceled) and a 502 (Antom
+              refused) leave the plan unchanged, so both are reported with the
+              same words: the action did not happen and can be retried. */}
+          {cancelError ? (
+            <p role="alert" className="text-caption text-destructive">
+              {t(($) => $.billing.subscription.cancel_failed)}
             </p>
           ) : null}
 
@@ -402,16 +425,20 @@ function PlanSection({
   canCheckout,
   managePending,
   canManage,
+  cancelPending,
   onSubscribe,
   onManage,
+  onCancel,
 }: {
   subscription: AuroraSubscription;
   pending: boolean;
   canCheckout: boolean;
   managePending: boolean;
   canManage: boolean;
-  onSubscribe: (tier: string) => void;
+  cancelPending: boolean;
+  onSubscribe: (tier: string, provider: AuroraPaymentProvider) => void;
   onManage: () => void;
+  onCancel: () => void;
 }) {
   const { t } = useT("aurora");
   const locale = useLocale();
@@ -430,10 +457,24 @@ function PlanSection({
   // client must not offer a second recurring subscription it cannot interpret.
   const canSubscribe =
     subscription.status === "" || subscription.status === "canceled";
-  // Only a live plan has anything to manage. A canceled plan is the
-  // buy-a-plan state below, and an unknown future status fails closed.
+
+  // The channels the deployment sells through, in the server's order. An empty
+  // list is a channel-less deployment: the table still describes the plans,
+  // but there is nothing to buy through.
+  const providers = subscription.availableProviders;
+
+  // Each channel is managed somewhere different. A Stripe row has the Customer
+  // Portal; Antom has no portal, so its one management action is the in-app
+  // cancel, and only while it is actually running. A canceled plan is the
+  // buy-a-plan state below, a plan already ending has nothing left to stop, and
+  // an unknown future status or channel fails closed.
   const canManagePortal =
-    subscription.status === "active" || subscription.status === "past_due";
+    subscription.provider === "stripe" &&
+    (subscription.status === "active" || subscription.status === "past_due");
+  const canCancelAntom =
+    subscription.provider === "antom" &&
+    subscription.status === "active" &&
+    !subscription.cancelAtPeriodEnd;
 
   return (
     <section className="aurora-panel flex flex-col gap-3">
@@ -497,6 +538,21 @@ function PlanSection({
         </div>
       ) : null}
 
+      {canCancelAntom ? (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={cancelPending}
+            aria-busy={cancelPending}
+            onClick={onCancel}
+          >
+            {t(($) => $.billing.subscription.cancel)}
+          </Button>
+        </div>
+      ) : null}
+
       {canSubscribe ? (
         <>
           <p className="text-caption text-muted-foreground">
@@ -538,16 +594,33 @@ function PlanSection({
                       )
                     }
                   </span>
-                  {tier === "free" ? null : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={pending || !canCheckout}
-                      onClick={() => onSubscribe(tier)}
-                    >
-                      {t(($) => $.billing.subscription.subscribe)}
-                    </Button>
-                  )}
+                  {tier === "free"
+                    ? null
+                    : providers.map((provider) => {
+                        // The row names the plan, so the button only has to
+                        // name the channel it charges through. The accessible
+                        // name still spells out the action, which a brand alone
+                        // would not.
+                        const providerLabel = t(
+                          ($) => $.billing.subscription.providers[provider],
+                        );
+                        return (
+                          <Button
+                            key={provider}
+                            type="button"
+                            size="sm"
+                            disabled={pending || !canCheckout}
+                            aria-busy={pending}
+                            aria-label={t(
+                              ($) => $.billing.subscription.subscribe_with,
+                              { provider: providerLabel },
+                            )}
+                            onClick={() => onSubscribe(tier, provider)}
+                          >
+                            {providerLabel}
+                          </Button>
+                        );
+                      })}
                 </div>
               </li>
             ))}

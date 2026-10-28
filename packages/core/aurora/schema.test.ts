@@ -200,6 +200,45 @@ describe("auroraSubscriptionSchema", () => {
 
     expect(res.status).toBe("paused");
   });
+
+  it("defaults the payment provider to Stripe", () => {
+    // The channel arrived with the Antom launch. A server that predates it (or
+    // a body that omits the field) could only have been selling through
+    // Stripe, so that is the reading that keeps its plan card truthful.
+    expect(auroraSubscriptionSchema.parse({}).provider).toBe("stripe");
+    expect(auroraSubscriptionSchema.parse({ provider: "" }).provider).toBe("");
+    expect(auroraSubscriptionSchema.parse({ provider: "antom" }).provider).toBe(
+      "antom",
+    );
+  });
+
+  it("drops a channel this build cannot sell from availableProviders", () => {
+    // The list decides which buttons the plan card offers. A channel from a
+    // newer server must not remove the ones this build can sell, and must not
+    // become a button that would submit an unknown provider.
+    const res = auroraSubscriptionSchema.parse({
+      availableProviders: ["stripe", "venmo"],
+    });
+
+    expect(res.availableProviders).toEqual(["stripe"]);
+  });
+
+  it("defaults a missing availableProviders to no channels", () => {
+    expect(auroraSubscriptionSchema.parse({}).availableProviders).toEqual([]);
+  });
+
+  it("collapses a malformed availableProviders instead of failing the plan read", () => {
+    // The plan card is the purchase boundary: a bad channel list must cost the
+    // buttons, not the whole subscription read.
+    expect(
+      auroraSubscriptionSchema.parse({ availableProviders: null })
+        .availableProviders,
+    ).toEqual([]);
+    expect(
+      auroraSubscriptionSchema.parse({ availableProviders: "stripe" })
+        .availableProviders,
+    ).toEqual([]);
+  });
 });
 
 describe("auroraTopupsSchema", () => {
