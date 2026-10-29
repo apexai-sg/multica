@@ -216,6 +216,7 @@ func daemonCommonCapabilities() []string {
 		protocol.DaemonCapabilityPlatformSkillV1,
 		protocol.DaemonCapabilityCheckoutKeepsWorkV1,
 		protocol.DaemonCapabilityJoinedWakeupsV1,
+		protocol.DaemonCapabilityWorkflowStatusRulesV1,
 	}
 }
 
@@ -542,6 +543,8 @@ func (c *Client) MarkTaskWaitingLocalDirectory(ctx context.Context, taskID, reas
 
 // TaskCancelAck is the payload of the daemon's cancel acknowledgement.
 type TaskCancelAck struct {
+	// Nil is an older daemon with no explicit cleanup acknowledgement.
+	ProcessCleanupConfirmed *bool
 	// BranchName: a cancelled worktree task has already finalized — its
 	// partial work is committed to a branch in the user's repo. The cancel
 	// path discards the rest of the result, so this ack is the only channel
@@ -575,6 +578,9 @@ type TaskCancelAck struct {
 // The server never overwrites already-recorded values, so replays are safe.
 func (c *Client) AckTaskCancelled(ctx context.Context, taskID string, ack TaskCancelAck) error {
 	body := map[string]any{}
+	if ack.ProcessCleanupConfirmed != nil {
+		body["process_cleanup_confirmed"] = *ack.ProcessCleanupConfirmed
+	}
 	if ack.BranchName != "" {
 		body["branch_name"] = ack.BranchName
 	}

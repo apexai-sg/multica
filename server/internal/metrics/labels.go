@@ -171,6 +171,7 @@ var (
 		"kimi":          "kimi",
 		"reasonix":      "reasonix",
 		"dim":           "dim",
+		"devin":         "devin",
 		"mcode":         "mcode",
 		"muse":          "muse",
 		"zeroclaw":      "zeroclaw",
