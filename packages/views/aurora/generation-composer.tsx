@@ -55,6 +55,7 @@ import { useLocale, useT } from "../i18n";
 import { formatCredits, formatMicroCredits } from "./format";
 import { generationStatusLabel } from "./labels";
 import { AuroraAvatar } from "./aurora-avatar";
+import { expertAvatarUrl } from "./expert-avatars";
 import { GENERATION_STATUS_PILL } from "./generation-artifacts";
 import { useAuroraAssetDownload } from "./use-aurora-asset-download";
 
@@ -597,6 +598,7 @@ function ComposerBody({
           name={agent.name}
           id={agent.id}
           avatarUrl={agent.avatar_url}
+          bundledAvatarUrl={skill ? expertAvatarUrl(skill.id) : null}
           size="lg"
           available={available}
         />

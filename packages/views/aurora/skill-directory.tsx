@@ -28,6 +28,7 @@ import {
 } from "@multica/core/aurora";
 import { AuroraAvatar } from "./aurora-avatar";
 import { AuroraPageState } from "./aurora-page-header";
+import { expertAvatarUrl } from "./expert-avatars";
 import { useLocale, useT } from "../i18n";
 import { GenerationComposer } from "./generation-composer";
 import { formatCredits } from "./format";
@@ -352,16 +353,31 @@ function DirectoryHero({
             key={entry.agent.id}
             className={"aurora-orbit-avatar aurora-orbit-avatar--" + (index + 1)}
           >
-            <AuroraAvatar
-              name={entry.agent.name}
-              id={entry.agent.id}
-              avatarUrl={entry.agent.avatar_url}
-              available
-            />
+            <EntryAvatar entry={entry} />
           </span>
         ))}
       </div>
     </section>
+  );
+}
+
+function EntryAvatar({
+  entry,
+  size,
+}: {
+  entry: DirectoryEntry;
+  size?: "md" | "lg";
+}) {
+  const skill = entry.mode === "generation" ? entry.skill : null;
+  return (
+    <AuroraAvatar
+      name={entry.agent.name}
+      id={entry.agent.id}
+      avatarUrl={entry.agent.avatar_url}
+      bundledAvatarUrl={skill ? expertAvatarUrl(skill.id) : null}
+      size={size}
+      available
+    />
   );
 }
 
@@ -384,13 +400,7 @@ function AgentCard({
   return (
     <button type="button" onClick={onSelect} className="aurora-card">
       <span className="aurora-card-top">
-        <AuroraAvatar
-          name={agent.name}
-          id={agent.id}
-          avatarUrl={agent.avatar_url}
-          size="lg"
-          available
-        />
+        <EntryAvatar entry={entry} size="lg" />
         <span className="aurora-card-name">
           <span className="aurora-card-kind">
             {skill ? t(($) => $.directory.tool_label) : t(($) => $.directory.filter_assistant)}

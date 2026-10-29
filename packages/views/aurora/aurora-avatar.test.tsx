@@ -1,17 +1,25 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
 // The real resolver prefixes the API base. That base belongs to the app boot
 // (`setApiInstance`), which a component test does not run, and the mapping
 // itself is owned by packages/core/workspace/avatar-url.test.ts — here the
 // question is only whether the tile uses the URL it was handed.
+const { resolvePublicFileUrlMock } = vi.hoisted(() => ({
+  resolvePublicFileUrlMock: vi.fn((url: string | null | undefined) => url ?? null),
+}));
+
 vi.mock("@multica/core/workspace/avatar-url", () => ({
-  resolvePublicFileUrl: (url: string | null | undefined) => url ?? null,
+  resolvePublicFileUrl: resolvePublicFileUrlMock,
 }));
 
 import { AuroraAvatar } from "./aurora-avatar";
 
 describe("AuroraAvatar", () => {
+  beforeEach(() => {
+    resolvePublicFileUrlMock.mockClear();
+  });
+
   it("wires initials and tint without changing the adjacent accessible name", () => {
     const { container } = render(
       <button type="button">
@@ -75,6 +83,37 @@ describe("AuroraAvatar", () => {
     expect(tile).not.toHaveTextContent("P");
     // The state dot is an overlay, not part of the fallback.
     expect(tile.querySelector(".aurora-avatar-dot")).toBeInTheDocument();
+  });
+
+  it("prefers a bundled expert portrait over the carrier avatar", () => {
+    const { container } = render(
+      <AuroraAvatar
+        name="Lyrics helper"
+        id="a-lyrics"
+        avatarUrl="/uploads/lyrics.png"
+        bundledAvatarUrl="/avatars/experts/content-creation-lyrics-songwriting.png"
+      />,
+    );
+    // The bundled portrait ships with the app, so it is used verbatim rather
+    // than resolved against the API base like the carrier's upload would be.
+    expect(container.querySelector("img")!.getAttribute("src")).toBe(
+      "/avatars/experts/content-creation-lyrics-songwriting.png",
+    );
+    expect(resolvePublicFileUrlMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the initials when the bundled portrait cannot load", () => {
+    const { container } = render(
+      <AuroraAvatar
+        name="Lyrics helper"
+        id="a-lyrics"
+        bundledAvatarUrl="/avatars/experts/gone.png"
+      />,
+    );
+    fireEvent.error(container.querySelector("img")!);
+    const tile = container.querySelector(".aurora-avatar")!;
+    expect(tile.querySelector("img")).toBeNull();
+    expect(tile).toHaveTextContent("L");
   });
 
   it("falls back to the initials when the portrait cannot load", () => {

@@ -194,6 +194,38 @@ func validateNodeInspection(r container.InspectResponse, n model.Node, networkNa
 	}
 	return nil
 }
+
+// adoptionDecision is what to do with a live container that failed adoption.
+type adoptionDecision int
+
+const (
+	// adoptionRefuse keeps the container and reports forbidden. Anything other
+	// than the image differing means this Fleet did not build it.
+	adoptionRefuse adoptionDecision = iota
+	// adoptionReplaceImage removes the container so the caller can recreate it
+	// from the configured image. Node identity, volumes and the bootstrap
+	// payload are unchanged, which is what an approved image upgrade is.
+	adoptionReplaceImage
+)
+
+// decideAdoption classifies an adoption failure. Replacing is only safe when a
+// container exists under the node's own name with the Fleet's ownership labels
+// (the caller checked those), everything validateNodeInspection compares still
+// matches, and the image is the one field that differs. A node that already
+// recorded a container id is never replaced here: the store must re-arm that
+// intent first (see CreateAuroraIntent's image-change reset).
+func decideAdoption(n model.Node, i Inspection, networkName string, cfg model.Config) adoptionDecision {
+	if i.sdk == nil || n.ContainerID != "" || i.sdk.Config == nil || i.sdk.Config.Image == "" || i.sdk.Config.Image == n.Image {
+		return adoptionRefuse
+	}
+	probe := n
+	probe.Image = i.sdk.Config.Image
+	if validateNodeInspection(*i.sdk, probe, networkName, cfg) != nil {
+		return adoptionRefuse
+	}
+	return adoptionReplaceImage
+}
+
 func (p *Provider) validSDKSnapshot(n model.Node, i Inspection) error {
 	if _, ok := p.engine.(*sdkEngine); ok {
 		if i.sdk == nil {

@@ -266,20 +266,27 @@ func TestValidateSkillInputsRejectsForeignWorkspaceOrOwner(t *testing.T) {
 }
 
 // TestExpertInputRulesMatchTheCuratedTable pins what every expert accepts and
-// where it runs. A text expert takes a written request plus at most one
-// document; a media expert takes one media file at the upload path's own
-// ceiling instead. Every expert runs the ordinary-agent text route.
+// where it runs. The default rule is a written request plus at most one
+// document; experts whose curated entry takes media are listed in mediaInputs
+// with their exact kinds and counts, at the upload path's own ceiling. Every
+// expert runs the ordinary-agent text route.
 func TestExpertInputRulesMatchTheCuratedTable(t *testing.T) {
-	// mediaInputs pins the experts whose input rule is not the package default.
-	// A media expert takes one media file at the upload path's own ceiling.
-	mediaOne := func(kinds ...aurora.AttachmentKind) []aurora.AttachmentConstraint {
-		return []aurora.AttachmentConstraint{{Kinds: kinds, Min: 0, Max: 1, MaxBytes: 100 << 20}}
+	// mediaInputs pins every expert whose curated entry is not the package
+	// default. It is a deliberate restatement of the product table: changing an
+	// expert's input rule means changing both places in the same commit.
+	mediaRule := func(min, max int, kinds ...aurora.AttachmentKind) []aurora.AttachmentConstraint {
+		return []aurora.AttachmentConstraint{{Kinds: kinds, Min: min, Max: max, MaxBytes: 100 << 20}}
 	}
 	mediaInputs := map[string][]aurora.AttachmentConstraint{
-		"media-face-swap":         mediaOne(aurora.AttachmentImage),
-		"media-image-retouch":     mediaOne(aurora.AttachmentImage),
-		"media-portrait-studio":   mediaOne(aurora.AttachmentImage),
-		"media-video-translation": mediaOne(aurora.AttachmentVideo, aurora.AttachmentAudio),
+		"ecommerce-product-copywriting":    mediaRule(0, 1, aurora.AttachmentDocument, aurora.AttachmentImage),
+		"marketing-ad-copywriting":         mediaRule(0, 1, aurora.AttachmentDocument, aurora.AttachmentImage),
+		"marketing-social-media-operation": mediaRule(0, 1, aurora.AttachmentDocument, aurora.AttachmentImage),
+		"media-face-swap":                  mediaRule(0, 2, aurora.AttachmentImage, aurora.AttachmentVideo),
+		"media-image-retouch":              mediaRule(0, 1, aurora.AttachmentImage),
+		"media-portrait-studio":            mediaRule(0, 1, aurora.AttachmentImage),
+		"media-short-video-copy":           mediaRule(0, 1, aurora.AttachmentDocument, aurora.AttachmentVideo, aurora.AttachmentAudio),
+		"media-video-editing":              mediaRule(0, 1, aurora.AttachmentDocument, aurora.AttachmentVideo),
+		"media-video-translation":          mediaRule(0, 1, aurora.AttachmentVideo, aurora.AttachmentAudio),
 	}
 	for _, entry := range aurora.Catalog() {
 		policy, ok := aurora.ExecutionPolicy(entry.ID)

@@ -93,10 +93,12 @@ func (p *Provider) workspaceSubnet(n model.Node) string {
 	count := 1 << uint(24-ones)
 	sum := sha256.Sum256([]byte(p.cfg.Namespace + "\x00" + p.cfg.FleetID + "\x00" + nodeID(n) + "\x00subnet"))
 	index := int(binary.BigEndian.Uint32(sum[:4]) % uint32(count))
+	// Step in whole /24 blocks: the fourth octet of a /24 network address is
+	// always zero, so the index advances the third octet (and the second for
+	// pools wider than /16) rather than landing in the host part.
+	base := binary.BigEndian.Uint32(pool.IP.To4())
 	subnet := make(net.IP, net.IPv4len)
-	copy(subnet, pool.IP.To4())
-	subnet[2] = byte(index >> 8)
-	subnet[3] = byte(index)
+	binary.BigEndian.PutUint32(subnet, base+uint32(index)<<8)
 	return (&net.IPNet{IP: subnet, Mask: net.CIDRMask(24, 32)}).String()
 }
 
@@ -135,9 +137,19 @@ func (p *Provider) Ensure(ctx context.Context, n model.Node, b model.Bootstrap) 
 	}
 	i, e := p.inspectOwned(ctx, n, id)
 	if e == nil {
-		return p.ensureStarted(ctx, n, i)
-	}
-	if !errdefs.IsNotFound(e) {
+		if e = p.validSDKSnapshot(n, i); e == nil {
+			return p.ensureStarted(ctx, n, i)
+		} else if p.adoptionDecision(n, i) == adoptionReplaceImage {
+			// The container is this Fleet's own, built from the previous image.
+			// An approved image upgrade replaces it in place instead of
+			// reporting a permanent failure that no retry can clear.
+			if e = p.replaceStaleImage(ctx, i); e != nil {
+				return model.Observation{}, safeError(e)
+			}
+		} else {
+			return model.Observation{}, safeError(e)
+		}
+	} else if !errdefs.IsNotFound(e) {
 		return model.Observation{}, safeError(e)
 	}
 	// A persisted container that disappeared is never replaced with a new identity.
@@ -255,6 +267,30 @@ func bounded(ctx context.Context, f func(context.Context) error) error {
 	defer cancel()
 	return f(c)
 }
+
+// adoptionDecision mirrors validSDKSnapshot's network selection so the
+// replace-or-refuse verdict compares the same host config the caller validated.
+func (p *Provider) adoptionDecision(n model.Node, i Inspection) adoptionDecision {
+	network := p.networkName()
+	if p.cfg.Aurora != nil {
+		network = p.workspaceNetwork(n).Name
+	}
+	return decideAdoption(n, i, network, p.cfg)
+}
+
+// replaceStaleImage removes a container built from the previous image so the
+// caller can create the new one under the same name. The container may be
+// running; Docker refuses to remove a running container without force, and a
+// graceful stop keeps the node's volumes untouched.
+func (p *Provider) replaceStaleImage(ctx context.Context, i Inspection) error {
+	if i.State == "running" {
+		if err := bounded(ctx, func(c context.Context) error { return p.engine.Stop(c, i.ID) }); err != nil {
+			return err
+		}
+	}
+	return bounded(ctx, func(c context.Context) error { return p.engine.Remove(c, i.ID) })
+}
+
 func (p *Provider) ensureStarted(ctx context.Context, n model.Node, i Inspection) (model.Observation, error) {
 	if e := p.validSDKSnapshot(n, i); e != nil {
 		return model.Observation{}, e

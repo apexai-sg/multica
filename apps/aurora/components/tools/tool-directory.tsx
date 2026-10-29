@@ -83,6 +83,6 @@ function ToolAvatar({ tool, large = false }: { tool: ToolDefinition; large?: boo
   return <span aria-hidden="true" className={`aurora-avatar${large ? " aurora-avatar--lg" : ""}`}>
     {/* Bundled portraits belong to the frontend origin, not the upload API. */}
     {/* eslint-disable-next-line @next/next/no-img-element */}
-    <img className="aurora-avatar-img" src={`/avatars/person-${tool.avatar}.svg`} alt="" />
+    <img className="aurora-avatar-img" src={tool.avatar} alt="" />
   </span>;
 }

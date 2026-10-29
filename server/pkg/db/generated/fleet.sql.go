@@ -582,7 +582,7 @@ func (q *Queries) FleetConfirmBootstrap(ctx context.Context, arg FleetConfirmBoo
 }
 
 const fleetDeleteRuntimes = `-- name: FleetDeleteRuntimes :many
-SELECT r.id, r.workspace_id, r.daemon_id, r.name, r.runtime_mode, r.provider, r.status, r.device_info, r.metadata, r.last_seen_at, r.created_at, r.updated_at, r.owner_id, r.legacy_daemon_id, r.visibility, r.profile_id, r.custom_name FROM agent_runtime r WHERE r.owner_id= $1
+SELECT r.id, r.workspace_id, r.daemon_id, r.name, r.runtime_mode, r.provider, r.status, r.device_info, r.metadata, r.last_seen_at, r.created_at, r.updated_at, r.owner_id, r.legacy_daemon_id, r.visibility, r.profile_id, r.custom_name, r.shared_with FROM agent_runtime r WHERE r.owner_id= $1
  AND r.metadata->>'managed_by'='local_fleet' AND r.metadata->>'fleet_node_id'= $2::text ORDER BY r.id
 `
 
@@ -618,6 +618,7 @@ func (q *Queries) FleetDeleteRuntimes(ctx context.Context, arg FleetDeleteRuntim
 			&i.Visibility,
 			&i.ProfileID,
 			&i.CustomName,
+			&i.SharedWith,
 		); err != nil {
 			return nil, err
 		}
@@ -963,7 +964,7 @@ func (q *Queries) FleetLockCopiedTaskWorkspaces(ctx context.Context, arg FleetLo
 }
 
 const fleetLockRuntimeBinding = `-- name: FleetLockRuntimeBinding :one
-SELECT id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, owner_id, legacy_daemon_id, visibility, profile_id, custom_name FROM agent_runtime WHERE id = $1 FOR SHARE
+SELECT id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, owner_id, legacy_daemon_id, visibility, profile_id, custom_name, shared_with FROM agent_runtime WHERE id = $1 FOR SHARE
 `
 
 // KEY SHARE alone does not conflict with trusted metadata upgrades.
@@ -988,6 +989,7 @@ func (q *Queries) FleetLockRuntimeBinding(ctx context.Context, runtimeID pgtype.
 		&i.Visibility,
 		&i.ProfileID,
 		&i.CustomName,
+		&i.SharedWith,
 	)
 	return i, err
 }

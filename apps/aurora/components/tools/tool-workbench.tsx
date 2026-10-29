@@ -28,7 +28,7 @@ export function ToolWorkbench({ tool, slug }: { tool: ToolDefinition; slug: stri
     <section className="apex-tool-hero" aria-labelledby="apex-tool-title">
       <div className="apex-tool-avatar">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`/avatars/person-${tool.avatar}.svg`} alt="" />
+        <img src={tool.avatar} alt="" />
         <span aria-hidden="true"><Sparkles /></span>
       </div>
       <div className="apex-tool-intro">
