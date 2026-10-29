@@ -596,6 +596,104 @@ describe("AuroraBilling", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps the paid plans reachable while a checkout is incomplete", () => {
+    mocks.subscription.mockReturnValue({
+      data: subscription({ tier: "creator", status: "pending" }),
+      isPending: false,
+    });
+
+    renderBilling();
+
+    expect(screen.getByText("Checkout incomplete")).toBeInTheDocument();
+    // An abandoned checkout must not leave the plan list without controls:
+    // retrying the same tier reuses the stored intent on the server.
+    expect(
+      screen.getAllByRole("button", { name: /subscribe with stripe/i }),
+    ).toHaveLength(3);
+  });
+
+  it("withholds the plans while a successful checkout is still settling", () => {
+    mocks.subscription.mockReturnValue({
+      data: subscription({ tier: "creator", status: "pending" }),
+      isPending: false,
+      refetch: vi.fn(),
+    });
+
+    renderBilling(new URLSearchParams("checkout=success"));
+
+    // The channel has not notified yet, so the pending row says nothing about
+    // the payment it may already have taken: another click would reach the
+    // channel again instead of reusing a finished session.
+    expect(
+      screen.queryAllByRole("button", { name: /subscribe with stripe/i }),
+    ).toHaveLength(0);
+  });
+
+  it("keeps the plans when a credit purchase returns to the same marker", () => {
+    // The credit packs redirect to `?checkout=success` too. No subscription row
+    // is pending there, so the marker proves nothing about a plan payment and
+    // must not hide the catalogue for the whole poll window.
+    renderBilling(new URLSearchParams("checkout=success"));
+
+    expect(
+      screen.getAllByRole("button", { name: /subscribe with stripe/i }),
+    ).toHaveLength(3);
+  });
+
+  it("restores the plans when the success marker leaves the query string", () => {
+    mocks.subscription.mockReturnValue({
+      data: subscription({ tier: "creator", status: "pending" }),
+      isPending: false,
+      refetch: vi.fn(),
+    });
+
+    const { rerender } = renderBilling(new URLSearchParams("checkout=success"));
+    expect(
+      screen.queryAllByRole("button", { name: /subscribe with stripe/i }),
+    ).toHaveLength(0);
+
+    // An in-route navigation drops the marker without unmounting the screen,
+    // which tears the poll down before it can reset the settling state.
+    rerender(
+      <NavigationProvider
+        value={stubNavigationAdapter({
+          searchParams: new URLSearchParams(),
+          getShareableUrl: (path) => new URL(path, APP_ORIGIN).toString(),
+        })}
+      >
+        <AuroraBilling />
+      </NavigationProvider>,
+    );
+
+    expect(
+      screen.getAllByRole("button", { name: /subscribe with stripe/i }),
+    ).toHaveLength(3);
+  });
+
+  it("offers the plans again when a settling checkout never resolves", () => {
+    vi.useFakeTimers();
+    mocks.subscription.mockReturnValue({
+      data: subscription({ tier: "creator", status: "pending" }),
+      isPending: false,
+      refetch: vi.fn(),
+    });
+
+    renderBilling(new URLSearchParams("checkout=success"));
+    expect(
+      screen.queryAllByRole("button", { name: /subscribe with stripe/i }),
+    ).toHaveLength(0);
+
+    // The poll is the whole settling window. Once it stops, a still-pending row
+    // is the honest state and must not keep the plans hidden behind a
+    // notification that never arrived.
+    act(() => vi.advanceTimersByTime(60_000));
+
+    expect(
+      screen.getAllByRole("button", { name: /subscribe with stripe/i }),
+    ).toHaveLength(3);
+    vi.useRealTimers();
+  });
+
   it("offers the paid plans to a user who has none", () => {
     renderBilling();
 
@@ -872,6 +970,30 @@ describe("AuroraBilling", () => {
     expect(
       screen.getByText("You already have a subscription."),
     ).toBeInTheDocument();
+  });
+
+  it("says a checkout is still open when a pending intent refuses another plan", () => {
+    // A 409 under a pending intent is not "you already subscribed": the user may
+    // not have paid anything yet, and the unfinished checkout is what is in the
+    // way.
+    mocks.subscription.mockReturnValue({
+      data: subscription({ tier: "creator", status: "pending" }),
+      isPending: false,
+    });
+    mocks.createCheckout.mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+      error: new ApiError("subscription already exists", 409, "Conflict"),
+    });
+
+    renderBilling();
+
+    expect(
+      screen.getByText("A checkout is still open. Complete it, or try again later."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("You already have a subscription."),
+    ).not.toBeInTheDocument();
   });
 
   it("offers the manage-subscription control for an active plan", () => {

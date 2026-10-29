@@ -138,6 +138,7 @@ export type AuroraSubscriptionStatusLabel =
   | "active"
   | "past_due"
   | "canceled"
+  | "pending"
   | "unknown";
 
 const SUBSCRIPTION_STATUS_LABELS: Record<
@@ -147,6 +148,7 @@ const SUBSCRIPTION_STATUS_LABELS: Record<
   active: "active",
   past_due: "past_due",
   canceled: "canceled",
+  pending: "pending",
 };
 
 /** The label key for a subscription's stored status. */

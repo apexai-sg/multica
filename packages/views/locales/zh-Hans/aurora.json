@@ -206,6 +206,7 @@
         "active": "生效中",
         "past_due": "待付款",
         "canceled": "已取消",
+        "pending": "支付未完成",
         "unknown": "未知"
       },
       "providers": {
@@ -242,6 +243,7 @@
     "checkout": {
       "failed": "无法发起购买，请重试。",
       "already_subscribed": "你已经有订阅了。",
+      "in_progress": "还有一笔结账未完成。请先完成它，或稍后重试。",
       "unavailable": "该实例未开通支付。",
       "no_refund": "所有购买即为最终交易，不可退款。"
     }

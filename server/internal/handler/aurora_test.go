@@ -1935,6 +1935,29 @@ func auroraSubscriptionCheckoutRow(t *testing.T) (provider, key, cycle, status s
 	return provider, key, cycle, status
 }
 
+// seedAuroraCheckoutIntentAge backdates the fixture user's checkout intent, which
+// is how a test reaches the states the TTL decides: a still-visible intent whose
+// age is worth observing, or one the read path must stop reporting.
+func seedAuroraCheckoutIntentAge(t *testing.T, age time.Duration) {
+	t.Helper()
+	dbfx.Exec(t, `UPDATE aurora_subscription SET updated_at = now() - $2::interval
+	              WHERE user_id = $1`,
+		testUserID, age.String())
+}
+
+// auroraCheckoutIntentUpdatedAt reads the ownership token: the moment the intent
+// was created or last produced a checkout URL.
+func auroraCheckoutIntentUpdatedAt(t *testing.T) time.Time {
+	t.Helper()
+	var updatedAt time.Time
+	if err := testPool.QueryRow(context.Background(),
+		`SELECT updated_at FROM aurora_subscription WHERE user_id = $1`,
+		testUserID).Scan(&updatedAt); err != nil {
+		t.Fatalf("load aurora_subscription updated_at: %v", err)
+	}
+	return updatedAt
+}
+
 // postStripeWebhook drives the public webhook endpoint. The signature header is
 // present but meaningless: the fake provider is what decides whether the event
 // verifies, so these tests exercise routing and accounting, not crypto.
@@ -2346,6 +2369,281 @@ func TestCreateSubscriptionCheckoutReusesPendingIntentOnSameProvider(t *testing.
 	if provider != "antom" || key != "aurora-sub-existing" {
 		t.Fatalf("row = provider %q key %q, want the reused Antom intent", provider, key)
 	}
+}
+
+// A channel failure must not leave the intent blocking the next attempt. The
+// row is expired rather than deleted: a timeout cannot prove the channel created
+// no session, so its key stays matchable by a late notification.
+func TestCreateSubscriptionCheckoutExpiresAntomIntentOnFailure(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fa := &fakeAntom{
+		authURL:   "https://antom.example/auth",
+		createErr: errors.New("PAYMENT_NOT_QUALIFIED"),
+	}
+	installAuroraAntom(t, fa)
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
+		"tier": "creator", "billingCycle": "monthly", "provider": "antom",
+	}))
+	testutil.Call(t, testHandler.CreateAuroraCheckout, req).Want(http.StatusInternalServerError)
+
+	provider, key, _, status := auroraSubscriptionCheckoutRow(t)
+	if provider != "antom" || !strings.HasPrefix(key, "aurora-sub-") || status != "pending" {
+		t.Fatalf("row = provider %q key %q status %q, want the failed intent kept for a late notification", provider, key, status)
+	}
+	if got := getAuroraSubscription(t).Subscription.Status; got != "" {
+		t.Fatalf("reported status = %q after a failed checkout, want empty: an expired intent is not a plan", got)
+	}
+}
+
+// Expiring the intent is what makes another tier reachable after a failure: the
+// next request starts a fresh intent with a new channel request id instead of
+// answering 409.
+func TestCreateSubscriptionCheckoutAllowsAnotherTierAfterAFailure(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fa := &fakeAntom{
+		authURL:   "https://antom.example/auth",
+		createErr: errors.New("PAYMENT_NOT_QUALIFIED"),
+	}
+	installAuroraAntom(t, fa)
+
+	failed := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
+		"tier": "creator", "billingCycle": "monthly", "provider": "antom",
+	}))
+	testutil.Call(t, testHandler.CreateAuroraCheckout, failed).Want(http.StatusInternalServerError)
+
+	fa.createErr = nil
+	retry := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
+		"tier": "pro", "billingCycle": "monthly", "provider": "antom",
+	}))
+	testutil.Call(t, testHandler.CreateAuroraCheckout, retry).Want(http.StatusOK)
+
+	if len(fa.requests) != 2 {
+		t.Fatalf("Antom create calls = %d, want one refused attempt and one retry", len(fa.requests))
+	}
+	if fa.requests[1].Tier != "pro" {
+		t.Fatalf("retry tier = %q, want pro", fa.requests[1].Tier)
+	}
+	if fa.requests[0].RequestID == fa.requests[1].RequestID {
+		t.Fatalf("retry reused request id %q, want a fresh one", fa.requests[1].RequestID)
+	}
+}
+
+// A reused intent is deliberately left untouched: the row may back a session its
+// creator already returned a URL for, and expiring it would let the next checkout
+// replace that key.
+func TestCreateSubscriptionCheckoutKeepsReusedAntomIntentOnFailure(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fa := &fakeAntom{
+		authURL:   "https://antom.example/auth",
+		createErr: errors.New("gateway timeout"),
+	}
+	installAuroraAntom(t, fa)
+	dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+		"user_id": testUserID, "tier": "creator", "status": "pending",
+		"payment_provider":         "antom",
+		"checkout_idempotency_key": "aurora-sub-existing",
+		"checkout_billing_cycle":   "monthly",
+	})
+	// Still fresh, but old enough that the age is worth asserting on: a failing
+	// reuse must not restart the checkout TTL.
+	seedAuroraCheckoutIntentAge(t, 20*time.Hour)
+	seededAt := auroraCheckoutIntentUpdatedAt(t)
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
+		"tier": "creator", "billingCycle": "monthly", "provider": "antom",
+	}))
+	testutil.Call(t, testHandler.CreateAuroraCheckout, req).Want(http.StatusInternalServerError)
+
+	provider, key, _, status := auroraSubscriptionCheckoutRow(t)
+	if provider != "antom" || key != "aurora-sub-existing" || status != "pending" {
+		t.Fatalf("row = provider %q key %q status %q, want the reused intent kept", provider, key, status)
+	}
+	// A failed attempt is not activity. Refreshing here would let repeated
+	// failures keep the intent fresh forever, locking every other tier out well
+	// past the TTL — the double-submit case of the same outage.
+	if got := auroraCheckoutIntentUpdatedAt(t); !got.Equal(seededAt) {
+		t.Fatalf("updated_at = %s after a failed reuse, want unchanged %s", got, seededAt)
+	}
+	// Still fresh, so the caller keeps seeing the checkout it may complete.
+	if got := getAuroraSubscription(t).Subscription.Status; got != "pending" {
+		t.Fatalf("reported status = %q, want pending for a reused, unexpired intent", got)
+	}
+}
+
+// The one thing that keeps an intent alive is a URL the browser may act on. A
+// reused request that succeeds records it, so the creator's later failure can
+// no longer expire a row whose checkout the user is about to complete.
+func TestCreateSubscriptionCheckoutMarksItsIntentUsedOnSuccess(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fa := &fakeAntom{authURL: "https://antom.example/auth"}
+	installAuroraAntom(t, fa)
+	dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+		"user_id": testUserID, "tier": "creator", "status": "pending",
+		"payment_provider":         "antom",
+		"checkout_idempotency_key": "aurora-sub-existing",
+		"checkout_billing_cycle":   "monthly",
+	})
+	seedAuroraCheckoutIntentAge(t, 20*time.Hour)
+	seededAt := auroraCheckoutIntentUpdatedAt(t)
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
+		"tier": "creator", "billingCycle": "monthly", "provider": "antom",
+	}))
+	testutil.Call(t, testHandler.CreateAuroraCheckout, req).Want(http.StatusOK)
+
+	if got := auroraCheckoutIntentUpdatedAt(t); !got.After(seededAt) {
+		t.Fatalf("updated_at = %s after a returned URL, want it refreshed past %s", got, seededAt)
+	}
+}
+
+// The expiration lives after the provider dispatch, so it covers Stripe too.
+func TestCreateSubscriptionCheckoutExpiresStripeIntentOnFailure(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	installAuroraPayments(t, &fakePayments{checkoutErr: errors.New("stripe unavailable")})
+
+	req := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
+		"tier": "creator", "billingCycle": "monthly",
+	}))
+	testutil.Call(t, testHandler.CreateAuroraCheckout, req).Want(http.StatusInternalServerError)
+
+	if provider, key, _, status := auroraSubscriptionCheckoutRow(t); provider != "stripe" || key == "" || status != "pending" {
+		t.Fatalf("row = provider %q key %q status %q, want the failed Stripe intent kept", provider, key, status)
+	}
+	if got := getAuroraSubscription(t).Subscription.Status; got != "" {
+		t.Fatalf("reported status = %q after a failed checkout, want empty", got)
+	}
+}
+
+// The issue's reproduction is retrying the same tier after the channel refused:
+// the expired intent must not block it, and the channel must see a new request id
+// rather than a duplicate of the refused one.
+func TestCreateSubscriptionCheckoutRetriesTheSameTierAfterAFailure(t *testing.T) {
+	auroraSubscriptionTestReset(t)
+	fa := &fakeAntom{
+		authURL:   "https://antom.example/auth",
+		createErr: errors.New("PAYMENT_NOT_QUALIFIED"),
+	}
+	installAuroraAntom(t, fa)
+
+	for _, want := range []int{http.StatusInternalServerError, http.StatusOK} {
+		if want == http.StatusOK {
+			fa.createErr = nil
+		}
+		req := newRequest(http.MethodPost, "/api/aurora/billing/checkout", checkoutBody(map[string]string{
+			"tier": "creator", "billingCycle": "monthly", "provider": "antom",
+		}))
+		testutil.Call(t, testHandler.CreateAuroraCheckout, req).Want(want)
+	}
+
+	if len(fa.requests) != 2 {
+		t.Fatalf("Antom create calls = %d, want one refused attempt and one retry", len(fa.requests))
+	}
+	if fa.requests[0].RequestID == fa.requests[1].RequestID {
+		t.Fatalf("retry reused request id %q, want a fresh one", fa.requests[1].RequestID)
+	}
+}
+
+// The expiration query must only touch its own pending intent: an active plan,
+// another key's intent, and a row a concurrent request touched are all out of
+// scope.
+func TestExpireAuroraSubscriptionCheckoutIntentOnlyTouchesItsPendingRow(t *testing.T) {
+	expiredAt := pgtype.Timestamptz{Time: time.Now().Add(-auroraCheckoutIntentTTL), Valid: true}
+	intentUpdatedAt := func(t *testing.T) pgtype.Timestamptz {
+		t.Helper()
+		var at time.Time
+		if err := testPool.QueryRow(context.Background(),
+			`SELECT updated_at FROM aurora_subscription WHERE user_id = $1`,
+			testUserID).Scan(&at); err != nil {
+			t.Fatalf("load updated_at: %v", err)
+		}
+		return pgtype.Timestamptz{Time: at, Valid: true}
+	}
+	expire := func(t *testing.T, key string, token pgtype.Timestamptz) int64 {
+		t.Helper()
+		n, err := testHandler.Queries.ExpireAuroraSubscriptionCheckoutIntent(
+			context.Background(), db.ExpireAuroraSubscriptionCheckoutIntentParams{
+				UserID:                 parseUUID(testUserID),
+				CheckoutIdempotencyKey: pgtype.Text{String: key, Valid: true},
+				IntentUpdatedAt:        token,
+				ExpiredAt:              expiredAt,
+			})
+		if err != nil {
+			t.Fatalf("expire intent: %v", err)
+		}
+		return n
+	}
+
+	t.Run("active plan", func(t *testing.T) {
+		auroraSubscriptionTestReset(t)
+		dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+			"user_id": testUserID, "tier": "creator", "status": "active",
+			"checkout_idempotency_key": "aurora-sub-active",
+		})
+		if n := expire(t, "aurora-sub-active", intentUpdatedAt(t)); n != 0 {
+			t.Fatalf("expired %d active rows, want none", n)
+		}
+		if _, _, _, status := auroraSubscriptionCheckoutRow(t); status != "active" {
+			t.Fatalf("status = %q, want active", status)
+		}
+	})
+
+	t.Run("another key", func(t *testing.T) {
+		auroraSubscriptionTestReset(t)
+		dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+			"user_id": testUserID, "tier": "creator", "status": "pending",
+			"checkout_idempotency_key": "aurora-sub-other",
+		})
+		if n := expire(t, "aurora-sub-mine", intentUpdatedAt(t)); n != 0 {
+			t.Fatalf("expired %d rows under another key, want none", n)
+		}
+		if _, _, _, status := auroraSubscriptionCheckoutRow(t); status != "pending" {
+			t.Fatalf("status = %q, want pending", status)
+		}
+	})
+
+	t.Run("matching pending intent", func(t *testing.T) {
+		auroraSubscriptionTestReset(t)
+		dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+			"user_id": testUserID, "tier": "creator", "status": "pending",
+			"checkout_idempotency_key": "aurora-sub-mine",
+		})
+		if n := expire(t, "aurora-sub-mine", intentUpdatedAt(t)); n != 1 {
+			t.Fatalf("expired %d rows, want 1", n)
+		}
+		var updatedAt time.Time
+		if err := testPool.QueryRow(context.Background(),
+			`SELECT updated_at FROM aurora_subscription WHERE user_id = $1`,
+			testUserID).Scan(&updatedAt); err != nil {
+			t.Fatalf("load updated_at: %v", err)
+		}
+		if now := time.Since(updatedAt); now < auroraCheckoutIntentTTL {
+			t.Fatalf("updated_at is %s old, want at least the %s TTL", now, auroraCheckoutIntentTTL)
+		}
+	})
+
+	t.Run("intent that produced a checkout URL", func(t *testing.T) {
+		auroraSubscriptionTestReset(t)
+		dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+			"user_id": testUserID, "tier": "creator", "status": "pending",
+			"checkout_idempotency_key": "aurora-sub-mine",
+		})
+		seedAuroraCheckoutIntentAge(t, 20*time.Hour)
+		token := intentUpdatedAt(t)
+		if _, err := testHandler.Queries.MarkAuroraSubscriptionCheckoutIntentUsed(
+			context.Background(), db.MarkAuroraSubscriptionCheckoutIntentUsedParams{
+				UserID:                 parseUUID(testUserID),
+				CheckoutIdempotencyKey: pgtype.Text{String: "aurora-sub-mine", Valid: true},
+			}); err != nil {
+			t.Fatalf("mark intent used: %v", err)
+		}
+		if n := expire(t, "aurora-sub-mine", token); n != 0 {
+			t.Fatalf("expired %d rows whose URL the browser already has, want none", n)
+		}
+		if age := time.Since(intentUpdatedAt(t).Time); age > time.Minute {
+			t.Fatalf("intent is %s old, want the mark to have kept it fresh", age)
+		}
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -3937,6 +4235,23 @@ func TestAuroraSubscriptionReportsAnActivePlan(t *testing.T) {
 	}
 	if !parsed.Equal(periodEnd) {
 		t.Fatalf("currentPeriodEnd = %v, want %v", parsed, periodEnd)
+	}
+}
+
+// The expired-intent rule applies to pending rows only. An active row's
+// updated_at is old until the next renewal notification rewrites it, and
+// hiding such a plan would tell a paying subscriber they have nothing.
+func TestAuroraSubscriptionReportsAnOldActivePlan(t *testing.T) {
+	creditTestReset(t)
+	auroraSubscriptionTestReset(t)
+	dbfx.Insert(t, "aurora_subscription", testutil.Cols{
+		"user_id": testUserID, "tier": "creator", "status": "active",
+		"updated_at": time.Now().Add(-2 * auroraCheckoutIntentTTL),
+	})
+
+	out := getAuroraSubscription(t).Subscription
+	if out.Tier != "creator" || out.Status != "active" {
+		t.Fatalf("subscription = %s/%s, want creator/active for an old active row", out.Tier, out.Status)
 	}
 }
 
