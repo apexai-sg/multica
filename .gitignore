@@ -66,6 +66,9 @@ fleet-config.private.json
 # local settings
 .claude/
 .superpowers/
+# Agent-tool scratch: git worktrees checked out under the repo and Playwright MCP output.
+.worktree/
+.playwright-mcp/
 .tool-versions
 
 # feature tracking
