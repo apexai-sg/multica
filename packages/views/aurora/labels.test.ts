@@ -6,6 +6,7 @@ import {
   ledgerKindLabel,
   skillDisplayName,
   skillDisplayNamesById,
+  subscriptionStatusLabel,
 } from "./labels";
 
 function skill(overrides: Partial<AuroraSkill> = {}): AuroraSkill {
@@ -94,5 +95,21 @@ describe("skillDisplayNamesById", () => {
     // this entry" from "the catalog never loaded", so a miss is absent rather
     // than an invented label.
     expect(skillDisplayNamesById([skill()], "en").get("retired")).toBeUndefined();
+  });
+});
+
+describe("subscriptionStatusLabel", () => {
+  it("maps each state the server stores", () => {
+    expect(subscriptionStatusLabel("active")).toBe("active");
+    expect(subscriptionStatusLabel("past_due")).toBe("past_due");
+    expect(subscriptionStatusLabel("canceled")).toBe("canceled");
+    expect(subscriptionStatusLabel("pending")).toBe("pending");
+  });
+
+  it("falls back for a status this build does not know", () => {
+    // `pending` is the one unfinished checkout the plan card still describes;
+    // anything else is unknown rather than inventing a state.
+    expect(subscriptionStatusLabel("paused")).toBe("unknown");
+    expect(subscriptionStatusLabel(undefined)).toBe("unknown");
   });
 });

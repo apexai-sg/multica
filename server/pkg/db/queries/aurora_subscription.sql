@@ -32,6 +32,30 @@ RETURNING id, user_id, tier, status, stripe_customer_id, stripe_subscription_id,
           checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at,
           payment_provider, antom_subscription_id;
 
+-- name: ExpireAuroraSubscriptionCheckoutIntent :execrows
+-- Mark a failed checkout's intent as replaceable without discarding its key, so
+-- a late notification for it still finds the row. Guarded on the exact key, the
+-- pending state and the updated_at this request left behind: a concurrent
+-- request that reused the intent touches it and must not be expired.
+UPDATE aurora_subscription
+SET updated_at = sqlc.arg(expired_at)
+WHERE user_id = sqlc.arg(user_id)
+  AND status = 'pending'
+  AND checkout_idempotency_key = sqlc.arg(checkout_idempotency_key)
+  AND updated_at = sqlc.arg(intent_updated_at);
+
+-- name: MarkAuroraSubscriptionCheckoutIntentUsed :execrows
+-- Record that this intent produced a checkout URL. That is the one fact that
+-- keeps it alive: a failing request may not expire an intent whose URL the
+-- browser already has. Reusing an intent deliberately does not call this, so a
+-- stream of failed attempts cannot keep a row fresh forever — freshness still
+-- ages out from the moment a URL was last handed out.
+UPDATE aurora_subscription
+SET updated_at = now()
+WHERE user_id = sqlc.arg(user_id)
+  AND status = 'pending'
+  AND checkout_idempotency_key = sqlc.arg(checkout_idempotency_key);
+
 -- name: UpsertAuroraSubscription :one
 -- Apply only a non-stale Stripe event. Event timestamps have one-second
 -- precision, so a canceled subscription also wins ties: that Stripe

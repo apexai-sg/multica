@@ -208,6 +208,7 @@
         "active": "Active",
         "past_due": "Payment due",
         "canceled": "Canceled",
+        "pending": "Checkout incomplete",
         "unknown": "Unknown"
       },
       "providers": {
@@ -244,6 +245,7 @@
     "checkout": {
       "failed": "Could not start the purchase. Try again.",
       "already_subscribed": "You already have a subscription.",
+      "in_progress": "A checkout is still open. Complete it, or try again later.",
       "unavailable": "Payments are not available on this instance.",
       "no_refund": "All purchases are final and non-refundable."
     }

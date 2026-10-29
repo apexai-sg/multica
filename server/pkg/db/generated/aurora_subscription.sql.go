@@ -11,6 +11,39 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const expireAuroraSubscriptionCheckoutIntent = `-- name: ExpireAuroraSubscriptionCheckoutIntent :execrows
+UPDATE aurora_subscription
+SET updated_at = $1
+WHERE user_id = $2
+  AND status = 'pending'
+  AND checkout_idempotency_key = $3
+  AND updated_at = $4
+`
+
+type ExpireAuroraSubscriptionCheckoutIntentParams struct {
+	ExpiredAt              pgtype.Timestamptz `json:"expired_at"`
+	UserID                 pgtype.UUID        `json:"user_id"`
+	CheckoutIdempotencyKey pgtype.Text        `json:"checkout_idempotency_key"`
+	IntentUpdatedAt        pgtype.Timestamptz `json:"intent_updated_at"`
+}
+
+// Mark a failed checkout's intent as replaceable without discarding its key, so
+// a late notification for it still finds the row. Guarded on the exact key, the
+// pending state and the updated_at this request left behind: a concurrent
+// request that reused the intent touches it and must not be expired.
+func (q *Queries) ExpireAuroraSubscriptionCheckoutIntent(ctx context.Context, arg ExpireAuroraSubscriptionCheckoutIntentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, expireAuroraSubscriptionCheckoutIntent,
+		arg.ExpiredAt,
+		arg.UserID,
+		arg.CheckoutIdempotencyKey,
+		arg.IntentUpdatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getAuroraSubscriptionByAntomID = `-- name: GetAuroraSubscriptionByAntomID :one
 SELECT id, user_id, tier, status, stripe_customer_id, stripe_subscription_id,
        current_period_end, cancel_at_period_end, created_at, updated_at,
@@ -222,6 +255,32 @@ func (q *Queries) MarkAuroraSubscriptionCancelAtPeriodEnd(ctx context.Context, u
 		&i.AntomSubscriptionID,
 	)
 	return i, err
+}
+
+const markAuroraSubscriptionCheckoutIntentUsed = `-- name: MarkAuroraSubscriptionCheckoutIntentUsed :execrows
+UPDATE aurora_subscription
+SET updated_at = now()
+WHERE user_id = $1
+  AND status = 'pending'
+  AND checkout_idempotency_key = $2
+`
+
+type MarkAuroraSubscriptionCheckoutIntentUsedParams struct {
+	UserID                 pgtype.UUID `json:"user_id"`
+	CheckoutIdempotencyKey pgtype.Text `json:"checkout_idempotency_key"`
+}
+
+// Record that this intent produced a checkout URL. That is the one fact that
+// keeps it alive: a failing request may not expire an intent whose URL the
+// browser already has. Reusing an intent deliberately does not call this, so a
+// stream of failed attempts cannot keep a row fresh forever — freshness still
+// ages out from the moment a URL was last handed out.
+func (q *Queries) MarkAuroraSubscriptionCheckoutIntentUsed(ctx context.Context, arg MarkAuroraSubscriptionCheckoutIntentUsedParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markAuroraSubscriptionCheckoutIntentUsed, arg.UserID, arg.CheckoutIdempotencyKey)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const startAuroraSubscriptionCheckout = `-- name: StartAuroraSubscriptionCheckout :one

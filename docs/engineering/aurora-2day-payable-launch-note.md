@@ -217,7 +217,9 @@ Dashboard → Webhooks → 选该 endpoint → Send test event（例如 `checkou
 | 回跳白名单 | `CORS_ALLOWED_ORIGINS` 曾只有 `https://mca.apexxai.net`，而 Aurora 前端在 `aod`，`successUrl` 由 `window.location.origin` 拼出 → 结账一律 **400 `successUrl and cancelUrl must use a trusted app origin`**。已加 `https://aod.apexxai.net`（apexai-sg/aws-deploy#18 + 生产 `.env`） |
 | 商户合约 | ⛔ **未开通**：真实 `createSubscription` 回 `PAYMENT_NOT_QUALIFIED` — "does not have contract for agreement pay"。请求已过签名/网关/金额/币种/回跳全部校验，卡在 Antom 的业务准入 |
 
-**只剩两件读探针证明不了的事**，都要一次真实扣款才能验。第一件已有答案：**商户合约没有开通协议支付（agreement pay）** —— 10:00 的真实 `createSubscription` 回 `PAYMENT_NOT_QUALIFIED`。需 Antom 侧开通「协议支付/代扣」并确认 SGD 结算。第二件（**SGD 结算**）要等 create 成功才知道。验收单是 #61，用 S$19 creator 月付跑一遍 subscribe → grant → generate → cancel → terminate；在它通过之前 #48 / #50 不关闭。注意：开通前每次点 Antom 都会因渠道失败留下一行 `pending` 并把计费页锁死（#63），别反复试。
+**只剩两件读探针证明不了的事**，都要一次真实扣款才能验。第一件已有答案：**商户合约没有开通协议支付（agreement pay）** —— 10:00 的真实 `createSubscription` 回 `PAYMENT_NOT_QUALIFIED`。需 Antom 侧开通「协议支付/代扣」并确认 SGD 结算。第二件（**SGD 结算**）要等 create 成功才知道。验收单是 #61，用 S$19 creator 月付跑一遍 subscribe → grant → generate → cancel → terminate；在它通过之前 #48 / #50 不关闭。渠道失败不再锁死计费页（#63）：`CreateAuroraCheckout` 把**本次请求新建**的意图行置为过期（保留行与 key，迟到的通知仍能匹配；复用旧行时不动，那一行可能已经对应一次成功返回的会话），读取侧不再把过期意图报告成当前订阅；计费页在 `pending` 下也保留套餐列表。失败后同档位或换档位都能立即重新开始。意图的「新鲜度」只在**真正返回了结账 URL** 时刷新，所以连续失败不会把它无限续期；用户只是关了授权页（行仍新鲜）时，同档位可重试，换档位要到该意图过期（25 小时）或被替换之后。成功返回后计费页在 60 秒轮询窗口内不显示套餐列表，避免支付尚未落账时又发一次结账请求。
+
+真正消不掉的残留：一次渠道调用超时、服务端因此过期了意图，用户随即重开结账（新 key 覆盖旧 key），而那次「超时」的调用其实已在渠道侧建成并被支付 —— 本地已没有任何行能匹配它（Stripe 的 webhook 会重试到放弃，Antom 的通知会被 ack 丢弃），只能按 T10 的人工补账规则处理。另外，同一 `subscriptionRequestId` 的 Antom `createSubscription` 是否幂等，本仓没有依据；上 #61 之前须在沙箱确认，否则「同档位重试」可能开第二份协议。
 
 Antom 与 Stripe 是两条并列渠道，各自独立开关：`handler.New` 里 `h.Payments`（Stripe）与
 `h.Antom`（Antom）分开构造，一条没配好不影响另一条。**#48（测试模式端到端）与 #50

@@ -1501,7 +1501,7 @@ func (h *Handler) CreateAuroraCheckout(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	checkoutID, err := h.beginAuroraSubscriptionCheckout(
+	intent, err := h.beginAuroraSubscriptionCheckout(
 		r.Context(), userUUID, tier.Tier, req.BillingCycle, provider,
 	)
 	if err != nil {
@@ -1516,13 +1516,13 @@ func (h *Handler) CreateAuroraCheckout(w http.ResponseWriter, r *http.Request) {
 	switch provider {
 	case paymentProviderStripe:
 		checkoutURL, err = h.Payments.CreateSubscriptionCheckout(r.Context(), priceID,
-			req.SuccessURL, req.CancelURL, userID, tier.Tier, checkoutID)
+			req.SuccessURL, req.CancelURL, userID, tier.Tier, intent.key)
 	case paymentProviderAntom:
 		checkoutURL, err = h.Antom.CreateSubscription(r.Context(), aurora.AntomSubscriptionRequest{
 			// Antom's create response carries no subscription id, so the request id
 			// is the only way the later notification can find this row: it must be
 			// exactly the persisted checkout key, not a similar prefix.
-			RequestID:             checkoutID,
+			RequestID:             intent.key,
 			Tier:                  tier.Tier,
 			Amount:                tier.AntomAmountMinorMonthly,
 			Currency:              aurora.AntomCurrency,
@@ -1533,11 +1533,57 @@ func (h *Handler) CreateAuroraCheckout(w http.ResponseWriter, r *http.Request) {
 			StartTime: time.Now().UTC(),
 		})
 	}
+	// Both outcomes below write back to the intent, and the request context is
+	// already canceled in the common failure case (the user closed the tab while
+	// the channel call was in flight), so those writes detach from it.
+	intentCtx, cancelIntent := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
+	defer cancelIntent()
 	if err != nil {
 		slog.Error("failed to create aurora subscription checkout",
-			"provider", provider, "tier", tier.Tier, "error", err)
+			"provider", provider, "tier", tier.Tier,
+			"checkout_key", intent.key, "user_id", userID, "error", err)
+		// An intent this request created and then failed to turn into a returned
+		// URL cannot be completed by the caller, so it must not block the next
+		// attempt. It is expired rather than deleted: a timeout cannot prove the
+		// channel created nothing, and a notification for this key must still
+		// find the row. A reused intent is left alone — its creator may already
+		// have returned a URL for it. The update is guarded on the pending state
+		// and on this request's updated_at, so an intent that was marked used in
+		// the meantime is untouched.
+		if intent.created {
+			if _, expireErr := h.Queries.ExpireAuroraSubscriptionCheckoutIntent(
+				intentCtx, db.ExpireAuroraSubscriptionCheckoutIntentParams{
+					UserID:                 userUUID,
+					CheckoutIdempotencyKey: strToText(intent.key),
+					IntentUpdatedAt:        intent.updatedAt,
+					ExpiredAt: pgtype.Timestamptz{
+						Time:  time.Now().Add(-auroraCheckoutIntentTTL),
+						Valid: true,
+					},
+				}); expireErr != nil {
+				// The original failure is what the caller must see; this line is
+				// the operator's only signal that a row was left behind.
+				slog.Error("failed to expire aurora checkout intent",
+					"provider", provider, "tier", tier.Tier,
+					"checkout_key", intent.key, "user_id", userID, "error", expireErr)
+			}
+		}
 		writeError(w, http.StatusInternalServerError, "failed to create checkout")
 		return
+	}
+	// A returned URL is what makes this intent real, and what a failing sibling
+	// must not expire. Recording it here rather than on reuse keeps a run of
+	// failed attempts from refreshing an intent that never produced anything.
+	if _, err := h.Queries.MarkAuroraSubscriptionCheckoutIntentUsed(
+		intentCtx, db.MarkAuroraSubscriptionCheckoutIntentUsedParams{
+			UserID:                 userUUID,
+			CheckoutIdempotencyKey: strToText(intent.key),
+		}); err != nil {
+		// The URL is valid and the browser is about to use it; a stale timestamp
+		// only costs the intent its protection from a later failing sibling.
+		slog.Error("failed to mark aurora checkout intent used",
+			"provider", provider, "tier", tier.Tier,
+			"checkout_key", intent.key, "user_id", userID, "error", err)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"checkoutUrl": checkoutURL})
 }
@@ -1549,6 +1595,18 @@ func (h *Handler) antomNotifyURL(path string) string {
 	return strings.TrimRight(h.cfg.PublicURL, "/") + path
 }
 
+// auroraCheckoutIntent is this request's reservation of the user's single
+// subscription row. created reports whether the request made it, and updatedAt
+// is the ownership token a failing request must present to expire it. The token
+// only moves when a channel call returns a checkout URL, so a failing sibling
+// can no longer expire a row whose URL the browser already has, and failed
+// attempts cannot keep an intent alive past the checkout TTL.
+type auroraCheckoutIntent struct {
+	key       string
+	created   bool
+	updatedAt pgtype.Timestamptz
+}
+
 // beginAuroraSubscriptionCheckout persists or reuses one pending checkout per
 // user before any provider request leaves the process. The user advisory lock
 // closes the two-tab race; the provider's idempotency key closes retries after
@@ -1557,17 +1615,17 @@ func (h *Handler) beginAuroraSubscriptionCheckout(
 	ctx context.Context,
 	userID pgtype.UUID,
 	tier, billingCycle, provider string,
-) (string, error) {
+) (auroraCheckoutIntent, error) {
 	tx, err := h.TxStarter.Begin(ctx)
 	if err != nil {
-		return "", err
+		return auroraCheckoutIntent{}, err
 	}
 	defer tx.Rollback(ctx)
 	if _, err := tx.Exec(ctx,
 		"SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
 		"aurora-subscription:"+uuidToString(userID),
 	); err != nil {
-		return "", err
+		return auroraCheckoutIntent{}, err
 	}
 
 	qtx := h.Queries.WithTx(tx)
@@ -1582,39 +1640,40 @@ func (h *Handler) beginAuroraSubscriptionCheckout(
 			// days). Rows created before Antom existed carry the migration's
 			// 'stripe' default, so they are judged on that channel.
 			if sub.PaymentProvider != provider {
-				return "", errAuroraSubscriptionConflict
+				return auroraCheckoutIntent{}, errAuroraSubscriptionConflict
 			}
 			sameProduct := sub.Tier == tier && sub.CheckoutBillingCycle.Valid && sub.CheckoutBillingCycle.String == billingCycle
 			if sameProduct && sub.CheckoutIdempotencyKey.Valid && sub.CheckoutIdempotencyKey.String != "" {
 				if err := tx.Commit(ctx); err != nil {
-					return "", err
+					return auroraCheckoutIntent{}, err
 				}
-				return sub.CheckoutIdempotencyKey.String, nil
+				return auroraCheckoutIntent{key: sub.CheckoutIdempotencyKey.String}, nil
 			}
-			return "", errAuroraSubscriptionConflict
+			return auroraCheckoutIntent{}, errAuroraSubscriptionConflict
 		}
 	case err == nil && sub.Status != "canceled":
 		// Active, past_due, and unknown future states all fail closed. Only a
 		// canceled plan or an expired pending intent may start another checkout.
-		return "", errAuroraSubscriptionConflict
+		return auroraCheckoutIntent{}, errAuroraSubscriptionConflict
 	case err != nil && !errors.Is(err, pgx.ErrNoRows):
-		return "", err
+		return auroraCheckoutIntent{}, err
 	}
 
 	checkoutID := "aurora-sub-" + uuid.NewString()
-	if _, err := qtx.StartAuroraSubscriptionCheckout(ctx, db.StartAuroraSubscriptionCheckoutParams{
+	row, err := qtx.StartAuroraSubscriptionCheckout(ctx, db.StartAuroraSubscriptionCheckoutParams{
 		UserID:                 userID,
 		Tier:                   tier,
 		CheckoutIdempotencyKey: strToText(checkoutID),
 		CheckoutBillingCycle:   strToText(billingCycle),
 		PaymentProvider:        provider,
-	}); err != nil {
-		return "", err
+	})
+	if err != nil {
+		return auroraCheckoutIntent{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return "", err
+		return auroraCheckoutIntent{}, err
 	}
-	return checkoutID, nil
+	return auroraCheckoutIntent{key: checkoutID, created: true, updatedAt: row.UpdatedAt}, nil
 }
 
 // checkoutOrigin normalizes an absolute HTTP(S) URL to a scheme, hostname, and
@@ -2515,6 +2574,14 @@ func (h *Handler) buildAuroraSubscriptionResponse(ctx context.Context, userUUID 
 	case err != nil:
 		return AuroraSubscriptionResponse{}, fmt.Errorf("load subscription: %w", err)
 	default:
+		// A pending intent older than the checkout TTL is no longer an intent:
+		// the next checkout may replace it, so reporting it would describe a plan
+		// the user never completed. The row is kept, not deleted — a notification
+		// that arrives late still finds it by its key and activates it.
+		if sub.Status == "pending" && sub.UpdatedAt.Valid &&
+			time.Since(sub.UpdatedAt.Time) >= auroraCheckoutIntentTTL {
+			break
+		}
 		response.Status = sub.Status
 		response.Provider = sub.PaymentProvider
 		response.CancelAtPeriodEnd = sub.CancelAtPeriodEnd

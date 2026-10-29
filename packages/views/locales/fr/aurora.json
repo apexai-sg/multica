@@ -210,6 +210,7 @@
         "active": "Actif",
         "past_due": "Paiement en attente",
         "canceled": "Annulé",
+        "pending": "Paiement non terminé",
         "unknown": "Inconnu"
       },
       "providers": {
@@ -246,6 +247,7 @@
     "checkout": {
       "failed": "Impossible de lancer l'achat. Réessayez.",
       "already_subscribed": "Vous avez déjà un abonnement.",
+      "in_progress": "Un paiement est encore ouvert. Terminez-le ou réessayez plus tard.",
       "unavailable": "Les paiements ne sont pas disponibles sur cette instance.",
       "no_refund": "Tous les achats sont définitifs et non remboursables."
     }

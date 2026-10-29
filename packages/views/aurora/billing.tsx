@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Wallet } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
 import { Progress } from "@multica/ui/components/ui/progress";
@@ -70,6 +70,13 @@ export function AuroraBilling() {
   const portal = useCreateAuroraBillingPortal();
   const cancelSubscription = useCancelAuroraSubscription();
   const checkoutReturned = navigation.searchParams.get("checkout") === "success";
+  // A success return lands before the channel's notification commits, so the
+  // first reads still report the pending intent. Offering the plans in that
+  // window would let a second click reach the channel while the first payment
+  // settles — on Antom that is another create for the same tier. The window
+  // ends with the poll below, so a notification that never arrives cannot hide
+  // the plans for good.
+  const [settling, setSettling] = useState(checkoutReturned);
   const { refetch: refetchBalance } = balanceQuery;
   const { refetch: refetchTransactions } = transactionsQuery;
   const { refetch: refetchSubscription } = subscriptionQuery;
@@ -93,7 +100,10 @@ export function AuroraBilling() {
     refresh();
     const timer = setInterval(() => {
       refresh();
-      if (polls >= CHECKOUT_RETURN_MAX_POLLS) clearInterval(timer);
+      if (polls >= CHECKOUT_RETURN_MAX_POLLS) {
+        clearInterval(timer);
+        setSettling(false);
+      }
     }, CHECKOUT_RETURN_POLL_MS);
     return () => clearInterval(timer);
   }, [
@@ -232,6 +242,7 @@ export function AuroraBilling() {
           {subscription ? (
             <PlanSection
               subscription={subscription}
+              settling={settling}
               pending={checkout.isPending}
               canCheckout={returnURLs !== null}
               managePending={portal.isPending}
@@ -272,7 +283,11 @@ export function AuroraBilling() {
           {checkoutError ? (
             <p role="alert" className="text-caption text-destructive">
               {isAuroraCheckoutConflictError(checkoutError)
-                ? t(($) => $.billing.checkout.already_subscribed)
+                ? t(($) =>
+                    subscription?.status === "pending"
+                      ? $.billing.checkout.in_progress
+                      : $.billing.checkout.already_subscribed,
+                  )
                 : isAuroraPaymentsUnavailableError(checkoutError)
                   ? t(($) => $.billing.checkout.unavailable)
                   : t(($) => $.billing.checkout.failed)}
@@ -421,6 +436,7 @@ const TIER_ORDER = ["free", "creator", "pro", "business"] as const;
  */
 function PlanSection({
   subscription,
+  settling,
   pending,
   canCheckout,
   managePending,
@@ -431,6 +447,7 @@ function PlanSection({
   onCancel,
 }: {
   subscription: AuroraSubscription;
+  settling: boolean;
   pending: boolean;
   canCheckout: boolean;
   managePending: boolean;
@@ -453,10 +470,19 @@ function PlanSection({
     : null;
 
   // A user without a subscription (empty status), or one whose prior plan is
-  // canceled, may buy a plan. Unknown future states fail closed: an older
-  // client must not offer a second recurring subscription it cannot interpret.
+  // canceled, may buy a plan. A pending checkout counts too: the row may be an
+  // abandoned session, and without a way to start again the plan list would stay
+  // empty until a notification resolves it. Retrying the same tier reuses the
+  // stored key. A checkout still settling after a success return is the one
+  // exception: its notification has not landed yet, so the row proves nothing
+  // about the payment and a second click would reach the channel again. Unknown
+  // future states fail closed: an older client must not offer a second
+  // recurring subscription it cannot interpret.
   const canSubscribe =
-    subscription.status === "" || subscription.status === "canceled";
+    !settling &&
+    (subscription.status === "" ||
+      subscription.status === "canceled" ||
+      subscription.status === "pending");
 
   // The channels the deployment sells through, in the server's order. An empty
   // list is a channel-less deployment: the table still describes the plans,
