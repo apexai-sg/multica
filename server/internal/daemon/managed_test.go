@@ -235,9 +235,6 @@ func TestManagedModeDoesNotDiscoverWorkstationWorkspaces(t *testing.T) {
 		if cfg.MaxConcurrentTasks != 1 {
 			t.Errorf("managed MaxConcurrentTasks = %d, want 1", cfg.MaxConcurrentTasks)
 		}
-		if cfg.KeepEnvAfterTask {
-			t.Errorf("managed KeepEnvAfterTask = true, want false")
-		}
 		if !cfg.GCEnabled {
 			t.Errorf("managed GCEnabled = false, want true")
 		}

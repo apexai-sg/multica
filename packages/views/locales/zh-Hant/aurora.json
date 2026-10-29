@@ -1,0 +1,285 @@
+{
+  "retry": "重試",
+  "cancel": "取消",
+  "credits": "{{credits}} 點數",
+  "directory": {
+    "title": "開始創作",
+    "search_placeholder": "搜尋助理，例如：社群貼文",
+    "load_failed_title": "無法載入助理列表",
+    "empty_title": "沒有符合的助理",
+    "empty_description": "換個關鍵字試試看。",
+    "empty_agents_title": "還沒有助理",
+    "empty_agents_description": "在 Multica 後台設定的助理會顯示在這裡。",
+    "eyebrow": "AI 助理",
+    "hero_title": "想做什麼，",
+    "hero_tag": "APEX AI · 你的創作助理",
+    "visible_count_other": "{{count}} 個助理",
+    "ready": "開始使用",
+    "clear_search": "清除搜尋",
+    "text_output": "文字內容 · Markdown（.md）",
+    "guide_label": "三步完成創作",
+    "step_choose": "選擇助理",
+    "step_describe": "填寫需求",
+    "step_download": "檢視與下載",
+    "catalog_unreadable": "無法載入 Aurora 助理，重試後即可顯示。",
+    "hero_highlight": "直接點一個。",
+    "hero_description": "選擇一個功能，寫下你的需求，讓 AI 幫你完成。",
+    "filter_all": "全部功能",
+    "filter_image": "圖片工具",
+    "filter_video": "影片工具",
+    "filter_text": "文字工具",
+    "filter_audio": "音訊工具",
+    "filter_assistant": "AI 助理",
+    "filter_label": "依輸出類型篩選",
+    "tools_label": "個可用功能",
+    "skills_label": "項已設定的 skills",
+    "tool_label": "功能工具",
+    "example_label": "試試看",
+    "skill_count_other": "{{count}} 項 skills",
+    "filter_misc": "其他工具",
+    "section_title": "選擇你要使用的功能"
+  },
+  "composer": {
+    "cost": "每次生成消耗 {{credits}} 點數",
+    "prompt_label": "想要生成什麼？",
+    "prompt_placeholder": "例如：介紹你的產品、活動或故事，以及你想得到的結果。",
+    "attachments_label_image": "參考圖片",
+    "attachments_label_document": "文件",
+    "attachments_label_audio": "音訊",
+    "attachments_label_video": "影片",
+    "attachments_label_audio_video": "音訊或影片",
+    "attachments_choose": "選擇檔案",
+    "attachments_hint": "{{formats}} · 最多 {{max}} 個",
+    "attachment_uploading": "上傳中…",
+    "attachment_uploaded": "已上傳",
+    "attachment_upload_failed": "上傳失敗。",
+    "attachment_unsupported": "不支援的檔案類型。",
+    "attachment_too_large": "檔案過大。",
+    "attachment_remove": "移除 {{name}}",
+    "submit": "開始生成",
+    "submitting": "正在提交…",
+    "unavailable_title": "尚未上線",
+    "unavailable_description": "此功能仍在開發中，上線後可在這裡使用。",
+    "insufficient_title": "點數不足",
+    "insufficient_description": "此功能需要 {{cost}} 點數，目前可用 {{balance}}。",
+    "insufficient_cost_only": "此功能需要 {{cost}} 點數。",
+    "shortfall": "還差 {{credits}} 點數。",
+    "rate_limited_title": "已達上限",
+    "rate_limited_description": "本月生成次數已用完，或進行中的任務過多。請稍後再試。",
+    "create_failed": "無法開始生成，請重試。",
+    "create_unreadable": "生成可能已經開始，但未能讀取回應。請先到「我的作品」確認，再決定是否重新生成。",
+    "progress_description": "通常需要幾分鐘。你可以關閉此面板，稍後在作品庫中查看。",
+    "failed_description": "未扣除點數。請重試或修改描述。",
+    "result_title": "生成結果",
+    "result_empty": "沒有生成任何檔案。",
+    "open_library": "開啟作品庫",
+    "status": {
+      "queued": "排隊中",
+      "running": "生成中",
+      "completed": "完成",
+      "failed": "失敗",
+      "needs_input": "等你回覆",
+      "unknown": "未知"
+    },
+    "progress_unreadable": "無法讀取這次生成的進度。",
+    "audience_field": "受眾",
+    "audience_label": "寫給誰看？（選填）",
+    "audience_placeholder": "例如：帶3—8歲孩子的家長",
+    "preferences_field": "風格與要求",
+    "preferences_label": "風格與要求（選填）",
+    "preferences_placeholder": "例如：自然分享、300字、中英雙語",
+    "deliverable_title": "你會得到什麼",
+    "issue_description": "助理會執行這次請求，並在對應任務中回覆。",
+    "attachments_label_files": "檔案",
+    "submit_task": "開始任務",
+    "issue_create_failed": "無法開始任務，請重試。",
+    "issue_started": "任務已在 {{identifier}} 開始。請到任務列表查看。",
+    "prompt_label_task": "想讓助理做什麼？",
+    "prompt_placeholder_task": "描述你想讓助理完成的任務，以及期望的結果。",
+    "issue_not_permitted": "你沒有權限將任務指派給這個助理。",
+    "issue_rejected": "助理無法接受這個任務。",
+    "issue_ambiguous": "任務可能已經建立，但未收到確認。請先到任務列表確認，再決定是否重試。",
+    "attachment_limit": "檔案過多，請先移除一個。"
+  },
+  "works": {
+    "title": "我的作品",
+    "generations_title": "生成紀錄",
+    "generations_empty_title": "還沒有生成紀錄",
+    "generations_empty_description": "到「開始創作」裡挑一個功能開始吧。",
+    "assets_title": "作品庫",
+    "assets_empty_title": "還沒有作品",
+    "assets_empty_description": "生成完成後，檔案會出現在這裡。",
+    "load_failed_title": "無法載入作品",
+    "download": "下載",
+    "download_failed": "無法下載檔案，請重試。",
+    "delete": "刪除",
+    "delete_failed": "無法刪除檔案，請重試。",
+    "delete_title": "刪除這個檔案？",
+    "delete_description": "檔案將從儲存空間中刪除，無法復原。",
+    "delete_confirm": "刪除檔案",
+    "no_prompt": "無描述",
+    "skill_unknown": "未知功能",
+    "eyebrow": "作品"
+  },
+  "history": {
+    "title": "歷史紀錄",
+    "load_failed_title": "無法載入歷史紀錄",
+    "empty_title": "還沒有生成紀錄",
+    "empty_description": "完成的生成及其結果會顯示在這裡。",
+    "no_match_title": "沒有符合篩選條件的生成",
+    "no_match_description": "換個狀態或功能試試看。",
+    "status_all": "全部",
+    "skill_label": "功能",
+    "skill_all": "全部功能",
+    "preview_label": "預覽 {{format}}",
+    "preview_description": "這次生成產出的完整檔案。",
+    "open_in_new_tab": "在新分頁開啟"
+  },
+  "detail": {
+    "title": "生成詳情",
+    "load_failed_title": "無法載入此生成",
+    "back": "返回我的作品",
+    "not_found_title": "找不到此生成",
+    "not_found_description": "它可能已被刪除，或連結有誤。",
+    "process_title": "過程",
+    "status_label": "狀態",
+    "created_label": "建立時間",
+    "elapsed_label": "耗時",
+    "skill_label": "功能",
+    "prompt_label": "你的需求",
+    "credits_reserved_label": "預扣點數",
+    "credits_charged_label": "實扣點數",
+    "refunded": "已退還",
+    "failure_label": "失敗原因",
+    "result_title": "結果",
+    "settled_charged": "已扣除 {{credits}} 點數",
+    "settled_refunded": "未扣除點數，預扣已退還。",
+    "task_title": "任務",
+    "task_id_label": "任務 ID",
+    "task_copy": "複製任務 ID",
+    "task_copied": "已複製",
+    "task_copy_failed": "複製失敗",
+    "task_unavailable": "此應用程式還沒有任務頁面。可複製 ID 到別處查看執行情況。",
+    "eyebrow": "生成"
+  },
+  "billing": {
+    "title": "點數與儲值",
+    "balance_title": "可用點數",
+    "top_up": "儲值",
+    "transactions_title": "點數明細",
+    "transactions_empty_title": "尚無紀錄",
+    "transactions_empty_description": "點數變動會顯示在這裡。",
+    "load_failed_title": "無法載入點數",
+    "amount_positive": "+{{amount}}",
+    "amount_negative": "−{{amount}}",
+    "balance_after": "變動後餘額：{{amount}}",
+    "subscription": {
+      "title": "方案",
+      "tiers": {
+        "free": {
+          "name": "免費版",
+          "price": "$0",
+          "summary": "每月 200 點數"
+        },
+        "creator": {
+          "name": "創作者版",
+          "price": "$19/月",
+          "summary": "每月 1,900 點數"
+        },
+        "pro": {
+          "name": "專業版",
+          "price": "$59/月",
+          "summary": "每月 5,900 點數"
+        },
+        "business": {
+          "name": "商業版",
+          "price": "$169/月",
+          "summary": "每月 16,900 點數"
+        },
+        "unknown": {
+          "name": "未知方案",
+          "price": "",
+          "summary": ""
+        }
+      },
+      "status": {
+        "active": "生效中",
+        "past_due": "待付款",
+        "canceled": "已取消",
+        "pending": "付款未完成",
+        "unknown": "未知"
+      },
+      "providers": {
+        "stripe": "Stripe",
+        "antom": "Antom"
+      },
+      "renews_on": "{{date}} 續訂",
+      "cancel_scheduled": "到期後結束。",
+      "usage_label": "本月生成次數",
+      "usage_value": "{{used}} / {{limit}}",
+      "subscribe_with": "透過 {{provider}} 訂閱",
+      "no_channel": "此執行個體未販售方案。",
+      "cancel": "取消訂閱",
+      "cancel_failed": "無法取消訂閱，請稍後再試。",
+      "manage": "管理訂閱",
+      "manage_failed": "無法開啟訂閱管理，請稍後再試。"
+    },
+    "topup": {
+      "title": "購買點數",
+      "empty": "目前沒有可購買的點數包。",
+      "pack": "{{credits}} 點數 · {{price}}",
+      "packs": {
+        "t5": {
+          "price": "$5"
+        },
+        "t20": {
+          "price": "$20"
+        },
+        "other": {
+          "price": ""
+        }
+      }
+    },
+    "checkout": {
+      "failed": "無法發起購買，請重試。",
+      "already_subscribed": "你已經有訂閱了。",
+      "in_progress": "還有一筆結帳尚未完成。請先完成它，或稍後再試。",
+      "unavailable": "此執行個體未開通付款。",
+      "no_refund": "所有購買均為最終交易，不可退款。"
+    }
+  },
+  "runtime": {
+    "title": "服務狀態",
+    "status": {
+      "offline": "離線",
+      "unconfigured": "未設定",
+      "provisioning": "準備中",
+      "online": "線上",
+      "failed": "失敗"
+    },
+    "retry": "重試",
+    "reasons": {
+      "runtime_not_provisioned": "此工作區沒有執行中的執行節點。發起一次生成即可建立。",
+      "runtime_offline": "執行環境節點已離線。重試以檢查狀態。",
+      "runtime_unconfigured": "此工作區沒有執行中的執行節點。請聯絡管理員檢查執行環境設定。",
+      "runtime_policy_unavailable": "執行環境策略無法使用。請聯絡管理員檢查執行環境設定。"
+    },
+    "generations_title": "進行中的生成",
+    "generations_empty": "目前沒有正在進行的生成。"
+  },
+  "shell": {
+    "brand_tagline": "讓創作更簡單",
+    "menu_open": "開啟選單",
+    "menu_close": "關閉選單",
+    "account_menu": "帳戶",
+    "nav_group_work": "創作中心",
+    "nav_group_account": "帳戶"
+  },
+  "workspace": {
+    "unavailable_title": "工作區無法使用",
+    "unavailable_description": "它可能已被刪除，或你沒有存取權限。",
+    "open_workspace": "開啟我的工作區",
+    "missing_title": "還沒有工作區",
+    "missing_description": "重新登入即可完成建立。"
+  }
+}

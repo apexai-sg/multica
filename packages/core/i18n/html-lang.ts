@@ -6,6 +6,7 @@ import type { SupportedLocale } from "./types";
 export const HTML_LANG: Record<SupportedLocale, string> = {
   en: "en",
   "zh-Hans": "zh-CN",
+  "zh-Hant": "zh-TW",
   ko: "ko-KR",
   ja: "ja-JP",
   fr: "fr-FR",

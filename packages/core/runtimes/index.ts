@@ -13,3 +13,5 @@ export * from "./custom-pricing-store";
 export * from "./cloud-runtime";
 export * from "./cloud-runtime-capabilities";
 export * from "./managed-fleet-runtime";
+export * from "./commands";
+export * from "./use-daemon-setup-commands";

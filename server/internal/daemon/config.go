@@ -115,7 +115,6 @@ type Config struct {
 	Profile                        string                // profile name (empty = default)
 	Agents                         map[string]AgentEntry // keyed by provider: claude, codebuddy, codex, copilot, opencode, codearts, deveco, openclaw, hermes, pi, cursor, kimi, reasonix, dsh, kiro, antigravity, qoder, qoderclicn, traecli, grok, qwen, qwenpaw, mcode, dim, zeroclaw (plus built-in runtime identities from agent.BuiltinRuntimes, e.g. omp)
 	WorkspacesRoot                 string                // base path for execution envs (default: ~/multica_workspaces)
-	KeepEnvAfterTask               bool                  // preserve env after task for debugging
 	HealthPort                     int                   // local HTTP port for health checks (default: 19514)
 	MaxConcurrentTasks             int                   // max tasks running in parallel (default: 20)
 	GCEnabled                      bool                  // enable periodic workspace garbage collection (default: true)
@@ -336,7 +335,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 	} else {
 		agents = probeAgentCLIs()
 		if len(agents) == 0 && !overrides.AllowNoAgents {
-			return Config{}, fmt.Errorf("no agent CLI found: install claude, codebuddy, codearts, codex, copilot, opencode, deveco, openclaw, hermes, pi, omp, cursor-agent, kimi, reasonix, dsh, kiro-cli, agy, qodercli, qoderclicn, traecli, grok, qwen, qwenpaw, mcode, muse, dim, or zeroclaw and ensure it is on PATH")
+			return Config{}, fmt.Errorf("no agent CLI found: install claude, codebuddy, codearts, codex, copilot, opencode, deveco, openclaw, hermes, pi, omp, cursor-agent, kimi, reasonix, dsh, kiro-cli, agy, qodercli, qoderclicn, traecli, grok, qwen, qwenpaw, mcode, muse, devin, dim, or zeroclaw and ensure it is on PATH")
 		}
 	}
 
@@ -620,20 +619,16 @@ func LoadConfig(overrides Overrides) (Config, error) {
 		healthPort = overrides.HealthPort
 	}
 
-	// Keep env after task: env > default (false)
-	keepEnv := os.Getenv("MULTICA_KEEP_ENV_AFTER_TASK") == "true" || os.Getenv("MULTICA_KEEP_ENV_AFTER_TASK") == "1"
-
 	// GC config: env > defaults
 	gcEnabled := true
 	if v := os.Getenv("MULTICA_GC_ENABLED"); v == "false" || v == "0" {
 		gcEnabled = false
 	}
-	// A managed process claims with exactly one slot, keeps no environment
-	// after a task, and always leaves workspace GC on. These are structural
-	// invariants of the one-workspace/one-runtime sandbox, not operator knobs.
+	// A managed process claims with exactly one slot and always leaves
+	// workspace GC on. These are structural invariants of the
+	// one-workspace/one-runtime sandbox, not operator knobs.
 	if managedEnabled {
 		maxConcurrentTasks = 1
-		keepEnv = false
 		gcEnabled = true
 	}
 	gcInterval, err := durationFromEnv("MULTICA_GC_INTERVAL", DefaultGCInterval)
@@ -727,7 +722,6 @@ func LoadConfig(overrides Overrides) (Config, error) {
 		Managed:                         ManagedConfig{Enabled: managedEnabled, EnrollmentTokenFile: strings.TrimSpace(overrides.ManagedEnrollmentTokenFile), ProviderSecrets: managedProviderCredentials},
 		Agents:                          agents,
 		WorkspacesRoot:                  workspacesRoot,
-		KeepEnvAfterTask:                keepEnv,
 		GCEnabled:                       gcEnabled,
 		GCInterval:                      gcInterval,
 		GCTTL:                           gcTTL,
@@ -1161,7 +1155,7 @@ func isExecutableFile(path string) bool {
 // doesn't require editing this list by hand.
 var defaultAgentCommandNames = append([]string{
 	"claude", "codex", "opencode", "codearts", "deveco", "openclaw", "hermes",
-	"pi", "cursor-agent", "copilot", "kimi", "reasonix", "dsh", "kiro-cli", "codebuddy", "agy", "qodercli", "qoderclicn", "traecli", "grok", "qwen", "qwenpaw", "mcode", "muse", "dim", "zeroclaw",
+	"pi", "cursor-agent", "copilot", "kimi", "reasonix", "dsh", "kiro-cli", "codebuddy", "agy", "qodercli", "qoderclicn", "traecli", "grok", "qwen", "qwenpaw", "mcode", "muse", "devin", "dim", "zeroclaw",
 }, agent.BuiltinRuntimeCommands()...)
 
 // codexDesktopAppBundlePaths returns candidate macOS app-bundle locations for
