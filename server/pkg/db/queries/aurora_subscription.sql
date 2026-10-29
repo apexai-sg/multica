@@ -45,11 +45,12 @@ WHERE user_id = sqlc.arg(user_id)
   AND updated_at = sqlc.arg(intent_updated_at);
 
 -- name: MarkAuroraSubscriptionCheckoutIntentUsed :execrows
--- Record that this intent produced a checkout URL. That is the one fact that
--- keeps it alive: a failing request may not expire an intent whose URL the
--- browser already has. Reusing an intent deliberately does not call this, so a
--- stream of failed attempts cannot keep a row fresh forever — freshness still
--- ages out from the moment a URL was last handed out.
+-- Record that a channel call returned a checkout URL for this intent. That is
+-- the one fact that keeps it alive: a failing request may not expire an intent
+-- whose URL the browser already has. It runs on every success, including one
+-- that reused the stored key, while a failed attempt never reaches it — so a
+-- stream of failures cannot keep a row fresh, and freshness always ages out
+-- from the last moment a URL was actually handed out.
 UPDATE aurora_subscription
 SET updated_at = now()
 WHERE user_id = sqlc.arg(user_id)

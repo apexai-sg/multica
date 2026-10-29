@@ -88,7 +88,14 @@ export function AuroraBilling() {
   // then stop to avoid turning an abandoned or delayed payment into permanent
   // background traffic.
   useEffect(() => {
-    if (!checkoutReturned) return;
+    if (!checkoutReturned) {
+      // The marker can leave the query string without this component unmounting
+      // (an in-route navigation to the bare billing path), and the effect then
+      // tears down before the timer below ever resets the state. Reset here so
+      // the plans cannot stay hidden for the life of the mount.
+      setSettling(false);
+      return;
+    }
 
     let polls = 0;
     const refresh = () => {
@@ -478,8 +485,15 @@ function PlanSection({
   // about the payment and a second click would reach the channel again. Unknown
   // future states fail closed: an older client must not offer a second
   // recurring subscription it cannot interpret.
+  //
+  // The settling exception needs the pending row as well as the marker: the
+  // credit-pack purchase returns to the same `?checkout=success`, and hiding the
+  // plans for the whole poll window after buying credits would strand a user who
+  // wanted to subscribe next.
+  const intentSettling = settling && subscription.status === "pending";
+
   const canSubscribe =
-    !settling &&
+    !intentSettling &&
     (subscription.status === "" ||
       subscription.status === "canceled" ||
       subscription.status === "pending");

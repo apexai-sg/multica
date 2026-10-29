@@ -49,6 +49,14 @@ const microCreditsPerCredit = 1_000_000
 // checkout replace one Stripe may still complete.
 const auroraCheckoutIntentTTL = 25 * time.Hour
 
+// auroraCheckoutIntentFresh reports whether an intent was last handed a
+// checkout URL inside the TTL. The read path (a stale intent is not reported as
+// pending) and the begin path (a fresh one is reused instead of replaced) both
+// judge freshness here, so the two cannot drift apart.
+func auroraCheckoutIntentFresh(intentUpdatedAt pgtype.Timestamptz) bool {
+	return intentUpdatedAt.Valid && time.Since(intentUpdatedAt.Time) < auroraCheckoutIntentTTL
+}
+
 // auroraRuntimeUnavailableCode is the stable error code for a workspace whose
 // sandbox the fleet cannot make ready. New generation creation fails closed
 // with it rather than reserving credits for work no node can run.
@@ -1632,7 +1640,7 @@ func (h *Handler) beginAuroraSubscriptionCheckout(
 	sub, err := qtx.GetAuroraSubscriptionByUser(ctx, userID)
 	switch {
 	case err == nil && sub.Status == "pending":
-		fresh := sub.UpdatedAt.Valid && time.Since(sub.UpdatedAt.Time) < auroraCheckoutIntentTTL
+		fresh := auroraCheckoutIntentFresh(sub.UpdatedAt)
 		if fresh {
 			// A pending intent on another channel is never replaced: the user may
 			// still complete the session that channel holds, and a replaced Stripe
@@ -2578,8 +2586,7 @@ func (h *Handler) buildAuroraSubscriptionResponse(ctx context.Context, userUUID 
 		// the next checkout may replace it, so reporting it would describe a plan
 		// the user never completed. The row is kept, not deleted — a notification
 		// that arrives late still finds it by its key and activates it.
-		if sub.Status == "pending" && sub.UpdatedAt.Valid &&
-			time.Since(sub.UpdatedAt.Time) >= auroraCheckoutIntentTTL {
+		if sub.Status == "pending" && !auroraCheckoutIntentFresh(sub.UpdatedAt) {
 			break
 		}
 		response.Status = sub.Status

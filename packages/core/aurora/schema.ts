@@ -302,14 +302,17 @@ const auroraAvailableProvidersSchema = z
  *
  * `tier` is the tier the server's gates actually apply — a canceled plan
  * reports the free tier here — while `status` is the stored subscription
- * status and is empty for a user with no plan row at all. The two together are
- * what let the screen say "Free" without claiming a canceled plan is still
- * running.
+ * status. It is empty both for a user with no plan row at all and for one whose
+ * only row is a checkout intent older than the checkout TTL, which the server
+ * no longer reports as pending because the next checkout may replace it. The
+ * two together are what let the screen say "Free" without claiming a canceled
+ * plan is still running.
  *
- * `provider` is the channel the stored row is on, empty when there is no row.
- * It decides whether the screen offers the Stripe portal or the in-app Antom
- * cancel; a server that predates the field reads as Stripe, the only channel
- * such a server could have sold through.
+ * `provider` is the channel the stored row is on, empty when there is no row to
+ * report — including the expired intent above. It decides whether the screen
+ * offers the Stripe portal or the in-app Antom cancel; a server that predates
+ * the field reads as Stripe, the only channel such a server could have sold
+ * through.
  *
  * Every field carries a default because the endpoint is the one the plan screen
  * renders first: a server that predates it (or a degraded body) must still

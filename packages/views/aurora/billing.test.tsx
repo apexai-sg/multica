@@ -629,6 +629,47 @@ describe("AuroraBilling", () => {
     ).toHaveLength(0);
   });
 
+  it("keeps the plans when a credit purchase returns to the same marker", () => {
+    // The credit packs redirect to `?checkout=success` too. No subscription row
+    // is pending there, so the marker proves nothing about a plan payment and
+    // must not hide the catalogue for the whole poll window.
+    renderBilling(new URLSearchParams("checkout=success"));
+
+    expect(
+      screen.getAllByRole("button", { name: /subscribe with stripe/i }),
+    ).toHaveLength(3);
+  });
+
+  it("restores the plans when the success marker leaves the query string", () => {
+    mocks.subscription.mockReturnValue({
+      data: subscription({ tier: "creator", status: "pending" }),
+      isPending: false,
+      refetch: vi.fn(),
+    });
+
+    const { rerender } = renderBilling(new URLSearchParams("checkout=success"));
+    expect(
+      screen.queryAllByRole("button", { name: /subscribe with stripe/i }),
+    ).toHaveLength(0);
+
+    // An in-route navigation drops the marker without unmounting the screen,
+    // which tears the poll down before it can reset the settling state.
+    rerender(
+      <NavigationProvider
+        value={stubNavigationAdapter({
+          searchParams: new URLSearchParams(),
+          getShareableUrl: (path) => new URL(path, APP_ORIGIN).toString(),
+        })}
+      >
+        <AuroraBilling />
+      </NavigationProvider>,
+    );
+
+    expect(
+      screen.getAllByRole("button", { name: /subscribe with stripe/i }),
+    ).toHaveLength(3);
+  });
+
   it("offers the plans again when a settling checkout never resolves", () => {
     vi.useFakeTimers();
     mocks.subscription.mockReturnValue({
