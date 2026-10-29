@@ -9,6 +9,7 @@ import { ApiError, setApiInstance } from "../api";
 import type { ApiClient } from "../api/client";
 import { isAuroraInsufficientCreditsError } from "./api";
 import {
+  useCancelAuroraSubscription,
   useCreateAuroraCheckout,
   useCreateAuroraGeneration,
   useCreateAuroraTopupCheckout,
@@ -189,6 +190,7 @@ describe("useCreateAuroraCheckout", () => {
       checkoutUrl = await result.current.mutateAsync({
         tier: "creator",
         billingCycle: "monthly",
+        provider: "stripe",
         successUrl: "https://app.example.com/acme/billing?checkout=success",
         cancelUrl: "https://app.example.com/acme/billing?checkout=cancel",
       });
@@ -196,6 +198,42 @@ describe("useCreateAuroraCheckout", () => {
 
     expect(checkoutUrl).toBe("https://checkout.stripe.com/c/1");
     expect(assign).not.toHaveBeenCalled();
+  });
+
+  it("posts the chosen provider in the checkout body", async () => {
+    // The channel is the user's choice: the server must be told which one, not
+    // left to its own Stripe default.
+    const requestJson = vi.fn(
+      async (_path: string, _init?: { method?: string; body?: string }) => ({
+        checkoutUrl: "https://checkout.antom.test/c/1",
+      }),
+    );
+    setApiInstance({ requestJson } as unknown as ApiClient);
+    stubNavigation();
+    const { result } = renderHook(() => useCreateAuroraCheckout(), {
+      wrapper: wrapper(newClient()),
+    });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        tier: "pro",
+        billingCycle: "monthly",
+        provider: "antom",
+        successUrl: "https://app.example.com/acme/billing?checkout=success",
+        cancelUrl: "https://app.example.com/acme/billing?checkout=cancel",
+      });
+    });
+
+    const [path, init] = requestJson.mock.calls[0] ?? [];
+    expect(path).toBe("/api/aurora/billing/checkout");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(init?.body ?? "{}")).toEqual({
+      tier: "pro",
+      billingCycle: "monthly",
+      provider: "antom",
+      successUrl: "https://app.example.com/acme/billing?checkout=success",
+      cancelUrl: "https://app.example.com/acme/billing?checkout=cancel",
+    });
   });
 
   it("posts the plan and refreshes the plan and the wallet", async () => {
@@ -217,6 +255,7 @@ describe("useCreateAuroraCheckout", () => {
       await result.current.mutateAsync({
         tier: "creator",
         billingCycle: "monthly",
+        provider: "stripe",
         successUrl: "https://app.example.com/acme/billing?checkout=success",
         cancelUrl: "https://app.example.com/acme/billing?checkout=cancel",
       });
@@ -229,6 +268,76 @@ describe("useCreateAuroraCheckout", () => {
     const keys = invalidatedKeys(invalidate);
     expect(keys).toContain(JSON.stringify(auroraWalletKeys.subscription()));
     expect(keys).toContain(JSON.stringify(auroraWalletKeys.balance()));
+  });
+});
+
+describe("useCancelAuroraSubscription", () => {
+  it("posts to the cancel endpoint and refreshes the plan", async () => {
+    const requestJson = vi.fn(async () => ({
+      subscription: {
+        tier: "creator",
+        status: "active",
+        provider: "antom",
+        cancelAtPeriodEnd: true,
+      },
+    }));
+    setApiInstance({ requestJson } as unknown as ApiClient);
+    const qc = newClient();
+    const invalidate = vi.spyOn(qc, "invalidateQueries");
+    const setQueryData = vi.spyOn(qc, "setQueryData");
+    const { result } = renderHook(() => useCancelAuroraSubscription(), {
+      wrapper: wrapper(qc),
+    });
+
+    let canceled: { cancelAtPeriodEnd: boolean } | undefined;
+    await act(async () => {
+      canceled = await result.current.mutateAsync();
+    });
+
+    expect(requestJson).toHaveBeenCalledWith(
+      "/api/aurora/billing/subscription/cancel",
+      expect.objectContaining({ method: "POST" }),
+    );
+    // The endpoint answers with the plan itself, so the caller sees the
+    // scheduled cancellation without a second read.
+    expect(canceled?.cancelAtPeriodEnd).toBe(true);
+    // That same body is the plan cache's new content, which is what makes the
+    // card show the scheduled cancellation immediately.
+    expect(setQueryData).toHaveBeenCalledWith(
+      auroraWalletKeys.subscription(),
+      expect.objectContaining({ cancelAtPeriodEnd: true }),
+    );
+    const keys = invalidatedKeys(invalidate);
+    expect(keys).toContain(JSON.stringify(auroraWalletKeys.subscription()));
+    // Cancelling at period end does not move the wallet.
+    expect(keys).not.toContain(JSON.stringify(auroraWalletKeys.balance()));
+  });
+
+  it("hands a provider failure to the caller without touching the cache", async () => {
+    setApiInstance({
+      requestJson: vi.fn(async () => {
+        throw new ApiError("failed to cancel subscription", 502, "Bad Gateway");
+      }),
+    } as unknown as ApiClient);
+    const qc = newClient();
+    const invalidate = vi.spyOn(qc, "invalidateQueries");
+    const setQueryData = vi.spyOn(qc, "setQueryData");
+    const { result } = renderHook(() => useCancelAuroraSubscription(), {
+      wrapper: wrapper(qc),
+    });
+
+    await act(async () => {
+      await expect(result.current.mutateAsync()).rejects.toMatchObject({
+        status: 502,
+      });
+    });
+
+    // A 502 means Antom refused: the server changed nothing, so the cached
+    // plan is left alone and the screen reports the failure.
+    expect(invalidatedKeys(invalidate)).not.toContain(
+      JSON.stringify(auroraWalletKeys.subscription()),
+    );
+    expect(setQueryData).not.toHaveBeenCalled();
   });
 });
 

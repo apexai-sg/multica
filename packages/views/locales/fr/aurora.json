@@ -67,6 +67,7 @@
     "insufficient_title": "Crédits insuffisants",
     "insufficient_description": "Cet outil coûte {{cost}} crédits et vous en avez {{balance}}.",
     "insufficient_cost_only": "Cet outil coûte {{cost}} crédits.",
+    "shortfall": "Il vous manque {{credits}} crédits.",
     "rate_limited_title": "Limite atteinte",
     "rate_limited_description": "Vous avez épuisé les générations du mois, ou trop de générations sont encore en cours. Réessayez plus tard.",
     "create_failed": "Impossible de démarrer la génération. Réessayez.",
@@ -186,13 +187,18 @@
         },
         "creator": {
           "name": "Créateur",
-          "price": "$9,90/mois",
-          "summary": "3 000 crédits par mois"
+          "price": "$19/mois",
+          "summary": "1 900 crédits par mois"
         },
         "pro": {
           "name": "Pro",
-          "price": "$29/mois",
-          "summary": "12 000 crédits par mois"
+          "price": "$59/mois",
+          "summary": "5 900 crédits par mois"
+        },
+        "business": {
+          "name": "Entreprise",
+          "price": "$169/mois",
+          "summary": "16 900 crédits par mois"
         },
         "unknown": {
           "name": "Forfait inconnu",
@@ -204,13 +210,23 @@
         "active": "Actif",
         "past_due": "Paiement en attente",
         "canceled": "Annulé",
+        "pending": "Paiement non terminé",
         "unknown": "Inconnu"
+      },
+      "providers": {
+        "stripe": "Stripe",
+        "antom": "Antom"
       },
       "renews_on": "Renouvellement le {{date}}",
       "cancel_scheduled": "Se termine à la fin de la période.",
       "usage_label": "Générations ce mois-ci",
       "usage_value": "{{used}} sur {{limit}}",
-      "subscribe": "S'abonner"
+      "subscribe_with": "S'abonner avec {{provider}}",
+      "no_channel": "Les forfaits ne sont pas en vente sur cette instance.",
+      "cancel": "Annuler l'abonnement",
+      "cancel_failed": "Impossible d'annuler votre abonnement. Réessayez dans un instant.",
+      "manage": "Gérer l'abonnement",
+      "manage_failed": "Impossible d'ouvrir la gestion de l'abonnement. Réessayez dans un instant."
     },
     "topup": {
       "title": "Acheter des crédits",
@@ -231,7 +247,9 @@
     "checkout": {
       "failed": "Impossible de lancer l'achat. Réessayez.",
       "already_subscribed": "Vous avez déjà un abonnement.",
-      "unavailable": "Les paiements ne sont pas disponibles sur cette instance."
+      "in_progress": "Un paiement est encore ouvert. Terminez-le ou réessayez plus tard.",
+      "unavailable": "Les paiements ne sont pas disponibles sur cette instance.",
+      "no_refund": "Tous les achats sont définitifs et non remboursables."
     }
   },
   "runtime": {

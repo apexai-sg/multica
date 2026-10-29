@@ -35,6 +35,7 @@ const (
 	labelGate         = "gate"
 	labelOutcome      = "outcome"
 	labelStage        = "stage"
+	labelEvent        = "event"
 	labelClaimPath    = "claim_path"
 )
 
@@ -109,6 +110,12 @@ var businessMetricLabels = map[string][]string{
 	"multica_entitlement_decision_total":               {labelGate, labelAction, labelReason},
 	"multica_entitlement_version_regression_total":     {},
 	"multica_autopilot_quota_decision_total":           {labelAction, labelSource, labelResult},
+
+	// Aurora payable-subscription billing (issue #55 / T11). The event label is
+	// a closed enum of Stripe types, never an event id.
+	"multica_aurora_billing_webhook_events_total":    {labelEvent, labelResult},
+	"multica_aurora_billing_settlement_runs_total":   {labelResult},
+	"multica_aurora_billing_credit_shortfalls_total": {},
 }
 
 var forbiddenMetricLabels = map[string]struct{}{
@@ -126,6 +133,10 @@ var forbiddenMetricLabels = map[string]struct{}{
 	"runtime_id":      {},
 	"session_id":      {},
 	"ip":              {},
+	// event_id is the natural thing to reach for when instrumenting a webhook:
+	// it is present on every delivery and grows without bound. The Aurora
+	// billing webhook counter labels by event *type*, never by id.
+	"event_id": {},
 }
 
 var (

@@ -31,6 +31,7 @@ type SubscriptionState struct {
 type PaymentProvider interface {
 	CreateSubscriptionCheckout(ctx context.Context, priceID, successURL, cancelURL, userID, tier, checkoutID string) (url string, err error)
 	CreateTopupCheckout(ctx context.Context, priceID, successURL, cancelURL, userID, topupID string) (url string, err error)
+	CreateBillingPortalSession(ctx context.Context, customerID, returnURL string) (url string, err error)
 	GetSubscriptionState(ctx context.Context, subscriptionID string) (SubscriptionState, error)
 	ConstructEvent(payload []byte, sigHeader string) (Event, error)
 }
@@ -89,6 +90,21 @@ func (p *StripeProvider) CreateTopupCheckout(ctx context.Context, priceID, succe
 		// never read back from Stripe, so a tampered id can only pick another
 		// listed pack, never mint credits.
 		Metadata: map[string]string{"userId": userID, "topupId": topupID},
+	})
+	if err != nil {
+		return "", err
+	}
+	return session.URL, nil
+}
+
+// CreateBillingPortalSession opens Stripe's hosted Customer Portal for one
+// customer. The portal is where a subscriber cancels, changes plan, or updates
+// a payment method without support; the return URL is where Stripe sends them
+// back afterwards.
+func (p *StripeProvider) CreateBillingPortalSession(ctx context.Context, customerID, returnURL string) (string, error) {
+	session, err := p.client.V1BillingPortalSessions.Create(ctx, &stripe.BillingPortalSessionCreateParams{
+		Customer:  stripe.String(customerID),
+		ReturnURL: stripe.String(returnURL),
 	})
 	if err != nil {
 		return "", err

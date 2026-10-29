@@ -13,7 +13,16 @@ type Tier struct {
 	Concurrency         int
 	StripePriceMonthly  string
 	StripePriceYearly   string
+	// AntomAmountMinorMonthly is the monthly price as the integer string in the
+	// currency's smallest unit that Antom charges ("1900" is S$19.00), and it is
+	// the only amount the Antom checkout sends. A decimal string here would
+	// charge a hundredth of the price.
+	AntomAmountMinorMonthly string
 }
+
+// AntomCurrency is the currency the Antom channel charges in. The tier
+// catalog's Antom amounts are expressed in its smallest unit.
+const AntomCurrency = "SGD"
 
 func (t Tier) MonthlyCreditsMicro() int64 { return t.MonthlyCredits * 1_000_000 }
 
@@ -29,20 +38,24 @@ type Topup struct {
 // they differ between Stripe test and live modes; an empty price ID makes the
 // corresponding checkout fail closed (503) rather than charge a wrong price.
 type TierCatalog struct {
-	Tiers  []Tier // free, creator, pro — fixed order
+	Tiers  []Tier // free, creator, pro, business — fixed order
 	Topups []Topup
 }
 
-func NewTierCatalog(creatorMonthly, creatorYearly, proMonthly, proYearly, topup5, topup20 string) *TierCatalog {
+// Yearly billing is not sold in this launch, so the business tier has no yearly
+// price id; its yearly checkout therefore fails closed like any unconfigured
+// price.
+func NewTierCatalog(creatorMonthly, creatorYearly, proMonthly, businessMonthly, proYearly, topup5, topup20 string) *TierCatalog {
 	return &TierCatalog{
 		Tiers: []Tier{
 			{Tier: "free", MonthlyCredits: 200, GenerationsPerMonth: 10, Concurrency: 1},
-			{Tier: "creator", MonthlyCredits: 3000, GenerationsPerMonth: 30, Concurrency: 2, StripePriceMonthly: creatorMonthly, StripePriceYearly: creatorYearly},
-			{Tier: "pro", MonthlyCredits: 12000, GenerationsPerMonth: 100, Concurrency: 5, StripePriceMonthly: proMonthly, StripePriceYearly: proYearly},
+			{Tier: "creator", MonthlyCredits: 1900, GenerationsPerMonth: 30, Concurrency: 2, StripePriceMonthly: creatorMonthly, StripePriceYearly: creatorYearly, AntomAmountMinorMonthly: "1900"},
+			{Tier: "pro", MonthlyCredits: 5900, GenerationsPerMonth: 100, Concurrency: 5, StripePriceMonthly: proMonthly, StripePriceYearly: proYearly, AntomAmountMinorMonthly: "5900"},
+			{Tier: "business", MonthlyCredits: 16900, GenerationsPerMonth: 300, Concurrency: 10, StripePriceMonthly: businessMonthly, AntomAmountMinorMonthly: "16900"},
 		},
 		Topups: []Topup{
-			{ID: "t5", Credits: 5000, PriceID: topup5},
-			{ID: "t20", Credits: 20000, PriceID: topup20},
+			{ID: "t5", Credits: 500, PriceID: topup5},
+			{ID: "t20", Credits: 2000, PriceID: topup20},
 		},
 	}
 }

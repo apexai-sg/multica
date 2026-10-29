@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceId } from "../hooks";
 import {
+  cancelAuroraSubscription,
+  createAuroraBillingPortal,
   createAuroraCheckout,
   createAuroraGeneration,
   createAuroraTopupCheckout,
@@ -8,6 +10,7 @@ import {
 } from "./api";
 import { auroraKeys, auroraWalletKeys } from "./queries";
 import type {
+  CreateAuroraBillingPortalRequest,
   CreateAuroraCheckoutRequest,
   CreateAuroraGenerationRequest,
   CreateAuroraTopupCheckoutRequest,
@@ -103,6 +106,56 @@ export function useCreateAuroraTopupCheckout() {
       // Only the wallet moves: a top-up buys credits, not a plan.
       qc.invalidateQueries({ queryKey: auroraWalletKeys.balance() });
       qc.invalidateQueries({ queryKey: auroraWalletKeys.transactions() });
+    },
+  });
+}
+
+/**
+ * Opens the Stripe Customer Portal, where a subscriber cancels or changes their
+ * payment method.
+ *
+ * Core returns the validated portal URL but does not navigate, exactly like the
+ * checkout mutations: external navigation is platform behavior, so the view
+ * hands it to its platform adapter. Stripe's cancellation webhook can land
+ * while the portal is open, so creating the session invalidates the plan and
+ * the wallet. That invalidation does not itself refetch anything: the fresh
+ * read comes from the full navigation back to the app, which remounts the
+ * billing view.
+ *
+ * A 409 (no subscription to manage) and a 503 (no Stripe configuration) are
+ * left to the caller; neither is retryable.
+ */
+export function useCreateAuroraBillingPortal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (request: CreateAuroraBillingPortalRequest) =>
+      createAuroraBillingPortal(request),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: auroraWalletKeys.subscription() });
+      qc.invalidateQueries({ queryKey: auroraWalletKeys.balance() });
+    },
+  });
+}
+
+/**
+ * Cancels the caller's Antom subscription in the app.
+ *
+ * The endpoint takes no input — the server reads the caller's one subscription
+ * row — and answers with the plan afterwards, so the result is written straight
+ * into the cache and the plan is invalidated to confirm it. Cancelling at the
+ * period end does not move the wallet, so the balance is left alone.
+ *
+ * A 409 (not an Antom row, or already canceled) and a 502 (Antom refused) both
+ * leave the plan unchanged, so the screen only reports them; nothing is
+ * invalidated on failure.
+ */
+export function useCancelAuroraSubscription() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => cancelAuroraSubscription(),
+    onSuccess: (subscription) => {
+      qc.setQueryData(auroraWalletKeys.subscription(), subscription);
+      qc.invalidateQueries({ queryKey: auroraWalletKeys.subscription() });
     },
   });
 }

@@ -7,6 +7,7 @@ import {
 import {
   auroraAssetsSchema,
   auroraBalanceSchema,
+  auroraBillingPortalResponseSchema,
   auroraCheckoutResponseSchema,
   auroraExecutionTargetSchema,
   auroraGenerationDetailSchema,
@@ -21,6 +22,7 @@ import {
   auroraTransactionsSchema,
   type AuroraAsset,
   type AuroraBalance,
+  type AuroraBillingPortal,
   type AuroraCheckout,
   type AuroraExecutionTarget,
   type AuroraGeneration,
@@ -36,6 +38,7 @@ import {
   normalizeAuroraRuntimeState,
   type AuroraAssetsParams,
   type AuroraListParams,
+  type CreateAuroraBillingPortalRequest,
   type CreateAuroraCheckoutRequest,
   type CreateAuroraGenerationRequest,
   type CreateAuroraToolRunRequest,
@@ -74,9 +77,12 @@ const AURORA_RUNTIME_PATH = "/api/aurora/runtime";
 const AURORA_BALANCE_PATH = "/api/aurora/billing/balance";
 const AURORA_TRANSACTIONS_PATH = "/api/aurora/billing/transactions";
 const AURORA_SUBSCRIPTION_PATH = "/api/aurora/billing/subscription";
+const AURORA_SUBSCRIPTION_CANCEL_PATH =
+  "/api/aurora/billing/subscription/cancel";
 const AURORA_TOPUPS_PATH = "/api/aurora/billing/topups";
 const AURORA_CHECKOUT_PATH = "/api/aurora/billing/checkout";
 const AURORA_TOPUP_CHECKOUT_PATH = "/api/aurora/billing/topup/checkout";
+const AURORA_PORTAL_PATH = "/api/aurora/billing/portal";
 
 // The label `parseWithFallback` logs, built from the path it describes so the
 // two cannot drift. The detail route carries its `{id}` placeholder rather than
@@ -92,9 +98,11 @@ const RUNTIME_ENDPOINT = `GET ${AURORA_RUNTIME_PATH}`;
 const BALANCE_ENDPOINT = `GET ${AURORA_BALANCE_PATH}`;
 const TRANSACTIONS_ENDPOINT = `GET ${AURORA_TRANSACTIONS_PATH}`;
 const SUBSCRIPTION_ENDPOINT = `GET ${AURORA_SUBSCRIPTION_PATH}`;
+const CANCEL_SUBSCRIPTION_ENDPOINT = `POST ${AURORA_SUBSCRIPTION_CANCEL_PATH}`;
 const TOPUPS_ENDPOINT = `GET ${AURORA_TOPUPS_PATH}`;
 const CHECKOUT_ENDPOINT = `POST ${AURORA_CHECKOUT_PATH}`;
 const TOPUP_CHECKOUT_ENDPOINT = `POST ${AURORA_TOPUP_CHECKOUT_PATH}`;
+const PORTAL_ENDPOINT = `POST ${AURORA_PORTAL_PATH}`;
 
 /**
  * Renders the list params the server understands as a URL suffix — `""` when
@@ -300,13 +308,16 @@ export function parseAuroraTransactions(
  * fallback object lets us retain parseWithFallback's boundary diagnostics while
  * promoting degradation to a visible query error.
  */
-export function parseAuroraSubscription(data: unknown): AuroraSubscription {
+export function parseAuroraSubscription(
+  data: unknown,
+  endpoint: string = SUBSCRIPTION_ENDPOINT,
+): AuroraSubscription {
   const fallback = { subscription: auroraSubscriptionSchema.parse({}) };
   const parsed = parseWithFallback<{ subscription: AuroraSubscription }>(
     data,
     auroraSubscriptionResponseSchema,
     fallback,
-    { endpoint: SUBSCRIPTION_ENDPOINT },
+    { endpoint },
   );
   if (parsed === fallback) throw new Error("invalid subscription response");
   return parsed.subscription;
@@ -354,6 +365,24 @@ function parseCheckoutUrl(data: unknown, endpoint: string): string {
     throw new Error("invalid checkout response");
   }
   return parsed.checkoutUrl;
+}
+
+/**
+ * The validated HTTPS portal URL from a created Customer Portal session.
+ *
+ * A malformed body throws for the same reason a checkout body does: opening the
+ * portal is a command, and a placeholder would leave the control with neither
+ * navigation nor an error.
+ */
+export function parseAuroraBillingPortal(data: unknown): string {
+  const parsed = parseWithFallback<AuroraBillingPortal | null>(
+    data,
+    auroraBillingPortalResponseSchema,
+    null,
+    { endpoint: PORTAL_ENDPOINT },
+  );
+  if (!parsed) throw new Error("invalid portal response");
+  return parsed.portalUrl;
 }
 
 // ---------------------------------------------------------------------------
@@ -527,6 +556,43 @@ export async function createAuroraTopupCheckout(
   return parseAuroraTopupCheckout(raw);
 }
 
+/**
+ * Stops an Antom subscription renewing, and returns the plan afterwards.
+ *
+ * Antom has no hosted portal, so this is the in-app cancel: the server asks the
+ * provider to cancel and flags the row to end with its period. The answer is
+ * the same body the read serves, so the caller gets the updated plan without a
+ * second request — and a malformed one throws rather than leaving the control
+ * with neither a result nor an error.
+ *
+ * Throws `ApiError` with 409 when the row is not an Antom subscription, has no
+ * Antom id, or is already canceled, and 502 when Antom itself refuses. Neither
+ * leaves the plan changed, so both are reported rather than retried.
+ */
+export async function cancelAuroraSubscription(): Promise<AuroraSubscription> {
+  const raw = await api.requestJson(AURORA_SUBSCRIPTION_CANCEL_PATH, {
+    method: "POST",
+  });
+  return parseAuroraSubscription(raw, CANCEL_SUBSCRIPTION_ENDPOINT);
+}
+
+/**
+ * Opens the Stripe Customer Portal and returns the URL to send the browser to.
+ *
+ * This is the cancellation path. Throws `ApiError` with 409 when the caller has
+ * no subscription row (or none that has a Stripe customer yet), and 503 when
+ * the deployment has no Stripe configuration — neither is retryable.
+ */
+export async function createAuroraBillingPortal(
+  request: CreateAuroraBillingPortalRequest,
+): Promise<string> {
+  const raw = await api.requestJson(AURORA_PORTAL_PATH, {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+  return parseAuroraBillingPortal(raw);
+}
+
 // ---------------------------------------------------------------------------
 // Error classification
 // ---------------------------------------------------------------------------
@@ -538,6 +604,43 @@ export async function createAuroraTopupCheckout(
  */
 export function isAuroraInsufficientCreditsError(error: unknown): boolean {
   return error instanceof ApiError && error.status === 402;
+}
+
+/** The 402's structured shortfall, in credits (fractional). */
+export type AuroraInsufficientCreditsDetails = {
+  requiredCredits: number | null;
+  availableCredits: number | null;
+  shortfallCredits: number | null;
+};
+
+/**
+ * Reads the shortfall a 402 carries, or null when the failure is not a 402 or
+ * has no decoded body.
+ *
+ * The fields arrived with the payable-subscription launch; an older server
+ * still answers the documented `{"error":"insufficient credits"}`, and any one
+ * field can be missing or malformed. They degrade to `null` rather than throw
+ * or coerce, so the caller falls back to copy it can support instead of quoting
+ * a number the server never sent. Classification stays status-based in
+ * `isAuroraInsufficientCreditsError`.
+ */
+export function getAuroraInsufficientCreditsDetails(
+  error: unknown,
+): AuroraInsufficientCreditsDetails | null {
+  if (!isAuroraInsufficientCreditsError(error)) return null;
+  const body = (error as ApiError).body;
+  if (!body || typeof body !== "object") return null;
+  const fields = body as Record<string, unknown>;
+  return {
+    requiredCredits: creditAmount(fields.requiredCredits),
+    availableCredits: creditAmount(fields.availableCredits),
+    shortfallCredits: creditAmount(fields.shortfallCredits),
+  };
+}
+
+/** A JSON number usable as a credit amount; anything else reads as absent. */
+function creditAmount(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 /**
