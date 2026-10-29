@@ -135,16 +135,43 @@ export function normalizeAuroraRuntimeState(
 }
 
 /**
+ * A payment channel Aurora can sell a subscription through.
+ *
+ * The server decides which ones a deployment offers and lists them as
+ * `availableProviders` on the plan read, in the order the buttons should
+ * appear. "stripe" is card checkout plus the Stripe Customer Portal; "antom" is
+ * the monthly-only channel that has no portal, so it is cancelled in the app.
+ */
+export type AuroraPaymentProvider = "stripe" | "antom";
+
+/**
+ * Whether a value from the wire is a channel this build can charge through.
+ *
+ * The plan read drops anything else (./schema) rather than letting it become a
+ * button that submits a provider the checkout endpoint would reject.
+ */
+export function isAuroraPaymentProvider(
+  value: unknown,
+): value is AuroraPaymentProvider {
+  return value === "stripe" || value === "antom";
+}
+
+/**
  * Body of `POST /api/aurora/billing/checkout`.
  *
  * The return URLs are the client's to build: it knows its own origin and the
  * workspace slug route (`/<slug>/billing`), and the API host is not a page the
  * user can be sent back to. The server only checks that they are http(s)
  * absolute URLs.
+ *
+ * `provider` is always sent, even though the server defaults a missing one to
+ * Stripe: the channel is the user's choice, and a request that silently fell
+ * back would charge through a different one than the button named.
  */
 export interface CreateAuroraCheckoutRequest {
   tier: string;
   billingCycle: "monthly" | "yearly";
+  provider: AuroraPaymentProvider;
   successUrl: string;
   cancelUrl: string;
 }
@@ -154,4 +181,15 @@ export interface CreateAuroraTopupCheckoutRequest {
   topupId: string;
   successUrl: string;
   cancelUrl: string;
+}
+
+/**
+ * Body of `POST /api/aurora/billing/portal`.
+ *
+ * The portal is Stripe's own page, so the client only names where Stripe sends
+ * the subscriber back afterwards. The server validates it against the same
+ * trusted origins the checkout return URLs use.
+ */
+export interface CreateAuroraBillingPortalRequest {
+  returnUrl: string;
 }

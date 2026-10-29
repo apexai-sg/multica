@@ -111,12 +111,13 @@ export function skillDisplayNamesById(
 }
 
 /** A plan, as `aurora.billing.subscription.tiers.*`. */
-export type AuroraTierLabel = "free" | "creator" | "pro" | "unknown";
+export type AuroraTierLabel = "free" | "creator" | "pro" | "business" | "unknown";
 
 const TIER_LABELS: Record<string, AuroraTierLabel> = {
   free: "free",
   creator: "creator",
   pro: "pro",
+  business: "business",
 };
 
 /**
@@ -137,6 +138,7 @@ export type AuroraSubscriptionStatusLabel =
   | "active"
   | "past_due"
   | "canceled"
+  | "pending"
   | "unknown";
 
 const SUBSCRIPTION_STATUS_LABELS: Record<
@@ -146,6 +148,7 @@ const SUBSCRIPTION_STATUS_LABELS: Record<
   active: "active",
   past_due: "past_due",
   canceled: "canceled",
+  pending: "pending",
 };
 
 /** The label key for a subscription's stored status. */

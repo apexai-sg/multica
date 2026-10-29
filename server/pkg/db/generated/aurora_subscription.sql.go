@@ -11,10 +11,108 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const expireAuroraSubscriptionCheckoutIntent = `-- name: ExpireAuroraSubscriptionCheckoutIntent :execrows
+UPDATE aurora_subscription
+SET updated_at = $1
+WHERE user_id = $2
+  AND status = 'pending'
+  AND checkout_idempotency_key = $3
+  AND updated_at = $4
+`
+
+type ExpireAuroraSubscriptionCheckoutIntentParams struct {
+	ExpiredAt              pgtype.Timestamptz `json:"expired_at"`
+	UserID                 pgtype.UUID        `json:"user_id"`
+	CheckoutIdempotencyKey pgtype.Text        `json:"checkout_idempotency_key"`
+	IntentUpdatedAt        pgtype.Timestamptz `json:"intent_updated_at"`
+}
+
+// Mark a failed checkout's intent as replaceable without discarding its key, so
+// a late notification for it still finds the row. Guarded on the exact key, the
+// pending state and the updated_at this request left behind: a concurrent
+// request that reused the intent touches it and must not be expired.
+func (q *Queries) ExpireAuroraSubscriptionCheckoutIntent(ctx context.Context, arg ExpireAuroraSubscriptionCheckoutIntentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, expireAuroraSubscriptionCheckoutIntent,
+		arg.ExpiredAt,
+		arg.UserID,
+		arg.CheckoutIdempotencyKey,
+		arg.IntentUpdatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const getAuroraSubscriptionByAntomID = `-- name: GetAuroraSubscriptionByAntomID :one
+SELECT id, user_id, tier, status, stripe_customer_id, stripe_subscription_id,
+       current_period_end, cancel_at_period_end, created_at, updated_at,
+       checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at,
+       payment_provider, antom_subscription_id
+FROM aurora_subscription
+WHERE antom_subscription_id = $1
+`
+
+func (q *Queries) GetAuroraSubscriptionByAntomID(ctx context.Context, antomSubscriptionID pgtype.Text) (AuroraSubscription, error) {
+	row := q.db.QueryRow(ctx, getAuroraSubscriptionByAntomID, antomSubscriptionID)
+	var i AuroraSubscription
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Tier,
+		&i.Status,
+		&i.StripeCustomerID,
+		&i.StripeSubscriptionID,
+		&i.CurrentPeriodEnd,
+		&i.CancelAtPeriodEnd,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CheckoutIdempotencyKey,
+		&i.CheckoutBillingCycle,
+		&i.StripeEventCreatedAt,
+		&i.PaymentProvider,
+		&i.AntomSubscriptionID,
+	)
+	return i, err
+}
+
+const getAuroraSubscriptionByCheckoutKey = `-- name: GetAuroraSubscriptionByCheckoutKey :one
+SELECT id, user_id, tier, status, stripe_customer_id, stripe_subscription_id,
+       current_period_end, cancel_at_period_end, created_at, updated_at,
+       checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at,
+       payment_provider, antom_subscription_id
+FROM aurora_subscription
+WHERE checkout_idempotency_key = $1
+`
+
+func (q *Queries) GetAuroraSubscriptionByCheckoutKey(ctx context.Context, checkoutIdempotencyKey pgtype.Text) (AuroraSubscription, error) {
+	row := q.db.QueryRow(ctx, getAuroraSubscriptionByCheckoutKey, checkoutIdempotencyKey)
+	var i AuroraSubscription
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Tier,
+		&i.Status,
+		&i.StripeCustomerID,
+		&i.StripeSubscriptionID,
+		&i.CurrentPeriodEnd,
+		&i.CancelAtPeriodEnd,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CheckoutIdempotencyKey,
+		&i.CheckoutBillingCycle,
+		&i.StripeEventCreatedAt,
+		&i.PaymentProvider,
+		&i.AntomSubscriptionID,
+	)
+	return i, err
+}
+
 const getAuroraSubscriptionByStripeID = `-- name: GetAuroraSubscriptionByStripeID :one
 SELECT id, user_id, tier, status, stripe_customer_id, stripe_subscription_id,
        current_period_end, cancel_at_period_end, created_at, updated_at,
-       checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at
+       checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at,
+       payment_provider, antom_subscription_id
 FROM aurora_subscription
 WHERE stripe_subscription_id = $1
 `
@@ -36,6 +134,8 @@ func (q *Queries) GetAuroraSubscriptionByStripeID(ctx context.Context, stripeSub
 		&i.CheckoutIdempotencyKey,
 		&i.CheckoutBillingCycle,
 		&i.StripeEventCreatedAt,
+		&i.PaymentProvider,
+		&i.AntomSubscriptionID,
 	)
 	return i, err
 }
@@ -43,7 +143,8 @@ func (q *Queries) GetAuroraSubscriptionByStripeID(ctx context.Context, stripeSub
 const getAuroraSubscriptionByUser = `-- name: GetAuroraSubscriptionByUser :one
 SELECT id, user_id, tier, status, stripe_customer_id, stripe_subscription_id,
        current_period_end, cancel_at_period_end, created_at, updated_at,
-       checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at
+       checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at,
+       payment_provider, antom_subscription_id
 FROM aurora_subscription
 WHERE user_id = $1
 `
@@ -65,6 +166,8 @@ func (q *Queries) GetAuroraSubscriptionByUser(ctx context.Context, userID pgtype
 		&i.CheckoutIdempotencyKey,
 		&i.CheckoutBillingCycle,
 		&i.StripeEventCreatedAt,
+		&i.PaymentProvider,
+		&i.AntomSubscriptionID,
 	)
 	return i, err
 }
@@ -72,7 +175,8 @@ func (q *Queries) GetAuroraSubscriptionByUser(ctx context.Context, userID pgtype
 const listActiveSubscriptionsForGrant = `-- name: ListActiveSubscriptionsForGrant :many
 SELECT id, user_id, tier, status, stripe_customer_id, stripe_subscription_id,
        current_period_end, cancel_at_period_end, created_at, updated_at,
-       checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at
+       checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at,
+       payment_provider, antom_subscription_id
 FROM aurora_subscription
 WHERE status = 'active' AND current_period_end > now()
 ORDER BY user_id
@@ -101,6 +205,8 @@ func (q *Queries) ListActiveSubscriptionsForGrant(ctx context.Context) ([]Aurora
 			&i.CheckoutIdempotencyKey,
 			&i.CheckoutBillingCycle,
 			&i.StripeEventCreatedAt,
+			&i.PaymentProvider,
+			&i.AntomSubscriptionID,
 		); err != nil {
 			return nil, err
 		}
@@ -112,31 +218,101 @@ func (q *Queries) ListActiveSubscriptionsForGrant(ctx context.Context) ([]Aurora
 	return items, nil
 }
 
+const markAuroraSubscriptionCancelAtPeriodEnd = `-- name: MarkAuroraSubscriptionCancelAtPeriodEnd :one
+UPDATE aurora_subscription
+SET cancel_at_period_end = true, updated_at = now()
+WHERE user_id = $1
+  AND payment_provider = 'antom'
+  AND status <> 'canceled'
+RETURNING id, user_id, tier, status, stripe_customer_id, stripe_subscription_id,
+          current_period_end, cancel_at_period_end, created_at, updated_at,
+          checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at,
+          payment_provider, antom_subscription_id
+`
+
+// Guarded so a termination that lands between the caller's read and this write
+// is never overwritten: a canceled row has nothing left to stop, and flipping
+// the flag there would render "cancellation scheduled" for an ended plan. A
+// declined write returns no row, which callers read as pgx.ErrNoRows.
+func (q *Queries) MarkAuroraSubscriptionCancelAtPeriodEnd(ctx context.Context, userID pgtype.UUID) (AuroraSubscription, error) {
+	row := q.db.QueryRow(ctx, markAuroraSubscriptionCancelAtPeriodEnd, userID)
+	var i AuroraSubscription
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Tier,
+		&i.Status,
+		&i.StripeCustomerID,
+		&i.StripeSubscriptionID,
+		&i.CurrentPeriodEnd,
+		&i.CancelAtPeriodEnd,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CheckoutIdempotencyKey,
+		&i.CheckoutBillingCycle,
+		&i.StripeEventCreatedAt,
+		&i.PaymentProvider,
+		&i.AntomSubscriptionID,
+	)
+	return i, err
+}
+
+const markAuroraSubscriptionCheckoutIntentUsed = `-- name: MarkAuroraSubscriptionCheckoutIntentUsed :execrows
+UPDATE aurora_subscription
+SET updated_at = now()
+WHERE user_id = $1
+  AND status = 'pending'
+  AND checkout_idempotency_key = $2
+`
+
+type MarkAuroraSubscriptionCheckoutIntentUsedParams struct {
+	UserID                 pgtype.UUID `json:"user_id"`
+	CheckoutIdempotencyKey pgtype.Text `json:"checkout_idempotency_key"`
+}
+
+// Record that this intent produced a checkout URL. That is the one fact that
+// keeps it alive: a failing request may not expire an intent whose URL the
+// browser already has. Reusing an intent deliberately does not call this, so a
+// stream of failed attempts cannot keep a row fresh forever — freshness still
+// ages out from the moment a URL was last handed out.
+func (q *Queries) MarkAuroraSubscriptionCheckoutIntentUsed(ctx context.Context, arg MarkAuroraSubscriptionCheckoutIntentUsedParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markAuroraSubscriptionCheckoutIntentUsed, arg.UserID, arg.CheckoutIdempotencyKey)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const startAuroraSubscriptionCheckout = `-- name: StartAuroraSubscriptionCheckout :one
 INSERT INTO aurora_subscription (
     user_id, tier, status, stripe_customer_id, stripe_subscription_id,
     current_period_end, cancel_at_period_end, checkout_idempotency_key,
-    checkout_billing_cycle, stripe_event_created_at
+    checkout_billing_cycle, stripe_event_created_at, payment_provider
 )
 VALUES (
     $1, $2, 'pending', NULL, NULL,
     NULL, false, $3,
-    $4, 0
+    $4, 0, $5
 )
 ON CONFLICT (user_id) DO UPDATE SET
     tier = EXCLUDED.tier,
     status = 'pending',
     stripe_customer_id = NULL,
     stripe_subscription_id = NULL,
+    -- A new intent belongs to no Antom subscription yet, so a late
+    -- notification for the previous one can no longer match this row.
+    antom_subscription_id = NULL,
     current_period_end = NULL,
     cancel_at_period_end = false,
     checkout_idempotency_key = EXCLUDED.checkout_idempotency_key,
     checkout_billing_cycle = EXCLUDED.checkout_billing_cycle,
     stripe_event_created_at = 0,
+    payment_provider = EXCLUDED.payment_provider,
     updated_at = now()
 RETURNING id, user_id, tier, status, stripe_customer_id, stripe_subscription_id,
           current_period_end, cancel_at_period_end, created_at, updated_at,
-          checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at
+          checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at,
+          payment_provider, antom_subscription_id
 `
 
 type StartAuroraSubscriptionCheckoutParams struct {
@@ -144,16 +320,19 @@ type StartAuroraSubscriptionCheckoutParams struct {
 	Tier                   string      `json:"tier"`
 	CheckoutIdempotencyKey pgtype.Text `json:"checkout_idempotency_key"`
 	CheckoutBillingCycle   pgtype.Text `json:"checkout_billing_cycle"`
+	PaymentProvider        string      `json:"payment_provider"`
 }
 
-// Persist the checkout intent before calling Stripe. Reusing the stored key makes
-// retries and simultaneous tabs converge on one Stripe Checkout Session.
+// Persist the checkout intent before calling the payment channel. Reusing the
+// stored key makes retries and simultaneous tabs converge on one hosted
+// Checkout Session. payment_provider stamps the channel the intent belongs to.
 func (q *Queries) StartAuroraSubscriptionCheckout(ctx context.Context, arg StartAuroraSubscriptionCheckoutParams) (AuroraSubscription, error) {
 	row := q.db.QueryRow(ctx, startAuroraSubscriptionCheckout,
 		arg.UserID,
 		arg.Tier,
 		arg.CheckoutIdempotencyKey,
 		arg.CheckoutBillingCycle,
+		arg.PaymentProvider,
 	)
 	var i AuroraSubscription
 	err := row.Scan(
@@ -170,6 +349,87 @@ func (q *Queries) StartAuroraSubscriptionCheckout(ctx context.Context, arg Start
 		&i.CheckoutIdempotencyKey,
 		&i.CheckoutBillingCycle,
 		&i.StripeEventCreatedAt,
+		&i.PaymentProvider,
+		&i.AntomSubscriptionID,
+	)
+	return i, err
+}
+
+const upsertAuroraAntomSubscription = `-- name: UpsertAuroraAntomSubscription :one
+INSERT INTO aurora_subscription (
+    user_id, tier, status, antom_subscription_id, current_period_end,
+    cancel_at_period_end
+)
+VALUES (
+    $1, $2, $3,
+    $4, $5,
+    $6
+)
+ON CONFLICT (user_id) DO UPDATE SET
+    tier = EXCLUDED.tier,
+    status = EXCLUDED.status,
+    antom_subscription_id = EXCLUDED.antom_subscription_id,
+    current_period_end = EXCLUDED.current_period_end,
+    cancel_at_period_end = EXCLUDED.cancel_at_period_end,
+    updated_at = now()
+WHERE NOT (
+    aurora_subscription.status = 'canceled'
+    AND aurora_subscription.antom_subscription_id IS NOT DISTINCT FROM EXCLUDED.antom_subscription_id
+)
+RETURNING id, user_id, tier, status, stripe_customer_id, stripe_subscription_id,
+          current_period_end, cancel_at_period_end, created_at, updated_at,
+          checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at,
+          payment_provider, antom_subscription_id
+`
+
+type UpsertAuroraAntomSubscriptionParams struct {
+	UserID              pgtype.UUID        `json:"user_id"`
+	Tier                string             `json:"tier"`
+	Status              string             `json:"status"`
+	AntomSubscriptionID pgtype.Text        `json:"antom_subscription_id"`
+	CurrentPeriodEnd    pgtype.Timestamptz `json:"current_period_end"`
+	CancelAtPeriodEnd   bool               `json:"cancel_at_period_end"`
+}
+
+// Antom notifications carry no ordering timestamp, so ordering comes from the
+// row's terminal state instead: a canceled row addressed by the same Antom
+// subscription is never rewritten, while a different antom_subscription_id is a
+// resubscription and may overwrite it. When the guard declines the write the
+// statement returns no row, which callers read as pgx.ErrNoRows: nothing was
+// applied, and retrying the same notification will not change that.
+// payment_provider is stamped at checkout and is deliberately not written here;
+// the checkout intent key is kept so the returning browser can still resolve its
+// own checkout.
+//
+// The INSERT branch is a safety net rather than a path to rely on: the checkout
+// row is expected to exist first, and a row created here would carry the
+// column default 'stripe'.
+func (q *Queries) UpsertAuroraAntomSubscription(ctx context.Context, arg UpsertAuroraAntomSubscriptionParams) (AuroraSubscription, error) {
+	row := q.db.QueryRow(ctx, upsertAuroraAntomSubscription,
+		arg.UserID,
+		arg.Tier,
+		arg.Status,
+		arg.AntomSubscriptionID,
+		arg.CurrentPeriodEnd,
+		arg.CancelAtPeriodEnd,
+	)
+	var i AuroraSubscription
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Tier,
+		&i.Status,
+		&i.StripeCustomerID,
+		&i.StripeSubscriptionID,
+		&i.CurrentPeriodEnd,
+		&i.CancelAtPeriodEnd,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CheckoutIdempotencyKey,
+		&i.CheckoutBillingCycle,
+		&i.StripeEventCreatedAt,
+		&i.PaymentProvider,
+		&i.AntomSubscriptionID,
 	)
 	return i, err
 }
@@ -201,7 +461,8 @@ WHERE aurora_subscription.stripe_event_created_at < EXCLUDED.stripe_event_create
    )
 RETURNING id, user_id, tier, status, stripe_customer_id, stripe_subscription_id,
           current_period_end, cancel_at_period_end, created_at, updated_at,
-          checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at
+          checkout_idempotency_key, checkout_billing_cycle, stripe_event_created_at,
+          payment_provider, antom_subscription_id
 `
 
 type UpsertAuroraSubscriptionParams struct {
@@ -245,6 +506,8 @@ func (q *Queries) UpsertAuroraSubscription(ctx context.Context, arg UpsertAurora
 		&i.CheckoutIdempotencyKey,
 		&i.CheckoutBillingCycle,
 		&i.StripeEventCreatedAt,
+		&i.PaymentProvider,
+		&i.AntomSubscriptionID,
 	)
 	return i, err
 }

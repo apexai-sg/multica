@@ -16,7 +16,7 @@ import (
 // settlementTiers has empty price ids: the settlement reads plan numbers, never
 // prices, so a test never needs a Stripe price.
 func settlementTiers() *aurora.TierCatalog {
-	return aurora.NewTierCatalog("", "", "", "", "", "")
+	return aurora.NewTierCatalog("", "", "", "", "", "", "")
 }
 
 // naturalMonthStarts returns the UTC boundaries the settlement must use. Tests
@@ -89,13 +89,13 @@ func TestRunMonthlySettlementExpiresAndGrants(t *testing.T) {
 	if count != 1 || sum != -400 {
 		t.Fatalf("expire rows = %d summing %d, want 1 row summing -400", count, sum)
 	}
-	if granted := monthlyGrantSumSince(t, pool, user, now.Add(-time.Minute)); granted != 3000*1_000_000 {
-		t.Fatalf("this month's grant = %d, want %d", granted, 3000*1_000_000)
+	if granted := monthlyGrantSumSince(t, pool, user, now.Add(-time.Minute)); granted != 1900*1_000_000 {
+		t.Fatalf("this month's grant = %d, want %d", granted, 1900*1_000_000)
 	}
 	// 400 expired from a wallet holding exactly the leftover, then one month of
 	// creator credits.
-	if bal := creditBalanceOf(t, pool, user); bal != 3000*1_000_000 {
-		t.Fatalf("balance = %d, want %d", bal, 3000*1_000_000)
+	if bal := creditBalanceOf(t, pool, user); bal != 1900*1_000_000 {
+		t.Fatalf("balance = %d, want %d", bal, 1900*1_000_000)
 	}
 }
 
@@ -155,8 +155,8 @@ func TestRunMonthlySettlementCatchUpAfterMissedFirst(t *testing.T) {
 	if count, sum := ledgerCountAndSum(t, pool, user, aurora.LedgerKindExpire); count != 1 || sum != -400 {
 		t.Fatalf("expire rows = %d summing %d, want 1 row summing -400", count, sum)
 	}
-	if granted := monthlyGrantSumSince(t, pool, user, grantedSince); granted != 3000*1_000_000 {
-		t.Fatalf("grant = %d, want %d", granted, 3000*1_000_000)
+	if granted := monthlyGrantSumSince(t, pool, user, grantedSince); granted != 1900*1_000_000 {
+		t.Fatalf("grant = %d, want %d", granted, 1900*1_000_000)
 	}
 }
 

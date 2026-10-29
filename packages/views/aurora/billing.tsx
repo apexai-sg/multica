@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Wallet } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
 import { Progress } from "@multica/ui/components/ui/progress";
@@ -15,8 +15,11 @@ import {
   useAuroraSubscription,
   useAuroraTopups,
   useAuroraTransactions,
+  useCancelAuroraSubscription,
+  useCreateAuroraBillingPortal,
   useCreateAuroraCheckout,
   useCreateAuroraTopupCheckout,
+  type AuroraPaymentProvider,
   type AuroraSubscription,
   type AuroraTransaction,
 } from "@multica/core/aurora";
@@ -64,7 +67,16 @@ export function AuroraBilling() {
   const topupsQuery = useAuroraTopups();
   const checkout = useCreateAuroraCheckout();
   const topupCheckout = useCreateAuroraTopupCheckout();
+  const portal = useCreateAuroraBillingPortal();
+  const cancelSubscription = useCancelAuroraSubscription();
   const checkoutReturned = navigation.searchParams.get("checkout") === "success";
+  // A success return lands before the channel's notification commits, so the
+  // first reads still report the pending intent. Offering the plans in that
+  // window would let a second click reach the channel while the first payment
+  // settles — on Antom that is another create for the same tier. The window
+  // ends with the poll below, so a notification that never arrives cannot hide
+  // the plans for good.
+  const [settling, setSettling] = useState(checkoutReturned);
   const { refetch: refetchBalance } = balanceQuery;
   const { refetch: refetchTransactions } = transactionsQuery;
   const { refetch: refetchSubscription } = subscriptionQuery;
@@ -76,7 +88,14 @@ export function AuroraBilling() {
   // then stop to avoid turning an abandoned or delayed payment into permanent
   // background traffic.
   useEffect(() => {
-    if (!checkoutReturned) return;
+    if (!checkoutReturned) {
+      // The marker can leave the query string without this component unmounting
+      // (an in-route navigation to the bare billing path), and the effect then
+      // tears down before the timer below ever resets the state. Reset here so
+      // the plans cannot stay hidden for the life of the mount.
+      setSettling(false);
+      return;
+    }
 
     let polls = 0;
     const refresh = () => {
@@ -88,7 +107,10 @@ export function AuroraBilling() {
     refresh();
     const timer = setInterval(() => {
       refresh();
-      if (polls >= CHECKOUT_RETURN_MAX_POLLS) clearInterval(timer);
+      if (polls >= CHECKOUT_RETURN_MAX_POLLS) {
+        clearInterval(timer);
+        setSettling(false);
+      }
     }, CHECKOUT_RETURN_POLL_MS);
     return () => clearInterval(timer);
   }, [
@@ -134,6 +156,14 @@ export function AuroraBilling() {
     };
   }, [appOrigin, slug]);
 
+  // Where Stripe sends the subscriber back after the Customer Portal. It is the
+  // same trusted origin as the checkout returns, but without a checkout marker:
+  // the portal's own actions (cancel, change plan) are what changed.
+  const portalReturnURL = useMemo(() => {
+    if (!appOrigin || !slug) return null;
+    return `${appOrigin}/${slug}/billing`;
+  }, [appOrigin, slug]);
+
   function referenceSkillName(transaction: AuroraTransaction): string | null {
     const skillId = skillIdByGeneration.get(transaction.reference);
     if (!skillId) return null;
@@ -172,6 +202,8 @@ export function AuroraBilling() {
   const topups = topupsQuery.data ?? [];
   const subscription = subscriptionQuery.data;
   const checkoutError = checkout.error ?? topupCheckout.error;
+  const portalError = portal.error;
+  const cancelError = cancelSubscription.error;
 
   return (
     <div className="aurora-page">
@@ -217,15 +249,38 @@ export function AuroraBilling() {
           {subscription ? (
             <PlanSection
               subscription={subscription}
+              settling={settling}
               pending={checkout.isPending}
               canCheckout={returnURLs !== null}
-              onSubscribe={(tier) => {
+              managePending={portal.isPending}
+              canManage={portalReturnURL !== null}
+              cancelPending={cancelSubscription.isPending}
+              onSubscribe={(tier, provider) => {
                 if (!returnURLs) return;
+                // Both channels are sold on the monthly period: Antom's
+                // contract is monthly-only, and the price table above quotes a
+                // monthly price.
                 checkout.mutate(
-                  { tier, billingCycle: "monthly", ...returnURLs },
+                  {
+                    tier,
+                    billingCycle: "monthly",
+                    provider,
+                    ...returnURLs,
+                  },
                   {
                     onSuccess: (checkoutUrl) =>
                       openExternal(checkoutUrl, { webTarget: "same-tab" }),
+                  },
+                );
+              }}
+              onCancel={() => cancelSubscription.mutate()}
+              onManage={() => {
+                if (!portalReturnURL) return;
+                portal.mutate(
+                  { returnUrl: portalReturnURL },
+                  {
+                    onSuccess: (portalUrl) =>
+                      openExternal(portalUrl, { webTarget: "same-tab" }),
                   },
                 );
               }}
@@ -235,10 +290,34 @@ export function AuroraBilling() {
           {checkoutError ? (
             <p role="alert" className="text-caption text-destructive">
               {isAuroraCheckoutConflictError(checkoutError)
-                ? t(($) => $.billing.checkout.already_subscribed)
+                ? t(($) =>
+                    subscription?.status === "pending"
+                      ? $.billing.checkout.in_progress
+                      : $.billing.checkout.already_subscribed,
+                  )
                 : isAuroraPaymentsUnavailableError(checkoutError)
                   ? t(($) => $.billing.checkout.unavailable)
                   : t(($) => $.billing.checkout.failed)}
+            </p>
+          ) : null}
+
+          {/* The portal returns 409 only when there is no subscription to
+              manage; the checkout 409 ("already subscribed") would state the
+              opposite, so this path reports a failed action instead. */}
+          {portalError ? (
+            <p role="alert" className="text-caption text-destructive">
+              {isAuroraPaymentsUnavailableError(portalError)
+                ? t(($) => $.billing.checkout.unavailable)
+                : t(($) => $.billing.subscription.manage_failed)}
+            </p>
+          ) : null}
+
+          {/* A 409 (not an Antom row, or already canceled) and a 502 (Antom
+              refused) leave the plan unchanged, so both are reported with the
+              same words: the action did not happen and can be retried. */}
+          {cancelError ? (
+            <p role="alert" className="text-caption text-destructive">
+              {t(($) => $.billing.subscription.cancel_failed)}
             </p>
           ) : null}
 
@@ -251,47 +330,54 @@ export function AuroraBilling() {
                 {t(($) => $.billing.topup.empty)}
               </p>
             ) : (
-              <div className="aurora-plans">
-                {topups.map((topup) => (
-                  <button
-                    key={topup.id}
-                    type="button"
-                    className="aurora-plan disabled:pointer-events-none disabled:opacity-50"
-                    aria-label={t(($) => $.billing.topup.pack, {
-                      credits: formatCredits(topup.credits, locale),
-                      price: t(
-                        ($) => $.billing.topup.packs[topupPackLabel(topup.id)].price,
-                      ),
-                    })}
-                    aria-busy={topupCheckout.isPending}
-                    disabled={topupCheckout.isPending || !returnURLs}
-                    onClick={() => {
-                      if (!returnURLs) return;
-                      topupCheckout.mutate(
-                        {
-                          topupId: topup.id,
-                          ...returnURLs,
-                        },
-                        {
-                          onSuccess: (checkoutUrl) =>
-                            openExternal(checkoutUrl, {
-                              webTarget: "same-tab",
-                            }),
-                        },
-                      );
-                    }}
-                  >
-                    <strong>
-                      {t(($) => $.credits, {
+              <>
+                <p className="text-caption text-muted-foreground">
+                  {t(($) => $.billing.checkout.no_refund)}
+                </p>
+                <div className="aurora-plans">
+                  {topups.map((topup) => (
+                    <button
+                      key={topup.id}
+                      type="button"
+                      className="aurora-plan disabled:pointer-events-none disabled:opacity-50"
+                      aria-label={t(($) => $.billing.topup.pack, {
                         credits: formatCredits(topup.credits, locale),
+                        price: t(
+                          ($) => $.billing.topup.packs[topupPackLabel(topup.id)].price,
+                        ),
                       })}
-                    </strong>
-                    <small>
-                      {t(($) => $.billing.topup.packs[topupPackLabel(topup.id)].price)}
-                    </small>
-                  </button>
-                ))}
-              </div>
+                      aria-busy={topupCheckout.isPending}
+                      disabled={topupCheckout.isPending || !returnURLs}
+                      onClick={() => {
+                        if (!returnURLs) return;
+                        topupCheckout.mutate(
+                          {
+                            topupId: topup.id,
+                            ...returnURLs,
+                          },
+                          {
+                            onSuccess: (checkoutUrl) =>
+                              openExternal(checkoutUrl, {
+                                webTarget: "same-tab",
+                              }),
+                          },
+                        );
+                      }}
+                    >
+                      <strong>
+                        {t(($) => $.credits, {
+                          credits: formatCredits(topup.credits, locale),
+                        })}
+                      </strong>
+                      <small>
+                        {t(
+                          ($) => $.billing.topup.packs[topupPackLabel(topup.id)].price,
+                        )}
+                      </small>
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </section>
 
@@ -343,7 +429,7 @@ export function AuroraBilling() {
  * `tier`); the prices and credit allowances beside them are copy, because the
  * server returns neither for a plan it has not sold.
  */
-const TIER_ORDER = ["free", "creator", "pro"] as const;
+const TIER_ORDER = ["free", "creator", "pro", "business"] as const;
 
 /**
  * The plan card: which plan the caller is on, what it allows, how much of that
@@ -357,14 +443,26 @@ const TIER_ORDER = ["free", "creator", "pro"] as const;
  */
 function PlanSection({
   subscription,
+  settling,
   pending,
   canCheckout,
+  managePending,
+  canManage,
+  cancelPending,
   onSubscribe,
+  onManage,
+  onCancel,
 }: {
   subscription: AuroraSubscription;
+  settling: boolean;
   pending: boolean;
   canCheckout: boolean;
-  onSubscribe: (tier: string) => void;
+  managePending: boolean;
+  canManage: boolean;
+  cancelPending: boolean;
+  onSubscribe: (tier: string, provider: AuroraPaymentProvider) => void;
+  onManage: () => void;
+  onCancel: () => void;
 }) {
   const { t } = useT("aurora");
   const locale = useLocale();
@@ -379,10 +477,50 @@ function PlanSection({
     : null;
 
   // A user without a subscription (empty status), or one whose prior plan is
-  // canceled, may buy a plan. Unknown future states fail closed: an older
-  // client must not offer a second recurring subscription it cannot interpret.
+  // canceled, may buy a plan. A pending checkout counts too: the row may be an
+  // abandoned session, and without a way to start again the plan list would stay
+  // empty until a notification resolves it. Retrying the same tier reuses the
+  // stored key. A checkout still settling after a success return is the one
+  // exception: its notification has not landed yet, so the row proves nothing
+  // about the payment and a second click would reach the channel again. Unknown
+  // future states fail closed: an older client must not offer a second
+  // recurring subscription it cannot interpret.
+  //
+  // The settling exception needs the pending row as well as the marker: the
+  // credit-pack purchase returns to the same `?checkout=success`, and hiding the
+  // plans for the whole poll window after buying credits would strand a user who
+  // wanted to subscribe next.
+  const intentSettling = settling && subscription.status === "pending";
+
   const canSubscribe =
-    subscription.status === "" || subscription.status === "canceled";
+    !intentSettling &&
+    (subscription.status === "" ||
+      subscription.status === "canceled" ||
+      subscription.status === "pending");
+
+  // The channels the deployment sells through, in the server's order. An empty
+  // list is a channel-less deployment: the table still describes the plans,
+  // but there is nothing to buy through.
+  const providers = subscription.availableProviders;
+
+  // Each channel is managed somewhere different. A Stripe row has the Customer
+  // Portal; Antom has no portal, so its one management action is the in-app
+  // cancel. A canceled plan is the buy-a-plan state below, a plan already ending
+  // has nothing left to stop, and an unknown future status or channel fails
+  // closed.
+  const canManagePortal =
+    subscription.provider === "stripe" &&
+    (subscription.status === "active" || subscription.status === "past_due");
+  const canCancelAntom =
+    subscription.provider === "antom" &&
+    // A deployment that no longer sells Antom has no channel to cancel
+    // through — the endpoint answers 503 — so the control must not exist.
+    providers.includes("antom") &&
+    // A failed payment is exactly when a subscriber wants to stop the plan, and
+    // the server's cancel accepts a past-due row.
+    (subscription.status === "active" ||
+      subscription.status === "past_due") &&
+    !subscription.cancelAtPeriodEnd;
 
   return (
     <section className="aurora-panel flex flex-col gap-3">
@@ -431,55 +569,114 @@ function PlanSection({
         />
       </div>
 
+      {canManagePortal ? (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={managePending || !canManage}
+            aria-busy={managePending}
+            onClick={onManage}
+          >
+            {t(($) => $.billing.subscription.manage)}
+          </Button>
+        </div>
+      ) : null}
+
+      {canCancelAntom ? (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={cancelPending}
+            aria-busy={cancelPending}
+            onClick={onCancel}
+          >
+            {t(($) => $.billing.subscription.cancel)}
+          </Button>
+        </div>
+      ) : null}
+
       {canSubscribe ? (
-        <ul className="flex flex-col">
-          {TIER_ORDER.map((tier) => (
-            <li
-              key={tier}
-              className="flex items-center justify-between gap-3 border-t border-surface-border py-2 first:border-t-0"
-            >
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-body">
-                  {
-                    t(
-                      ($) =>
-                        $.billing.subscription.tiers[subscriptionTierLabel(tier)].name,
-                    )
-                  }
-                </span>
-                <span className="truncate text-caption text-muted-foreground">
-                  {
-                    t(
-                      ($) =>
-                        $.billing.subscription.tiers[subscriptionTierLabel(tier)]
-                          .summary,
-                    )
-                  }
-                </span>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <span className="font-mono text-caption tabular-nums">
-                  {
-                    t(
-                      ($) =>
-                        $.billing.subscription.tiers[subscriptionTierLabel(tier)].price,
-                    )
-                  }
-                </span>
-                {tier === "free" ? null : (
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={pending || !canCheckout}
-                    onClick={() => onSubscribe(tier)}
-                  >
-                    {t(($) => $.billing.subscription.subscribe)}
-                  </Button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <>
+          {/* Prices with no way to buy need the reason rather than the
+              no-refund terms, which govern controls this deployment has no
+              channel to offer. */}
+          <p className="text-caption text-muted-foreground">
+            {providers.length === 0
+              ? t(($) => $.billing.subscription.no_channel)
+              : t(($) => $.billing.checkout.no_refund)}
+          </p>
+          <ul className="flex flex-col">
+            {TIER_ORDER.map((tier) => (
+              <li
+                key={tier}
+                className="flex items-center justify-between gap-3 border-t border-surface-border py-2 first:border-t-0"
+              >
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-body">
+                    {
+                      t(
+                        ($) =>
+                          $.billing.subscription.tiers[subscriptionTierLabel(tier)]
+                            .name,
+                      )
+                    }
+                  </span>
+                  <span className="truncate text-caption text-muted-foreground">
+                    {
+                      t(
+                        ($) =>
+                          $.billing.subscription.tiers[subscriptionTierLabel(tier)]
+                            .summary,
+                      )
+                    }
+                  </span>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="font-mono text-caption tabular-nums">
+                    {
+                      t(
+                        ($) =>
+                          $.billing.subscription.tiers[subscriptionTierLabel(tier)]
+                            .price,
+                      )
+                    }
+                  </span>
+                  {tier === "free"
+                    ? null
+                    : providers.map((provider) => {
+                        // The row names the plan, so the button only has to
+                        // name the channel it charges through. The accessible
+                        // name still spells out the action, which a brand alone
+                        // would not.
+                        const providerLabel = t(
+                          ($) => $.billing.subscription.providers[provider],
+                        );
+                        return (
+                          <Button
+                            key={provider}
+                            type="button"
+                            size="sm"
+                            disabled={pending || !canCheckout}
+                            aria-busy={pending}
+                            aria-label={t(
+                              ($) => $.billing.subscription.subscribe_with,
+                              { provider: providerLabel },
+                            )}
+                            onClick={() => onSubscribe(tier, provider)}
+                          >
+                            {providerLabel}
+                          </Button>
+                        );
+                      })}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
       ) : null}
     </section>
   );

@@ -34,6 +34,7 @@ import {
 import { Spinner } from "@multica/ui/components/ui/spinner";
 import { Textarea } from "@multica/ui/components/ui/textarea";
 import {
+  getAuroraInsufficientCreditsDetails,
   isAuroraDegraded,
   isAuroraGenerationTerminal,
   isAuroraInsufficientCreditsError,
@@ -989,6 +990,8 @@ function SubmitFailure({
   const balance = isAuroraDegraded(balancePayload)
     ? undefined
     : balancePayload?.value;
+  const shortfallCredits =
+    getAuroraInsufficientCreditsDetails(error)?.shortfallCredits ?? null;
 
   if (isAuroraInsufficientCreditsError(error)) {
     const cost = formatCredits(skill.credits, locale);
@@ -997,18 +1000,26 @@ function SubmitFailure({
         <CircleAlert aria-hidden="true" />
         <AlertTitle>{t(($) => $.composer.insufficient_title)}</AlertTitle>
         <AlertDescription>
-          {/* The 402 itself is what makes this prompt true, so the price alone
-              is a complete sentence. The balance is added only when there is
-              one to show: while the wallet query is pending, failed, or
-              unreadable there is no number here, and "you have 0" would be a
-              claim the client never read — the user would top up against a
-              figure we invented. */}
-          {balance === undefined
-            ? t(($) => $.composer.insufficient_cost_only, { cost })
-            : t(($) => $.composer.insufficient_description, {
-                cost,
-                balance: formatMicroCredits(balance.availableMicro, locale),
-              })}
+          {/* The server's shortfall is the exact number a top-up has to cover,
+              so it replaces the cost/balance sentence when present. An older
+              server, or a body we could not read, falls back to that sentence:
+              the 402 itself is what makes the prompt true, so the price alone
+              is a complete sentence, and the balance is added only when there
+              is one to show — while the wallet query is pending, failed, or
+              unreadable "you have 0" would be a claim the client never read.
+              Only a positive shortfall is quoted: a top-up racing the
+              post-refusal balance read can leave the server-computed 0, and
+              "you are 0 credits short" would contradict the refusal. */}
+          {shortfallCredits !== null && shortfallCredits > 0
+            ? t(($) => $.composer.shortfall, {
+                credits: formatCredits(shortfallCredits, locale),
+              })
+            : balance === undefined
+              ? t(($) => $.composer.insufficient_cost_only, { cost })
+              : t(($) => $.composer.insufficient_description, {
+                  cost,
+                  balance: formatMicroCredits(balance.availableMicro, locale),
+                })}
         </AlertDescription>
         {/* The one refusal the user can do something about, so it carries the
             way to do it — when the app has a checkout route to offer. */}

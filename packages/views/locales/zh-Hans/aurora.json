@@ -63,6 +63,7 @@
     "insufficient_title": "积分不足",
     "insufficient_description": "该功能需要 {{cost}} 积分，当前可用 {{balance}}。",
     "insufficient_cost_only": "该功能需要 {{cost}} 积分。",
+    "shortfall": "还差 {{credits}} 积分。",
     "rate_limited_title": "已达上限",
     "rate_limited_description": "本月生成次数已用完，或进行中的任务过多。请稍后再试。",
     "create_failed": "无法开始生成，请重试。",
@@ -182,13 +183,18 @@
         },
         "creator": {
           "name": "创作者版",
-          "price": "$9.90/月",
-          "summary": "每月 3,000 积分"
+          "price": "$19/月",
+          "summary": "每月 1,900 积分"
         },
         "pro": {
           "name": "专业版",
-          "price": "$29/月",
-          "summary": "每月 12,000 积分"
+          "price": "$59/月",
+          "summary": "每月 5,900 积分"
+        },
+        "business": {
+          "name": "商业版",
+          "price": "$169/月",
+          "summary": "每月 16,900 积分"
         },
         "unknown": {
           "name": "未知套餐",
@@ -200,13 +206,23 @@
         "active": "生效中",
         "past_due": "待付款",
         "canceled": "已取消",
+        "pending": "支付未完成",
         "unknown": "未知"
+      },
+      "providers": {
+        "stripe": "Stripe",
+        "antom": "Antom"
       },
       "renews_on": "{{date}} 续费",
       "cancel_scheduled": "到期后结束。",
       "usage_label": "本月生成次数",
       "usage_value": "{{used}} / {{limit}}",
-      "subscribe": "订阅"
+      "subscribe_with": "通过 {{provider}} 订阅",
+      "no_channel": "该实例不售卖套餐。",
+      "cancel": "取消订阅",
+      "cancel_failed": "无法取消订阅，请稍后再试。",
+      "manage": "管理订阅",
+      "manage_failed": "无法打开订阅管理，请稍后再试。"
     },
     "topup": {
       "title": "购买积分",
@@ -227,7 +243,9 @@
     "checkout": {
       "failed": "无法发起购买，请重试。",
       "already_subscribed": "你已经有订阅了。",
-      "unavailable": "该实例未开通支付。"
+      "in_progress": "还有一笔结账未完成。请先完成它，或稍后重试。",
+      "unavailable": "该实例未开通支付。",
+      "no_refund": "所有购买即为最终交易，不可退款。"
     }
   },
   "runtime": {

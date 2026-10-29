@@ -4,11 +4,14 @@ import { ApiError, setApiInstance } from "../api";
 import type { ApiClient } from "../api/client";
 import {
   auroraAssetDownloadPath,
+  cancelAuroraSubscription,
+  createAuroraBillingPortal,
   createAuroraCheckout,
   createAuroraGeneration,
   createAuroraToolRun,
   createAuroraTopupCheckout,
   deleteAuroraAsset,
+  getAuroraInsufficientCreditsDetails,
   getAuroraRuntime,
   getAuroraSubscription,
   isAuroraCheckoutConflictError,
@@ -24,6 +27,7 @@ import {
   listAuroraTopups,
   parseAuroraAssets,
   parseAuroraBalance,
+  parseAuroraBillingPortal,
   parseAuroraCheckout,
   parseAuroraGeneration,
   parseAuroraGenerationDetail,
@@ -462,6 +466,37 @@ describe("parseAuroraCheckout", () => {
   });
 });
 
+describe("parseAuroraBillingPortal", () => {
+  it("reads the portal URL", () => {
+    expect(
+      parseAuroraBillingPortal({
+        portalUrl: "https://billing.stripe.com/p/session/1",
+      }),
+    ).toBe("https://billing.stripe.com/p/session/1");
+  });
+
+  it("rejects an unreadable body instead of reporting a successful portal session", () => {
+    expect(() => parseAuroraBillingPortal({})).toThrow(
+      "invalid portal response",
+    );
+    expect(() => parseAuroraBillingPortal({ portalUrl: 7 })).toThrow(
+      "invalid portal response",
+    );
+  });
+
+  it("rejects portal destinations that are not absolute HTTPS URLs", () => {
+    for (const portalUrl of [
+      "http://billing.stripe.test/p/session/1",
+      "javascript:alert(1)",
+      "/billing/portal/1",
+    ]) {
+      expect(() => parseAuroraBillingPortal({ portalUrl })).toThrow(
+        "invalid portal response",
+      );
+    }
+  });
+});
+
 describe("request paths", () => {
   beforeEach(() => {
     setApiInstance(null as unknown as ApiClient);
@@ -551,15 +586,19 @@ describe("request paths", () => {
     await createAuroraCheckout({
       tier: "creator",
       billingCycle: "monthly",
+      provider: "antom",
       ...returnURLs,
     });
 
     expect(requests[0]?.path).toBe("/api/aurora/billing/checkout");
     expect(requests[0]?.init?.method).toBe("POST");
+    // The channel travels with the plan: the server falls back to Stripe only
+    // when the field is absent.
     expect(requests[0]?.init?.body).toBe(
       JSON.stringify({
         tier: "creator",
         billingCycle: "monthly",
+        provider: "antom",
         ...returnURLs,
       }),
     );
@@ -567,6 +606,42 @@ describe("request paths", () => {
     requests = installFakeClient({ checkoutUrl: "https://stripe.test/2" });
     await createAuroraTopupCheckout({ topupId: "t5", ...returnURLs });
     expect(requests[0]?.path).toBe("/api/aurora/billing/topup/checkout");
+  });
+
+  it("cancels the subscription with a parameterless POST and reads the plan", async () => {
+    const requests = installFakeClient({
+      subscription: {
+        tier: "creator",
+        status: "active",
+        provider: "antom",
+        cancelAtPeriodEnd: true,
+      },
+    });
+
+    const subscription = await cancelAuroraSubscription();
+
+    expect(requests[0]?.path).toBe("/api/aurora/billing/subscription/cancel");
+    expect(requests[0]?.init?.method).toBe("POST");
+    expect(requests[0]?.init?.body).toBeUndefined();
+    expect(subscription.cancelAtPeriodEnd).toBe(true);
+    expect(subscription.provider).toBe("antom");
+  });
+
+  it("posts the portal return URL and reads the portal URL", async () => {
+    const requests = installFakeClient({
+      portalUrl: "https://billing.stripe.com/p/session/1",
+    });
+
+    const portalUrl = await createAuroraBillingPortal({
+      returnUrl: "https://app.example.com/acme/billing",
+    });
+
+    expect(portalUrl).toBe("https://billing.stripe.com/p/session/1");
+    expect(requests[0]?.path).toBe("/api/aurora/billing/portal");
+    expect(requests[0]?.init?.method).toBe("POST");
+    expect(requests[0]?.init?.body).toBe(
+      JSON.stringify({ returnUrl: "https://app.example.com/acme/billing" }),
+    );
   });
 
   it("deletes an asset with no body to read", async () => {
@@ -647,6 +722,53 @@ describe("error classification", () => {
     expect(
       isAuroraPaymentsUnavailableError(new ApiError("boom", 409, "Conflict")),
     ).toBe(false);
+  });
+
+  it("reads the shortfall a 402 carries", () => {
+    const error = new ApiError("insufficient credits", 402, "Payment Required", {
+      error: "insufficient credits",
+      requiredCredits: 60,
+      availableCredits: 50,
+      shortfallCredits: 10,
+    });
+
+    expect(getAuroraInsufficientCreditsDetails(error)).toEqual({
+      requiredCredits: 60,
+      availableCredits: 50,
+      shortfallCredits: 10,
+    });
+  });
+
+  it("reports no shortfall for a 402 without a body", () => {
+    expect(
+      getAuroraInsufficientCreditsDetails(
+        new ApiError("insufficient credits", 402, "Payment Required"),
+      ),
+    ).toBeNull();
+  });
+
+  it("degrades malformed shortfall fields to null", () => {
+    const error = new ApiError("insufficient credits", 402, "Payment Required", {
+      requiredCredits: 60,
+      availableCredits: "50",
+      shortfallCredits: Number.NaN,
+    });
+
+    expect(getAuroraInsufficientCreditsDetails(error)).toEqual({
+      requiredCredits: 60,
+      availableCredits: null,
+      shortfallCredits: null,
+    });
+  });
+
+  it("reads no shortfall from a non-402 failure", () => {
+    expect(
+      getAuroraInsufficientCreditsDetails(
+        new ApiError("server error", 500, "Server Error", {
+          shortfallCredits: 10,
+        }),
+      ),
+    ).toBeNull();
   });
 });
 

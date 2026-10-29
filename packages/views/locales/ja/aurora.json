@@ -63,6 +63,7 @@
     "insufficient_title": "クレジットが足りません",
     "insufficient_description": "このツールには {{cost}} クレジットが必要ですが、残高は {{balance}} です。",
     "insufficient_cost_only": "このツールには {{cost}} クレジットが必要です。",
+    "shortfall": "あと {{credits}} クレジット必要です。",
     "rate_limited_title": "上限に達しました",
     "rate_limited_description": "今月の生成回数を使い切ったか、実行中の生成が多すぎます。しばらくしてからお試しください。",
     "create_failed": "生成を開始できませんでした。再試行してください。",
@@ -182,13 +183,18 @@
         },
         "creator": {
           "name": "クリエイター",
-          "price": "$9.90/月",
-          "summary": "毎月 3,000 クレジット"
+          "price": "$19/月",
+          "summary": "毎月 1,900 クレジット"
         },
         "pro": {
           "name": "プロ",
-          "price": "$29/月",
-          "summary": "毎月 12,000 クレジット"
+          "price": "$59/月",
+          "summary": "毎月 5,900 クレジット"
+        },
+        "business": {
+          "name": "ビジネス",
+          "price": "$169/月",
+          "summary": "毎月 16,900 クレジット"
         },
         "unknown": {
           "name": "不明なプラン",
@@ -200,13 +206,23 @@
         "active": "有効",
         "past_due": "支払い待ち",
         "canceled": "解約済み",
+        "pending": "決済未完了",
         "unknown": "不明"
+      },
+      "providers": {
+        "stripe": "Stripe",
+        "antom": "Antom"
       },
       "renews_on": "{{date}} に更新",
       "cancel_scheduled": "期間終了時に終了します。",
       "usage_label": "今月の生成回数",
       "usage_value": "{{used}} / {{limit}}",
-      "subscribe": "購読する"
+      "subscribe_with": "{{provider}} で購読する",
+      "no_channel": "このインスタンスではプランを販売していません。",
+      "cancel": "サブスクリプションを解約",
+      "cancel_failed": "サブスクリプションを解約できませんでした。しばらくしてからもう一度お試しください。",
+      "manage": "サブスクリプションを管理",
+      "manage_failed": "サブスクリプション管理を開けませんでした。しばらくしてからもう一度お試しください。"
     },
     "topup": {
       "title": "クレジットを購入",
@@ -227,7 +243,9 @@
     "checkout": {
       "failed": "購入を開始できませんでした。もう一度お試しください。",
       "already_subscribed": "すでに購読しています。",
-      "unavailable": "このインスタンスでは支払いを利用できません。"
+      "in_progress": "決済がまだ完了していません。完了するか、しばらくしてからお試しください。",
+      "unavailable": "このインスタンスでは支払いを利用できません。",
+      "no_refund": "ご購入はすべて確定となり、返金はできません。"
     }
   },
   "runtime": {
