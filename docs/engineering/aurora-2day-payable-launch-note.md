@@ -17,7 +17,7 @@
 | 票号 | 任务 | 负责 | 状态 |
 |---|---|---|---|
 | #44 | T0 目录与价格 | Eng | code-complete |
-| #45 | T1 Stripe 产品与价格 | Owner | owner/ops — 本环境未执行（见 T1） |
+| #45 | T1 Stripe 产品与价格 | Owner | 完成 2026-10-29（见 T1 记录表） |
 | #46 | T2 生产环境变量 | Ops | owner/ops — 本环境未执行（见 T2） |
 | #47 | T3 Webhook 可达性 | Ops | owner/ops — 本环境未执行（见 T3） |
 | #48 | T4 测试模式端到端 | Eng | 清单已写好；执行需要 test 密钥，本环境未执行（见 T4） |
@@ -34,7 +34,7 @@
 
 ## T1 — Stripe products and prices (#45)
 
-**状态：owner/ops — 本环境未执行。**
+**状态：已完成（2026-10-29；test 与 live 两套都已创建，id 见下方记录表）。**
 
 要在 Stripe 里创建五个对象（三个订阅 + 两个一次性积分包）。`server/internal/aurora/tiers.go` 持有月额度授予与 price-id 槽位：`creator` 1,900 / `pro` 5,900 / `business` 16,900；top-up `t5` 500 / `t20` 2,000。金额与币种不在这份 Go 目录里：它们来自计划 §Decisions and what remains open（S$19 / S$59 / S$169，100 credits = S$1）和 `packages/views/locales/*/aurora.json` 的 `billing.subscription.tiers` 与 `billing.topup.packs` 文案。建 Stripe price 时这三处必须一致。
 
@@ -48,7 +48,7 @@
 
 年付不在本次售卖范围：`AURORA_STRIPE_PRICE_CREATOR_YEARLY`、`AURORA_STRIPE_PRICE_PRO_YEARLY` 保持为空；`business` 在 `tiers.go` 里根本没有年付槽位，年付请求一律按未配置的失败关闭处理。
 
-**币种未决。** 计划 §Still to confirm 仍写着 SGD 与 USD 二选一。Stripe 的 Price 一旦创建，币种和金额都不可改：如果账号实际以 USD 结算，就按同样数字建 USD price（`1900`/`5900`/`16900`/`500`/`2000` 分），并回来改这张表；UI 文案用的是 `$`（`packages/views/locales/*/aurora.json` 的 `billing.subscription.tiers` 与 `billing.topup.packs`），所以在建 live price 前必须先把币种定下来。
+**币种已定：SGD（2026-10-29）。** 账号以 SGD 结算，`server/internal/aurora/tiers.go` 的 `AntomCurrency` 也是 `SGD`，两条渠道同币种；test 与 live 的五个价格都已按 SGD 建好，金额和币种此后不可改。UI 文案仍用 `$`（`packages/views/locales/*/aurora.json` 的 `billing.subscription.tiers` 与 `billing.topup.packs`），是否改成 `S$` 是独立的文案决定。
 
 ### Dashboard 步骤
 
@@ -102,11 +102,15 @@ stripe prices update price_old --active=false
 
 | 对象 | Test mode `price_...` | Live mode `price_...` |
 |---|---|---|
-| Creator 月付 |  |  |
-| Pro 月付 |  |  |
-| Business 月付 |  |  |
-| Top-up 5 |  |  |
-| Top-up 20 |  |  |
+| Creator 月付 | `price_1UVv3J24UFxYEC62KjIWtjfc` | `price_1UVv5S24UFxYEC62I4aJuRXU` |
+| Pro 月付 | `price_1UVv3M24UFxYEC62IyGRPjUe` | `price_1UVv5V24UFxYEC62ne0xSEpg` |
+| Business 月付 | `price_1UVv3Q24UFxYEC62V2BInb3Q` | `price_1UVv5Y24UFxYEC62PqRTI01m` |
+| Top-up 5 | `price_1UVv3T24UFxYEC62fGihj5bD` | `price_1UVv5a24UFxYEC622EeSrjZu` |
+| Top-up 20 | `price_1UVv3W24UFxYEC62PDmcSRxs` | `price_1UVv5e24UFxYEC62CE1NzAe2` |
+
+建立日期 2026-10-29,账号 `acct_1UVu6I24UFxYEC62`(Apex Ai),全部 SGD。产品名分别是
+`ApexAI-Creator` / `ApexAI-Pro` / `ApexAI-Business` / `ApexAI-Topup-5` / `ApexAI-Topup-20`。
+账号里另有一个更早的 `ApexAI-Agents`(SGD 19.00,one-time),与本目录无关。
 
 要求：这五个 id 必须记录在本文件；test 与 live 是两套独立对象、两套 id，不能混用。把 live 的 `sk_live_...` 和 test 的 `price_...` 配在一起时，Stripe 会拒绝这个 price，checkout 返回 `500 failed to create checkout`（而不是 503）——看到这个 500 先查模式是否配错。
 
@@ -181,6 +185,10 @@ curl -i -X POST 'https://<api-host>/api/aurora/billing/checkout' \
 4. 复制该 endpoint 的 Signing secret（`whsec_...`）→ `STRIPE_WEBHOOK_SECRET`，然后重启服务（见 T2 的启动时读取）。
 5. 放行入口：WAF / ALB / 安全组必须允许 Stripe 对该路径的 POST。这是现有部署路径上的放行规则，计划明确不为本次新建 AWS 资源。该路径不能挂 SSO、Basic Auth 或要求 cookie；也不要在前面加会改写 body 的代理，验签用的是原始 body。
 6. Test mode 与 Live mode 的 endpoint、`whsec_` 都是两套，不可互换。
+
+已建 endpoint（2026-10-29）：Test `we_1UVv4B24UFxYEC62Ax199d7t`、Live `we_1UVv6H24UFxYEC629mvYPQee`，
+两者 URL 均为 `https://mcapi.apexxai.net/api/aurora/billing/stripe/webhook`，事件均为上面的四个。
+两个 `whsec_...` 不在仓库里，只存在于 Stripe Dashboard 与部署环境（SSM）中。
 
 ### 本地开发
 
