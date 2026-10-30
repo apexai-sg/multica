@@ -14,10 +14,19 @@
   "max_nodes": 2,
   "aurora": {
     "server_url": "https://multica.example.com",
-    "anthropic_base_url": "https://ark.cn-beijing.volces.com/api/plan",
-    "anthropic_model": "",
+    "anthropic_base_url": "https://api2.apexxai.net",
+    "anthropic_model": "deepseek-v4.1-flash",
     "claude_env": {
-      "ANTHROPIC_API_KEY": "<ark-agent-plan-key>",
+      "ANTHROPIC_DEFAULT_FABLE_MODEL": "deepseek-v4.1-flash",
+      "ANTHROPIC_DEFAULT_FABLE_MODEL_NAME": "deepseek-v4.1-flash",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4.1-flash",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME": "deepseek-v4.1-flash",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4.1-flash",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "deepseek-v4.1-flash",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4.1-flash",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "deepseek-v4.1-flash",
+      "CLAUDE_CODE_SUBAGENT_MODEL": "deepseek-v4.1-flash",
+      "ANTHROPIC_API_KEY": "<api2-relay-token>",
       "VOLC_ASR_API_KEY": "<volcengine-speech-key>"
     },
     "readonly_rootfs": true
