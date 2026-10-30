@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { Sparkles } from "lucide-react";
+import { Sparkles } from "@multica/ui/icons";
 import { AuroraPageHeader, AuroraPageState } from "./aurora-page-header";
 
 describe("AuroraPageHeader", () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Check, FileText, Film, Globe, ImagePlus, Monitor, Play, Presentation, Sheet, Smartphone, Sparkles, Volume2 } from "lucide-react";
+import { ArrowRight, Check, FileText, FileVideo, Globe, ImagePlus, Monitor, Play, Presentation, Table2, Smartphone, Sparkles, FileAudio } from "@multica/ui/icons";
 import { Button } from "@multica/ui/components/ui/button";
 import { Spinner } from "@multica/ui/components/ui/spinner";
 import { Textarea } from "@multica/ui/components/ui/textarea";
@@ -11,7 +11,7 @@ import { toolCategories, type ToolDefinition } from "./tool-definitions";
 import { ToolSubmissionNote } from "./tool-submission-note";
 import { useToolSubmission } from "./use-tool-submission";
 
-const resultIcons = { image: ImagePlus, video: Film, slides: Presentation, table: Sheet, document: FileText, audio: Volume2, website: Globe, transcript: FileText };
+const resultIcons = { image: ImagePlus, video: FileVideo, slides: Presentation, table: Table2, document: FileText, audio: FileAudio, website: Globe, transcript: FileText };
 
 export function ToolWorkbench({ tool, slug }: { tool: ToolDefinition; slug: string }) {
   const [source, setSource] = useState("");
@@ -91,7 +91,7 @@ function ResultPreview({ tool }: { tool: ToolDefinition }) {
           : tool.result.kind === "slides" ? <div className="apex-slide-layout"><div className="apex-slide-thumbs">{[1, 2, 3].map((index) => <span key={index}>{String(index).padStart(2, "0")}</span>)}</div><div className="apex-slide-stage"><Presentation aria-hidden="true" /><span>幻灯片预览</span></div></div>
           : tool.result.kind === "table" ? <div className="apex-table-placeholder"><table><caption>结果表格占位</caption><thead><tr>{["项目", "分类", "数值", "备注"].map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{[1, 2, 3].map((index) => <tr key={index}>{[1, 2, 3, 4].map((cell) => <td key={cell}>—</td>)}</tr>)}</tbody></table></div>
           : tool.result.kind === "website" ? <div className="apex-website-placeholder"><div className="apex-device-switch" role="group" aria-label="网站预览尺寸"><Button type="button" variant="ghost" aria-pressed={screen === "desktop"} onClick={() => setScreen("desktop")}><Monitor aria-hidden="true" />电脑</Button><Button type="button" variant="ghost" aria-pressed={screen === "mobile"} onClick={() => setScreen("mobile")}><Smartphone aria-hidden="true" />手机</Button></div><div className={`apex-website-frame${screen === "mobile" ? " is-mobile" : ""}`} aria-label={`${screen === "mobile" ? "手机" : "电脑"}布局占位`}><div /><Globe aria-hidden="true" /><span>网站布局预览</span><i /><i /></div></div>
-          : tool.result.kind === "audio" ? <div className="apex-audio-placeholder"><Volume2 aria-hidden="true" /><div aria-hidden="true">{[12, 24, 36, 20, 40, 28, 14, 32, 44, 24, 16, 28, 38, 20, 12].map((height, index) => <i key={index} style={{ height }} />)}</div><span>配音生成后可试听</span></div>
+          : tool.result.kind === "audio" ? <div className="apex-audio-placeholder"><FileAudio aria-hidden="true" /><div aria-hidden="true">{[12, 24, 36, 20, 40, 28, 14, 32, 44, 24, 16, 28, 38, 20, 12].map((height, index) => <i key={index} style={{ height }} />)}</div><span>配音生成后可试听</span></div>
           : tool.result.kind === "video" ? <div className="apex-video-placeholder"><Play aria-hidden="true" /><span>视频生成后可播放</span><div /></div>
           : <div className="apex-document-placeholder"><FileText aria-hidden="true" /><span>内容将在这里出现</span><i /><i /><i /></div>}
       </div>

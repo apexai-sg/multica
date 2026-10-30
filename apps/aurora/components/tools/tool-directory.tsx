@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Search, SearchX, Sparkles } from "lucide-react";
+import { ArrowUpRight, Search, SearchX, Sparkles } from "@multica/ui/icons";
 import { AppLink } from "@multica/views/navigation";
 import { Button } from "@multica/ui/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@multica/ui/components/ui/input-group";

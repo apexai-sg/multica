@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, FileDown } from "lucide-react";
+import { ExternalLink, Download } from "@multica/ui/icons";
 import { cn } from "@multica/ui/lib/utils";
 import { buttonVariants } from "@multica/ui/components/ui/button";
 import {
@@ -221,7 +221,7 @@ export function GenerationArtifacts({
                 aria-label={`${asset.format ?? asset.kind} ${t(($) => $.works.download)}`}
                 className="aurora-file-row"
               >
-                <FileDown aria-hidden="true" className="size-3.5 shrink-0" />
+                <Download aria-hidden="true" className="size-3.5 shrink-0" />
                 <span>{asset.format ?? asset.kind}</span>
                 <span>{t(($) => $.works.download)}</span>
               </button>
@@ -297,7 +297,7 @@ function PreviewDialog({
                 "min-h-10 min-w-10",
               )}
             >
-              <FileDown aria-hidden="true" className="size-3.5" />
+              <Download aria-hidden="true" className="size-3.5" />
               {t(($) => $.works.download)}
             </button>
           ) : null}

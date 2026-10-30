@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "@multica/ui/icons";
 import { AppLink } from "@multica/views/navigation";
 
 export function ToolFrame({ children, directoryHref, userName }: {

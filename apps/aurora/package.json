@@ -19,7 +19,6 @@
     "@multica/views": "workspace:*",
     "@tanstack/react-query": "catalog:",
     "dotenv": "^17.4.1",
-    "lucide-react": "catalog:",
     "next": "^16.3.4",
     "react": "catalog:",
     "react-dom": "catalog:",

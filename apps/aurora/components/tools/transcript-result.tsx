@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Download, FileText, MessageSquareText, ScanText, Sparkles } from "lucide-react";
+import { Copy, Download, FileText, MessageSquareText, ScanText, Sparkles } from "@multica/ui/icons";
 import { Button } from "@multica/ui/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@multica/ui/components/ui/tabs";
 import { Textarea } from "@multica/ui/components/ui/textarea";

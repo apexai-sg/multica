@@ -9,15 +9,10 @@ import { createLogger } from "@multica/core/logger";
 import { paths } from "@multica/core/paths";
 import type { Workspace } from "@multica/core/types";
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@multica/ui/components/ui/card";
+  Card, CardHeader, CardTitle, CardDescription, CardContent, } from "@multica/ui/components/ui/card";
 import { useT } from "@multica/views/i18n";
 import { verifyGoogleOAuthState } from "@multica/views/auth";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@multica/ui/icons";
 import { resolveAuroraDestination } from "@/lib/routes";
 import { NoWorkspaceNotice } from "@/components/no-workspace-notice";
 import {

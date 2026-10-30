@@ -1,20 +1,8 @@
 "use client";
 
+import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent, } from "react";
 import {
-  useRef,
-  useState,
-  type ChangeEvent,
-  type DragEvent,
-  type FormEvent,
-} from "react";
-import {
-  CircleAlert,
-  CreditCard,
-  FileDown,
-  Sparkles,
-  Upload,
-  X,
-} from "lucide-react";
+  CircleAlert, CreditCard, Download, Sparkles, Upload, X } from "@multica/ui/icons";
 import {
   Alert,
   AlertAction,
@@ -927,7 +915,7 @@ function ComposerBody({
                     aria-label={`${asset.format ?? asset.kind} ${t(($) => $.works.download)}`}
                     className="aurora-file-row"
                   >
-                    <FileDown aria-hidden="true" className="size-3.5 shrink-0" />
+                    <Download aria-hidden="true" className="size-3.5 shrink-0" />
                     <span>{asset.format ?? asset.kind}</span>
                     <span>{t(($) => $.works.download)}</span>
                   </button>
