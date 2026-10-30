@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, LogOut } from "lucide-react";
+import { ChevronRight, LogOut } from "@multica/ui/icons";
 import type { ReactNode } from "react";
 import {
   isAuroraDegraded,

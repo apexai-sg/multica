@@ -2,9 +2,7 @@
 
 import { useId, useRef, useState } from "react";
 import {
-  ArrowRight, Check, Download, Film, ImagePlus, Info, Link2,
-  Play, ScanFace, Sparkles, Upload, X,
-} from "lucide-react";
+  ArrowRight, Check, Download, FileVideo, ImagePlus, Info, Link2, Play, ScanFace, Sparkles, Upload, X } from "@multica/ui/icons";
 import { Button } from "@multica/ui/components/ui/button";
 import { Spinner } from "@multica/ui/components/ui/spinner";
 
@@ -29,7 +27,7 @@ function UploadCard({
   const input = useRef<HTMLInputElement>(null);
   const id = useId();
   const [dragging, setDragging] = useState(false);
-  const Icon = face ? ScanFace : kind === "video" ? Film : ImagePlus;
+  const Icon = face ? ScanFace : kind === "video" ? FileVideo : ImagePlus;
   const label = face ? "人脸照片" : kind === "video" ? "原视频" : "原图片";
   const action = face ? "选择照片" : kind === "video" ? "选择视频" : "选择图片";
   const hint = face
@@ -135,7 +133,7 @@ export function FaceSwapWorkbench({ slug }: { slug: string }) {
           <p>上传原{noun}和人脸照片，生成新{noun}</p>
         </div>
         <div className="apex-hero-formula" aria-hidden="true">
-          <span>{mode === "video" ? <Film /> : <ImagePlus />}</span>
+          <span>{mode === "video" ? <FileVideo /> : <ImagePlus />}</span>
           <b>+</b><span><ScanFace /></span><ArrowRight /><span><Sparkles /></span>
         </div>
       </section>
@@ -145,7 +143,7 @@ export function FaceSwapWorkbench({ slug }: { slug: string }) {
           {(["video", "image"] as const).map((value) => (
             <Button key={value} type="button" variant={value === mode ? "brand" : "ghost"}
               aria-pressed={value === mode} onClick={() => { setMode(value); clearResult(); }}>
-              {value === "video" ? <Film aria-hidden="true" /> : <ImagePlus aria-hidden="true" />}
+              {value === "video" ? <FileVideo aria-hidden="true" /> : <ImagePlus aria-hidden="true" />}
               {value === "video" ? "视频换脸" : "图片换脸"}
             </Button>
           ))}

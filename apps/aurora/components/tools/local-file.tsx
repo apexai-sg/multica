@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, FileText, Film, ImagePlus, Sheet, Upload, X } from "lucide-react";
+import { Check, FileText, FileVideo, ImagePlus, Table2, Upload, X } from "@multica/ui/icons";
 import { Button } from "@multica/ui/components/ui/button";
 import type { FileKind } from "./tool-definitions";
 
@@ -64,7 +64,7 @@ export function LocalFileCard({ kind, title, hint, optional, slot }: {
   const id = useId();
   const [dragging, setDragging] = useState(false);
   const format = formats[kind];
-  const Icon = kind === "video" ? Film : kind === "image" ? ImagePlus : kind === "sheet" ? Sheet : FileText;
+  const Icon = kind === "video" ? FileVideo : kind === "image" ? ImagePlus : kind === "sheet" ? Table2 : FileText;
   const action = kind === "video" ? "选择视频" : kind === "image" ? "选择图片" : "选择文件";
   return (
     <section className="apex-upload-card apex-input-card" aria-labelledby={`${id}-title`}

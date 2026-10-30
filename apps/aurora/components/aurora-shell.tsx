@@ -1,17 +1,8 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import type { LucideIcon } from "lucide-react";
-import {
-  Coins,
-  History,
-  Images,
-  LogOut,
-  Menu,
-  Server,
-  Sparkles,
-  X,
-} from "lucide-react";
+import type { IconComponent } from "@multica/ui/icons";
+import { Coins, History, Image, LogOut, Menu, Server, Sparkles, X } from "@multica/ui/icons";
 import {
   AuroraAccountDialog,
   AuroraAccountPanel,
@@ -102,7 +93,7 @@ export function AuroraShell({
       icon: Sparkles,
       label: t(($) => $.directory.title),
     },
-    { href: routes.works(), icon: Images, label: t(($) => $.works.title) },
+    { href: routes.works(), icon: Image, label: t(($) => $.works.title) },
     { href: routes.history(), icon: History, label: t(($) => $.history.title) },
   ];
   const accountItems = [
@@ -267,7 +258,7 @@ function NavLink({
   selected,
 }: {
   href: string;
-  icon: LucideIcon;
+  icon: IconComponent;
   label: string;
   selected: boolean;
 }) {

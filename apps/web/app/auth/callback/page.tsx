@@ -22,7 +22,7 @@ import {
 } from "@multica/ui/components/ui/card";
 import { Button } from "@multica/ui/components/ui/button";
 import { useT } from "@multica/views/i18n";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@multica/ui/icons";
 import {
   callbackErrorFrom,
   type CallbackError,

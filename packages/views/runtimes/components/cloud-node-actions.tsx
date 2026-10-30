@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@multica/ui/icons";
 import { ApiError } from "@multica/core/api";
 import {
   isCloudRuntimeNodePending,

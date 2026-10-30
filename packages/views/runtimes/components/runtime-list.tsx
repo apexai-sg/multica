@@ -10,7 +10,7 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
-} from "lucide-react";
+} from "@multica/ui/icons";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { CurrencyNumberFlow } from "@multica/ui/components/ui/number-flow";
@@ -78,6 +78,7 @@ import {
 } from "./pending-runtime";
 import { useT, useTimeAgo } from "../../i18n";
 import { DeferredTooltip } from "@multica/ui/components/common/deferred-tooltip";
+import { TruncatedTooltip } from "@multica/ui/components/common/truncated-tooltip";
 
 // The machine detail's runtimes table on the shared ListGrid. Paradigm
 // pieces are taken À LA CARTE here: subgrid template + var-width tracks +
@@ -455,16 +456,19 @@ export function CliCell({ runtime }: { runtime: AgentRuntime }) {
     return (
       <div className="flex min-w-0 flex-col text-caption">
         {command && (
-          <span
-            className="truncate font-mono text-muted-foreground"
-            title={command}
-          >
-            {command}
-          </span>
+          <TruncatedTooltip content={command}>
+            <span
+              className="truncate font-mono text-muted-foreground"
+            >
+              {command}
+            </span>
+          </TruncatedTooltip>
         )}
-        <span className="truncate text-destructive" title={failure}>
-          {failure}
-        </span>
+        <TruncatedTooltip content={failure}>
+          <span className="truncate text-destructive">
+            {failure}
+          </span>
+        </TruncatedTooltip>
       </div>
     );
   }
@@ -479,12 +483,13 @@ export function CliCell({ runtime }: { runtime: AgentRuntime }) {
     }
     return (
       <div className="flex min-w-0 items-center text-caption">
-        <span
-          className="truncate font-mono text-muted-foreground"
-          title={command}
-        >
-          {command}
-        </span>
+        <TruncatedTooltip content={command}>
+          <span
+            className="truncate font-mono text-muted-foreground"
+          >
+            {command}
+          </span>
+        </TruncatedTooltip>
       </div>
     );
   }

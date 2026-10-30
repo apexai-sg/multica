@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CircleAlert, History } from "lucide-react";
+import { CircleAlert, History } from "@multica/ui/icons";
 import {
   Select,
   SelectContent,

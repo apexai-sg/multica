@@ -1,6 +1,6 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
+import type { IconComponent } from "@multica/ui/icons";
 import { cn } from "@multica/ui/lib/utils";
 
 /**
@@ -22,7 +22,7 @@ export function AuroraPageHeader({
   meta,
   actions,
 }: {
-  icon: LucideIcon;
+  icon: IconComponent;
   eyebrow?: string;
   title: string;
   /** Facts about the collection — a count, a date range. Not a sentence. */
@@ -69,7 +69,7 @@ export function AuroraPageState({
   tone = "muted",
   role,
 }: {
-  icon: LucideIcon;
+  icon: IconComponent;
   title: string;
   description?: string;
   actions?: React.ReactNode;

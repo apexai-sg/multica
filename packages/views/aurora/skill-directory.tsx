@@ -2,13 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
-  ArrowUpRight,
-  CircleAlert,
-  LayoutGrid,
-  Search,
-  SearchX,
-  Sparkles,
-} from "lucide-react";
+  ArrowUpRight, CircleAlert, LayoutGrid, Search, SearchX, Sparkles } from "@multica/ui/icons";
 import {
   Alert,
   AlertAction,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CircleAlert, Download, Library, Sparkles } from "lucide-react";
+import { CircleAlert, Download, BookOpenText, Sparkles } from "@multica/ui/icons";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -134,7 +134,7 @@ export function WorksList({ generationHref, issueHref }: WorksListProps = {}) {
   return (
     <div className="aurora-page">
       <AuroraPageHeader
-        icon={Library}
+        icon={BookOpenText}
         eyebrow={t(($) => $.works.eyebrow)}
         title={t(($) => $.works.title)}
       />
@@ -166,7 +166,7 @@ export function WorksList({ generationHref, issueHref }: WorksListProps = {}) {
             </div>
             {generations.length === 0 ? (
               <AuroraPageState
-                icon={Library}
+                icon={BookOpenText}
                 title={t(($) => $.works.generations_empty_title)}
                 description={t(($) => $.works.generations_empty_description)}
               />
@@ -209,7 +209,7 @@ export function WorksList({ generationHref, issueHref }: WorksListProps = {}) {
             </div>
             {assets.length === 0 ? (
               <AuroraPageState
-                icon={Library}
+                icon={BookOpenText}
                 title={t(($) => $.works.assets_empty_title)}
                 description={t(($) => $.works.assets_empty_description)}
               />

@@ -1,6 +1,6 @@
 "use client";
 
-import { Frown } from "lucide-react";
+import { Frown } from "@multica/ui/icons";
 import { Button } from "@multica/ui/components/ui/button";
 import { AuroraPageState } from "./aurora-page-header";
 import { useT } from "../i18n";

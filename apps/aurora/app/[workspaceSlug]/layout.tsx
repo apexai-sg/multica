@@ -9,7 +9,7 @@ import { setCurrentWorkspace } from "@multica/core/platform";
 import { useAuthStore } from "@multica/core/auth";
 import { useT } from "@multica/views/i18n";
 import { useWorkspaceSeen } from "@multica/views/workspace/use-workspace-seen";
-import { Sparkles } from "lucide-react";
+import { Sparkles } from "@multica/ui/icons";
 import { workspaceSlugFromPathname } from "@multica/core/workspace/workspace-slug-from-pathname";
 import { WorkspaceChrome } from "@/components/workspace-chrome";
 import { WorkspaceUnavailable } from "@/components/workspace-unavailable";
