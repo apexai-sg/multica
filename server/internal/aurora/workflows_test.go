@@ -77,7 +77,7 @@ func TestAvailableSkillsHaveCanonicalWorkflows(t *testing.T) {
 // model it actually calls, or states plainly that this environment has no media
 // provider. A brief that names neither invites a fabricated deliverable.
 func TestMediaExpertsNameTheirProviderPath(t *testing.T) {
-	pinned := []string{"doubao-seedream-5-0-pro-260628", "doubao-seedance-2-5-260628"}
+	pinned := []string{"gpt-image-2"}
 	const noProvider = "当前环境没有可用的媒体生成 provider"
 	for _, slug := range []string{
 		"media-face-swap", "media-image-retouch", "media-portrait-studio",

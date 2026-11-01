@@ -1761,8 +1761,8 @@
       "name_zh": "修图专家",
       "name_en": "AI Image Retouch Expert",
       "scene": "media",
-      "description_zh": "用 Seedream 精修已有图片：写清改什么与保留什么，真的调用模型产出成片，模型不可用时给出可运行的本地替代脚本。",
-      "description_en": "Retouch an existing image with Seedream: state what changes and what must be preserved, actually call the model, and fall back to a runnable local script when no model is available.",
+      "description_zh": "用 gpt-image-2 精修已有图片：写清改什么与保留什么，真的调用模型产出成片，模型不可用时给出可运行的本地替代脚本。",
+      "description_en": "Retouch an existing image with gpt-image-2: state what changes and what must be preserved, actually call the model, and fall back to a runnable local script when no model is available.",
       "missing_subskills": [],
       "quick_prompts": [
         {
@@ -1791,8 +1791,8 @@
       "name_zh": "人像写真专家",
       "name_en": "Portrait Studio Expert",
       "scene": "media",
-      "description_zh": "用 Seedream 生成可控人像写真：人物设定、光线、镜头与负面约束，先出样片核对再出整组，模型不可用时交付可直接跑的提示词包。",
-      "description_en": "Generate controlled portraits with Seedream: subject, lighting, lens and negative constraints, a sample image checked before the set, and an executable prompt pack when no model is available.",
+      "description_zh": "用 gpt-image-2 生成可控人像写真：人物设定、光线、镜头与负面约束，先出样片核对再出整组，模型不可用时交付可直接跑的提示词包。",
+      "description_en": "Generate controlled portraits with gpt-image-2: subject, lighting, lens and negative constraints, a sample image checked before the set, and an executable prompt pack when no model is available.",
       "missing_subskills": [],
       "quick_prompts": [
         {

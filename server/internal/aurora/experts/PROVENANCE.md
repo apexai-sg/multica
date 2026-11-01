@@ -68,8 +68,8 @@ and their metadata is authored in `../experts-local/index.json`.
 | --- | --- | --- | --- |
 | design-website-build | 网站搭建专家 | design | local tooling (static HTML + Tailwind) |
 | media-face-swap | 换脸专家 | media | no verified model; states the no-provider clause |
-| media-image-retouch | 修图专家 | media | `doubao-seedream-5-0-pro-260628` (ARK platform lane) |
-| media-portrait-studio | 人像写真专家 | media | `doubao-seedream-5-0-pro-260628` (ARK platform lane) |
+| media-image-retouch | 修图专家 | media | `gpt-image-2` via the `api2.apexxai.net` relay |
+| media-portrait-studio | 人像写真专家 | media | `gpt-image-2` via the `api2.apexxai.net` relay |
 | media-video-translation | 视频翻译专家 | media | local ASR + FFmpeg; dubbing states the no-provider clause |
 | media-voiceover | 配音专家 | media | verify-then-synthesize; otherwise the no-provider clause |
 | office-document-reading | 文档阅读专家 | office | local tooling (`pdftotext`, `unzip`) |
