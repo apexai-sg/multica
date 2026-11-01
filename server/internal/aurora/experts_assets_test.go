@@ -35,8 +35,8 @@ func TestEveryCatalogExpertHasARuntimeTree(t *testing.T) {
 // the daemon copies, and that name is a fixed point of sanitizeSkillName.
 func TestExpertBriefsMatchTheRuntimeDirectories(t *testing.T) {
 	experts := aurora.Experts()
-	if len(experts) != 33 {
-		t.Fatalf("experts = %d, want 33", len(experts))
+	if len(experts) != 34 {
+		t.Fatalf("experts = %d, want 34", len(experts))
 	}
 	for _, expert := range experts {
 		brief, ok := aurora.ExpertWorkflow(expert.Slug)

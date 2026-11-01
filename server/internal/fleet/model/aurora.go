@@ -158,6 +158,7 @@ var claudeCodeEnvAllowlist = map[string]bool{
 	"ENABLE_TOOL_SEARCH":                       true,
 	"API_TIMEOUT_MS":                           true,
 	"AURORA_MEDIA_BASE_URL":                    true,
+	"AURORA_VIDEO_BASE_URL":                    true,
 }
 
 // providerEnvNames are the only secret-bearing keys the operator may inject
@@ -167,14 +168,17 @@ var claudeCodeEnvAllowlist = map[string]bool{
 // the image, SQL, logs, or Git.
 //
 // ANTHROPIC_API_KEY is the relay token that only serves the node's Claude CLI.
-// The image and video skills call the relay's media groups instead, which need a
-// key bound to those groups rather than the CLI token, so AURORA_MEDIA_API_KEY is
-// a second, separate provider credential. OPENAI_API_KEY is deliberately absent:
-// the OpenAI route is gone (decision 10). The Volcengine speech endpoint is not
-// Anthropic-compatible either, so VOLC_ASR_API_KEY is a third.
+// The image skills call the relay's media groups, which need a key bound to
+// those groups rather than the CLI token, so AURORA_MEDIA_API_KEY is a second,
+// separate provider credential. Video generation runs on a different provider
+// (Volcengine Ark's Seedance task API, which no relay in front of us serves), so
+// AURORA_VIDEO_API_KEY is a third. OPENAI_API_KEY is deliberately absent: the
+// OpenAI route is gone (decision 10). The Volcengine speech endpoint is not
+// Anthropic-compatible either, so VOLC_ASR_API_KEY is a fourth.
 var providerEnvNames = map[string]bool{
 	"ANTHROPIC_API_KEY":    true,
 	"AURORA_MEDIA_API_KEY": true,
+	"AURORA_VIDEO_API_KEY": true,
 	"VOLC_ASR_API_KEY":     true,
 }
 

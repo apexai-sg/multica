@@ -13,7 +13,7 @@ generator merges into `index.json`. `node scripts/aurora-import-experts.mjs
 - Upstream market: https://api.skillhub.cn (SkillHub skillsets)
 - Snapshot taken: 2026-10-14
 - Scope: the six scenes of the 2026-10-14 sync — 24 vendored experts, 143
-  sub-skills — plus 9 locally authored experts without sub-skills.
+  sub-skills — plus 10 locally authored experts without sub-skills.
 - Excluded: `tech-test-automation` (the pre-existing seventh template, out of scope).
 
 ## License
@@ -59,7 +59,7 @@ file changed with it.
 
 ## Local experts
 
-These nine have no upstream counterpart: they were written in this repository
+These ten have no upstream counterpart: they were written in this repository
 on 2026-10-23 for the Aurora tool pages, which had no expert to execute them.
 Their briefs are hand-written (never regenerated), they carry no sub-skills,
 and their metadata is authored in `../experts-local/index.json`.
@@ -70,6 +70,7 @@ and their metadata is authored in `../experts-local/index.json`.
 | media-face-swap | 换脸专家 | media | no verified model; states the no-provider clause |
 | media-image-retouch | 修图专家 | media | `gpt-image-2` via the `api2.apexxai.net` relay |
 | media-portrait-studio | 人像写真专家 | media | `gpt-image-2` via the `api2.apexxai.net` relay |
+| media-video-generation | 视频生成专家 | media | `doubao-seedance-2-5-260628` via ARK `contents/generations/tasks` |
 | media-video-translation | 视频翻译专家 | media | local ASR + FFmpeg; dubbing states the no-provider clause |
 | media-voiceover | 配音专家 | media | verify-then-synthesize; otherwise the no-provider clause |
 | office-document-reading | 文档阅读专家 | office | local tooling (`pdftotext`, `unzip`) |

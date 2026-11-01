@@ -32,7 +32,7 @@ type SkillCatalogEntry struct {
 	AvatarURL string `json:"avatar_url,omitempty"`
 }
 
-// catalog is the one product-facing skill directory: the 33 experts in fixed
+// catalog is the one product-facing skill directory: the 34 experts in fixed
 // display order (the vendored index is alphabetical by slug, which groups the
 // six SkillHub scenes; the locally authored ones sort into the same order). It
 // is built once from that index plus the curated table in experts_catalog.go,
@@ -73,7 +73,7 @@ func buildCatalog() []SkillCatalogEntry {
 	return entries
 }
 
-// Catalog returns an independent copy of the 33 experts in fixed display order,
+// Catalog returns an independent copy of the 34 experts in fixed display order,
 // each carrying its execution policy's attachment rules. Every entry is
 // available: the three phase-2 skills the catalog used to list are gone.
 func Catalog() []SkillCatalogEntry {

@@ -37,8 +37,8 @@ func availableSkills() []string {
 // expert. What a brief may say is TestRewrittenWorkflowsDescribeRealSteps.
 func TestAvailableSkillsHaveCanonicalWorkflows(t *testing.T) {
 	available := availableSkills()
-	if len(available) != 33 {
-		t.Fatalf("available skills = %d, want 33", len(available))
+	if len(available) != 34 {
+		t.Fatalf("available skills = %d, want 34", len(available))
 	}
 
 	// The vendored index is the "exactly one" ground truth: no expert without a
@@ -77,10 +77,10 @@ func TestAvailableSkillsHaveCanonicalWorkflows(t *testing.T) {
 // model it actually calls, or states plainly that this environment has no media
 // provider. A brief that names neither invites a fabricated deliverable.
 func TestMediaExpertsNameTheirProviderPath(t *testing.T) {
-	pinned := []string{"gpt-image-2"}
+	pinned := []string{"gpt-image-2", "doubao-seedance-2-5-260628"}
 	const noProvider = "当前环境没有可用的媒体生成 provider"
 	for _, slug := range []string{
-		"media-face-swap", "media-image-retouch", "media-portrait-studio",
+		"media-face-swap", "media-image-retouch", "media-portrait-studio", "media-video-generation",
 		"media-video-translation", "media-voiceover", "office-spreadsheet-analysis",
 		"office-document-reading", "office-resume-optimization", "design-website-build",
 	} {

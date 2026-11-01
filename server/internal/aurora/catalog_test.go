@@ -39,6 +39,7 @@ var expertIDs = []string{
 	"media-short-video-copy",
 	"media-storyboard-design",
 	"media-video-editing",
+	"media-video-generation",
 	"media-video-translation",
 	"media-voiceover",
 	"office-document-reading",
@@ -46,7 +47,7 @@ var expertIDs = []string{
 	"office-spreadsheet-analysis",
 }
 
-func TestCatalogHasThirtyThreeExpertsAndUniqueIDs(t *testing.T) {
+func TestCatalogHasThirtyFourExpertsAndUniqueIDs(t *testing.T) {
 	cat := aurora.Catalog()
 	if len(cat) != len(expertIDs) {
 		t.Fatalf("expected %d experts, got %d", len(expertIDs), len(cat))
@@ -144,6 +145,7 @@ func TestCatalogCreditPrices(t *testing.T) {
 		"media-short-video-copy":              120,
 		"media-storyboard-design":             120,
 		"media-video-editing":                 120,
+		"media-video-generation":              120,
 		"media-video-translation":             120,
 		"media-voiceover":                     120,
 		"office-document-reading":             60,

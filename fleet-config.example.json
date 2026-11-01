@@ -28,7 +28,9 @@
       "CLAUDE_CODE_SUBAGENT_MODEL": "deepseek-v4.1-flash",
       "ANTHROPIC_API_KEY": "<api2-relay-token>",
       "AURORA_MEDIA_BASE_URL": "https://api2.apexxai.net",
-      "AURORA_MEDIA_API_KEY": "<api2-media-group-key>",
+      "AURORA_MEDIA_API_KEY": "<api2-image-group-key>",
+      "AURORA_VIDEO_BASE_URL": "https://ark.cn-beijing.volces.com/api/v3",
+      "AURORA_VIDEO_API_KEY": "<volcengine-ark-platform-key>",
       "VOLC_ASR_API_KEY": "<volcengine-speech-key>"
     },
     "readonly_rootfs": true

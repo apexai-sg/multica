@@ -2157,6 +2157,36 @@
       ]
     },
     {
+      "slug": "media-video-generation",
+      "name_zh": "视频生成专家",
+      "name_en": "Video Generation Expert",
+      "scene": "media",
+      "description_zh": "用豆包 Seedance 2.5 把一句话生成真视频：镜头描述、异步任务轮询与成片核验，模型不可用时交付可直接跑的提示词包。",
+      "description_en": "Turn a line of direction into a real clip with Doubao Seedance 2.5: shot description, asynchronous task polling and a checked deliverable, plus an executable prompt pack when no model is available.",
+      "missing_subskills": [],
+      "quick_prompts": [
+        {
+          "label_zh": "从想法到镜头描述",
+          "label_en": "Idea to shot description",
+          "prompt_zh": "我想做一段短视频，请先把想法拆成镜头描述：主体动作、环境光线、运镜、比例与时长。\n我的情况/目标/材料是：\n",
+          "prompt_en": "I want a short clip. Start by turning the idea into a shot description: subject and action, environment and light, camera movement, ratio and duration.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "生成一条 5 秒样片",
+          "label_en": "Generate a 5-second sample",
+          "prompt_zh": "请先按 16:9、5 秒生成一条样片，核对运镜与画质，再决定要不要出整组。\n我的情况/目标/材料是：\n",
+          "prompt_en": "Generate one 5-second 16:9 sample first, check the camera movement and quality, then decide whether to produce the full set.\nMy context, goals, or materials are:\n"
+        },
+        {
+          "label_zh": "没有模型时的交付物",
+          "label_en": "Deliverable without a model",
+          "prompt_zh": "如果当前环境没有可用的视频生成模型，请交付完整提示词包、参数表和待执行的调用清单。\n我的情况/目标/材料是：\n",
+          "prompt_en": "If no video-generation model is available, deliver the complete prompt pack, the parameter table and the list of calls still to run.\nMy context, goals, or materials are:\n"
+        }
+      ],
+      "subskills": []
+    },
+    {
       "slug": "media-video-translation",
       "name_zh": "视频翻译专家",
       "name_en": "Video Translation Expert",

@@ -286,6 +286,7 @@ func TestExpertInputRulesMatchTheCuratedTable(t *testing.T) {
 		"media-portrait-studio":            mediaRule(0, 1, aurora.AttachmentImage),
 		"media-short-video-copy":           mediaRule(0, 1, aurora.AttachmentDocument, aurora.AttachmentVideo, aurora.AttachmentAudio),
 		"media-video-editing":              mediaRule(0, 1, aurora.AttachmentDocument, aurora.AttachmentVideo),
+		"media-video-generation":           mediaRule(0, 1, aurora.AttachmentImage),
 		"media-video-translation":          mediaRule(0, 1, aurora.AttachmentVideo, aurora.AttachmentAudio),
 	}
 	for _, entry := range aurora.Catalog() {
@@ -307,7 +308,7 @@ func TestExpertInputRulesMatchTheCuratedTable(t *testing.T) {
 }
 
 // TestExecutionPolicyCoversEveryAvailableSkill asserts the policy table is
-// complete for the 33 runnable experts and absent for everything else.
+// complete for the 34 runnable experts and absent for everything else.
 func TestExecutionPolicyCoversEveryAvailableSkill(t *testing.T) {
 	available := 0
 	for _, entry := range aurora.Catalog() {

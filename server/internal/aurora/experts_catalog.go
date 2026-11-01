@@ -89,6 +89,8 @@ var expertDefs = []expertDef{
 	{Slug: "media-storyboard-design", Category: "media", Credits: 120, Attachments: documentConstraint(0, 1)},
 	// video-edit uploads the source video; a generation may upload a document.
 	{Slug: "media-video-editing", Category: "media", Credits: 120, Attachments: mediaConstraint(0, 1, AttachmentDocument, AttachmentVideo)},
+	// short-video uploads one optional reference frame and delivers the clip.
+	{Slug: "media-video-generation", Category: "media", Credits: 120, Inputs: []string{"text", "image"}, Outputs: []string{"text", "video"}, Attachments: mediaConstraint(0, 1, AttachmentImage)},
 	{Slug: "media-video-translation", Category: "media", Credits: 120, Inputs: []string{"text", "video", "audio"}, Outputs: []string{"text", "video"}, Attachments: mediaConstraint(0, 1, AttachmentVideo, AttachmentAudio)},
 	// media-voiceover declares text only: the artifact pipeline has no audio
 	// kind, so advertising audio would promise a deliverable it cannot carry.

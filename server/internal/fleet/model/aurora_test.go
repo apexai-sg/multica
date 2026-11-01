@@ -117,22 +117,23 @@ func TestLoadConfigAuroraClaudeEnv(t *testing.T) {
 
 // TestLoadConfigAuroraProviderEnvCredentials proves the provider credentials the
 // node runs with may travel through claude_env - the relay token as
-// ANTHROPIC_API_KEY for the CLI, the media key the image and video skills call
-// with, and the Volcengine speech key - while every other credential-bearing key
-// stays refused, including the retired ARK_PLATFORM_API_KEY name.
+// ANTHROPIC_API_KEY for the CLI, the media key the image skills call with, the
+// video key the Seedance task API needs, and the Volcengine speech key - while
+// every other credential-bearing key stays refused, including the retired
+// ARK_PLATFORM_API_KEY name.
 func TestLoadConfigAuroraProviderEnvCredentials(t *testing.T) {
 	raw := strings.Replace(auroraConfig, `"anthropic_model":"ark-model",`,
-		`"anthropic_model":"ark-model","claude_env":{"ANTHROPIC_API_KEY":"relay-key","AURORA_MEDIA_API_KEY":"media-key","VOLC_ASR_API_KEY":"asr-key"},`, 1)
+		`"anthropic_model":"ark-model","claude_env":{"ANTHROPIC_API_KEY":"relay-key","AURORA_MEDIA_API_KEY":"media-key","AURORA_VIDEO_API_KEY":"video-key","VOLC_ASR_API_KEY":"asr-key"},`, 1)
 	cfg, err := loadTestConfig(t, raw)
 	if err != nil {
 		t.Fatalf("provider credentials rejected: %v", err)
 	}
-	want := map[string]string{"ANTHROPIC_API_KEY": "relay-key", "AURORA_MEDIA_API_KEY": "media-key", "VOLC_ASR_API_KEY": "asr-key"}
+	want := map[string]string{"ANTHROPIC_API_KEY": "relay-key", "AURORA_MEDIA_API_KEY": "media-key", "AURORA_VIDEO_API_KEY": "video-key", "VOLC_ASR_API_KEY": "asr-key"}
 	if !reflect.DeepEqual(cfg.Aurora.ClaudeEnv, want) {
 		t.Fatalf("claude_env = %+v, want the provider credentials", cfg.Aurora.ClaudeEnv)
 	}
 	pairs := cfg.Aurora.ClaudeEnvPairs()
-	if !reflect.DeepEqual(pairs, []string{"ANTHROPIC_API_KEY=relay-key", "AURORA_MEDIA_API_KEY=media-key", "VOLC_ASR_API_KEY=asr-key"}) {
+	if !reflect.DeepEqual(pairs, []string{"ANTHROPIC_API_KEY=relay-key", "AURORA_MEDIA_API_KEY=media-key", "AURORA_VIDEO_API_KEY=video-key", "VOLC_ASR_API_KEY=asr-key"}) {
 		t.Fatalf("node env pairs = %v", pairs)
 	}
 	// A credential-bearing key outside the provider set is still refused.
