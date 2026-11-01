@@ -96,18 +96,21 @@ Upgrading an existing Fleet config: `egress_hosts`, `egress_pins`, `uplink_netwo
 `claude_env` accepts the fixed allowlist of model-routing and tool variables —
 `ANTHROPIC_DEFAULT_{FABLE,HAIKU,OPUS,SONNET}_MODEL`, their `_NAME` variants,
 `CLAUDE_CODE_SUBAGENT_MODEL`, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`,
-`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, `ENABLE_TOOL_SEARCH`, and
-`API_TIMEOUT_MS`, where a model value may use the bracketed suffix form such as
-`glm-5.3-flash[1M]` — plus exactly three provider credentials:
-`ANTHROPIC_API_KEY`, `ARK_PLATFORM_API_KEY` and `VOLC_ASR_API_KEY`. The first is
+`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, `ENABLE_TOOL_SEARCH`,
+`API_TIMEOUT_MS` and `AURORA_MEDIA_BASE_URL`, where a model value may use the
+bracketed suffix form such as `glm-5.3-flash[1M]` — plus exactly three provider
+credentials: `ANTHROPIC_API_KEY`, `AURORA_MEDIA_API_KEY` and
+`VOLC_ASR_API_KEY`. The first is
 the model credential: the node's Claude CLI authenticates with it against
 `anthropic_base_url`, which the managed deployment points at an
 Anthropic-Messages-compatible relay (`https://api2.apexxai.net` with
 `deepseek-v4.1-flash`). Point every model slot — `anthropic_model`, the
 `ANTHROPIC_DEFAULT_*_MODEL`/`_NAME` pairs and `CLAUDE_CODE_SUBAGENT_MODEL` — at
 the same id, or subagents fall back to built-in model names the relay does not
-serve. The second is the Volcengine platform key the image and video skills call
-`/api/v3` with. The third is the Volcengine speech key, the one provider that is
+serve. The second is the relay key the image and video skills call
+`/v1/images/generations` with; it must be bound to the relay's media groups, and
+`AURORA_MEDIA_BASE_URL` overrides the default relay origin. The third is the
+Volcengine speech key, the one provider that is
 not Anthropic-compatible.
 Every other key naming an API key, auth token, token, secret, or password is
 refused at config load, and every value is bounded and checked for whitespace and

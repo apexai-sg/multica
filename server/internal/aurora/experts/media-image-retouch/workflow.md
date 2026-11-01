@@ -26,10 +26,13 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
    `ffprobe -v error -show_streams <file>` 或 `identify -verbose <file>` 读取，不要凭肉眼猜尺寸。
 3. 写编辑指令：一句主体句（改成什么）＋ 明确的保留项 ＋ 负面约束（不要新增元素、不要改文字）。
    「更好看一点」不是可执行的要求，要落成具体的颜色、光线、材质、构图描述。
-4. 判断图片编辑模型是否可用：读取 `ARK_PLATFORM_API_KEY`，平台 lane 的地址是
-   `${ARK_PLATFORM_BASE_URL:-https://ark.cn-beijing.volces.com/api}`。可用时用
-   `doubao-seedream-5-0-pro-260628` 调 `POST /v3/images/generations` 完成编辑。
-   模型 id 必须带版本后缀，裸名会被拒绝。先用小尺寸样例跑通一次，再处理正式图。
+4. 判断图片编辑模型是否可用：读取 `AURORA_MEDIA_API_KEY`，中转地址是
+   `${AURORA_MEDIA_BASE_URL:-https://api2.apexxai.net}`。可用时带
+   `Authorization: Bearer $AURORA_MEDIA_API_KEY` 调 `POST /v1/images/generations`，
+   模型用 `seedream-5-0-pro`（要更快更省用 `seedream-5-0-lite`）。模型 id 不带版本后缀，
+   带后缀会被拒。图生图把参考图放进 `image` 字段（URL 或 data URL）：先用小尺寸跑通一张，
+   端点拒绝参考图时不要硬猜参数，改为纯提示词生成或走第 6 步的本地替代路径。
+   上游限流会回 429（`retry-after` 通常 600 秒），这不算配置错误，等冷却后重试一次即可。
 5. 核实产物：文件真的存在、能被解码、尺寸与要求一致。用 `file`、`identify` 或 `ffprobe` 检查，
    并把模型 id、提示词、尺寸和耗时写进交付物。
 6. 模型不可用（没有 key、鉴权失败、模型名被拒、请求报错）时不要反复猜参数：改为本地实现能做的部分

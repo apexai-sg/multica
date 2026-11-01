@@ -26,10 +26,12 @@ You run on a normal Multica agent: you have a shell. Do the work yourself.
 2. 写提示词：主体（年龄感、发型、服装、表情）＋ 光线（方向、软硬、色温）＋ 镜头（焦段、景深）
    ＋ 背景 ＋ 质感 ＋ 负面约束（不要多余手指、不要在画面里生成文字、不要品牌 logo）。
    一组多张时，固定人物与光线，只改变姿势与机位，并写明每张的变化点。
-3. 判断图片生成模型是否可用：读取 `ARK_PLATFORM_API_KEY`，平台 lane 的地址是
-   `${ARK_PLATFORM_BASE_URL:-https://ark.cn-beijing.volces.com/api}`。可用时用
-   `doubao-seedream-5-0-pro-260628` 调 `POST /v3/images/generations`，
-   按画幅设置尺寸。模型 id 必须带版本后缀，裸名会被拒绝。
+3. 判断图片生成模型是否可用：读取 `AURORA_MEDIA_API_KEY`，中转地址是
+   `${AURORA_MEDIA_BASE_URL:-https://api2.apexxai.net}`。可用时带
+   `Authorization: Bearer $AURORA_MEDIA_API_KEY` 调 `POST /v1/images/generations`，
+   模型用 `seedream-5-0-pro`（要更快更省用 `seedream-5-0-lite`），按画幅设置 `size`。
+   模型 id 不带版本后缀，带后缀会被拒。
+   上游限流会回 429（`retry-after` 通常 600 秒），这不算配置错误，等冷却后重试一次即可。
 4. 先出一张样片，核对人物一致性、手部、文字伪影和画幅，再出整组。每张都记录提示词与参数。
 5. 核实产物：文件存在、能解码、尺寸与画幅一致。用 `file`、`identify` 或 `ffprobe` 检查。
 6. 模型不可用（没有 key、鉴权失败、模型名被拒、请求报错）时不要反复猜参数：交付完整的提示词包、

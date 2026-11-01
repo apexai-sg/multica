@@ -90,14 +90,15 @@ Fleet 配置的 `aurora` 块用于选择受管智能体 profile（见 `fleet-con
 `ANTHROPIC_DEFAULT_{FABLE,HAIKU,OPUS,SONNET}_MODEL` 及其 `_NAME` 变体、
 `CLAUDE_CODE_SUBAGENT_MODEL`、`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`、
 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`、`ENABLE_TOOL_SEARCH` 和
-`API_TIMEOUT_MS`（模型值可以使用带方括号后缀的形式，例如
+`API_TIMEOUT_MS` 与 `AURORA_MEDIA_BASE_URL`（模型值可以使用带方括号后缀的形式，例如
 `glm-5.3-flash[1M]`），外加且仅加三个供应商凭据：
-`ANTHROPIC_API_KEY`、`ARK_PLATFORM_API_KEY` 与 `VOLC_ASR_API_KEY`。前者是模型凭据：
+`ANTHROPIC_API_KEY`、`AURORA_MEDIA_API_KEY` 与 `VOLC_ASR_API_KEY`。前者是模型凭据：
 节点的 Claude CLI 用它向 `anthropic_base_url` 认证，受管部署把该地址指向兼容
 Anthropic Messages 的中转（`https://api2.apexxai.net`，模型 `deepseek-v4.1-flash`）。
 请把所有模型槽位——`anthropic_model`、`ANTHROPIC_DEFAULT_*_MODEL`/`_NAME` 各组以及
 `CLAUDE_CODE_SUBAGENT_MODEL`——都指向同一个 ID，否则子 agent 会落回中转不提供的
-内置模型名。第二个是火山平台 key，图片与视频 skill 用它调用 `/api/v3`。第三个是
+内置模型名。第二个是图片与视频 skill 调中转 `/v1/images/generations` 用的 key，
+必须绑在中转的媒体分组上；`AURORA_MEDIA_BASE_URL` 可覆盖中转默认地址。第三个是
 火山语音的 key，也是唯一不兼容该协议的供应商。除此之外，任何名称包含 API key、auth token、token、secret 或 password 的键
 都会在配置加载时被拒绝，每个值都有长度上限并会检查空白与控制字符。
 
