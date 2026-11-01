@@ -109,10 +109,10 @@ Anthropic-Messages-compatible relay (`https://api2.apexxai.net` with
 the same id, or subagents fall back to built-in model names the relay does not
 serve. The second is the relay key the image skills call
 `/v1/images/generations` with; it must be bound to the relay's image group, and
-`AURORA_MEDIA_BASE_URL` overrides the default relay origin. The third is a
-Volcengine ARK platform key the video skill submits `contents/generations/tasks`
+`AURORA_MEDIA_BASE_URL` overrides the default relay origin. The third is a HopBase
+key from its MiniMax group, which the video skill submits `/v1/video/generate`
 with directly, because no relay video group reaches the upstream video path;
-`AURORA_VIDEO_BASE_URL` overrides the ARK origin. The fourth is the Volcengine
+`AURORA_VIDEO_BASE_URL` overrides the HopBase origin. The fourth is the Volcengine
 speech key, the one provider that is not Anthropic-compatible.
 Every other key naming an API key, auth token, token, secret, or password is
 refused at config load, and every value is bounded and checked for whitespace and

@@ -125,8 +125,8 @@
       "name_zh": "视频生成专家",
       "name_en": "Video Generation Expert",
       "scene": "media",
-      "description_zh": "用豆包 Seedance 2.5 把一句话生成真视频：镜头描述、异步任务轮询与成片核验，模型不可用时交付可直接跑的提示词包。",
-      "description_en": "Turn a line of direction into a real clip with Doubao Seedance 2.5: shot description, asynchronous task polling and a checked deliverable, plus an executable prompt pack when no model is available.",
+      "description_zh": "用 MiniMax 海螺 H3 把一句话生成真视频：镜头描述、异步任务轮询与成片核验，模型不可用时交付可直接跑的提示词包。",
+      "description_en": "Turn a line of direction into a real clip with MiniMax Hailuo H3: shot description, asynchronous task polling and a checked deliverable, plus an executable prompt pack when no model is available.",
       "missing_subskills": [],
       "quick_prompts": [
         {

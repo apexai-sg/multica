@@ -99,8 +99,8 @@ Anthropic Messages 的中转（`https://api2.apexxai.net`，模型 `deepseek-v4.
 `CLAUDE_CODE_SUBAGENT_MODEL`——都指向同一个 ID，否则子 agent 会落回中转不提供的
 内置模型名。第二个是图片 skill 调中转 `/v1/images/generations` 用的 key，
 必须绑在中转的图片分组上；`AURORA_MEDIA_BASE_URL` 可覆盖中转默认地址。第三个是
-火山方舟（ARK）的 platform key：视频 skill 直连 `contents/generations/tasks` 提交任务，
-因为中转的视频分组没有一条能走到上游视频接口；`AURORA_VIDEO_BASE_URL` 可覆盖 ARK 地址。
+HopBase 上 MiniMax 分组的 key：视频 skill 直连 `/v1/video/generate` 提交任务，
+因为中转的视频分组没有一条能走到上游视频接口；`AURORA_VIDEO_BASE_URL` 可覆盖 HopBase 地址。
 第四个是火山语音的 key，也是唯一不兼容该协议的供应商。除此之外，任何名称包含 API key、auth token、token、secret 或 password 的键
 都会在配置加载时被拒绝，每个值都有长度上限并会检查空白与控制字符。
 

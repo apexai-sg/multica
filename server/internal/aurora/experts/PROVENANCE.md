@@ -70,7 +70,7 @@ and their metadata is authored in `../experts-local/index.json`.
 | media-face-swap | 换脸专家 | media | no verified model; states the no-provider clause |
 | media-image-retouch | 修图专家 | media | `gpt-image-2` via the `api2.apexxai.net` relay |
 | media-portrait-studio | 人像写真专家 | media | `gpt-image-2` via the `api2.apexxai.net` relay |
-| media-video-generation | 视频生成专家 | media | `doubao-seedance-2-5-260628` via ARK `contents/generations/tasks` |
+| media-video-generation | 视频生成专家 | media | `MiniMax-H3` via HopBase `/v1/video/generate` |
 | media-video-translation | 视频翻译专家 | media | local ASR + FFmpeg; dubbing states the no-provider clause |
 | media-voiceover | 配音专家 | media | verify-then-synthesize; otherwise the no-provider clause |
 | office-document-reading | 文档阅读专家 | office | local tooling (`pdftotext`, `unzip`) |

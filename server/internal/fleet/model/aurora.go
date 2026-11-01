@@ -171,7 +171,7 @@ var claudeCodeEnvAllowlist = map[string]bool{
 // The image skills call the relay's media groups, which need a key bound to
 // those groups rather than the CLI token, so AURORA_MEDIA_API_KEY is a second,
 // separate provider credential. Video generation runs on a different provider
-// (Volcengine Ark's Seedance task API, which no relay in front of us serves), so
+// (HopBase's MiniMax H3 task API, which no relay in front of us serves), so
 // AURORA_VIDEO_API_KEY is a third. OPENAI_API_KEY is deliberately absent: the
 // OpenAI route is gone (decision 10). The Volcengine speech endpoint is not
 // Anthropic-compatible either, so VOLC_ASR_API_KEY is a fourth.
