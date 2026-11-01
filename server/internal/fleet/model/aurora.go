@@ -157,6 +157,8 @@ var claudeCodeEnvAllowlist = map[string]bool{
 	"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":     true,
 	"ENABLE_TOOL_SEARCH":                       true,
 	"API_TIMEOUT_MS":                           true,
+	"AURORA_MEDIA_BASE_URL":                    true,
+	"AURORA_VIDEO_BASE_URL":                    true,
 }
 
 // providerEnvNames are the only secret-bearing keys the operator may inject
@@ -165,15 +167,18 @@ var claudeCodeEnvAllowlist = map[string]bool{
 // supplied at deploy time from an owner-only Fleet config and must never reach
 // the image, SQL, logs, or Git.
 //
-// ANTHROPIC_API_KEY is the Ark Agent Plan key and only serves the node's Claude
-// CLI. The image and video skills call the platform endpoint /api/v3 instead,
-// which rejects an Agent Plan key with 401, so ARK_PLATFORM_API_KEY is a second,
-// separate provider credential. OPENAI_API_KEY is deliberately absent: the
+// ANTHROPIC_API_KEY is the relay token that only serves the node's Claude CLI.
+// The image skills call the relay's media groups, which need a key bound to
+// those groups rather than the CLI token, so AURORA_MEDIA_API_KEY is a second,
+// separate provider credential. Video generation runs on a different provider
+// (HopBase's MiniMax H3 task API, which no relay in front of us serves), so
+// AURORA_VIDEO_API_KEY is a third. OPENAI_API_KEY is deliberately absent: the
 // OpenAI route is gone (decision 10). The Volcengine speech endpoint is not
-// Anthropic-compatible either, so VOLC_ASR_API_KEY is a third.
+// Anthropic-compatible either, so VOLC_ASR_API_KEY is a fourth.
 var providerEnvNames = map[string]bool{
 	"ANTHROPIC_API_KEY":    true,
-	"ARK_PLATFORM_API_KEY": true,
+	"AURORA_MEDIA_API_KEY": true,
+	"AURORA_VIDEO_API_KEY": true,
 	"VOLC_ASR_API_KEY":     true,
 }
 

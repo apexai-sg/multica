@@ -26,7 +26,7 @@ var toolExpertTable = []struct {
 	{"rednote-images", "marketing-social-media-operation"},
 	{"image-retouch", "media-image-retouch"},
 	{"portraits", "media-portrait-studio"},
-	{"short-video", "media-storyboard-design"},
+	{"short-video", "media-video-generation"},
 	{"video-edit", "media-video-editing"},
 	{"avatar-video", "media-short-video-copy"},
 	{"video-translate", "media-video-translation"},
