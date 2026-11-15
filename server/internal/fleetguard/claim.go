@@ -413,6 +413,19 @@ func CheckEnqueueForOwners(ctx context.Context, q *db.Queries, namespace string,
 
 // CheckCallerClaim fences ordinary upgrades after the claim's agent lock.
 func CheckCallerClaim(ctx context.Context, q *db.Queries, id pgtype.UUID) error {
+	// Unmanaged runtimes carry no fleet binding to freeze. Probe without the
+	// row lock first: FleetLockRuntimeBinding's FOR SHARE would otherwise make
+	// the cap-update path's UPDATE wait behind this claim, which is itself
+	// waiting for the capacity advisory lock — the two never meet. Only a
+	// managed runtime needs the frozen read, and Managed is re-checked on it in
+	// case the metadata changed between the probe and the lock.
+	probe, err := q.GetAgentRuntime(ctx, id)
+	if err != nil {
+		return err
+	}
+	if !Managed(probe) {
+		return nil
+	}
 	rt, err := q.FleetLockRuntimeBinding(ctx, id)
 	if err != nil {
 		return err

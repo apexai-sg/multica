@@ -26,6 +26,7 @@ import {
 import { Button } from "@multica/ui/components/ui/button";
 import { Loader2 } from "@multica/ui/icons";
 import { setLoggedInCookie } from "@multica/nextjs/auth-cookie";
+import { CliCallbackError } from "@/features/auth/cli-callback-error";
 import Link from "next/link";
 import {
   LoginPage,
@@ -71,8 +72,9 @@ function LoginPageContent() {
 
   const cliCallbackRaw = searchParams.get("cli_callback");
   const cliState = searchParams.get("cli_state") || "";
+  const invalidCliCallback = cliCallbackRaw !== null && !validateCliCallback(cliCallbackRaw);
   const platform = searchParams.get("platform");
-  const isDesktopHandoff = platform === "desktop" && !cliCallbackRaw;
+  const isDesktopHandoff = platform === "desktop" && cliCallbackRaw === null;
   // `next` carries a protected URL the user was originally headed to
   // (e.g. /invite/{id}). With URL-driven workspaces there is no legacy
   // "/issues" default — if `next` is absent we decide after login based on
@@ -98,7 +100,7 @@ function LoginPageContent() {
       settledLoggedOutRef.current = true;
       return;
     }
-    if (cliCallbackRaw) return;
+    if (cliCallbackRaw !== null) return;
     if (isDesktopHandoff) {
       // Desktop opened the browser for login but the web session is already
       // authenticated — mint a bearer token from the cookie session and hand
@@ -170,6 +172,8 @@ function LoginPageContent() {
       : "",
     cliState ? `cli_state:${encodeURIComponent(cliState)}` : "",
   ].filter(Boolean);
+
+  if (invalidCliCallback) return <CliCallbackError />;
 
   // While the desktop handoff is in progress (or has produced a token/error),
   // render a dedicated screen instead of flashing the login form or redirecting

@@ -151,10 +151,12 @@ func TestAuroraBillingRoutesRejectAgentTaskTokens(t *testing.T) {
 			t.Fatalf("build request: %v", err)
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
-		// Spoofed values the Auth middleware must discard before the guard
-		// reads the authoritative X-Actor-Source it stamps itself.
+		// A spoofed actor source the Auth middleware must discard before the
+		// guard reads the authoritative X-Actor-Source it stamps itself. The
+		// workspace selector is left to the token: since MUL-8138 a task-token
+		// request carrying a different X-Workspace-ID is rejected by Auth
+		// before routing, so forging one here would test that fence instead.
 		req.Header.Set("X-Actor-Source", "member")
-		req.Header.Set("X-Workspace-ID", "00000000-0000-0000-0000-000000000099")
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatalf("perform request: %v", err)

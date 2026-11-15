@@ -1,0 +1,287 @@
+{
+  "retry": "Reintentar",
+  "cancel": "Cancelar",
+  "credits": "{{credits}} créditos",
+  "directory": {
+    "title": "Empieza a crear",
+    "search_placeholder": "Busca asistentes, por ejemplo: publicaciones para redes",
+    "load_failed_title": "No se pudieron cargar los asistentes",
+    "empty_title": "No hay asistentes coincidentes",
+    "empty_description": "Prueba otra palabra clave.",
+    "empty_agents_title": "Aún no hay asistentes",
+    "empty_agents_description": "Los asistentes configurados en Multica aparecen aquí.",
+    "eyebrow": "ASISTENTES DE IA",
+    "hero_title": "¿Tienes algo en mente?",
+    "hero_tag": "TU EQUIPO DE IA DE TODOS LOS DÍAS",
+    "visible_count_one": "{{count}} asistente mostrado",
+    "visible_count_other": "{{count}} asistentes mostrados",
+    "ready": "Abrir asistente",
+    "clear_search": "Borrar búsqueda",
+    "text_output": "Contenido escrito · Markdown (.md)",
+    "guide_label": "Empieza en tres pasos",
+    "step_choose": "Elige un asistente",
+    "step_describe": "Añade tus datos",
+    "step_download": "Revisa y descarga",
+    "catalog_unreadable": "No se pudieron cargar los asistentes de Aurora. Reintenta para verlos.",
+    "hero_highlight": "Solo elige una herramienta.",
+    "hero_description": "Elige una herramienta, describe tu idea y deja que la IA te ayude a hacerla realidad.",
+    "filter_all": "Todas las herramientas",
+    "filter_image": "Herramientas de imagen",
+    "filter_video": "Herramientas de vídeo",
+    "filter_text": "Herramientas de escritura",
+    "filter_audio": "Herramientas de audio",
+    "filter_assistant": "Asistentes de IA",
+    "filter_label": "Filtrar por resultado",
+    "tools_label": "herramientas disponibles",
+    "skills_label": "habilidades configuradas",
+    "tool_label": "Herramienta de IA",
+    "example_label": "Prueba esto",
+    "skill_count_one": "{{count}} habilidad",
+    "skill_count_other": "{{count}} habilidades",
+    "filter_misc": "Otras herramientas",
+    "section_title": "Elige qué quieres hacer"
+  },
+  "composer": {
+    "cost": "{{credits}} créditos por generación",
+    "prompt_label": "¿Qué debe crear?",
+    "prompt_placeholder": "Describe el contenido que quieres",
+    "attachments_label_image": "Imágenes de referencia",
+    "attachments_label_document": "Documento",
+    "attachments_label_audio": "Audio",
+    "attachments_label_video": "Vídeo",
+    "attachments_label_audio_video": "Audio o vídeo",
+    "attachments_choose": "Elegir archivos",
+    "attachments_hint": "{{formats}} · hasta {{max}}",
+    "attachment_uploading": "Subiendo…",
+    "attachment_uploaded": "Subido",
+    "attachment_upload_failed": "Error al subir.",
+    "attachment_unsupported": "Tipo de archivo no compatible.",
+    "attachment_too_large": "El archivo es demasiado grande.",
+    "attachment_remove": "Quitar {{name}}",
+    "submit": "Generar",
+    "submitting": "Iniciando…",
+    "unavailable_title": "Aún no disponible",
+    "unavailable_description": "Esta herramienta todavía se está construyendo. Se abrirá aquí cuando esté disponible.",
+    "insufficient_title": "Créditos insuficientes",
+    "insufficient_description": "Esta herramienta cuesta {{cost}} créditos y tienes {{balance}}.",
+    "insufficient_cost_only": "Esta herramienta cuesta {{cost}} créditos.",
+    "shortfall": "Te faltan {{credits}} créditos.",
+    "rate_limited_title": "Límite alcanzado",
+    "rate_limited_description": "Ya has usado las generaciones de este mes o tienes demasiadas en curso. Inténtalo más tarde.",
+    "create_failed": "No se pudo iniciar la generación. Inténtalo de nuevo.",
+    "create_unreadable": "Es posible que la generación ya haya empezado, pero no se pudo leer su respuesta. Revisa Mis creaciones antes de iniciar otra.",
+    "progress_description": "Esto puede tardar unos minutos. Puedes cerrar este panel y consultar la biblioteca más tarde.",
+    "failed_description": "No se cobraron créditos. Inténtalo de nuevo o cambia la indicación.",
+    "result_title": "Resultado",
+    "result_empty": "No se generó ningún archivo.",
+    "open_library": "Abrir biblioteca",
+    "status": {
+      "queued": "En cola",
+      "running": "Generando",
+      "completed": "Hecho",
+      "failed": "Fallido",
+      "needs_input": "Esperando tu respuesta",
+      "unknown": "Desconocido"
+    },
+    "progress_unreadable": "No se pudo leer el progreso de esta generación.",
+    "audience_field": "Público",
+    "audience_label": "¿Para quién es? (opcional)",
+    "audience_placeholder": "Por ejemplo: padres con niños pequeños",
+    "preferences_field": "Estilo y requisitos",
+    "preferences_label": "Estilo y requisitos (opcional)",
+    "preferences_placeholder": "Por ejemplo: tono cercano, 300 palabras, bilingüe",
+    "deliverable_title": "Lo que recibirás",
+    "issue_description": "El asistente ejecuta esta solicitud y responde en la tarea.",
+    "attachments_label_files": "Archivos",
+    "submit_task": "Iniciar tarea",
+    "issue_create_failed": "No se pudo iniciar la tarea. Inténtalo de nuevo.",
+    "issue_started": "Tarea iniciada en {{identifier}}. Ábrela desde la lista de tareas.",
+    "prompt_label_task": "¿Qué debe hacer el asistente?",
+    "prompt_placeholder_task": "Describe la tarea y el resultado que esperas.",
+    "issue_not_permitted": "No puedes asignar trabajo a este asistente.",
+    "issue_rejected": "El asistente ha rechazado esta tarea.",
+    "issue_ambiguous": "Es posible que la tarea ya haya empezado, pero no llegó ninguna confirmación. Revisa la lista de tareas antes de reintentar.",
+    "attachment_limit": "Demasiados archivos. Quita uno primero."
+  },
+  "works": {
+    "title": "Mis creaciones",
+    "generations_title": "Generaciones",
+    "generations_empty_title": "Aún no hay generaciones",
+    "generations_empty_description": "Elige una herramienta en Empieza a crear para hacer la primera.",
+    "assets_title": "Biblioteca",
+    "assets_empty_title": "Aún no hay contenido",
+    "assets_empty_description": "Las generaciones terminadas guardan sus archivos aquí.",
+    "load_failed_title": "No se pudieron cargar tus creaciones",
+    "download": "Descargar",
+    "download_failed": "No se pudo descargar el archivo. Inténtalo de nuevo.",
+    "delete": "Eliminar",
+    "delete_failed": "No se pudo eliminar el archivo. Inténtalo de nuevo.",
+    "delete_title": "¿Eliminar este archivo?",
+    "delete_description": "El archivo se elimina del almacenamiento y no se puede recuperar.",
+    "delete_confirm": "Eliminar archivo",
+    "no_prompt": "Sin indicación",
+    "skill_unknown": "Herramienta desconocida",
+    "eyebrow": "CREACIONES"
+  },
+  "history": {
+    "title": "Historial",
+    "load_failed_title": "No se pudo cargar tu historial",
+    "empty_title": "Aún no hay generaciones",
+    "empty_description": "Las generaciones terminadas y sus resultados aparecen aquí.",
+    "no_match_title": "Nada coincide con estos filtros",
+    "no_match_description": "Prueba otro estado o herramienta.",
+    "status_all": "Todos",
+    "skill_label": "Herramienta",
+    "skill_all": "Todas las herramientas",
+    "preview_label": "Vista previa {{format}}",
+    "preview_description": "El archivo a tamaño completo que produjo esta generación.",
+    "open_in_new_tab": "Abrir en una pestaña nueva"
+  },
+  "detail": {
+    "title": "Detalle de la generación",
+    "load_failed_title": "No se pudo cargar esta generación",
+    "back": "Volver a Mis creaciones",
+    "not_found_title": "Generación no encontrada",
+    "not_found_description": "Es posible que se haya eliminado o que el enlace sea incorrecto.",
+    "process_title": "Proceso",
+    "status_label": "Estado",
+    "created_label": "Creada",
+    "elapsed_label": "Tiempo transcurrido",
+    "skill_label": "Herramienta",
+    "prompt_label": "Indicación",
+    "credits_reserved_label": "Créditos reservados",
+    "credits_charged_label": "Créditos cobrados",
+    "refunded": "Reembolsados",
+    "failure_label": "Motivo del fallo",
+    "result_title": "Resultado",
+    "settled_charged": "Se cobraron {{credits}} créditos",
+    "settled_refunded": "No se cobraron créditos; se reembolsó la reserva.",
+    "task_title": "Tarea",
+    "task_id_label": "ID de la tarea",
+    "task_copy": "Copiar ID de la tarea",
+    "task_copied": "Copiado",
+    "task_copy_failed": "No se pudo copiar",
+    "task_unavailable": "Esta aplicación aún no tiene página de tareas. Copia el ID para inspeccionar la ejecución en otro lugar.",
+    "eyebrow": "GENERACIÓN"
+  },
+  "billing": {
+    "title": "Créditos y recargas",
+    "balance_title": "Créditos disponibles",
+    "top_up": "Recargar",
+    "transactions_title": "Actividad",
+    "transactions_empty_title": "Aún no hay actividad",
+    "transactions_empty_description": "Los cambios de créditos aparecen aquí.",
+    "load_failed_title": "No se pudieron cargar tus créditos",
+    "amount_positive": "+{{amount}}",
+    "amount_negative": "−{{amount}}",
+    "balance_after": "Saldo después: {{amount}}",
+    "subscription": {
+      "title": "Plan",
+      "tiers": {
+        "free": {
+          "name": "Gratis",
+          "price": "$0",
+          "summary": "200 créditos al mes"
+        },
+        "creator": {
+          "name": "Creador",
+          "price": "$19/mes",
+          "summary": "1.900 créditos al mes"
+        },
+        "pro": {
+          "name": "Pro",
+          "price": "$59/mes",
+          "summary": "5.900 créditos al mes"
+        },
+        "business": {
+          "name": "Business",
+          "price": "$169/mes",
+          "summary": "16.900 créditos al mes"
+        },
+        "unknown": {
+          "name": "Plan desconocido",
+          "price": "",
+          "summary": ""
+        }
+      },
+      "status": {
+        "active": "Activo",
+        "past_due": "Pago pendiente",
+        "canceled": "Cancelado",
+        "pending": "Pago incompleto",
+        "unknown": "Desconocido"
+      },
+      "providers": {
+        "stripe": "Stripe",
+        "antom": "Antom"
+      },
+      "renews_on": "Se renueva el {{date}}",
+      "cancel_scheduled": "Finaliza al terminar el periodo.",
+      "usage_label": "Generaciones este mes",
+      "usage_value": "{{used}} de {{limit}}",
+      "subscribe_with": "Suscribirse con {{provider}}",
+      "no_channel": "Los planes no se venden en esta instancia.",
+      "cancel": "Cancelar suscripción",
+      "cancel_failed": "No se pudo cancelar tu suscripción. Inténtalo de nuevo en breve.",
+      "manage": "Gestionar suscripción",
+      "manage_failed": "No se pudo abrir la gestión de la suscripción. Inténtalo de nuevo en breve."
+    },
+    "topup": {
+      "title": "Comprar créditos",
+      "empty": "No hay paquetes de créditos a la venta.",
+      "pack": "{{credits}} créditos · {{price}}",
+      "packs": {
+        "t5": {
+          "price": "$5"
+        },
+        "t20": {
+          "price": "$20"
+        },
+        "other": {
+          "price": ""
+        }
+      }
+    },
+    "checkout": {
+      "failed": "No se pudo iniciar la compra. Inténtalo de nuevo.",
+      "already_subscribed": "Ya tienes una suscripción.",
+      "in_progress": "Todavía hay un pago abierto. Complétalo o inténtalo más tarde.",
+      "unavailable": "Los pagos no están disponibles en esta instancia.",
+      "no_refund": "Todas las compras son definitivas y no reembolsables."
+    }
+  },
+  "runtime": {
+    "title": "Estado del servicio",
+    "status": {
+      "offline": "Sin conexión",
+      "unconfigured": "Sin configurar",
+      "provisioning": "Preparando",
+      "online": "En línea",
+      "failed": "Fallido"
+    },
+    "retry": "Reintentar",
+    "reasons": {
+      "runtime_not_provisioned": "Este espacio de trabajo no tiene ningún nodo de ejecución en marcha. Inicia una generación para aprovisionar uno.",
+      "runtime_offline": "El nodo de ejecución está sin conexión. Reintenta para comprobar su estado.",
+      "runtime_unconfigured": "Este espacio de trabajo no tiene ningún nodo de ejecución en marcha. Pide a un administrador que revise la configuración del entorno de ejecución.",
+      "runtime_policy_unavailable": "La política del entorno de ejecución no está disponible. Pide a un administrador que revise la configuración."
+    },
+    "generations_title": "Generaciones en curso",
+    "generations_empty": "No hay nada en curso."
+  },
+  "shell": {
+    "brand_tagline": "CREA ALGO ÚTIL",
+    "menu_open": "Abrir menú",
+    "menu_close": "Cerrar menú",
+    "account_menu": "Cuenta",
+    "nav_group_work": "Espacio de trabajo",
+    "nav_group_account": "Cuenta"
+  },
+  "workspace": {
+    "unavailable_title": "Este espacio de trabajo no está disponible",
+    "unavailable_description": "Es posible que se haya eliminado o que no tengas acceso.",
+    "open_workspace": "Abrir mi espacio de trabajo",
+    "missing_title": "Aún no hay espacio de trabajo",
+    "missing_description": "Vuelve a iniciar sesión para terminar de configurarlo."
+  }
+}
