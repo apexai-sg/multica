@@ -97,7 +97,10 @@ describe("AuroraShell", () => {
     await user.click(account);
     const dialog = await screen.findByRole("dialog", { name: "Hannah Han" });
     expect(document.querySelector('[data-slot="sheet-overlay"]')).toBeVisible();
-    expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeNull();
+    // The account details are a dialog nested inside the sheet, not a
+    // replacement for it: the sheet stays open behind it, and each dialog
+    // renders its own backdrop for outside dismissal.
+    expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeVisible();
     for (let index = 0; index < 5; index++) {
       await user.tab();
       await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));

@@ -111,7 +111,7 @@ INSERT INTO agent_runtime (
 ) VALUES (
     $1, NULL, $2, 'cloud', $3, 'offline', '', '{}'::jsonb, $4, 'private'
 )
-RETURNING id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, owner_id, legacy_daemon_id, visibility, profile_id, custom_name, shared_with
+RETURNING id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, owner_id, legacy_daemon_id, visibility, profile_id, custom_name, shared_with, max_concurrent_tasks
 `
 
 type CreateAuroraManagedRuntimeParams struct {
@@ -148,13 +148,14 @@ func (q *Queries) CreateAuroraManagedRuntime(ctx context.Context, arg CreateAuro
 		&i.ProfileID,
 		&i.CustomName,
 		&i.SharedWith,
+		&i.MaxConcurrentTasks,
 	)
 	return i, err
 }
 
 const getAuroraManagedRuntime = `-- name: GetAuroraManagedRuntime :one
 
-SELECT id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, owner_id, legacy_daemon_id, visibility, profile_id, custom_name, shared_with FROM agent_runtime
+SELECT id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, owner_id, legacy_daemon_id, visibility, profile_id, custom_name, shared_with, max_concurrent_tasks FROM agent_runtime
 WHERE workspace_id = $1
   AND runtime_mode = 'cloud'
   AND provider = $2
@@ -200,6 +201,7 @@ func (q *Queries) GetAuroraManagedRuntime(ctx context.Context, arg GetAuroraMana
 		&i.ProfileID,
 		&i.CustomName,
 		&i.SharedWith,
+		&i.MaxConcurrentTasks,
 	)
 	return i, err
 }
@@ -259,7 +261,7 @@ func (q *Queries) ListAuroraExpertAvatars(ctx context.Context, arg ListAuroraExp
 }
 
 const listAuroraManagedRuntimes = `-- name: ListAuroraManagedRuntimes :many
-SELECT id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, owner_id, legacy_daemon_id, visibility, profile_id, custom_name, shared_with FROM agent_runtime
+SELECT id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, owner_id, legacy_daemon_id, visibility, profile_id, custom_name, shared_with, max_concurrent_tasks FROM agent_runtime
 WHERE provider = $1
 ORDER BY workspace_id ASC, created_at ASC, id ASC
 `
@@ -295,6 +297,7 @@ func (q *Queries) ListAuroraManagedRuntimes(ctx context.Context, provider string
 			&i.ProfileID,
 			&i.CustomName,
 			&i.SharedWith,
+			&i.MaxConcurrentTasks,
 		); err != nil {
 			return nil, err
 		}

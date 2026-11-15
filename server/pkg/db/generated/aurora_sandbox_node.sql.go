@@ -21,7 +21,7 @@ WHERE id = $2
   AND workspace_id = $3
   AND runtime_mode = 'cloud'
   AND provider = 'aurora_managed'
-RETURNING id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, owner_id, legacy_daemon_id, visibility, profile_id, custom_name, shared_with
+RETURNING id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, owner_id, legacy_daemon_id, visibility, profile_id, custom_name, shared_with, max_concurrent_tasks
 `
 
 type BindAuroraManagedRuntimeParams struct {
@@ -56,6 +56,7 @@ func (q *Queries) BindAuroraManagedRuntime(ctx context.Context, arg BindAuroraMa
 		&i.ProfileID,
 		&i.CustomName,
 		&i.SharedWith,
+		&i.MaxConcurrentTasks,
 	)
 	return i, err
 }
